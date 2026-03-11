@@ -1,3 +1,8 @@
 export function getUID() {
-  return "xxxxxxxx".replace(/x/g, () => Math.floor(Math.random() * 16).toString(16));
+  const chars = "0123456789abcdefghijklmnopqrstuvwxyz";
+  let result = "";
+  for (let i = 0; i < 16; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
 }

@@ -20,6 +20,8 @@ export class Lobby {
 
   private heartbeatTimer?: any;
   private pruneTimer?: any;
+  private isPaused = false;
+  private isLeaving = false;
 
   private readonly heartbeatInterval: number;
   private readonly pruneInterval: number;
@@ -43,6 +45,9 @@ export class Lobby {
       this.handleIncomingMessage(data);
     });
 
+    // Wait for the subscription to be ready before publishing our presence
+    await this.subscription.ready;
+
     // Broadcast our own presence
     await this.nchan.publishPresence(this.currentUser);
 
@@ -54,6 +59,7 @@ export class Lobby {
    * Pauses the heartbeat timer (e.g. when tab is hidden).
    */
   pauseHeartbeat(): void {
+    this.isPaused = true;
     this.stopHeartbeat();
   }
 
@@ -61,33 +67,40 @@ export class Lobby {
    * Resumes the heartbeat timer (e.g. when tab becomes visible).
    */
   resumeHeartbeat(): void {
+    this.isPaused = false;
     this.startHeartbeat();
   }
 
   private startHeartbeat(): void {
     this.stopHeartbeat();
-    this.heartbeatTimer = setInterval(async () => {
+    if (this.isLeaving || this.isPaused) return;
+
+    this.heartbeatTimer = setTimeout(async () => {
       try {
         await this.nchan.publishPresence({
           ...this.currentUser,
           type: "heartbeat",
         });
       } catch (_e) {
-        console.error("Failed to send heartbeat:", _e);
+        // Silent error, will retry on next heartbeat
+      } finally {
+        this.startHeartbeat(); // Schedule next heartbeat
       }
     }, this.heartbeatInterval);
   }
 
   private stopHeartbeat(): void {
     if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer);
+      clearTimeout(this.heartbeatTimer);
       this.heartbeatTimer = undefined;
     }
   }
 
   private startPruning(): void {
     this.stopPruning();
-    this.pruneTimer = setInterval(() => {
+    if (this.isLeaving) return;
+
+    this.pruneTimer = setTimeout(() => {
       const now = Date.now();
       let changed = false;
 
@@ -105,12 +118,14 @@ export class Lobby {
       if (changed) {
         this.notifyListeners();
       }
+
+      this.startPruning(); // Schedule next pruning
     }, this.pruneInterval);
   }
 
   private stopPruning(): void {
     if (this.pruneTimer) {
-      clearInterval(this.pruneTimer);
+      clearTimeout(this.pruneTimer);
       this.pruneTimer = undefined;
     }
   }
@@ -215,6 +230,7 @@ export class Lobby {
    * Gracefully leaves the lobby.
    */
   async leave(): Promise<void> {
+    this.isLeaving = true;
     this.stopHeartbeat();
     this.stopPruning();
     this.subscription?.stop();
@@ -225,11 +241,13 @@ export class Lobby {
         type: "leave",
       });
     } catch (e) {
-      console.error("Error leaving lobby:", e);
+      // Silent error during leave
     }
 
     this.users.clear();
     this.notifyListeners();
+    this.listeners = [];
+    this.challengeListeners = [];
   }
 
   private handleIncomingMessage(data: string): void {
@@ -255,7 +273,7 @@ export class Lobby {
   }
 
   private handleChallenge(msg: ChallengeMessage): void {
-    // Filter messages directed at us (or broadcasted ones)
+    // Filter messages directed at us
     if (msg.recipientId === this.currentUser.userId) {
       this.challengeListeners.forEach((cb) => cb(msg));
     }

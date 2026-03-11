@@ -1,6 +1,13 @@
 import type { PresenceMessage, ChallengeMessage, TableMessage } from "./types";
 
-export type Subscription = { stop: () => void };
+export type Subscription = {
+  stop: () => void;
+  ready: Promise<void>;
+};
+
+export interface PublishOptions {
+  signal?: AbortSignal;
+}
 
 export class NchanClient {
   private server: string;
@@ -21,12 +28,13 @@ export class NchanClient {
     return this.server + path;
   }
 
-  private async publish(path: string, message: unknown): Promise<Response> {
+  private async publish(path: string, message: unknown, options: PublishOptions = {}): Promise<Response> {
     const url = this.getHttpUrl(path);
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(message),
+      signal: options.signal,
     });
     if (!response.ok) {
       throw new Error(`Publish failed: ${response.status}`);
@@ -36,29 +44,36 @@ export class NchanClient {
 
   // Publishing
 
-  async publishPresence(message: Omit<PresenceMessage, "messageType">): Promise<Response> {
+  async publishPresence(
+    message: Omit<PresenceMessage, "messageType">,
+    options?: PublishOptions
+  ): Promise<Response> {
     return this.publish("/publish/presence/lobby", {
       ...message,
       messageType: "presence",
-    });
+    }, options);
   }
 
-  async publishChallenge(message: Omit<ChallengeMessage, "messageType">): Promise<Response> {
+  async publishChallenge(
+    message: Omit<ChallengeMessage, "messageType">,
+    options?: PublishOptions
+  ): Promise<Response> {
     return this.publish("/publish/presence/lobby", {
       ...message,
       messageType: "challenge",
-    });
+    }, options);
   }
 
   async publishTable<T>(
     tableId: string,
     message: Omit<TableMessage<T>, "senderId">,
     senderId: string,
+    options?: PublishOptions
   ): Promise<Response> {
     return this.publish(`/publish/table/${tableId}`, {
       ...message,
       senderId,
-    });
+    }, options);
   }
 
   // Subscribing
@@ -79,42 +94,62 @@ export class NchanClient {
     const maxReconnectDelay = 30000;
     let reconnectTimer: any = null;
 
+    let resolveReady: () => void;
+    const ready = new Promise<void>((resolve) => {
+      resolveReady = resolve;
+    });
+
     const connect = () => {
       if (stopped) return;
 
-      ws = new globalThis.WebSocket(url);
+      try {
+        ws = new globalThis.WebSocket(url);
 
-      ws.onmessage = (event) => {
-        onMessage(event.data as string);
-      };
+        ws.onmessage = (event) => {
+          onMessage(event.data as string);
+        };
 
-      ws.onopen = () => {
-        reconnectAttempts = 0;
-      };
+        ws.onopen = () => {
+          reconnectAttempts = 0;
+          resolveReady();
+        };
 
-      ws.onclose = () => {
+        ws.onclose = () => {
+          if (!stopped) {
+            const delay = Math.min(Math.pow(2, reconnectAttempts) * 1000, maxReconnectDelay);
+            reconnectAttempts++;
+            reconnectTimer = setTimeout(connect, delay);
+          }
+        };
+
+        ws.onerror = () => {
+          ws?.close();
+        };
+      } catch (e) {
+        console.error(`WebSocket connection failed for ${url}:`, e);
         if (!stopped) {
-          const delay = Math.min(Math.pow(2, reconnectAttempts) * 1000, maxReconnectDelay);
-          reconnectAttempts++;
-          reconnectTimer = setTimeout(connect, delay);
+          reconnectTimer = setTimeout(connect, 1000);
         }
-      };
-
-      ws.onerror = () => {
-        ws?.close();
-      };
+      }
     };
 
     connect();
 
     return {
+      ready,
       stop: () => {
         stopped = true;
         if (reconnectTimer) {
           clearTimeout(reconnectTimer);
           reconnectTimer = null;
         }
-        ws?.close();
+        if (ws) {
+          ws.onclose = null;
+          ws.onerror = null;
+          ws.onmessage = null;
+          ws.onopen = null;
+          ws.close();
+        }
       },
     };
   }

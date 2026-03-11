@@ -12,6 +12,7 @@ export class MessagingClient {
   private activeLobbies: Lobby[] = [];
   private activeTables: Table[] = [];
   private lastLobbyConfig?: { user: PresenceMessage; options?: LobbyOptions };
+  private isStarted = false;
 
   constructor(options: { baseUrl: string }) {
     this.nchan = new NchanClient(options.baseUrl);
@@ -22,37 +23,49 @@ export class MessagingClient {
    * In browser environments, attaches lifecycle event listeners.
    */
   async start(): Promise<void> {
+    if (this.isStarted) return;
+
     if (typeof window !== "undefined") {
       window.addEventListener("pagehide", this.handlePageHide);
       window.addEventListener("pageshow", this.handlePageShow);
       document.addEventListener("visibilitychange", this.handleVisibilityChange);
     }
+    this.isStarted = true;
   }
 
   /**
    * Stops all active connections and cleans up.
    */
   async stop(): Promise<void> {
+    if (!this.isStarted) return;
+
     if (typeof window !== "undefined") {
       window.removeEventListener("pagehide", this.handlePageHide);
       window.removeEventListener("pageshow", this.handlePageShow);
       document.removeEventListener("visibilitychange", this.handleVisibilityChange);
     }
 
-    await Promise.all(this.activeLobbies.map((lobby) => lobby.leave()));
+    const lobbies = [...this.activeLobbies];
     this.activeLobbies = [];
+    await Promise.all(lobbies.map((lobby) => lobby.leave()));
 
-    // Use for loop to await each table leave
-    for (const table of this.activeTables) {
+    const tables = [...this.activeTables];
+    this.activeTables = [];
+    for (const table of tables) {
       await table.leave();
     }
-    this.activeTables = [];
+
+    this.isStarted = false;
   }
 
   /**
    * Enters the global lobby for presence broadcasting and tracking.
    */
   async joinLobby(user: PresenceMessage, options?: LobbyOptions): Promise<Lobby> {
+    if (!this.isStarted) {
+      await this.start();
+    }
+
     this.lastLobbyConfig = { user, options };
     const lobby = new Lobby(this.nchan, user, options);
     await lobby.join();
@@ -64,24 +77,23 @@ export class MessagingClient {
    * Joins a specific table for communication.
    */
   async joinTable<T = any>(tableId: string, userId: string): Promise<Table<T>> {
+    if (!this.isStarted) {
+      await this.start();
+    }
+
     let table = this.activeTables.find((t) => t.tableId === tableId) as Table<T>;
 
     if (!table) {
       const lobby = this.activeLobbies.find((l) => l.currentUser.userId === userId);
-      console.log(`MessagingClient [${userId}] creating new Table ${tableId}`);
       table = new Table<T>(this.nchan, tableId, userId, lobby);
       this.activeTables.push(table);
 
       if (lobby) {
         await lobby.updatePresence({ tableId });
       }
-    } else {
-      console.log(`MessagingClient [${userId}] reusing existing Table ${tableId}`);
     }
 
     await table.join();
-    // Ensure the subscription has had a moment to actually connect
-    await new Promise((r) => setTimeout(r, 100));
     return table;
   }
 

@@ -37,6 +37,8 @@ export class Table<T = any> {
     this.subscription = this.nchan.subscribeTable(this.tableId, (data) => {
       this.handleIncomingMessage(data);
     });
+    // Wait for the subscription to be ready
+    await this.subscription.ready;
   }
 
   /**
@@ -81,7 +83,7 @@ export class Table<T = any> {
       // Small delay to ensure the message is dispatched before closing the socket
       await new Promise((r) => setTimeout(r, 100));
     } catch (e) {
-      console.error("Error leaving table:", e);
+      // Silent error during leave
     }
 
     // Clear lobby presence if we have one
