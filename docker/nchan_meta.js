@@ -13,10 +13,8 @@ function buildMeta(r) {
 
 function mergeMeta(payload, meta) {
   if (payload && typeof payload === "object" && !Array.isArray(payload)) {
-    if (payload._meta && typeof payload._meta === "object") {
-      payload._meta = Object.assign(meta, payload._meta);
-      return payload;
-    }
+    // Delete any client-provided _meta to prevent tampering
+    delete payload._meta;
     payload._meta = meta;
     return payload;
   }
