@@ -54,7 +54,7 @@ async function publish(r) {
   });
 
   r.headersOut["Content-Type"] = "application/json";
-  r.return(res.status, res.responseText);
+  r.return(res.status, body);
 }
 
 export default { publish };
