@@ -4,10 +4,8 @@ function buildMeta(r) {
     origin: r.headersIn.origin || "",
     locale: r.headersIn["accept-language"] || "",
     ua: r.headersIn["user-agent"] || "",
-    ip: r.remoteAddress || "",
     host: r.headersIn.host || "",
-    path: r.uri,
-    method: r.method
+    path: r.uri
   };
 }
 

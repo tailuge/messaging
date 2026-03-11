@@ -114,11 +114,6 @@ run_test "Meta: Publish response contains origin field" bash -c '
 	echo "$response" | grep -q "origin"
 '
 
-run_test "Meta: Publish response contains method field" bash -c '
-	response=$(curl -fsS --max-time 5 -X POST -d "{\"event\": \"meta_test\"}" "http://localhost/publish/lobby/meta_method")
-	echo "$response" | grep -q "\"method\":"
-'
-
 run_test "Meta: Publish response contains path field" bash -c '
 	response=$(curl -fsS --max-time 5 -X POST -d "{\"event\": \"meta_test\"}" "http://localhost/publish/lobby/meta_path")
 	echo "$response" | grep -q "\"path\":"
@@ -140,15 +135,6 @@ run_test "Meta: Subscribe receives ts in published message" bash -c '
 	curl -fsS --max-time 5 -X POST -d "{\"event\": \"ts_message\"}" "http://localhost/publish/lobby/meta_ts_sub" >/dev/null
 	wait $SUB_PID
 	grep -q "ts" /tmp/nchan-meta-ts.out
-'
-
-run_test "Meta: Subscribe receives method in published message" bash -c '
-	curl -fsS --max-time 5 "http://localhost/subscribe/lobby/meta_method_sub" >/tmp/nchan-meta-method.out &
-	SUB_PID=$!
-	sleep 1
-	curl -fsS --max-time 5 -X POST -d "{\"event\": \"method_message\"}" "http://localhost/publish/lobby/meta_method_sub" >/dev/null
-	wait $SUB_PID
-	grep -q "method" /tmp/nchan-meta-method.out
 '
 
 echo ""

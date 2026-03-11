@@ -4,7 +4,7 @@ import { NchanClient } from "../src/nchanclient";
 
 /**
  * Helper to verify _meta enrichment in a parsed message.
- * Asserts that _meta exists, ts is a valid ISO date, method is POST,
+ * Asserts that _meta exists, ts is a valid ISO date,
  * and path contains the expected prefix.
  */
 function expectMeta(parsed: Record<string, unknown>, pathPrefix: string) {
@@ -13,7 +13,6 @@ function expectMeta(parsed: Record<string, unknown>, pathPrefix: string) {
   expect(meta.ts).toBeDefined();
   expect(typeof meta.ts).toBe("string");
   expect(Date.parse(meta.ts as string)).not.toBeNaN();
-  expect(meta.method).toBe("POST");
   expect(meta.path).toContain(pathPrefix);
 }
 
