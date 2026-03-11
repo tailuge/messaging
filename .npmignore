@@ -1,0 +1,10 @@
+src/
+test/
+playwright/
+docker/
+example/
+scripts/
+tsconfig.json
+*.spec.ts
+jest.config.cjs
+AGENTS.md

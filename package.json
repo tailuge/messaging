@@ -3,18 +3,30 @@
   "version": "1.0.0",
   "type": "module",
   "description": "A stateful messaging library for Nchan-powered real-time applications.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "test": "jest --config test/jest.config.cjs",
     "playwright": "npx playwright test playwright/debug-connection.spec.ts",
     "test:debug": "npm run playwright",
     "lint": "tsc --noEmit && npx oxlint src test",
     "prettify": "npx oxfmt src test",
-    "build": "bash scripts/docker-nchan.sh build",
+    "build": "tsc --declaration",
+    "build:all": "bash scripts/docker-nchan.sh build",
     "build:example": "npx esbuild example/src/client.ts --bundle --outfile=example/dist/client.js",
     "example": "npm run build:example && npx http-server example -p 3000",
     "docker:start": "bash scripts/docker-nchan.sh",
     "docker:stop": "bash scripts/docker-nchan.sh stop",
-    "docker:build": "npm run build",
+    "docker:build": "npm run build:all",
     "deps": "npx npm-check"
   },
   "keywords": [
