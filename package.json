@@ -16,11 +16,13 @@
   ],
   "scripts": {
     "test": "jest --config test/jest.config.cjs",
+    "coverage": "jest --config test/jest.config.cjs --coverage",
     "playwright": "npx playwright test playwright/debug-connection.spec.ts",
     "test:debug": "npm run playwright",
     "lint": "tsc --noEmit && npx oxlint src test",
     "prettify": "npx oxfmt src test",
     "build": "tsc --declaration",
+    "release": "npm version minor --no-git-tag-version && npm run build",
     "build:all": "bash scripts/docker-nchan.sh build",
     "build:example": "npx esbuild example/src/client.ts --bundle --outfile=example/dist/client.js",
     "example": "npm run build:example && npx http-server example -p 3000",

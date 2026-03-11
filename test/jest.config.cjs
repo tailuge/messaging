@@ -16,4 +16,6 @@ module.exports = {
       },
     ],
   },
+  collectCoverageFrom: ["<rootDir>/src/**/*.ts"],
+  coverageReporters: ["text", "text-summary"],
 };
