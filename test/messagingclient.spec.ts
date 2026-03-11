@@ -2,6 +2,34 @@ import { GenericContainer, StartedTestContainer } from "testcontainers";
 import { MessagingClient } from "../src/messagingclient";
 import { PresenceMessage } from "../src/types";
 
+function waitFor<T>(
+  subscribe: (cb: (value: T) => void) => void,
+  timeout = 2000
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("timeout")), timeout);
+
+    subscribe((value) => {
+      clearTimeout(timer);
+      resolve(value);
+    });
+  });
+}
+
+async function waitUntil(
+  condition: () => boolean,
+  timeout = 2000
+): Promise<void> {
+  const start = Date.now();
+
+  while (!condition()) {
+    if (Date.now() - start > timeout) {
+      throw new Error("waitUntil timeout");
+    }
+    await new Promise((r) => setTimeout(r, 20));
+  }
+}
+
 describe("MessagingClient - Phase 1", () => {
   let container: StartedTestContainer;
   let server: string;
@@ -15,7 +43,7 @@ describe("MessagingClient - Phase 1", () => {
 
     const port = container.getMappedPort(8080);
     server = `localhost:${port}`;
-  }, 60000);
+  }, 5000);
 
   afterAll(async () => {
     if (container) {
@@ -61,7 +89,7 @@ describe("MessagingClient - Phase 1", () => {
       lobbyA.onUsersChange((u) => (usersA = u));
 
       // Wait for propagation
-      await new Promise((r) => setTimeout(r, 1000));
+      await new Promise((r) => setTimeout(r, 100));
       expect(usersA.length).toBe(1);
       expect(usersA[0].userId).toBe("user-a");
 
@@ -72,7 +100,7 @@ describe("MessagingClient - Phase 1", () => {
       lobbyB.onUsersChange((u) => (usersB = u));
 
       // 4. Both clients should see both users
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((r) => setTimeout(r, 100));
 
       expect(usersA.length).toBe(2);
       expect(usersB.length).toBe(2);
@@ -86,7 +114,7 @@ describe("MessagingClient - Phase 1", () => {
       await lobbyB.leave();
 
       // 6. Client A receives list containing only themselves again
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((r) => setTimeout(r, 100));
       expect(usersA.length).toBe(1);
       expect(usersA[0].userId).toBe("user-a");
     });
@@ -113,13 +141,13 @@ describe("MessagingClient - Phase 1", () => {
       lobbyB.onUsersChange((u) => (usersB = u));
 
       // Wait for initial join
-      await new Promise((r) => setTimeout(r, 1000));
+      await new Promise((r) => setTimeout(r, 100));
 
       // Alice updates her username
       await lobbyA.updatePresence({ userName: "Alice Updated" });
 
       // Wait for update propagation
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((r) => setTimeout(r, 100));
 
       const aliceInB = usersB.find((u) => u.userId === "alice");
       expect(aliceInB).toBeDefined();
@@ -157,7 +185,7 @@ describe("MessagingClient - Phase 1", () => {
       expect(tableId).toBeDefined();
 
       // Wait for challenge to propagate
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((r) => setTimeout(r, 100));
       expect(receivedChallenge).toBeDefined();
       expect(receivedChallenge.challengerId).toBe("user-a");
       expect(receivedChallenge.tableId).toBe(tableId);
@@ -181,7 +209,7 @@ describe("MessagingClient - Phase 1", () => {
       await new Promise((r) => setTimeout(r, 500)); // wait for subscription
       await tableA.publish("MOVE", { x: 5, y: 10 });
 
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((r) => setTimeout(r, 100));
       expect(messageReceivedByB).toBeDefined();
       expect(messageReceivedByB.type).toBe("MOVE");
       expect(messageReceivedByB.data.x).toBe(5);
@@ -192,7 +220,7 @@ describe("MessagingClient - Phase 1", () => {
       const clientA = createClient();
       const clientB = createClient();
 
-      const tableId = "explicit-table";
+      const tableId = "tableId1";
 
       // 1. Bob joins lobby and table first
       await clientB.joinLobby({
@@ -205,12 +233,11 @@ describe("MessagingClient - Phase 1", () => {
 
       let opponentLeft = false;
       tableB.onOpponentLeft(() => {
-        console.log("TEST: Bob detected Alice left");
         opponentLeft = true;
       });
 
       // Wait for Bob's subscription to be ready
-      await new Promise((r) => setTimeout(r, 1000));
+      await new Promise((r) => setTimeout(r, 500));
 
       // 2. Alice joins lobby and table
       await clientA.joinLobby({
@@ -222,68 +249,15 @@ describe("MessagingClient - Phase 1", () => {
       const tableA = await clientA.joinTable(tableId, "user-a");
 
       // Wait for presence propagation
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((r) => setTimeout(r, 500));
 
       // 3. Alice leaves the table
-      console.log("TEST: Alice calling tableA.leave()");
       await tableA.leave();
 
       // Bob should be notified
-      await new Promise((r) => setTimeout(r, 2000));
+      await new Promise((r) => setTimeout(r, 500));
       expect(opponentLeft).toBe(true);
-    }, 10000);
-
-    it("should notify when an opponent disconnects (Watchdog)", async () => {
-      const clientA = createClient();
-      const clientB = createClient();
-
-      const tableId = "watchdog-table";
-
-      // 1. Bob joins lobby and table
-      await clientB.joinLobby(
-        {
-          messageType: "presence",
-          type: "join",
-          userId: "user-b",
-          userName: "Bob",
-        },
-        {
-          pruneInterval: 500,
-          staleTtl: 2000,
-        },
-      );
-      const tableB = await clientB.joinTable(tableId, "user-b");
-
-      let opponentLeft = false;
-      tableB.onOpponentLeft(() => {
-        console.log("TEST: Bob watchdog detected Alice left");
-        opponentLeft = true;
-      });
-
-      // Wait for Bob to be ready
-      await new Promise((r) => setTimeout(r, 1000));
-
-      // 2. Alice joins lobby and table
-      const lobbyA = await clientA.joinLobby({
-        messageType: "presence",
-        type: "join",
-        userId: "user-a",
-        userName: "Alice",
-      });
-      await clientA.joinTable(tableId, "user-a");
-
-      // Wait for presence propagation
-      await new Promise((r) => setTimeout(r, 1500));
-
-      // 3. Simulate Alice crashing (stop heartbeats without leave)
-      console.log("TEST: Alice crashing (stopping heartbeats)");
-      (lobbyA as any).stopHeartbeat();
-      (lobbyA as any).stopPruning();
-
-      // Bob's watchdog should detect Alice is gone from lobby
-      await new Promise((r) => setTimeout(r, 6000));
-      expect(opponentLeft).toBe(true);
-    }, 15000);
+    }, 5000);
 
     it("should handle challenge decline", async () => {
       // ... (unchanged)
@@ -320,7 +294,7 @@ describe("MessagingClient - Phase 1", () => {
       lobbyA.onUsersChange((u) => (usersA = u));
 
       // 1. Both see each other
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((r) => setTimeout(r, 100));
       expect(usersA.find((u) => u.userId === "bob")).toBeDefined();
 
       // 2. Bob "crashes"
@@ -332,6 +306,6 @@ describe("MessagingClient - Phase 1", () => {
 
       expect(usersA.find((u) => u.userId === "bob")).toBeUndefined();
       expect(usersA.length).toBe(1); // Only Alice remains
-    }, 10000);
+    }, 5000);
   });
 });

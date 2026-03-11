@@ -15,12 +15,13 @@
     getHttpUrl(path) {
       return this.server + path;
     }
-    async publish(path, message) {
+    async publish(path, message, options = {}) {
       const url = this.getHttpUrl(path);
       const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(message)
+        body: JSON.stringify(message),
+        keepalive: options.keepalive
       });
       if (!response.ok) {
         throw new Error(`Publish failed: ${response.status}`);
@@ -28,23 +29,35 @@
       return response;
     }
     // Publishing
-    async publishPresence(message) {
-      return this.publish("/publish/presence/lobby", {
-        ...message,
-        messageType: "presence"
-      });
+    async publishPresence(message, options) {
+      return this.publish(
+        "/publish/presence/lobby",
+        {
+          ...message,
+          messageType: "presence"
+        },
+        options
+      );
     }
-    async publishChallenge(message) {
-      return this.publish("/publish/presence/lobby", {
-        ...message,
-        messageType: "challenge"
-      });
+    async publishChallenge(message, options) {
+      return this.publish(
+        "/publish/presence/lobby",
+        {
+          ...message,
+          messageType: "challenge"
+        },
+        options
+      );
     }
-    async publishTable(tableId, message, senderId) {
-      return this.publish(`/publish/table/${tableId}`, {
-        ...message,
-        senderId
-      });
+    async publishTable(tableId, message, senderId, options) {
+      return this.publish(
+        `/publish/table/${tableId}`,
+        {
+          ...message,
+          senderId
+        },
+        options
+      );
     }
     // Subscribing
     subscribePresence(onMessage) {
@@ -60,14 +73,23 @@
       let reconnectAttempts = 0;
       const maxReconnectDelay = 3e4;
       let reconnectTimer = null;
+      let resolveReady;
+      const ready = new Promise((r) => {
+        resolveReady = r;
+      });
       const connect = () => {
         if (stopped) return;
+        if (ws && ws.readyState <= WebSocket.OPEN) {
+          resolveReady();
+          return;
+        }
         ws = new globalThis.WebSocket(url);
         ws.onmessage = (event) => {
           onMessage(event.data);
         };
         ws.onopen = () => {
           reconnectAttempts = 0;
+          resolveReady();
         };
         ws.onclose = () => {
           if (!stopped) {
@@ -82,13 +104,17 @@
       };
       connect();
       return {
+        ready,
         stop: () => {
           stopped = true;
           if (reconnectTimer) {
             clearTimeout(reconnectTimer);
             reconnectTimer = null;
           }
-          ws?.close();
+          if (ws) {
+            ws.close();
+            ws = null;
+          }
         }
       };
     }
@@ -121,6 +147,7 @@
       }
     }
     subscription = null;
+    isJoined = false;
     messageListeners = [];
     spectatorListeners = [];
     opponentLeftListeners = [];
@@ -131,9 +158,12 @@
      * Initializes the table by subscribing to its specific channel.
      */
     async join() {
+      if (this.isJoined) return;
       this.subscription = this.nchan.subscribeTable(this.tableId, (data) => {
         this.handleIncomingMessage(data);
       });
+      await this.subscription.ready;
+      this.isJoined = true;
     }
     /**
      * Broadcast an event to all participants at the table.
@@ -166,10 +196,17 @@
     /**
      * Leave the table and stop all subscriptions.
      */
-    async leave() {
+    async leave(options = {}) {
       try {
-        await this.publish("SYSTEM_DISCONNECT", {});
-        await new Promise((r) => setTimeout(r, 100));
+        await this.nchan.publishTable(
+          this.tableId,
+          { type: "SYSTEM_DISCONNECT", data: {} },
+          this.userId,
+          { keepalive: options.isTeardown }
+        );
+        if (!options.isTeardown) {
+          await new Promise((r) => setTimeout(r, 100));
+        }
       } catch (e) {
         console.error("Error leaving table:", e);
       }
@@ -225,6 +262,7 @@
     listeners = [];
     challengeListeners = [];
     subscription = null;
+    isJoined = false;
     heartbeatTimer;
     pruneTimer;
     heartbeatInterval;
@@ -234,12 +272,15 @@
      * Initializes the lobby by subscribing to presence events and broadcasting "join".
      */
     async join() {
+      if (this.isJoined) return;
       this.subscription = this.nchan.subscribePresence((data) => {
         this.handleIncomingMessage(data);
       });
+      await this.subscription.ready;
       await this.nchan.publishPresence(this.currentUser);
       this.startHeartbeat();
       this.startPruning();
+      this.isJoined = true;
     }
     /**
      * Pauses the heartbeat timer (e.g. when tab is hidden).
@@ -383,15 +424,18 @@
     /**
      * Gracefully leaves the lobby.
      */
-    async leave() {
+    async leave(options = {}) {
       this.stopHeartbeat();
       this.stopPruning();
       this.subscription?.stop();
       try {
-        await this.nchan.publishPresence({
-          ...this.currentUser,
-          type: "leave"
-        });
+        await this.nchan.publishPresence(
+          {
+            ...this.currentUser,
+            type: "leave"
+          },
+          { keepalive: options.isTeardown }
+        );
       } catch (e) {
         console.error("Error leaving lobby:", e);
       }
@@ -436,6 +480,7 @@
     activeLobbies = [];
     activeTables = [];
     lastLobbyConfig;
+    isStopping = false;
     constructor(options) {
       this.nchan = new NchanClient(options.baseUrl);
     }
@@ -453,23 +498,33 @@
     /**
      * Stops all active connections and cleans up.
      */
-    async stop() {
-      if (typeof window !== "undefined") {
-        window.removeEventListener("pagehide", this.handlePageHide);
-        window.removeEventListener("pageshow", this.handlePageShow);
-        document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+    async stop(options = {}) {
+      if (this.isStopping) return;
+      this.isStopping = true;
+      try {
+        if (typeof window !== "undefined") {
+          window.removeEventListener("pagehide", this.handlePageHide);
+          window.removeEventListener("pageshow", this.handlePageShow);
+          document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+        }
+        const lobbies = [...this.activeLobbies];
+        this.activeLobbies = [];
+        await Promise.all(lobbies.map((lobby2) => lobby2.leave(options)));
+        const tables = [...this.activeTables];
+        this.activeTables = [];
+        for (const table of tables) {
+          await table.leave(options);
+        }
+      } finally {
+        this.isStopping = false;
       }
-      await Promise.all(this.activeLobbies.map((lobby2) => lobby2.leave()));
-      this.activeLobbies = [];
-      for (const table of this.activeTables) {
-        await table.leave();
-      }
-      this.activeTables = [];
     }
     /**
      * Enters the global lobby for presence broadcasting and tracking.
      */
     async joinLobby(user, options) {
+      const existing = this.activeLobbies.find((l) => l.currentUser.userId === user.userId);
+      if (existing) return existing;
       this.lastLobbyConfig = { user, options };
       const lobby2 = new Lobby(this.nchan, user, options);
       await lobby2.join();
@@ -483,21 +538,22 @@
       let table = this.activeTables.find((t) => t.tableId === tableId);
       if (!table) {
         const lobby2 = this.activeLobbies.find((l) => l.currentUser.userId === userId2);
+        if (!lobby2) {
+          throw new Error(`Cannot join table: No active lobby found for user ${userId2}`);
+        }
         console.log(`MessagingClient [${userId2}] creating new Table ${tableId}`);
         table = new Table(this.nchan, tableId, userId2, lobby2);
+        await table.join();
         this.activeTables.push(table);
-        if (lobby2) {
-          await lobby2.updatePresence({ tableId });
-        }
+        await lobby2.updatePresence({ tableId });
       } else {
         console.log(`MessagingClient [${userId2}] reusing existing Table ${tableId}`);
+        await table.join();
       }
-      await table.join();
-      await new Promise((r) => setTimeout(r, 100));
       return table;
     }
     handlePageHide = () => {
-      this.stop();
+      this.stop({ isTeardown: true });
     };
     handlePageShow = (event) => {
       if (event.persisted && this.lastLobbyConfig) {

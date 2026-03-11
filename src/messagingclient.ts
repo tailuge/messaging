@@ -12,6 +12,7 @@ export class MessagingClient {
   private activeLobbies: Lobby[] = [];
   private activeTables: Table[] = [];
   private lastLobbyConfig?: { user: PresenceMessage; options?: LobbyOptions };
+  private isStopping = false;
 
   constructor(options: { baseUrl: string }) {
     this.nchan = new NchanClient(options.baseUrl);
@@ -32,27 +33,40 @@ export class MessagingClient {
   /**
    * Stops all active connections and cleans up.
    */
-  async stop(): Promise<void> {
-    if (typeof window !== "undefined") {
-      window.removeEventListener("pagehide", this.handlePageHide);
-      window.removeEventListener("pageshow", this.handlePageShow);
-      document.removeEventListener("visibilitychange", this.handleVisibilityChange);
-    }
+  async stop(options: { isTeardown?: boolean } = {}): Promise<void> {
+    if (this.isStopping) return;
+    this.isStopping = true;
 
-    await Promise.all(this.activeLobbies.map((lobby) => lobby.leave()));
-    this.activeLobbies = [];
+    try {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("pagehide", this.handlePageHide);
+        window.removeEventListener("pageshow", this.handlePageShow);
+        document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+      }
 
-    // Use for loop to await each table leave
-    for (const table of this.activeTables) {
-      await table.leave();
+      const lobbies = [...this.activeLobbies];
+      this.activeLobbies = [];
+      await Promise.all(lobbies.map((lobby) => lobby.leave(options)));
+
+      const tables = [...this.activeTables];
+      this.activeTables = [];
+      // Use for loop to await each table leave
+      for (const table of tables) {
+        await table.leave(options);
+      }
+    } finally {
+      this.isStopping = false;
     }
-    this.activeTables = [];
   }
 
   /**
    * Enters the global lobby for presence broadcasting and tracking.
    */
   async joinLobby(user: PresenceMessage, options?: LobbyOptions): Promise<Lobby> {
+    // Prevent duplicate joins if already in a lobby for this user
+    const existing = this.activeLobbies.find((l) => l.currentUser.userId === user.userId);
+    if (existing) return existing;
+
     this.lastLobbyConfig = { user, options };
     const lobby = new Lobby(this.nchan, user, options);
     await lobby.join();
@@ -68,26 +82,26 @@ export class MessagingClient {
 
     if (!table) {
       const lobby = this.activeLobbies.find((l) => l.currentUser.userId === userId);
-      console.log(`MessagingClient [${userId}] creating new Table ${tableId}`);
+      if (!lobby) {
+        throw new Error(`Cannot join table: No active lobby found for user ${userId}`);
+      }
+
       table = new Table<T>(this.nchan, tableId, userId, lobby);
+      await table.join();
       this.activeTables.push(table);
 
-      if (lobby) {
-        await lobby.updatePresence({ tableId });
-      }
+      await lobby.updatePresence({ tableId });
     } else {
-      console.log(`MessagingClient [${userId}] reusing existing Table ${tableId}`);
+      await table.join();
     }
 
-    await table.join();
-    // Ensure the subscription has had a moment to actually connect
-    await new Promise((r) => setTimeout(r, 100));
     return table;
   }
 
   private handlePageHide = (): void => {
     // Stop all connections on page hide (prevent ghosting)
-    this.stop();
+    // Non-blocking call because pagehide might terminate the process
+    this.stop({ isTeardown: true });
   };
 
   private handlePageShow = (event: PageTransitionEvent): void => {

@@ -17,6 +17,7 @@ export class Lobby {
   private listeners: ((users: PresenceMessage[]) => void)[] = [];
   private challengeListeners: ((challenge: ChallengeMessage) => void)[] = [];
   private subscription: Subscription | null = null;
+  private isJoined = false;
 
   private heartbeatTimer?: any;
   private pruneTimer?: any;
@@ -39,15 +40,20 @@ export class Lobby {
    * Initializes the lobby by subscribing to presence events and broadcasting "join".
    */
   async join(): Promise<void> {
+    if (this.isJoined) return;
+
     this.subscription = this.nchan.subscribePresence((data) => {
       this.handleIncomingMessage(data);
     });
+
+    await this.subscription.ready;
 
     // Broadcast our own presence
     await this.nchan.publishPresence(this.currentUser);
 
     this.startHeartbeat();
     this.startPruning();
+    this.isJoined = true;
   }
 
   /**
@@ -214,22 +220,26 @@ export class Lobby {
   /**
    * Gracefully leaves the lobby.
    */
-  async leave(): Promise<void> {
+  async leave(options: { isTeardown?: boolean } = {}): Promise<void> {
     this.stopHeartbeat();
     this.stopPruning();
     this.subscription?.stop();
 
     try {
-      await this.nchan.publishPresence({
-        ...this.currentUser,
-        type: "leave",
-      });
+      await this.nchan.publishPresence(
+        {
+          ...this.currentUser,
+          type: "leave",
+        },
+        { keepalive: options.isTeardown },
+      );
     } catch (e) {
       console.error("Error leaving lobby:", e);
     }
 
     this.users.clear();
     this.notifyListeners();
+    this.isJoined = false;
   }
 
   private handleIncomingMessage(data: string): void {

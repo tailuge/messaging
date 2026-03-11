@@ -1,6 +1,6 @@
 import type { PresenceMessage, ChallengeMessage, TableMessage } from "./types";
 
-export type Subscription = { stop: () => void };
+export type Subscription = { stop: () => void; ready: Promise<void> };
 
 export class NchanClient {
   private server: string;
@@ -21,12 +21,17 @@ export class NchanClient {
     return this.server + path;
   }
 
-  private async publish(path: string, message: unknown): Promise<Response> {
+  private async publish(
+    path: string,
+    message: unknown,
+    options: { keepalive?: boolean } = {},
+  ): Promise<Response> {
     const url = this.getHttpUrl(path);
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(message),
+      keepalive: options.keepalive,
     });
     if (!response.ok) {
       throw new Error(`Publish failed: ${response.status}`);
@@ -36,29 +41,48 @@ export class NchanClient {
 
   // Publishing
 
-  async publishPresence(message: Omit<PresenceMessage, "messageType">): Promise<Response> {
-    return this.publish("/publish/presence/lobby", {
-      ...message,
-      messageType: "presence",
-    });
+  async publishPresence(
+    message: Omit<PresenceMessage, "messageType">,
+    options?: { keepalive?: boolean },
+  ): Promise<Response> {
+    return this.publish(
+      "/publish/presence/lobby",
+      {
+        ...message,
+        messageType: "presence",
+      },
+      options,
+    );
   }
 
-  async publishChallenge(message: Omit<ChallengeMessage, "messageType">): Promise<Response> {
-    return this.publish("/publish/presence/lobby", {
-      ...message,
-      messageType: "challenge",
-    });
+  async publishChallenge(
+    message: Omit<ChallengeMessage, "messageType">,
+    options?: { keepalive?: boolean },
+  ): Promise<Response> {
+    return this.publish(
+      "/publish/presence/lobby",
+      {
+        ...message,
+        messageType: "challenge",
+      },
+      options,
+    );
   }
 
   async publishTable<T>(
     tableId: string,
     message: Omit<TableMessage<T>, "senderId">,
     senderId: string,
+    options?: { keepalive?: boolean },
   ): Promise<Response> {
-    return this.publish(`/publish/table/${tableId}`, {
-      ...message,
-      senderId,
-    });
+    return this.publish(
+      `/publish/table/${tableId}`,
+      {
+        ...message,
+        senderId,
+      },
+      options,
+    );
   }
 
   // Subscribing
@@ -79,8 +103,17 @@ export class NchanClient {
     const maxReconnectDelay = 30000;
     let reconnectTimer: any = null;
 
+    let resolveReady: () => void;
+    const ready = new Promise<void>((r) => {
+      resolveReady = r;
+    });
+
     const connect = () => {
       if (stopped) return;
+      if (ws && ws.readyState <= WebSocket.OPEN) {
+        resolveReady();
+        return;
+      }
 
       ws = new globalThis.WebSocket(url);
 
@@ -90,6 +123,7 @@ export class NchanClient {
 
       ws.onopen = () => {
         reconnectAttempts = 0;
+        resolveReady();
       };
 
       ws.onclose = () => {
@@ -108,13 +142,17 @@ export class NchanClient {
     connect();
 
     return {
+      ready,
       stop: () => {
         stopped = true;
         if (reconnectTimer) {
           clearTimeout(reconnectTimer);
           reconnectTimer = null;
         }
-        ws?.close();
+        if (ws) {
+          ws.close();
+          ws = null;
+        }
       },
     };
   }

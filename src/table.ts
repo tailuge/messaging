@@ -7,6 +7,7 @@ import { Lobby } from "./lobby";
  */
 export class Table<T = any> {
   private subscription: Subscription | null = null;
+  private isJoined = false;
   private messageListeners: ((event: TableMessage<T>) => void)[] = [];
   private spectatorListeners: ((spectators: PresenceMessage[]) => void)[] = [];
   private opponentLeftListeners: (() => void)[] = [];
@@ -34,9 +35,13 @@ export class Table<T = any> {
    * Initializes the table by subscribing to its specific channel.
    */
   async join(): Promise<void> {
+    if (this.isJoined) return;
+
     this.subscription = this.nchan.subscribeTable(this.tableId, (data) => {
       this.handleIncomingMessage(data);
     });
+    await this.subscription.ready;
+    this.isJoined = true;
   }
 
   /**
@@ -74,12 +79,20 @@ export class Table<T = any> {
   /**
    * Leave the table and stop all subscriptions.
    */
-  async leave(): Promise<void> {
+  async leave(options: { isTeardown?: boolean } = {}): Promise<void> {
     try {
       // Explicitly notify the opponent we are leaving
-      await this.publish("SYSTEM_DISCONNECT", {} as T);
-      // Small delay to ensure the message is dispatched before closing the socket
-      await new Promise((r) => setTimeout(r, 100));
+      await this.nchan.publishTable(
+        this.tableId,
+        { type: "SYSTEM_DISCONNECT", data: {} as T },
+        this.userId,
+        { keepalive: options.isTeardown },
+      );
+
+      if (!options.isTeardown) {
+        // Small delay to ensure the message is dispatched before closing the socket
+        await new Promise((r) => setTimeout(r, 100));
+      }
     } catch (e) {
       console.error("Error leaving table:", e);
     }
@@ -94,6 +107,7 @@ export class Table<T = any> {
     this.spectatorListeners = [];
     this.opponentLeftListeners = [];
     this.lobbyUnsubscribe?.();
+    this.isJoined = false;
   }
 
   private handleIncomingMessage(data: string): void {
