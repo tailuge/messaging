@@ -1,11 +1,37 @@
-function buildMeta(r) {
+async function buildMeta(r) {
+  const ip = r.remoteAddress;
+  let country = "XX";
+  let cache;
+
+  try {
+    cache = njs.shared && njs.shared.ip_cache;
+  } catch (e) {
+    cache = undefined;
+  }
+
+  if (cache) {
+    country = cache.get(ip);
+
+    if (!country) {
+      try {
+        let reply = await ngx.fetch(`https://api.country.is/${ip}`, { timeout: 2000 });
+        let data = await reply.json();
+        country = data.country || "XX";
+        cache.set(ip, country, { timeout: 86400 });
+      } catch (e) {
+        country = "XX";
+      }
+    }
+  }
+
   return {
     ts: new Date().toISOString(),
     origin: r.headersIn.origin || "",
     locale: r.headersIn["accept-language"] || "",
     ua: r.headersIn["user-agent"] || "",
     host: r.headersIn.host || "",
-    path: r.uri
+    path: r.uri,
+    country: country
   };
 }
 
@@ -42,7 +68,7 @@ async function publish(r) {
     return;
   }
 
-  const meta = buildMeta(r);
+  const meta = await buildMeta(r);
   const enriched = mergeMeta(parsed, meta);
   const body = JSON.stringify(enriched);
 
