@@ -77,6 +77,6 @@ export async function waitFor<T>(
 }
 
 // Convenience: wait for a specific duration (use sparingly)
-export async function wait(ms = 500): Promise<void> {
+export async function wait(ms = 100): Promise<void> {
   await new Promise((r) => setTimeout(r, ms));
 }

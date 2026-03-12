@@ -222,7 +222,7 @@ describe("MessagingClient - Phase 1", () => {
         },
         {
           pruneInterval: 500,
-          staleTtl: 2000,
+          staleTtl: 1000,
         },
       );
 
@@ -244,8 +244,8 @@ describe("MessagingClient - Phase 1", () => {
       (lobbyB as any).stopHeartbeat();
       (lobbyB as any).stopPruning();
 
-      // 3. Wait for A to prune Bob (staleTtl = 2000ms)
-      await waitUntil(() => !usersA.some((u) => u.userId === "bob"), 4000, 100);
+      // 3. Wait for A to prune Bob (staleTtl = 1000ms)
+      await waitUntil(() => !usersA.some((u) => u.userId === "bob"), 2000, 100);
 
       expect(usersA.find((u) => u.userId === "bob")).toBeUndefined();
       expect(usersA.length).toBe(1); // Only Alice remains
