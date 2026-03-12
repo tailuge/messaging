@@ -1,5 +1,12 @@
 import type { PresenceMessage, ChallengeMessage, TableMessage } from "./types";
 
+const PATHS = {
+  PRESENCE_PUBLISH: "/publish/presence/lobby",
+  PRESENCE_SUBSCRIBE: "/subscribe/presence/lobby",
+  TABLE_PUBLISH: (tableId: string) => `/publish/table/${tableId}`,
+  TABLE_SUBSCRIBE: (tableId: string) => `/subscribe/table/${tableId}`,
+} as const;
+
 export type Subscription = { stop: () => void; ready: Promise<void> };
 
 export class NchanClient {
@@ -46,7 +53,7 @@ export class NchanClient {
     options?: { keepalive?: boolean },
   ): Promise<Response> {
     return this.publish(
-      "/publish/presence/lobby",
+      PATHS.PRESENCE_PUBLISH,
       {
         ...message,
         messageType: "presence",
@@ -60,7 +67,7 @@ export class NchanClient {
     options?: { keepalive?: boolean },
   ): Promise<Response> {
     return this.publish(
-      "/publish/presence/lobby",
+      PATHS.PRESENCE_PUBLISH,
       {
         ...message,
         messageType: "challenge",
@@ -76,7 +83,7 @@ export class NchanClient {
     options?: { keepalive?: boolean },
   ): Promise<Response> {
     return this.publish(
-      `/publish/table/${tableId}`,
+      PATHS.TABLE_PUBLISH(tableId),
       {
         ...message,
         senderId,
@@ -88,11 +95,11 @@ export class NchanClient {
   // Subscribing
 
   subscribePresence(onMessage: (data: string) => void): Subscription {
-    return this.subscribe("/subscribe/presence/lobby", onMessage);
+    return this.subscribe(PATHS.PRESENCE_SUBSCRIBE, onMessage);
   }
 
   subscribeTable(tableId: string, onMessage: (data: string) => void): Subscription {
-    return this.subscribe(`/subscribe/table/${tableId}`, onMessage);
+    return this.subscribe(PATHS.TABLE_SUBSCRIBE(tableId), onMessage);
   }
 
   private subscribe(path: string, onMessage: (data: string) => void): Subscription {

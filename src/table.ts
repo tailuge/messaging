@@ -4,6 +4,7 @@ import { Lobby } from "./lobby";
 
 /**
  * Represents a specific communication channel for a 2-player/spectator scenario at a table.
+ * Uses `any` as default for internal storage flexibility; consumers should use `unknown` or specific types.
  */
 export class Table<T = any> {
   private subscription: Subscription | null = null;

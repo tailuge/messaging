@@ -55,7 +55,7 @@ export interface ChallengeMessage {
 /**
  * Generic structure for table/game events
  */
-export interface TableMessage<T = any> {
+export interface TableMessage<T = unknown> {
   type: string;
   senderId: string;
   data: T; // Application-specific payload

@@ -22,7 +22,7 @@ export class MessagingClient {
    * Initializes the client and ensures connection readiness.
    * In browser environments, attaches lifecycle event listeners.
    */
-  async start(): Promise<void> {
+  start(): void {
     if (typeof window !== "undefined") {
       window.addEventListener("pagehide", this.handlePageHide);
       window.addEventListener("pageshow", this.handlePageShow);
@@ -75,7 +75,7 @@ export class MessagingClient {
   /**
    * Joins a specific table for communication.
    */
-  async joinTable<T = unknown>(tableId: string, userId: string): Promise<Table<T>> {
+  async joinTable<T = any>(tableId: string, userId: string): Promise<Table<T>> {
     const existingTable = this.activeTables.find((t) => t.tableId === tableId);
 
     if (existingTable) {
