@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nchan Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #f4f4f9;
+            --card-bg: #ffffff;
+            --text-color: #333;
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --border-color: #dee2e6;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+        }
+        .dashboard {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        h1 { margin: 0; font-size: 1.5rem; }
+        .controls { display: flex; gap: 10px; align-items: center; }
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .metric { text-align: center; }
+        .metric-value { font-size: 1.5rem; font-weight: bold; color: var(--primary-color); }
+        .metric-label { font-size: 0.8rem; color: var(--secondary-color); text-transform: uppercase; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border-color); }
+        th { background: #f8f9fa; font-size: 0.9rem; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; font-size: 0.8rem; overflow-x: auto; }
+        .refresh-tag { font-size: 0.7rem; color: var(--secondary-color); }
+        input[type="text"] {
+            padding: 5px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+        button {
+            padding: 5px 15px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover { opacity: 0.9; }
+        .status-dot {
+            display: inline-block;
+            width: 100%;
+            height: 4px;
+            background: var(--success-color);
+            border-radius: 2px;
+            margin-top: 5px;
+        }
+        .loading { opacity: 0.5; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <header>
+            <h1>Nchan Dashboard</h1>
+            <div class="controls">
+                <span id="last-update" class="refresh-tag"></span>
+                <label><input type="checkbox" id="auto-refresh" checked> Auto-refresh (5s)</label>
+                <button onclick="fetchStats()">Refresh</button>
+            </div>
+        </header>
+
+        <div class="grid">
+            <div class="card metric">
+                <div id="stat-active-conns" class="metric-value">-</div>
+                <div class="metric-label">Active Connections</div>
+            </div>
+            <div class="card metric">
+                <div id="stat-total-channels" class="metric-value">-</div>
+                <div class="metric-label">Total Channels</div>
+            </div>
+            <div class="card metric">
+                <div id="stat-stored-messages" class="metric-value">-</div>
+                <div class="metric-label">Stored Messages</div>
+            </div>
+            <div class="card metric">
+                <div id="stat-mem-used" class="metric-value">-</div>
+                <div class="metric-label">Memory Used</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Channel Inspector</h3>
+            <div class="controls" style="margin-bottom: 15px;">
+                <input type="text" id="channel-id" placeholder="Enter channel ID (e.g. presence/lobby)" value="presence/lobby" style="flex-grow: 1;">
+                <button onclick="fetchStats()">Inspect</button>
+            </div>
+            <div id="channel-info">
+                <p style="color: var(--secondary-color);">Enter a channel ID to see details.</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>System Status</h3>
+            <div class="grid">
+                <div>
+                    <h4>Nginx</h4>
+                    <table id="nginx-table">
+                        <tr><td>Accepts</td><td id="ngx-accepts">-</td></tr>
+                        <tr><td>Handled</td><td id="ngx-handled">-</td></tr>
+                        <tr><td>Requests</td><td id="ngx-requests">-</td></tr>
+                    </table>
+                </div>
+                <div>
+                    <h4>Nchan Global</h4>
+                    <table id="nchan-table">
+                        <tr><td>Total Published</td><td id="nch-published">-</td></tr>
+                        <tr><td>Total Subscribed</td><td id="nch-subscribed">-</td></tr>
+                        <tr><td>Redis Pending</td><td id="nch-redis">-</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let refreshTimer = null;
+
+        async function fetchStats() {
+            const dashboard = document.querySelector('.dashboard');
+            dashboard.classList.add('loading');
+
+            const channelId = document.getElementById('channel-id').value;
+            const url = `/api/stats${channelId ? '?channel=' + encodeURIComponent(channelId) : ''}`;
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                updateUI(data);
+            } catch (error) {
+                console.error('Error fetching stats:', error);
+            } finally {
+                dashboard.classList.remove('loading');
+                document.getElementById('last-update').textContent = 'Last update: ' + new Date().toLocaleTimeString();
+            }
+        }
+
+        function updateUI(data) {
+            if (data.nginx) {
+                document.getElementById('stat-active-conns').textContent = data.nginx.active;
+                document.getElementById('ngx-accepts').textContent = data.nginx.accepts;
+                document.getElementById('ngx-handled').textContent = data.nginx.handled;
+                document.getElementById('ngx-requests').textContent = data.nginx.requests;
+            }
+
+            if (data.nchan) {
+                document.getElementById('stat-total-channels').textContent = data.nchan.total_channels || 0;
+                document.getElementById('stat-stored-messages').textContent = data.nchan.messages || 0;
+                document.getElementById('stat-mem-used').textContent = formatBytes(data.nchan.shared_memory_used || 0);
+                document.getElementById('nch-published').textContent = data.nchan.total_published_messages || 0;
+                document.getElementById('nch-subscribed').textContent = data.nchan.total_subscribed_messages || 0;
+                document.getElementById('nch-redis').textContent = data.nchan.redis_pending_commands || 0;
+            }
+
+            const channelContainer = document.getElementById('channel-info');
+            if (data.channel) {
+                if (data.channel.error) {
+                    channelContainer.innerHTML = `<p style="color: #dc3545;">${data.channel.error}</p>`;
+                } else {
+                    channelContainer.innerHTML = `
+                        <div class="grid">
+                            <div>
+                                <strong>Messages:</strong> ${data.channel.messages || 0}<br>
+                                <strong>Subscribers:</strong> ${data.channel.subscribers || 0}<br>
+                                <strong>Last Published:</strong> ${data.channel.last_published_msg_id || 'never'}
+                            </div>
+                            <pre>${JSON.stringify(data.channel, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function setupAutoRefresh() {
+            const checkbox = document.getElementById('auto-refresh');
+            const startTimer = () => {
+                if (refreshTimer) clearInterval(refreshTimer);
+                refreshTimer = setInterval(fetchStats, 5000);
+            };
+
+            checkbox.addEventListener('change', () => {
+                if (checkbox.checked) {
+                    startTimer();
+                } else {
+                    clearInterval(refreshTimer);
+                }
+            });
+
+            if (checkbox.checked) startTimer();
+        }
+
+        fetchStats();
+        setupAutoRefresh();
+    </script>
+</body>
+</html>
