@@ -50,10 +50,8 @@ export class MessagingClient {
 
       const tables = [...this.activeTables];
       this.activeTables = [];
-      // Use for loop to await each table leave
-      for (const table of tables) {
-        await table.leave(options);
-      }
+      // Tables can be left in parallel since each operates independently
+      await Promise.all(tables.map((table) => table.leave(options)));
     } finally {
       this.isStopping = false;
     }
@@ -77,23 +75,24 @@ export class MessagingClient {
   /**
    * Joins a specific table for communication.
    */
-  async joinTable<T = any>(tableId: string, userId: string): Promise<Table<T>> {
-    let table = this.activeTables.find((t) => t.tableId === tableId) as Table<T>;
+  async joinTable<T = unknown>(tableId: string, userId: string): Promise<Table<T>> {
+    const existingTable = this.activeTables.find((t) => t.tableId === tableId);
 
-    if (!table) {
-      const lobby = this.activeLobbies.find((l) => l.currentUser.userId === userId);
-      if (!lobby) {
-        throw new Error(`Cannot join table: No active lobby found for user ${userId}`);
-      }
-
-      table = new Table<T>(this.nchan, tableId, userId, lobby);
-      await table.join();
-      this.activeTables.push(table);
-
-      await lobby.updatePresence({ tableId });
-    } else {
-      await table.join();
+    if (existingTable) {
+      await existingTable.join();
+      return existingTable as Table<T>;
     }
+
+    const lobby = this.activeLobbies.find((l) => l.currentUser.userId === userId);
+    if (!lobby) {
+      throw new Error(`Cannot join table: No active lobby found for user ${userId}`);
+    }
+
+    const table = new Table<T>(this.nchan, tableId, userId, lobby);
+    await table.join();
+    this.activeTables.push(table);
+
+    await lobby.updatePresence({ tableId });
 
     return table;
   }
@@ -104,10 +103,14 @@ export class MessagingClient {
     this.stop({ isTeardown: true });
   };
 
-  private handlePageShow = (event: PageTransitionEvent): void => {
+  private handlePageShow = async (event: PageTransitionEvent): Promise<void> => {
     // If returning via bfcache, restore connections
     if (event.persisted && this.lastLobbyConfig) {
-      this.joinLobby(this.lastLobbyConfig.user, this.lastLobbyConfig.options);
+      try {
+        await this.joinLobby(this.lastLobbyConfig.user, this.lastLobbyConfig.options);
+      } catch (e) {
+        console.error("Failed to restore lobby on pageshow:", e);
+      }
     }
   };
 
