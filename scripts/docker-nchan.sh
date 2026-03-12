@@ -13,11 +13,6 @@ start() {
     echo "Building example client..."
     (cd "$PROJECT_ROOT" && npm run build:example)
 
-    echo "Syncing example to docker/html..."
-    cp "$PROJECT_ROOT/example/index.html" "$NCHAN_DIR/html/index.html"
-    cp "$PROJECT_ROOT/example/client.html" "$NCHAN_DIR/html/client.html"
-    cp "$PROJECT_ROOT/example/dashboard.html" "$NCHAN_DIR/html/dashboard.html"
-
     echo "Building nchan image..."
     docker build -t "$DOCKER_IMAGE" "$NCHAN_DIR"
 
@@ -64,10 +59,8 @@ build() {
     (cd "$PROJECT_ROOT" && npm run build:example)
 
     echo "Syncing example to docker/html..."
-    mkdir -p "$NCHAN_DIR/html/dist"
-    cp "$PROJECT_ROOT/example/index.html" "$NCHAN_DIR/html/index.html"
-    cp "$PROJECT_ROOT/example/client.html" "$NCHAN_DIR/html/client.html"
-    cp "$PROJECT_ROOT/example/dashboard.html" "$NCHAN_DIR/html/dashboard.html"
+    rm -rf "$NCHAN_DIR/html/example"
+    cp -r "$PROJECT_ROOT/example" "$NCHAN_DIR/html/example"
 
     echo "Building nchan image..."
     docker build -t "$DOCKER_IMAGE" "$NCHAN_DIR"
