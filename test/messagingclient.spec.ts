@@ -1,5 +1,5 @@
 import { PresenceMessage } from "../src/types";
-import { startContainer, stopContainer, createTestClient, waitUntil } from "./utils";
+import { startContainer, stopContainer, createTestClient, waitUntil, wait } from "./utils";
 
 describe("MessagingClient - Phase 1", () => {
   beforeAll(async () => {
@@ -150,7 +150,7 @@ describe("MessagingClient - Phase 1", () => {
         messageReceivedByB = m;
       });
 
-      await new Promise((r) => setTimeout(r, 500)); // wait for subscription
+      await wait(); // wait for subscription
       await tableA.publish("MOVE", { x: 5, y: 10 });
 
       await waitUntil(() => messageReceivedByB !== null);
@@ -180,7 +180,7 @@ describe("MessagingClient - Phase 1", () => {
       });
 
       // Wait for Bob's subscription to be ready
-      await new Promise((r) => setTimeout(r, 500));
+      await wait();
 
       // 2. Alice joins lobby and table
       await clientA.joinLobby({
@@ -192,7 +192,7 @@ describe("MessagingClient - Phase 1", () => {
       const tableA = await clientA.joinTable(tableId, "user-a");
 
       // Wait for presence propagation
-      await new Promise((r) => setTimeout(r, 500));
+      await wait();
 
       // 3. Alice leaves the table
       await tableA.leave();

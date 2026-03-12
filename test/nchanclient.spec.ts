@@ -1,4 +1,4 @@
-import { startContainer, stopContainer } from "./utils";
+import { startContainer, stopContainer, wait } from "./utils";
 import WebSocket from "ws";
 import { NchanClient } from "../src/nchanclient";
 
@@ -87,7 +87,7 @@ describe("NchanClient", () => {
       });
 
       // Wait for WS to connect
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await wait();
 
       await client.publishPresence({
         type: "join",
@@ -95,7 +95,7 @@ describe("NchanClient", () => {
         userName: "PresenceSubTest",
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await wait();
 
       subscription.stop();
 
@@ -122,7 +122,7 @@ describe("NchanClient", () => {
         messages.push(data);
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await wait();
 
       await client.publishChallenge({
         type: "offer",
@@ -132,7 +132,7 @@ describe("NchanClient", () => {
         ruleType: "standard",
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await wait();
 
       subscription.stop();
 
@@ -157,7 +157,7 @@ describe("NchanClient", () => {
         messages.push(data);
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await wait();
 
       await client.publishTable(
         tableId,
@@ -168,7 +168,7 @@ describe("NchanClient", () => {
         "user456",
       );
 
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await wait();
 
       subscription.stop();
 
