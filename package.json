@@ -1,5 +1,5 @@
 {
-  "name": "messaging",
+  "name": "@tailuge/messaging",
   "version": "1.0.0",
   "type": "module",
   "description": "A stateful messaging library for Nchan-powered real-time applications.",
