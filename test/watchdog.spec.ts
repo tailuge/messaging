@@ -1,33 +1,16 @@
-import { GenericContainer, StartedTestContainer } from "testcontainers";
-import { MessagingClient } from "../src/messagingclient";
 import { PresenceMessage } from "../src/types";
-import { waitUntil } from "./utils";
+import { startContainer, stopContainer, createTestClient, waitUntil } from "./utils";
 
 describe("Watchdog Integration", () => {
-  let container: StartedTestContainer;
-  let server: string;
-  let clients: MessagingClient[] = [];
-
   beforeAll(async () => {
-    container = await new GenericContainer("tailuge/billiards-network:latest")
-      .withExposedPorts(8080)
-      .withUser("root")
-      .start();
-
-    const port = container.getMappedPort(8080);
-    server = `localhost:${port}`;
-  }, 5000); // Container startup can be slow
-
-  afterAll(async () => {
-    await Promise.all(clients.map((c) => c.stop()));
-    if (container) await container.stop();
+    await startContainer();
   });
 
-  const createClient = () => {
-    const client = new MessagingClient({ baseUrl: server });
-    clients.push(client);
-    return client;
-  };
+  afterAll(async () => {
+    await stopContainer();
+  });
+
+  const createClient = createTestClient;
 
   it("should notify when an opponent disconnects (Watchdog)", async () => {
     const clientA = createClient();

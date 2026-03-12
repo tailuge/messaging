@@ -15,7 +15,7 @@
     "dist"
   ],
   "scripts": {
-    "test": "jest --config test/jest.config.cjs",
+    "test": "jest --config test/jest.config.cjs --verbose",
     "coverage": "jest --config test/jest.config.cjs --coverage",
     "playwright": "npx playwright test playwright/debug-connection.spec.ts",
     "test:debug": "npm run playwright",

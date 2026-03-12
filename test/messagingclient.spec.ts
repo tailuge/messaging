@@ -1,39 +1,16 @@
-import { GenericContainer, StartedTestContainer } from "testcontainers";
-import { MessagingClient } from "../src/messagingclient";
 import { PresenceMessage } from "../src/types";
-import { waitUntil } from "./utils";
+import { startContainer, stopContainer, createTestClient, waitUntil } from "./utils";
 
 describe("MessagingClient - Phase 1", () => {
-  let container: StartedTestContainer;
-  let server: string;
-  let clients: MessagingClient[] = [];
-
   beforeAll(async () => {
-    container = await new GenericContainer("tailuge/billiards-network:latest")
-      .withExposedPorts(8080)
-      .withUser("root")
-      .start();
-
-    const port = container.getMappedPort(8080);
-    server = `localhost:${port}`;
-  }, 5000);
+    await startContainer();
+  });
 
   afterAll(async () => {
-    if (container) {
-      await container.stop();
-    }
+    await stopContainer();
   });
 
-  afterEach(async () => {
-    await Promise.all(clients.map((c) => c.stop()));
-    clients = [];
-  });
-
-  const createClient = () => {
-    const client = new MessagingClient({ baseUrl: server });
-    clients.push(client);
-    return client;
-  };
+  const createClient = createTestClient;
 
   describe("Lobby & Presence", () => {
     it("should track multiple users in the lobby accurately", async () => {

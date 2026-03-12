@@ -1,4 +1,4 @@
-import { GenericContainer, StartedTestContainer } from "testcontainers";
+import { startContainer, stopContainer } from "./utils";
 import WebSocket from "ws";
 import { NchanClient } from "../src/nchanclient";
 
@@ -17,24 +17,16 @@ function expectMeta(parsed: Record<string, unknown>, pathPrefix: string) {
 }
 
 describe("NchanClient", () => {
-  let container: StartedTestContainer;
   let port: number;
   let server: string;
 
   beforeAll(async () => {
-    container = await new GenericContainer("tailuge/billiards-network:latest")
-      .withExposedPorts(8080)
-      .withUser("root")
-      .start();
-
-    port = container.getMappedPort(8080);
-    server = `localhost:${port}`;
+    server = await startContainer();
+    port = parseInt(server.split(":")[1], 10);
   }, 60000);
 
   afterAll(async () => {
-    if (container) {
-      await container.stop();
-    }
+    await stopContainer();
   });
 
   describe("publishPresence", () => {

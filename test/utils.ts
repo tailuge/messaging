@@ -2,6 +2,50 @@
  * Test utilities for reliable async waiting and sequencing.
  */
 
+import { GenericContainer, StartedTestContainer } from "testcontainers";
+import { MessagingClient } from "../src/messagingclient";
+
+export const CONTAINER_IMAGE = "tailuge/billiards-network:latest";
+
+let globalContainer: StartedTestContainer | null = null;
+let globalServer: string | null = null;
+let globalClients: MessagingClient[] = [];
+
+export async function startContainer(): Promise<string> {
+  if (globalServer) return globalServer;
+
+  globalContainer = await new GenericContainer(CONTAINER_IMAGE)
+    .withExposedPorts(8080)
+    .withUser("root")
+    .start();
+
+  const port = globalContainer.getMappedPort(8080);
+  globalServer = `localhost:${port}`;
+  return globalServer;
+}
+
+export async function stopContainer(): Promise<void> {
+  await Promise.all(globalClients.map((c) => c.stop()));
+  globalClients = [];
+
+  if (globalContainer) {
+    await globalContainer.stop();
+    globalContainer = null;
+    globalServer = null;
+  }
+}
+
+export function getServer(): string {
+  if (!globalServer) throw new Error("Container not started. Call startContainer() first.");
+  return globalServer;
+}
+
+export function createTestClient(): MessagingClient {
+  const client = new MessagingClient({ baseUrl: getServer() });
+  globalClients.push(client);
+  return client;
+}
+
 // Polls until condition returns true, or throws on timeout
 export async function waitUntil(
   condition: () => boolean,
