@@ -138,6 +138,7 @@ export class NchanClient {
           const delay = Math.min(Math.pow(2, reconnectAttempts) * 1000, maxReconnectDelay);
           reconnectAttempts++;
           reconnectTimer = setTimeout(connect, delay);
+          reconnectTimer.unref?.();
         }
       };
 

@@ -46,6 +46,16 @@ export function createTestClient(): MessagingClient {
   return client;
 }
 
+export async function cleanupClients(): Promise<void> {
+  await Promise.all(globalClients.map((c) => c.stop()));
+  globalClients = [];
+}
+
+export async function forceCleanup(): Promise<void> {
+  await cleanupClients();
+  await stopContainer();
+}
+
 // Polls until condition returns true, or throws on timeout
 export async function waitUntil(
   condition: () => boolean,

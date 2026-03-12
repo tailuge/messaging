@@ -82,6 +82,7 @@ export class Lobby {
         console.error("Failed to send heartbeat:", _e);
       }
     }, this.heartbeatInterval);
+    this.heartbeatTimer.unref?.();
   }
 
   private stopHeartbeat(): void {
@@ -112,6 +113,7 @@ export class Lobby {
         this.notifyListeners();
       }
     }, this.pruneInterval);
+    this.pruneTimer.unref?.();
   }
 
   private stopPruning(): void {

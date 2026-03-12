@@ -1,5 +1,5 @@
 import { PresenceMessage } from "../src/types";
-import { startContainer, stopContainer, createTestClient, waitUntil } from "./utils";
+import { startContainer, stopContainer, createTestClient, waitUntil, cleanupClients } from "./utils";
 
 describe("Watchdog Integration", () => {
   beforeAll(async () => {
@@ -8,6 +8,10 @@ describe("Watchdog Integration", () => {
 
   afterAll(async () => {
     await stopContainer();
+  });
+
+  afterEach(async () => {
+    await cleanupClients();
   });
 
   const createClient = createTestClient;

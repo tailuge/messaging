@@ -1,4 +1,4 @@
-import { startContainer, stopContainer, wait } from "./utils";
+import { startContainer, stopContainer, wait, cleanupClients } from "./utils";
 import WebSocket from "ws";
 import { NchanClient } from "../src/nchanclient";
 
@@ -27,6 +27,10 @@ describe("NchanClient", () => {
 
   afterAll(async () => {
     await stopContainer();
+  });
+
+  afterEach(async () => {
+    await cleanupClients();
   });
 
   describe("publishPresence", () => {

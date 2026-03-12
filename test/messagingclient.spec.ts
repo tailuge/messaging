@@ -1,5 +1,5 @@
 import { PresenceMessage } from "../src/types";
-import { startContainer, stopContainer, createTestClient, waitUntil, wait } from "./utils";
+import { startContainer, stopContainer, createTestClient, waitUntil, wait, cleanupClients } from "./utils";
 
 describe("MessagingClient - Phase 1", () => {
   beforeAll(async () => {
@@ -8,6 +8,10 @@ describe("MessagingClient - Phase 1", () => {
 
   afterAll(async () => {
     await stopContainer();
+  });
+
+  afterEach(async () => {
+    await cleanupClients();
   });
 
   const createClient = createTestClient;

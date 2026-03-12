@@ -18,4 +18,5 @@ module.exports = {
   },
   collectCoverageFrom: ["<rootDir>/src/**/*.ts"],
   coverageReporters: ["text", "text-summary"],
+  globalTeardown: "<rootDir>/test/globalTeardown.cjs",
 };
