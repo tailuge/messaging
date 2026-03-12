@@ -19,21 +19,21 @@ RUN apk add --no-cache \
     zlib-dev \
     wget
 
-RUN mkdir -p /build
 WORKDIR /build
 
-RUN wget -qO- https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz | tar zxvf -
-RUN wget -qO- https://github.com/nginx/njs/archive/refs/tags/${NJS_VERSION}.tar.gz | tar zxvf -
-RUN git clone --depth 1 --branch v${NCHAN_VERSION} https://github.com/slact/nchan.git /nchan
-
-WORKDIR /build/nginx-${NGINX_VERSION}
-
-RUN NJS_LIBXSLT=NO ./configure \
-    --with-compat \
-    --with-http_ssl_module \
-    --add-dynamic-module=/nchan \
-    --add-dynamic-module=/build/njs-${NJS_VERSION}/nginx && \
-    make modules
+RUN wget -qO- https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz | tar zxvf - && \
+    wget -qO- https://github.com/nginx/njs/archive/refs/tags/${NJS_VERSION}.tar.gz | tar zxvf - && \
+    git clone --depth 1 --branch v${NCHAN_VERSION} https://github.com/slact/nchan.git /nchan && \
+    cd /build/nginx-${NGINX_VERSION} && \
+    NJS_LIBXSLT=NO ./configure \
+        --with-compat \
+        --with-http_ssl_module \
+        --add-dynamic-module=/nchan \
+        --add-dynamic-module=/build/njs-${NJS_VERSION}/nginx && \
+    make modules && \
+    cp objs/ngx_nchan_module.so /build/ && \
+    cp objs/ngx_http_js_module.so /build/ && \
+    rm -rf /build/nginx-${NGINX_VERSION} /build/njs-${NJS_VERSION} /nchan
 
 # ---------- runtime stage ----------
 FROM nginx:${NGINX_VERSION}-alpine
@@ -45,8 +45,8 @@ LABEL org.opencontainers.image.source="https://github.com/tailuge/scoreboard" \
 
 RUN mkdir -p /etc/nginx/modules /var/cache/nginx /var/run /var/log/nginx
 
-COPY --from=builder /build/nginx-${NGINX_VERSION}/objs/ngx_nchan_module.so /etc/nginx/modules/
-COPY --from=builder /build/nginx-${NGINX_VERSION}/objs/ngx_http_js_module.so /etc/nginx/modules/
+COPY --from=builder /build/ngx_nchan_module.so /etc/nginx/modules/
+COPY --from=builder /build/ngx_http_js_module.so /etc/nginx/modules/
 
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY nchan.conf /etc/nginx/conf.d/default.conf

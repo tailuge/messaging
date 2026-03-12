@@ -14,7 +14,7 @@ start() {
     (cd "$PROJECT_ROOT" && npm run build:example)
 
     echo "Building nchan image..."
-    docker build -t "$DOCKER_IMAGE" "$NCHAN_DIR"
+    docker build -t "$DOCKER_IMAGE:latest" -t "$DOCKER_IMAGE:3.0.0" "$NCHAN_DIR"
 
     echo "Starting nchan container..."
     docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
@@ -63,7 +63,7 @@ build() {
     cp -r "$PROJECT_ROOT/example" "$NCHAN_DIR/html/example"
 
     echo "Building nchan image..."
-    docker build -t "$DOCKER_IMAGE" "$NCHAN_DIR"
+    docker build -t "$DOCKER_IMAGE:latest" -t "$DOCKER_IMAGE:3.0.0" "$NCHAN_DIR"
     echo "Build complete."
 }
 
