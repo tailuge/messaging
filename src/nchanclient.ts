@@ -1,8 +1,8 @@
 import type { PresenceMessage, ChallengeMessage, TableMessage } from "./types";
 
 const PATHS = {
-  PRESENCE_PUBLISH: "/publish/presence/lobby",
-  PRESENCE_SUBSCRIBE: "/subscribe/presence/lobby",
+  PRESENCE_PUBLISH: "/publish/status/lobby",
+  PRESENCE_SUBSCRIBE: "/subscribe/status/lobby",
   TABLE_PUBLISH: (tableId: string) => `/publish/table/${tableId}`,
   TABLE_SUBSCRIBE: (tableId: string) => `/subscribe/table/${tableId}`,
 } as const;

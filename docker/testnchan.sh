@@ -83,12 +83,12 @@ run_test "WebSocket Handshake" bash -c '
 '
 
 run_test "Publish to Presence" curl -fsS --max-time 5 -X POST \
-	-d '{"userId":"user1","userName":"Alice","type":"join"}' "http://localhost/publish/presence/lobby"
+	-d '{"userId":"user1","userName":"Alice","type":"join"}' "http://localhost/publish/status/lobby"
 
 run_test "Presence Pub/Sub" bash -c '
-	curl -fsS --max-time 5 -X POST -d "{\"userId\":\"user1\",\"userName\":\"Alice\",\"type\":\"join\"}" "http://localhost/publish/presence/lobby" >/dev/null
-	curl -fsS --max-time 5 -X POST -d "{\"userId\":\"user2\",\"userName\":\"Bob\",\"type\":\"join\"}" "http://localhost/publish/presence/lobby" >/dev/null
-	curl -fsS --max-time 5 "http://localhost/subscribe/presence/lobby" | grep -q "userId"
+	curl -fsS --max-time 5 -X POST -d "{\"userId\":\"user1\",\"userName\":\"Alice\",\"type\":\"join\"}" "http://localhost/publish/status/lobby" >/dev/null
+	curl -fsS --max-time 5 -X POST -d "{\"userId\":\"user2\",\"userName\":\"Bob\",\"type\":\"join\"}" "http://localhost/publish/status/lobby" >/dev/null
+	curl -fsS --max-time 5 "http://localhost/subscribe/status/lobby" | grep -q "userId"
 '
 
 run_test "Publish to Table" curl -fsS --max-time 5 -X POST \
@@ -146,7 +146,7 @@ run_test "API: Stats endpoint contains nchan data" bash -c '
 '
 
 run_test "API: Stats endpoint with channel param" bash -c '
-	curl -fsS --max-time 5 "http://localhost/api/stats?channel=presence/lobby" | grep -q "\"channel\":"
+	curl -fsS --max-time 5 "http://localhost/api/stats?channel=status/lobby" | grep -q "\"channel\":"
 '
 
 echo ""

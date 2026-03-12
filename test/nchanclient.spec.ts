@@ -114,7 +114,7 @@ describe("NchanClient", () => {
       expect(parsed.type).toBe("join");
       expect(parsed.userId).toBe(targetUserId);
 
-      expectMeta(parsed, "/publish/presence/");
+      expectMeta(parsed, "/publish/status/");
     });
 
     it("should receive challenge messages on presence channel", async () => {
@@ -187,7 +187,7 @@ describe("NchanClient", () => {
 
   describe("WebSocket connection", () => {
     it("should connect to nchan websocket", (done) => {
-      const ws = new WebSocket(`ws://localhost:${port}/subscribe/presence/lobby`);
+      const ws = new WebSocket(`ws://localhost:${port}/subscribe/status/lobby`);
 
       ws.on("open", () => {
         expect(ws.readyState).toBe(WebSocket.OPEN);
