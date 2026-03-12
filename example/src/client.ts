@@ -22,6 +22,7 @@ const client = new MessagingClient({
 let lobby: Lobby | null = null;
 let currentTable: Table | null = null;
 let activeChallenge: ChallengeMessage | null = null;
+let mySeekTableId: string | null = null;
 
 // =============================================================================
 // Lobby Setup
@@ -30,6 +31,17 @@ let activeChallenge: ChallengeMessage | null = null;
 function setupLobbyEvents(lobbyInstance: Lobby) {
     lobbyInstance.onUsersChange((users: PresenceMessage[]) => {
         ui.renderUserList(users, userId);
+
+        // Check if someone joined our seek - if so, auto-join the game
+        if (mySeekTableId) {
+            const otherUser = users.find(u => u.userId !== userId && u.tableId === mySeekTableId);
+            if (otherUser) {
+                console.log('Someone joined my seek, auto-joining game');
+                mySeekTableId = null;
+                ui.hideSeekStatus();
+                joinGame(otherUser.tableId!, otherUser.userId);
+            }
+        }
     });
 
     lobbyInstance.onChallenge((challenge: ChallengeMessage) => {
@@ -129,6 +141,7 @@ async function disconnect() {
     lobby = null;
     currentTable = null;
     activeChallenge = null;
+    mySeekTableId = null;
     ui.updateConnectionUI(false);
     ui.clearUserList();
     ui.showDisconnected();
@@ -145,12 +158,14 @@ async function disconnect() {
 (window as any).findGame = async () => {
     if (!lobby) return;
     const tableId = getUID();
+    mySeekTableId = tableId;
     await lobby.updatePresence({ seek: { tableId, ruleType: 'standard' } });
     ui.showSeekStatus();
 };
 
 (window as any).cancelSeek = async () => {
     if (!lobby) return;
+    mySeekTableId = null;
     await lobby.updatePresence({ seek: undefined });
     ui.hideSeekStatus();
 };

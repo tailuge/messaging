@@ -1,19 +1,7 @@
 import { GenericContainer, StartedTestContainer } from "testcontainers";
 import { MessagingClient } from "../src/messagingclient";
 import { PresenceMessage } from "../src/types";
-
-async function waitUntil(
-  condition: () => boolean,
-  timeout = 3000
-): Promise<void> {
-  const start = Date.now();
-  while (!condition()) {
-    if (Date.now() - start > timeout) {
-      throw new Error("waitUntil timeout");
-    }
-    await new Promise((r) => setTimeout(r, 50));
-  }
-}
+import { waitUntil } from "./utils";
 
 describe("Watchdog Integration", () => {
   let container: StartedTestContainer;
@@ -77,7 +65,8 @@ describe("Watchdog Integration", () => {
 
     // Wait until Bob sees Alice
     await waitUntil(() =>
-      usersB.some((u) => u.userId === "user-a" && u.tableId === tableId)
+      usersB.some((u) => u.userId === "user-a" && u.tableId === tableId),
+      3000
     );
 
     // 3. Simulate Alice crashing
