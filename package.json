@@ -23,7 +23,7 @@
     "prettify": "npx oxfmt src test",
     "build": "tsc --declaration",
     "release": "npm version minor --no-git-tag-version && npm run build",
-    "build:all": "bash scripts/docker-nchan.sh build",
+    "build:all": "npm run build && npm run build:example && npm run docker:start",
     "build:example": "npx esbuild example/src/client.ts --bundle --outfile=example/dist/client.js",
     "example": "npm run build:example && npx http-server example -p 3000",
     "docker:start": "bash scripts/docker-nchan.sh",

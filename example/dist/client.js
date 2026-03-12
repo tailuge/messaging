@@ -77,7 +77,7 @@
       const ready = new Promise((r) => {
         resolveReady = r;
       });
-      const connect = () => {
+      const connect2 = () => {
         if (stopped) return;
         if (ws && ws.readyState <= WebSocket.OPEN) {
           resolveReady();
@@ -95,14 +95,14 @@
           if (!stopped) {
             const delay = Math.min(Math.pow(2, reconnectAttempts) * 1e3, maxReconnectDelay);
             reconnectAttempts++;
-            reconnectTimer = setTimeout(connect, delay);
+            reconnectTimer = setTimeout(connect2, delay);
           }
         };
         ws.onerror = () => {
           ws?.close();
         };
       };
-      connect();
+      connect2();
       return {
         ready,
         stop: () => {
@@ -218,6 +218,7 @@
       this.spectatorListeners = [];
       this.opponentLeftListeners = [];
       this.lobbyUnsubscribe?.();
+      this.isJoined = false;
     }
     handleIncomingMessage(data) {
       const msg = parseMessage(data);
@@ -441,6 +442,7 @@
       }
       this.users.clear();
       this.notifyListeners();
+      this.isJoined = false;
     }
     handleIncomingMessage(data) {
       const rawMsg = parseMessage(data);
@@ -541,13 +543,11 @@
         if (!lobby2) {
           throw new Error(`Cannot join table: No active lobby found for user ${userId2}`);
         }
-        console.log(`MessagingClient [${userId2}] creating new Table ${tableId}`);
         table = new Table(this.nchan, tableId, userId2, lobby2);
         await table.join();
         this.activeTables.push(table);
         await lobby2.updatePresence({ tableId });
       } else {
-        console.log(`MessagingClient [${userId2}] reusing existing Table ${tableId}`);
         await table.join();
       }
       return table;
@@ -569,91 +569,7 @@
     };
   };
 
-  // example/src/client.ts
-  var params = new URLSearchParams(window.location.search);
-  var userId = params.get("id") || "user-" + Math.random().toString(36).substr(2, 5);
-  var userName = params.get("name") || "User";
-  var client = new MessagingClient({
-    baseUrl: window.location.hostname
-  });
-  var lobby = null;
-  var currentTable = null;
-  var activeChallenge = null;
-  async function initLobby(lobbyInstance) {
-    lobbyInstance.onUsersChange((users) => {
-      const list = document.getElementById("user-list");
-      const countEl = document.getElementById("count");
-      if (countEl) countEl.innerText = `Online Users: ${users.length}`;
-      if (list) {
-        list.innerHTML = users.map((u) => {
-          const isMe = u.userId === userId;
-          const inGame = !!u.tableId;
-          const isSeeking = !!u.seek;
-          let actionBtn = "";
-          if (!isMe && !inGame) {
-            if (isSeeking) {
-              actionBtn = `<button class="btn-join" onclick="joinSeek('${u.userId}', '${u.seek?.tableId}')">Join Game</button>`;
-            } else {
-              actionBtn = `<button class="btn-challenge" onclick="challengeUser('${u.userId}')">Challenge</button>`;
-            }
-          }
-          return `
-                    <li class="user-item ${isMe ? "me" : ""}">
-                        <div>
-                            <span>${u.userName}</span>
-                            <div class="status">
-                                ${u.userId} 
-                                ${inGame ? "(In Game: " + u.tableId + ")" : ""}
-                                ${isSeeking ? "(Seeking Game...)" : ""}
-                            </div>
-                        </div>
-                        ${actionBtn}
-                    </li>
-                `;
-        }).join("");
-      }
-    });
-    lobbyInstance.onChallenge((challenge) => {
-      if (challenge.type === "offer") {
-        activeChallenge = challenge;
-        showChallenge(challenge);
-      } else if (challenge.type === "accept") {
-        joinGame(challenge.tableId, challenge.challengerId);
-      } else if (challenge.type === "decline" || challenge.type === "cancel") {
-        if (activeChallenge?.challengerId === challenge.challengerId) {
-          hideChallenge();
-        }
-        console.log(`Challenge ${challenge.type}ed by ${challenge.challengerName}`);
-      }
-    });
-  }
-  window.connect = async () => {
-    try {
-      await client.start();
-      lobby = await client.joinLobby({
-        messageType: "presence",
-        type: "join",
-        userId,
-        userName
-      });
-      await initLobby(lobby);
-      const myNameEl = document.getElementById("my-name");
-      if (myNameEl) myNameEl.innerText = `Hello, ${userName} (${userId})`;
-      updateConnectionUI(true);
-    } catch (e) {
-      console.error("Connection failed", e);
-    }
-  };
-  window.disconnect = async () => {
-    await client.stop();
-    lobby = null;
-    currentTable = null;
-    updateConnectionUI(false);
-    const list = document.getElementById("user-list");
-    if (list) list.innerHTML = "";
-    const myNameEl = document.getElementById("my-name");
-    if (myNameEl) myNameEl.innerText = "Disconnected";
-  };
+  // example/src/ui.ts
   function updateConnectionUI(online) {
     const statusEl = document.getElementById("conn-status");
     const btnConnect = document.getElementById("btn-connect");
@@ -678,7 +594,99 @@
   function hideChallenge() {
     const container = document.getElementById("challenge-container");
     if (container) container.style.display = "none";
-    activeChallenge = null;
+  }
+  function renderUserList(users, currentUserId) {
+    const list = document.getElementById("user-list");
+    const countEl = document.getElementById("count");
+    if (countEl) countEl.innerText = `Online Users: ${users.length}`;
+    if (list) {
+      list.innerHTML = users.map((u) => {
+        const isMe = u.userId === currentUserId;
+        const inGame = !!u.tableId;
+        const isSeeking = !!u.seek;
+        let actionBtn = "";
+        if (!isMe && !inGame) {
+          if (isSeeking) {
+            actionBtn = `<button class="btn-join" onclick="joinSeek('${u.userId}', '${u.seek?.tableId}')">Join Game</button>`;
+          } else {
+            actionBtn = `<button class="btn-challenge" onclick="challengeUser('${u.userId}')">Challenge</button>`;
+          }
+        }
+        return `
+                <li class="user-item ${isMe ? "me" : ""}">
+                    <div>
+                        <span>${u.userName}</span>
+                        <div class="status">
+                            ${u.userId} 
+                            ${inGame ? "(In Game: " + u.tableId + ")" : ""}
+                            ${isSeeking ? "(Seeking Game...)" : ""}
+                        </div>
+                    </div>
+                    ${actionBtn}
+                </li>
+            `;
+      }).join("");
+    }
+  }
+  function showGameInfo(tableId, opponentName) {
+    const container = document.getElementById("game-container");
+    const text = document.getElementById("game-text");
+    if (container && text) {
+      text.innerText = `Playing on table: ${tableId} against ${opponentName}`;
+      container.style.display = "block";
+    }
+  }
+  function hideGameInfo() {
+    const container = document.getElementById("game-container");
+    if (container) container.style.display = "none";
+  }
+  function showSeekStatus() {
+    document.getElementById("seek-container").style.display = "block";
+  }
+  function hideSeekStatus() {
+    document.getElementById("seek-container").style.display = "none";
+  }
+  function updateMyName(name, userId2) {
+    const myNameEl = document.getElementById("my-name");
+    if (myNameEl) myNameEl.innerText = `Hello, ${name} (${userId2})`;
+  }
+  function clearUserList() {
+    const list = document.getElementById("user-list");
+    if (list) list.innerHTML = "";
+  }
+  function showDisconnected() {
+    const myNameEl = document.getElementById("my-name");
+    if (myNameEl) myNameEl.innerText = "Disconnected";
+  }
+
+  // example/src/client.ts
+  var params = new URLSearchParams(window.location.search);
+  var userId = params.get("id") || "user-" + Math.random().toString(36).substr(2, 5);
+  var userName = params.get("name") || "User";
+  var client = new MessagingClient({
+    baseUrl: window.location.hostname
+  });
+  var lobby = null;
+  var currentTable = null;
+  var activeChallenge = null;
+  function setupLobbyEvents(lobbyInstance) {
+    lobbyInstance.onUsersChange((users) => {
+      renderUserList(users, userId);
+    });
+    lobbyInstance.onChallenge((challenge) => {
+      if (challenge.type === "offer") {
+        activeChallenge = challenge;
+        showChallenge(challenge);
+      } else if (challenge.type === "accept") {
+        joinGame(challenge.tableId, challenge.challengerId);
+      } else if (challenge.type === "decline" || challenge.type === "cancel") {
+        if (activeChallenge?.challengerId === challenge.challengerId) {
+          hideChallenge();
+          activeChallenge = null;
+        }
+        console.log(`Challenge ${challenge.type}ed by ${challenge.challengerName}`);
+      }
+    });
   }
   async function joinGame(tableId, opponentId) {
     if (currentTable) {
@@ -688,26 +696,75 @@
     if (lobby) {
       await lobby.updatePresence({ tableId, seek: void 0 });
     }
-    const container = document.getElementById("game-container");
-    const text = document.getElementById("game-text");
-    if (container && text) {
-      text.innerText = `Playing on table: ${tableId} against ${opponentId}`;
-      container.style.display = "block";
-    }
+    showGameInfo(tableId, opponentId);
     currentTable.onMessage((msg) => {
       console.log("Game Message:", msg);
     });
   }
+  async function leaveCurrentGame() {
+    if (currentTable) {
+      await currentTable.leave();
+      currentTable = null;
+      if (lobby) {
+        await lobby.updatePresence({ tableId: void 0 });
+      }
+      hideGameInfo();
+    }
+  }
+  async function acceptCurrentChallenge() {
+    if (!activeChallenge || !lobby) return;
+    const table = await lobby.acceptChallenge(
+      activeChallenge.challengerId,
+      activeChallenge.ruleType,
+      activeChallenge.tableId
+    );
+    currentTable = table;
+    hideChallenge();
+    showGameInfo(activeChallenge.tableId, activeChallenge.challengerName);
+  }
+  async function declineCurrentChallenge() {
+    if (!activeChallenge || !lobby) return;
+    await lobby.declineChallenge(activeChallenge.challengerId, activeChallenge.ruleType);
+    hideChallenge();
+    activeChallenge = null;
+  }
+  async function connect() {
+    try {
+      await client.start();
+      lobby = await client.joinLobby({
+        messageType: "presence",
+        type: "join",
+        userId,
+        userName
+      });
+      setupLobbyEvents(lobby);
+      updateMyName(userName, userId);
+      updateConnectionUI(true);
+    } catch (e) {
+      console.error("Connection failed", e);
+    }
+  }
+  async function disconnect() {
+    await client.stop();
+    lobby = null;
+    currentTable = null;
+    activeChallenge = null;
+    updateConnectionUI(false);
+    clearUserList();
+    showDisconnected();
+  }
+  window.connect = connect;
+  window.disconnect = disconnect;
   window.findGame = async () => {
     if (!lobby) return;
     const tableId = getUID();
     await lobby.updatePresence({ seek: { tableId, ruleType: "standard" } });
-    document.getElementById("seek-container").style.display = "block";
+    showSeekStatus();
   };
   window.cancelSeek = async () => {
     if (!lobby) return;
     await lobby.updatePresence({ seek: void 0 });
-    document.getElementById("seek-container").style.display = "none";
+    hideSeekStatus();
   };
   window.joinSeek = async (targetUserId, tableId) => {
     console.log("Joining seek from:", targetUserId, "at table:", tableId);
@@ -718,49 +775,21 @@
     console.log("Challenging user:", targetUserId);
     await lobby.challenge(targetUserId, "standard");
   };
-  window.leaveGame = async () => {
-    if (currentTable) {
-      await currentTable.leave();
-      currentTable = null;
-      if (lobby) {
-        await lobby.updatePresence({ tableId: void 0 });
-      }
-      const container = document.getElementById("game-container");
-      if (container) container.style.display = "none";
-    }
-  };
-  document.getElementById("btn-accept")?.addEventListener("click", async () => {
-    if (activeChallenge && lobby) {
-      const table = await lobby.acceptChallenge(
-        activeChallenge.challengerId,
-        activeChallenge.ruleType,
-        activeChallenge.tableId
-      );
-      currentTable = table;
-      hideChallenge();
-      const container = document.getElementById("game-container");
-      const text = document.getElementById("game-text");
-      if (container && text) {
-        text.innerText = `Playing on table: ${activeChallenge.tableId} against ${activeChallenge.challengerName}`;
-        container.style.display = "block";
-      }
-    }
-  });
-  document.getElementById("btn-decline")?.addEventListener("click", async () => {
-    if (activeChallenge && lobby) {
-      await lobby.declineChallenge(activeChallenge.challengerId, activeChallenge.ruleType);
-      hideChallenge();
-    }
-  });
+  window.leaveGame = leaveCurrentGame;
   window.updateName = async () => {
     const input = document.getElementById("name-input");
     const newName = input?.value;
     if (newName && lobby) {
       await lobby.updatePresence({ userName: newName });
-      const myNameEl = document.getElementById("my-name");
-      if (myNameEl) myNameEl.innerText = `Hello, ${newName} (${userId})`;
+      updateMyName(newName, userId);
     }
   };
+  document.getElementById("btn-accept")?.addEventListener("click", async () => {
+    await acceptCurrentChallenge();
+  });
+  document.getElementById("btn-decline")?.addEventListener("click", async () => {
+    await declineCurrentChallenge();
+  });
   updateConnectionUI(false);
   window.connect();
 })();
