@@ -145,8 +145,8 @@ run_test "API: Stats endpoint contains nchan data" bash -c '
 	curl -fsS --max-time 5 "http://localhost/api/stats" | grep -q "\"nchan\":"
 '
 
-run_test "API: Stats endpoint with channel param" bash -c '
-	curl -fsS --max-time 5 "http://localhost/api/stats?channel=status/lobby" | grep -q "\"channel\":"
+run_test "API: Stats endpoint contains ip_cache" bash -c '
+	curl -fsS --max-time 5 "http://localhost/api/stats" | grep -q "\"ip_cache\":"
 '
 
 echo ""

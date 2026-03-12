@@ -138,11 +138,10 @@ async function stats(r) {
     return null;
   }
 
-  function sendResponse(nginx, nchan, channel) {
+  function sendResponse(nginx, nchan) {
     const data = {
       nginx,
       nchan,
-      channel,
       ip_cache: getIpCache(),
       ts: new Date().toISOString()
     };
@@ -155,24 +154,7 @@ async function stats(r) {
       const nginx = nginxRes.status === 200 ? parseNginxStatus(nginxRes.responseText) : null;
       r.subrequest("/nchan_stats", { method: "GET" }, function(nchanRes) {
         const nchan = nchanRes.status === 200 ? parseNchanStatus(nchanRes.responseText) : null;
-        const channelId = r.args.channel;
-        if (channelId) {
-          r.subrequest("/internal/channel/" + channelId, { method: "GET" }, function(chanRes) {
-            let channel = null;
-            if (chanRes.status === 200) {
-              try {
-                channel = JSON.parse(chanRes.responseText);
-              } catch (e) {
-                channel = { error: "Failed to parse channel info" };
-              }
-            } else {
-              channel = { status: chanRes.status, error: "Channel not found or error" };
-            }
-            sendResponse(nginx, nchan, channel);
-          });
-        } else {
-          sendResponse(nginx, nchan, null);
-        }
+        sendResponse(nginx, nchan);
       });
     });
   } catch (e) {

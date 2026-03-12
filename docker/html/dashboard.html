@@ -111,17 +111,6 @@
         </div>
 
         <div class="card">
-            <h3>Channel Inspector</h3>
-            <div class="controls" style="margin-bottom: 15px;">
-                <input type="text" id="channel-id" placeholder="Enter channel ID (e.g. presence/lobby)" value="presence/lobby" style="flex-grow: 1;">
-                <button onclick="fetchStats()">Inspect</button>
-            </div>
-            <div id="channel-info">
-                <p style="color: var(--secondary-color);">Enter a channel ID to see details.</p>
-            </div>
-        </div>
-
-        <div class="card">
             <h3>System Status</h3>
             <div class="grid">
                 <div>
@@ -165,8 +154,7 @@
             const dashboard = document.querySelector('.dashboard');
             dashboard.classList.add('loading');
 
-            const channelId = document.getElementById('channel-id').value;
-            const url = `/api/stats${channelId ? '?channel=' + encodeURIComponent(channelId) : ''}`;
+            const url = `/api/stats`;
 
             try {
                 const response = await fetch(url);
@@ -197,24 +185,6 @@
                 document.getElementById('nch-published').textContent = data.nchan.total_published_messages || 0;
                 document.getElementById('nch-subscribed').textContent = data.nchan.total_subscribed_messages || 0;
                 document.getElementById('nch-redis').textContent = data.nchan.redis_pending_commands || 0;
-            }
-
-            const channelContainer = document.getElementById('channel-info');
-            if (data.channel) {
-                if (data.channel.error) {
-                    channelContainer.innerHTML = `<p style="color: #dc3545;">${data.channel.error}</p>`;
-                } else {
-                    channelContainer.innerHTML = `
-                        <div class="grid">
-                            <div>
-                                <strong>Messages:</strong> ${data.channel.messages || 0}<br>
-                                <strong>Subscribers:</strong> ${data.channel.subscribers || 0}<br>
-                                <strong>Last Published:</strong> ${data.channel.last_published_msg_id || 'never'}
-                            </div>
-                            <pre>${JSON.stringify(data.channel, null, 2)}</pre>
-                        </div>
-                    `;
-                }
             }
 
             const ipCacheTableBody = document.querySelector('#ip-cache-table tbody');
