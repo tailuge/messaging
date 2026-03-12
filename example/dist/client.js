@@ -1,6 +1,12 @@
 "use strict";
 (() => {
   // src/nchanclient.ts
+  var PATHS = {
+    PRESENCE_PUBLISH: "/publish/presence/lobby",
+    PRESENCE_SUBSCRIBE: "/subscribe/presence/lobby",
+    TABLE_PUBLISH: (tableId) => `/publish/table/${tableId}`,
+    TABLE_SUBSCRIBE: (tableId) => `/subscribe/table/${tableId}`
+  };
   var NchanClient = class {
     server;
     constructor(server) {
@@ -31,7 +37,7 @@
     // Publishing
     async publishPresence(message, options) {
       return this.publish(
-        "/publish/presence/lobby",
+        PATHS.PRESENCE_PUBLISH,
         {
           ...message,
           messageType: "presence"
@@ -41,7 +47,7 @@
     }
     async publishChallenge(message, options) {
       return this.publish(
-        "/publish/presence/lobby",
+        PATHS.PRESENCE_PUBLISH,
         {
           ...message,
           messageType: "challenge"
@@ -51,7 +57,7 @@
     }
     async publishTable(tableId, message, senderId, options) {
       return this.publish(
-        `/publish/table/${tableId}`,
+        PATHS.TABLE_PUBLISH(tableId),
         {
           ...message,
           senderId
@@ -61,10 +67,10 @@
     }
     // Subscribing
     subscribePresence(onMessage) {
-      return this.subscribe("/subscribe/presence/lobby", onMessage);
+      return this.subscribe(PATHS.PRESENCE_SUBSCRIBE, onMessage);
     }
     subscribeTable(tableId, onMessage) {
-      return this.subscribe(`/subscribe/table/${tableId}`, onMessage);
+      return this.subscribe(PATHS.TABLE_SUBSCRIBE(tableId), onMessage);
     }
     subscribe(path, onMessage) {
       const url = this.getWsUrl(path);
@@ -96,6 +102,7 @@
             const delay = Math.min(Math.pow(2, reconnectAttempts) * 1e3, maxReconnectDelay);
             reconnectAttempts++;
             reconnectTimer = setTimeout(connect2, delay);
+            reconnectTimer.unref?.();
           }
         };
         ws.onerror = () => {
@@ -307,6 +314,7 @@
           console.error("Failed to send heartbeat:", _e);
         }
       }, this.heartbeatInterval);
+      this.heartbeatTimer.unref?.();
     }
     stopHeartbeat() {
       if (this.heartbeatTimer) {
@@ -331,6 +339,7 @@
           this.notifyListeners();
         }
       }, this.pruneInterval);
+      this.pruneTimer.unref?.();
     }
     stopPruning() {
       if (this.pruneTimer) {
@@ -490,7 +499,7 @@
      * Initializes the client and ensures connection readiness.
      * In browser environments, attaches lifecycle event listeners.
      */
-    async start() {
+    start() {
       if (typeof window !== "undefined") {
         window.addEventListener("pagehide", this.handlePageHide);
         window.addEventListener("pageshow", this.handlePageShow);
@@ -514,9 +523,7 @@
         await Promise.all(lobbies.map((lobby2) => lobby2.leave(options)));
         const tables = [...this.activeTables];
         this.activeTables = [];
-        for (const table of tables) {
-          await table.leave(options);
-        }
+        await Promise.all(tables.map((table) => table.leave(options)));
       } finally {
         this.isStopping = false;
       }
@@ -537,27 +544,31 @@
      * Joins a specific table for communication.
      */
     async joinTable(tableId, userId2) {
-      let table = this.activeTables.find((t) => t.tableId === tableId);
-      if (!table) {
-        const lobby2 = this.activeLobbies.find((l) => l.currentUser.userId === userId2);
-        if (!lobby2) {
-          throw new Error(`Cannot join table: No active lobby found for user ${userId2}`);
-        }
-        table = new Table(this.nchan, tableId, userId2, lobby2);
-        await table.join();
-        this.activeTables.push(table);
-        await lobby2.updatePresence({ tableId });
-      } else {
-        await table.join();
+      const existingTable = this.activeTables.find((t) => t.tableId === tableId);
+      if (existingTable) {
+        await existingTable.join();
+        return existingTable;
       }
+      const lobby2 = this.activeLobbies.find((l) => l.currentUser.userId === userId2);
+      if (!lobby2) {
+        throw new Error(`Cannot join table: No active lobby found for user ${userId2}`);
+      }
+      const table = new Table(this.nchan, tableId, userId2, lobby2);
+      await table.join();
+      this.activeTables.push(table);
+      await lobby2.updatePresence({ tableId });
       return table;
     }
     handlePageHide = () => {
       this.stop({ isTeardown: true });
     };
-    handlePageShow = (event) => {
+    handlePageShow = async (event) => {
       if (event.persisted && this.lastLobbyConfig) {
-        this.joinLobby(this.lastLobbyConfig.user, this.lastLobbyConfig.options);
+        try {
+          await this.joinLobby(this.lastLobbyConfig.user, this.lastLobbyConfig.options);
+        } catch (e) {
+          console.error("Failed to restore lobby on pageshow:", e);
+        }
       }
     };
     handleVisibilityChange = () => {
