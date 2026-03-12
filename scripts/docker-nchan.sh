@@ -16,6 +16,7 @@ start() {
     echo "Syncing example to docker/html..."
     cp "$PROJECT_ROOT/example/index.html" "$NCHAN_DIR/html/index.html"
     cp "$PROJECT_ROOT/example/client.html" "$NCHAN_DIR/html/client.html"
+    cp "$PROJECT_ROOT/example/dashboard.html" "$NCHAN_DIR/html/dashboard.html"
     cp "$PROJECT_ROOT/example/dist/client.js" "$NCHAN_DIR/html/dist/client.js"
 
     echo "Building nchan image..."
@@ -67,6 +68,7 @@ build() {
     mkdir -p "$NCHAN_DIR/html/dist"
     cp "$PROJECT_ROOT/example/index.html" "$NCHAN_DIR/html/index.html"
     cp "$PROJECT_ROOT/example/client.html" "$NCHAN_DIR/html/client.html"
+    cp "$PROJECT_ROOT/example/dashboard.html" "$NCHAN_DIR/html/dashboard.html"
     cp "$PROJECT_ROOT/example/dist/client.js" "$NCHAN_DIR/html/dist/client.js"
 
     echo "Building nchan image..."

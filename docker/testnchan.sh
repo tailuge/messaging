@@ -137,6 +137,18 @@ run_test "Meta: Subscribe receives ts in published message" bash -c '
 	grep -q "ts" /tmp/nchan-meta-ts.out
 '
 
+run_test "API: Stats endpoint returns JSON" bash -c '
+	curl -fsS --max-time 5 "http://localhost/api/stats" | grep -q "\"nginx\":"
+'
+
+run_test "API: Stats endpoint contains nchan data" bash -c '
+	curl -fsS --max-time 5 "http://localhost/api/stats" | grep -q "\"nchan\":"
+'
+
+run_test "API: Stats endpoint with channel param" bash -c '
+	curl -fsS --max-time 5 "http://localhost/api/stats?channel=presence/lobby" | grep -q "\"channel\":"
+'
+
 echo ""
 echo "--- Result: $((total - failed))/$total passed ---"
 [[ $failed -eq 0 ]]
