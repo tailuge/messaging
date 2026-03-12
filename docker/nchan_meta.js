@@ -95,41 +95,42 @@ function parseNchanStatus(text) {
 }
 
 async function stats(r) {
-  try {
-    const [nginxRes, nchanRes] = await Promise.all([
-      r.subrequest("/basic_status"),
-      r.subrequest("/nchan_stats")
-    ]);
-
-    const nginx =
-      nginxRes.status === 200 ? parseNginxStatus(nginxRes.responseText) : null;
-    const nchan =
-      nchanRes.status === 200 ? parseNchanStatus(nchanRes.responseText) : null;
-
-    let channel = null;
-    const channelId = r.args.channel;
-    if (channelId) {
-      const chanRes = await r.subrequest("/internal/channel/" + channelId);
-      if (chanRes.status === 200) {
-        try {
-          channel = JSON.parse(chanRes.responseText);
-        } catch (e) {
-          channel = { error: "Failed to parse channel info" };
-        }
-      } else {
-        channel = { status: chanRes.status, error: "Channel not found or error" };
-      }
-    }
-
+  function sendResponse(nginx, nchan, channel) {
     const data = {
       nginx,
       nchan,
       channel,
       ts: new Date().toISOString()
     };
-
     r.headersOut["Content-Type"] = "application/json";
     r.return(200, JSON.stringify(data));
+  }
+
+  try {
+    r.subrequest("/basic_status", { method: "GET" }, function(nginxRes) {
+      const nginx = nginxRes.status === 200 ? parseNginxStatus(nginxRes.responseText) : null;
+      r.subrequest("/nchan_stats", { method: "GET" }, function(nchanRes) {
+        const nchan = nchanRes.status === 200 ? parseNchanStatus(nchanRes.responseText) : null;
+        const channelId = r.args.channel;
+        if (channelId) {
+          r.subrequest("/internal/channel/" + channelId, { method: "GET" }, function(chanRes) {
+            let channel = null;
+            if (chanRes.status === 200) {
+              try {
+                channel = JSON.parse(chanRes.responseText);
+              } catch (e) {
+                channel = { error: "Failed to parse channel info" };
+              }
+            } else {
+              channel = { status: chanRes.status, error: "Channel not found or error" };
+            }
+            sendResponse(nginx, nchan, channel);
+          });
+        } else {
+          sendResponse(nginx, nchan, null);
+        }
+      });
+    });
   } catch (e) {
     r.return(500, JSON.stringify({ error: e.message }));
   }
