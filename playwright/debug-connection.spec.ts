@@ -11,7 +11,7 @@ test('debug connection', async ({ page }) => {
 
   // 1. Go to the workbench (now inside Docker on port 80)
   try {
-    await page.goto('http://localhost');
+    await page.goto('http://localhost/example/');
   } catch (e) {
     console.log('Could not connect to Nchan server on port 80.');
     return;
