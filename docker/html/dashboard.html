@@ -86,7 +86,7 @@
             <h1>Nchan Dashboard</h1>
             <div class="controls">
                 <span id="last-update" class="refresh-tag"></span>
-                <label><input type="checkbox" id="auto-refresh" checked> Auto-refresh (5s)</label>
+                <label><input type="checkbox" id="auto-refresh" checked> Auto-refresh</label>
                 <button onclick="fetchStats()">Refresh</button>
             </div>
         </header>
@@ -142,6 +142,20 @@
                 </div>
             </div>
         </div>
+
+        <div class="card">
+            <h3>IP Cache (shared dict)</h3>
+            <div id="ip-cache-info">
+                <table id="ip-cache-table">
+                    <thead>
+                        <tr><th>IP Address</th><th>Country Code</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="2" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -156,7 +170,9 @@
 
             try {
                 const response = await fetch(url);
+                console.log(response);
                 const data = await response.json();
+                console.log(data);
                 updateUI(data);
             } catch (error) {
                 console.error('Error fetching stats:', error);
@@ -200,6 +216,15 @@
                     `;
                 }
             }
+
+            const ipCacheTableBody = document.querySelector('#ip-cache-table tbody');
+            if (data.ip_cache && Object.keys(data.ip_cache).length > 0) {
+                ipCacheTableBody.innerHTML = Object.entries(data.ip_cache).map(([ip, country]) => `
+                    <tr><td>${ip}</td><td>${country}</td></tr>
+                `).join('');
+            } else {
+                ipCacheTableBody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
+            }
         }
 
         function formatBytes(bytes) {
@@ -214,7 +239,7 @@
             const checkbox = document.getElementById('auto-refresh');
             const startTimer = () => {
                 if (refreshTimer) clearInterval(refreshTimer);
-                refreshTimer = setInterval(fetchStats, 5000);
+                refreshTimer = setInterval(fetchStats, 60000);
             };
 
             checkbox.addEventListener('change', () => {

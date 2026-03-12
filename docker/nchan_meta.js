@@ -121,11 +121,29 @@ function parseNchanStatus(text) {
 }
 
 async function stats(r) {
+  function getIpCache() {
+    try {
+      const cache = njs.shared && njs.shared.ip_cache;
+      if (cache) {
+        const keys = cache.keys ? cache.keys() : [];
+        const data = {};
+        keys.forEach(k => {
+          data[k] = cache.get(k);
+        });
+        return data;
+      }
+    } catch (e) {
+      return { error: e.message };
+    }
+    return null;
+  }
+
   function sendResponse(nginx, nchan, channel) {
     const data = {
       nginx,
       nchan,
       channel,
+      ip_cache: getIpCache(),
       ts: new Date().toISOString()
     };
     r.headersOut["Content-Type"] = "application/json";
