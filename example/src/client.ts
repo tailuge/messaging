@@ -189,7 +189,7 @@ async function disconnect() {
         await currentTable.leave();
     }
     currentTable = await client.joinTable(tableId, userId);
-    ui.showGameInfo(tableId, 'Spectating', 'standard', undefined, userId, userName);
+    ui.showGameInfo(tableId, 'Spectating', 'standard', undefined, userId, userName, true);
     currentTable.onMessage((msg) => {
         console.log('Spectate Message:', msg);
     });

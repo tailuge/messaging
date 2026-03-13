@@ -6,17 +6,17 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>">
     <script defer src="client.js"></script>
     <style>
-        body { font-family: sans-serif; padding: 0.25rem; background: #f9f9f9; color: #333; }
-        .card { background: #fff; padding: 0.5rem; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 0.5rem; }
+        body { font-family: sans-serif; padding: 0.05rem; background: #f9f9f9; color: #333; }
+        .card { background: #fff; padding: 0.25rem; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 0.5rem; }
         .user-list { list-style: none; padding: 0; }
         .user-item { padding: 0.25rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
         .user-item.me { font-weight: bold; color: #007bff; }
         .status { font-size: 0.4rem; color: #666; }
-        .form { margin-top: 1rem; display: flex; gap: 0.5rem; }
+        .form { margin-top: 0.5rem; display: flex; gap: 0.5rem; }
         .challenge-box { background: #fff3cd; border: 1px solid #ffeeba; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
-        .game-box { background: #d4edda; border: 1px solid #c3e6cb; padding: 0.5rem; border-radius: 8px; margin-bottom: 0.5rem; display: none; }
-        .game-box strong { font-size: 0.8rem; margin-right: 0.5rem; }
-        .game-box #game-text { font-size: 0.8rem; display: inline; }
+        .game-box { background: #d4edda; border: 1px solid #c3e6cb; padding: 0.25rem; border-radius: 8px; margin-bottom: 0.5rem; display: none; }
+        .game-box strong { font-size: 0.8rem; margin-right: 0.25rem; }
+        .game-box #game-text { font-size: 0.65rem; display: inline; }
         .seek-box { background: #e2e3e5; border: 1px solid #d6d8db; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
         button { cursor: pointer; padding: 0.25rem 0.5rem; border: 1px solid #ccc; border-radius: 4px; background: #fff; }
         button:hover { background: #eee; }
@@ -31,16 +31,17 @@
         .connection-status { font-weight: bold; font-size: 0.8rem; }
         .connection-status.online { color: #28a745; }
         .connection-status.offline { color: #dc3545; }
-        #game-iframe { width: 100%; min-height: 320px; border: none; }
-        h3 { margin: 0.25rem 0; font-size: 1rem; }
-        hr { margin: 0.5rem 0; }
+        #game-iframe { width: 100%; min-height: 420px; border: none; }
+        h3 { margin: 0.05rem 0; font-size: 1rem; }
+        hr { margin: 0.05rem 0; }
     </style>
 </head>
 <body>
-    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+    <div style="display: flex; align-items: center; gap: 0.25rem; margin-bottom: 0.25rem;">
         <span id="conn-status" class="connection-status offline">OFFLINE</span>
         <button id="btn-connect" class="btn-connect" onclick="connect()">Connect</button>
         <button id="btn-disconnect" class="btn-disconnect" onclick="disconnect()" style="display:none;">Disconnect</button>
+        <button onclick="consoleUsers()" title="Log users to console" style="padding: 2px 6px; font-size: 12px;">👁</button>
     </div>
 
     <div id="seek-container" class="seek-box">
@@ -62,7 +63,6 @@
         <h3 id="my-name">Connecting...</h3>
         <div>
             <span id="count" class="status">Online Users: 0</span>
-            <button onclick="consoleUsers()" title="Log users to console" style="padding: 2px 6px; font-size: 12px;">👁</button>
         </div>
         <hr>
         <div class="form" style="margin-bottom: 1rem;">

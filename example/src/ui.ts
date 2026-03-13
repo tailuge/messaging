@@ -77,17 +77,21 @@ export function renderUserList(users: PresenceMessage[], currentUserId: string, 
     }
 }
 
-export function showGameInfo(tableId: string, opponentName: string, ruleType: string, isFirst: boolean | undefined, userId: string, userName: string) {
+export function showGameInfo(tableId: string, opponentName: string, ruleType: string, isFirst: boolean | undefined, userId: string, userName: string, isSpectator: boolean = false) {
     const container = document.getElementById('game-container');
     const text = document.getElementById('game-text');
     const iframe = document.getElementById('game-iframe') as HTMLIFrameElement;
     if (container && text) {
-        text.innerText = `Playing on table: ${tableId} against ${opponentName}`;
+        text.innerText = isSpectator 
+            ? `Spectating game: ${tableId}`
+            : `Playing on table: ${tableId} against ${opponentName}`;
         container.style.display = 'block';
     }
     if (iframe) {
         let url = `https://billiards.tailuge.workers.dev/?websocketserver=wss://billiards.onrender.com/ws&tableId=${tableId}&name=${encodeURIComponent(userName)}&clientId=${userId}&ruletype=${ruleType}`;
-        if (isFirst === true) {
+        if (isSpectator) {
+            url += `&spectator=true`;
+        } else if (isFirst === true) {
             url += `&first=true`;
         }
         iframe.src = url;
