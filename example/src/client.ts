@@ -30,7 +30,6 @@ let mySeekTableId: string | null = null;
 
 function setupLobbyEvents(lobbyInstance: Lobby) {
     lobbyInstance.onUsersChange((users: PresenceMessage[]) => {
-        console.log('Online users (full payload with _meta):', users);
         ui.renderUserList(users, userId);
 
         // Check if someone joined our seek - if so, auto-join the game
