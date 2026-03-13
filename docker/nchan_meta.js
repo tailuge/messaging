@@ -1,6 +1,30 @@
+function getClientIp(r) {
+  const xff = r.headersIn["x-forwarded-for"];
+  if (xff && typeof xff === "string") {
+    const first = xff.split(",")[0].trim();
+    if (first) return first;
+  }
+  return (
+    r.headersIn["cf-connecting-ip"] ||
+    r.headersIn["x-real-ip"] ||
+    r.remoteAddress
+  );
+}
+
+function getCountryFromHeaders(r) {
+  return (
+    r.headersIn["cf-ipcountry"] ||
+    r.headersIn["x-vercel-ip-country"] ||
+    r.headersIn["x-country"] ||
+    r.headersIn["x-geo-country"] ||
+    r.headersIn["x-geoip-country"] ||
+    ""
+  );
+}
+
 async function buildMeta(r) {
-  const ip = r.remoteAddress;
-  let country = "XX";
+  const ip = getClientIp(r);
+  let country = getCountryFromHeaders(r) || "XX";
   let cache;
 
   try {
@@ -10,16 +34,21 @@ async function buildMeta(r) {
   }
 
   if (cache) {
-    country = cache.get(ip);
-
-    if (!country) {
-      try {
-        let reply = await ngx.fetch(`https://api.country.is/${ip}`, { timeout: 2000 });
-        let data = await reply.json();
-        country = data.country || "XX";
+    const cached = cache.get(ip);
+    if (cached) {
+      country = cached;
+    } else {
+      if (country && country !== "XX") {
         cache.set(ip, country, { timeout: 86400 });
-      } catch (e) {
-        country = "XX";
+      } else {
+        try {
+          let reply = await ngx.fetch(`https://api.country.is/${ip}`, { timeout: 2000 });
+          let data = await reply.json();
+          country = data.country || "XX";
+        } catch (e) {
+          country = "XX";
+        }
+        cache.set(ip, country, { timeout: 86400 });
       }
     }
   }
@@ -125,7 +154,10 @@ async function stats(r) {
     try {
       const cache = njs.shared && njs.shared.ip_cache;
       if (cache) {
-        const keys = cache.keys ? cache.keys() : [];
+        if (typeof cache.keys !== "function") {
+          return { note: "ip_cache keys() not supported in this NJS build" };
+        }
+        const keys = cache.keys();
         const data = {};
         keys.forEach(k => {
           data[k] = cache.get(k);
@@ -135,7 +167,7 @@ async function stats(r) {
     } catch (e) {
       return { error: e.message };
     }
-    return null;
+    return { note: "ip_cache unavailable" };
   }
 
   function sendResponse(nginx, nchan) {

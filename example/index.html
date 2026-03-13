@@ -29,11 +29,13 @@
         // Check if Nchan is reachable
         async function checkNchan() {
             try {
-                // Check both health and presence paths
-                const res = await fetch("http://" + window.location.hostname + "/health");
+                // Use current protocol (http or https)
+                const protocol = window.location.protocol;
+                const res = await fetch(protocol + "//" + window.location.host + "/health");
                 if (!res.ok) throw new Error();
             } catch (e) {
-                alert("Nchan server not detected on port 80. Please ensure 'npm run docker:nchan start' is running.");
+                console.warn("Nchan server check failed:", e);
+                // alert("Nchan server not detected. Please ensure nchan is running.");
             }
         }
         checkNchan();

@@ -13,14 +13,24 @@ export class NchanClient {
   private server: string;
 
   constructor(server: string) {
-    // Ensure server string doesn't end with a slash and starts with protocol if missing
+    // Ensure server string doesn't end with a slash
     this.server = server.replace(/\/$/, "");
-    if (!this.server.startsWith("http")) {
-      this.server = `http://${this.server}`;
+
+    // If no protocol is provided, determine it based on the environment
+    if (!this.server.includes("://")) {
+      if (typeof window !== "undefined") {
+        // Use current page protocol if available
+        const protocol = window.location.protocol; // "http:" or "https:"
+        this.server = `${protocol}//${this.server}`;
+      } else {
+        // Fallback for non-browser environments
+        this.server = `http://${this.server}`;
+      }
     }
   }
 
   private getWsUrl(path: string): string {
+    // Replace http with ws, and https with wss
     return this.server.replace(/^http/, "ws") + path;
   }
 
