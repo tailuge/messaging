@@ -67,11 +67,18 @@ build() {
     echo "Build complete."
 }
 
+logs() {
+    # Note: In this container, nginx access.log and error.log are symlinked to 
+    # stdout/stderr, so we use docker logs to get both combined.
+    docker logs --tail 100 "$CONTAINER_NAME" 2>&1
+}
+
 case "${1:-start}" in
     start) start ;;
     stop) stop ;;
     build) build ;;
     restart) stop && start ;;
     status) status ;;
-    *) echo "Usage: $0 {start|stop|build|restart|status}" && exit 1 ;;
+    logs) logs ;;
+    *) echo "Usage: $0 {start|stop|build|restart|status|logs}" && exit 1 ;;
 esac

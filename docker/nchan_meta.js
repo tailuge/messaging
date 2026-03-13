@@ -11,46 +11,53 @@ function getClientIp(r) {
   );
 }
 
-function getCountryFromHeaders(r) {
-  return (
-    r.headersIn["cf-ipcountry"] ||
-    r.headersIn["x-vercel-ip-country"] ||
-    r.headersIn["x-country"] ||
-    r.headersIn["x-geo-country"] ||
-    r.headersIn["x-geoip-country"] ||
-    ""
-  );
-}
 
 async function buildMeta(r) {
   const ip = getClientIp(r);
-  let country = getCountryFromHeaders(r) || "XX";
-  let cache;
+  let country = "XX";
+  let cache = null;
 
   try {
     cache = njs.shared && njs.shared.ip_cache;
   } catch (e) {
-    cache = undefined;
+    cache = null;
+    console.log(`cache error: ${e.message}`);
   }
 
-  if (cache) {
+  if (!cache) {
+    console.log("cache is not available");
+  } else {
     const cached = cache.get(ip);
     if (cached) {
       country = cached;
-    } else {
-      if (country && country !== "XX") {
-        cache.set(ip, country, { timeout: 86400 });
-      } else {
-        try {
-          let reply = await ngx.fetch(`https://api.country.is/${ip}`, { timeout: 2000 });
-          let data = await reply.json();
-          country = data.country || "XX";
-        } catch (e) {
-          country = "XX";
-        }
-        cache.set(ip, country, { timeout: 86400 });
-      }
+      console.log(`country from cache: ${country}`);
+      return {
+        ts: new Date().toISOString(),
+        origin: r.headersIn.origin || "",
+        locale: r.headersIn["accept-language"] || "",
+        ua: r.headersIn["user-agent"] || "",
+        host: r.headersIn.host || "",
+        path: r.uri,
+        country: country
+      };
     }
+  }
+
+ 
+    try {
+      let reply = await ngx.fetch(`https://api.country.is/${ip}`, { timeout: 3000 });
+      let data = await reply.json();
+      country = data.country || "XX";
+      console.log(`country from api: ${country}`);
+    } catch (e) {
+      country = "XX";
+      console.log(`api error: ${e.message} for ip: ${ip}`, e);
+    }
+  
+
+  if (cache) {
+    cache.set(ip, country, { timeout: 86400000 });
+    console.log(`country cached: ${country}`);
   }
 
   return {
