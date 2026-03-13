@@ -10,8 +10,8 @@ test.describe('Seek Flow', () => {
     const bobPage = await bobContext.newPage();
 
     // Navigate both to the client (served from Docker on port 80)
-    await alicePage.goto('http://localhost/client.html?id=alice&name=Alice');
-    await bobPage.goto('http://localhost/client.html?id=bob&name=Bob');
+    await alicePage.goto('http://localhost/example/client.html?id=alice&name=Alice');
+    await bobPage.goto('http://localhost/example/client.html?id=bob&name=Bob');
 
     // Wait for both to connect
     await alicePage.waitForSelector('#conn-status.online', { timeout: 10000 });

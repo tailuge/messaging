@@ -39,7 +39,7 @@ function setupLobbyEvents(lobbyInstance: Lobby) {
                 console.log('Someone joined my seek, auto-joining game');
                 mySeekTableId = null;
                 ui.hideSeekStatus();
-                joinGame(otherUser.tableId!, otherUser.userId);
+                joinGame(otherUser.tableId!, otherUser.userId, otherUser.seek?.ruleType || 'standard', true);
             }
         }
     });
@@ -50,7 +50,8 @@ function setupLobbyEvents(lobbyInstance: Lobby) {
             activeChallenge = challenge;
             ui.showChallenge(challenge);
         } else if (challenge.type === 'accept') {
-            joinGame(challenge.tableId!, challenge.challengerId);
+            // I am the challenger, the other player accepted
+            joinGame(challenge.tableId!, challenge.challengerId, challenge.ruleType, true);
         } else if (challenge.type === 'decline' || challenge.type === 'cancel') {
             if (activeChallenge?.challengerId === challenge.challengerId) {
                 ui.hideChallenge();
@@ -65,7 +66,7 @@ function setupLobbyEvents(lobbyInstance: Lobby) {
 // Game Logic
 // =============================================================================
 
-async function joinGame(tableId: string, opponentId: string) {
+async function joinGame(tableId: string, opponentId: string, ruleType: string = 'standard', isFirst?: boolean) {
     if (currentTable) {
         await currentTable.leave();
     }
@@ -76,7 +77,7 @@ async function joinGame(tableId: string, opponentId: string) {
         await lobby.updatePresence({ tableId, seek: undefined });
     }
 
-    ui.showGameInfo(tableId, opponentId);
+    ui.showGameInfo(tableId, opponentId, ruleType, isFirst, userId, userName);
 
     currentTable.onMessage((msg) => {
         console.log('Game Message:', msg);
@@ -104,7 +105,7 @@ async function acceptCurrentChallenge() {
     );
     currentTable = table;
     ui.hideChallenge();
-    ui.showGameInfo(activeChallenge.tableId!, activeChallenge.challengerName);
+    ui.showGameInfo(activeChallenge.tableId!, activeChallenge.challengerName, activeChallenge.ruleType, undefined, userId, userName);
 }
 
 async function declineCurrentChallenge() {
@@ -171,9 +172,9 @@ async function disconnect() {
     ui.hideSeekStatus();
 };
 
-(window as any).joinSeek = async (targetUserId: string, tableId: string) => {
+(window as any).joinSeek = async (targetUserId: string, tableId: string, ruleType: string) => {
     console.log('Joining seek from:', targetUserId, 'at table:', tableId);
-    await joinGame(tableId, targetUserId);
+    await joinGame(tableId, targetUserId, ruleType || 'standard', undefined);
 };
 
 (window as any).challengeUser = async (targetUserId: string) => {

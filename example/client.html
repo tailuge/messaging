@@ -52,12 +52,6 @@
         </div>
     </div>
 
-    <div id="game-container" class="game-box">
-        <strong>In Game</strong>
-        <div id="game-text"></div>
-        <button onclick="leaveGame()">Leave Game</button>
-    </div>
-
     <div class="card">
         <h3 id="my-name">Connecting...</h3>
         <div id="count" class="status">Online Users: 0</div>
@@ -71,6 +65,13 @@
             <input type="text" id="name-input" placeholder="New Name">
             <button onclick="updateName()">Update Name</button>
         </div>
+    </div>
+
+    <div id="game-container" class="game-box">
+        <strong>In Game</strong>
+        <div id="game-text"></div>
+        <iframe id="game-iframe" style="width: 100%; min-height: 300px; border: none;"></iframe>
+        <button onclick="leaveGame()">Leave Game</button>
     </div>
 </body>
 </html>

@@ -1,4 +1,5 @@
 import { PresenceMessage, ChallengeMessage } from "../../src/index";
+import { countryToFlag } from "./utils/flag";
 
 // =============================================================================
 // UI Rendering Functions
@@ -48,7 +49,7 @@ export function renderUserList(users: PresenceMessage[], currentUserId: string) 
             let actionBtn = '';
             if (!isMe && !inGame) {
                 if (isSeeking) {
-                    actionBtn = `<button class="btn-join" onclick="joinSeek('${u.userId}', '${u.seek?.tableId}')">Join Game</button>`;
+                    actionBtn = `<button class="btn-join" onclick="joinSeek('${u.userId}', '${u.seek?.tableId}', '${u.seek?.ruleType}')">Join Game</button>`;
                 } else {
                     actionBtn = `<button class="btn-challenge" onclick="challengeUser('${u.userId}')">Challenge</button>`;
                 }
@@ -57,7 +58,7 @@ export function renderUserList(users: PresenceMessage[], currentUserId: string) 
             return `
                 <li class="user-item ${isMe ? 'me' : ''}">
                     <div>
-                        <span>${u.userName}</span>
+                        <span>${countryToFlag(u._meta?.country)} ${u.userName}</span>
                         <div class="status">
                             ${u.userId} 
                             ${inGame ? '(In Game: ' + u.tableId + ')' : ''}
@@ -71,18 +72,28 @@ export function renderUserList(users: PresenceMessage[], currentUserId: string) 
     }
 }
 
-export function showGameInfo(tableId: string, opponentName: string) {
+export function showGameInfo(tableId: string, opponentName: string, ruleType: string, isFirst: boolean | undefined, userId: string, userName: string) {
     const container = document.getElementById('game-container');
     const text = document.getElementById('game-text');
+    const iframe = document.getElementById('game-iframe') as HTMLIFrameElement;
     if (container && text) {
         text.innerText = `Playing on table: ${tableId} against ${opponentName}`;
         container.style.display = 'block';
+    }
+    if (iframe) {
+        let url = `https://billiards.tailuge.workers.dev/?websocketserver=wss://billiards.onrender.com/ws&tableId=${tableId}&name=${encodeURIComponent(userName)}&clientId=${userId}&ruletype=${ruleType}`;
+        if (isFirst === true) {
+            url += `&first=true`;
+        }
+        iframe.src = url;
     }
 }
 
 export function hideGameInfo() {
     const container = document.getElementById('game-container');
+    const iframe = document.getElementById('game-iframe') as HTMLIFrameElement;
     if (container) container.style.display = 'none';
+    if (iframe) iframe.src = '';
 }
 
 export function showSeekStatus() {
