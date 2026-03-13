@@ -18,19 +18,22 @@ async function buildMeta(r) {
   let cache = null;
 
   try {
-    // Log njs info once
+    // Log environment info once
     if (typeof njs !== 'undefined' && !njs._logged) {
-      console.log(`njs version: ${njs.version}, shared exists: ${!!njs.shared}, keys: ${Object.keys(njs).join(', ')}`);
+      const njsKeys = Object.keys(njs || {}).join(', ');
+      const ngxKeys = (typeof ngx !== 'undefined') ? Object.keys(ngx || {}).join(', ') : 'undefined';
+      console.log(`njs version: ${njs ? njs.version : 'unknown'}, njs.shared: ${!!(njs && njs.shared)}, ngx.shared: ${!!(typeof ngx !== 'undefined' && ngx.shared)}, njs keys: [${njsKeys}], ngx keys: [${ngxKeys}]`);
       njs._logged = true;
     }
-    cache = njs.shared && njs.shared.ip_cache;
+    cache = (typeof njs !== 'undefined' && njs.shared && njs.shared.ip_cache) ||
+            (typeof ngx !== 'undefined' && ngx.shared && ngx.shared.ip_cache);
   } catch (e) {
     cache = null;
-    console.log(`cache error: ${e.message}`);
+    console.log(`cache detection error: ${e.message}`);
   }
 
   if (!cache) {
-    console.log(`cache is not available (njs.shared exists: ${!!(njs && njs.shared)}, ip_cache exists: ${!!(njs && njs.shared && njs.shared.ip_cache)})`);
+    console.log(`cache 'ip_cache' is not available in njs.shared or ngx.shared`);
   } else {
     const cached = cache.get(ip);
     if (cached) {
@@ -65,8 +68,14 @@ async function buildMeta(r) {
   
 
   if (cache) {
-    cache.set(ip, country, { timeout: 86400000 });
-    console.log(`country cached: ${country}`);
+    try {
+      // NJS shared dict timeout is in milliseconds (since 0.8.0)
+      // 86400000 ms = 24 hours
+      cache.set(ip, country, { timeout: 86400000 });
+      console.log(`country cached: ${country} for ip: ${ip}`);
+    } catch (e) {
+      console.log(`failed to set cache: ${e.message}`);
+    }
   }
 
   return {
@@ -168,12 +177,13 @@ function parseNchanStatus(text) {
 async function stats(r) {
   function getIpCache() {
     try {
-      const cache = njs.shared && njs.shared.ip_cache;
+      const cache = (typeof njs !== 'undefined' && njs.shared && njs.shared.ip_cache) ||
+                    (typeof ngx !== 'undefined' && ngx.shared && ngx.shared.ip_cache);
       if (cache) {
         if (typeof cache.keys !== "function") {
           return { note: "ip_cache keys() not supported in this NJS build" };
         }
-        const keys = cache.keys();
+        const keys = cache.keys() || [];
         const data = {};
         keys.forEach(k => {
           data[k] = cache.get(k);
