@@ -47,8 +47,10 @@ export function renderUserList(users: PresenceMessage[], currentUserId: string) 
             const isSeeking = !!u.seek;
             
             let actionBtn = '';
-            if (!isMe && !inGame) {
-                if (isSeeking) {
+            if (!isMe) {
+                if (inGame) {
+                    actionBtn = `<button class="btn-spectate" onclick="spectateGame('${u.tableId}')">Spectate</button>`;
+                } else if (isSeeking) {
                     actionBtn = `<button class="btn-join" onclick="joinSeek('${u.userId}', '${u.seek?.tableId}', '${u.seek?.ruleType}')">Join Game</button>`;
                 } else {
                     actionBtn = `<button class="btn-challenge" onclick="challengeUser('${u.userId}')">Challenge</button>`;

@@ -182,6 +182,17 @@ async function disconnect() {
     await lobby.challenge(targetUserId, 'standard');
 };
 
+(window as any).spectateGame = async (tableId: string) => {
+    if (currentTable) {
+        await currentTable.leave();
+    }
+    currentTable = await client.joinTable(tableId, userId);
+    ui.showGameInfo(tableId, 'Spectating', 'standard', undefined, userId, userName);
+    currentTable.onMessage((msg) => {
+        console.log('Spectate Message:', msg);
+    });
+};
+
 (window as any).leaveGame = leaveCurrentGame;
 
 (window as any).updateName = async () => {
