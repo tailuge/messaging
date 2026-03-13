@@ -28,9 +28,16 @@
 
     <script>
         function hideThirdPaneOnMobile() {
-            if (window.matchMedia("(orientation: portrait)").matches) {
-                document.querySelector(".pane:last-child").remove();
-            }
+            const check = () => {
+                if (window.innerHeight > window.innerWidth) {
+                    const panes = document.querySelectorAll(".pane");
+                    if (panes.length > 2) {
+                        panes[panes.length - 1].remove();
+                    }
+                }
+            };
+            window.addEventListener("resize", check);
+            check();
         }
         hideThirdPaneOnMobile();
 
