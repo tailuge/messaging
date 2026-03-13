@@ -134,6 +134,7 @@
 
         <div class="card">
             <h3>IP Cache (shared dict)</h3>
+            <div id="ip-cache-meta" class="refresh-tag"></div>
             <div id="ip-cache-info">
                 <table id="ip-cache-table">
                     <thead>
@@ -192,9 +193,22 @@
             }
 
             const ipCacheTableBody = document.querySelector('#ip-cache-table tbody');
-            if (data.ip_cache && Object.keys(data.ip_cache).length > 0) {
-                ipCacheTableBody.innerHTML = Object.entries(data.ip_cache).map(([ip, country]) => `
-                    <tr><td>${ip}</td><td>${country}</td></tr>
+            const ipCacheMeta = document.getElementById('ip-cache-meta');
+            const ipCacheEntries = data.ip_cache && data.ip_cache.entries ? data.ip_cache.entries : null;
+            if (data.ip_cache && data.ip_cache.meta) {
+                const meta = data.ip_cache.meta;
+                const parts = [];
+                if (meta.name) parts.push(`name: ${meta.name}`);
+                if (meta.type) parts.push(`type: ${meta.type}`);
+                if (typeof meta.capacity === 'number') parts.push(`capacity: ${formatBytes(meta.capacity)}`);
+                ipCacheMeta.textContent = parts.length ? `Meta: ${parts.join(' | ')}` : '';
+            } else {
+                ipCacheMeta.textContent = '';
+            }
+
+            if (ipCacheEntries && Object.keys(ipCacheEntries).length > 0) {
+                ipCacheTableBody.innerHTML = Object.entries(ipCacheEntries).map(([ip, country]) => `
+                    <tr><td>${ip.replace(/(\d)\d+/g, "$1x")}</td><td>${country}</td></tr>
                 `).join('');
             } else {
                 ipCacheTableBody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';

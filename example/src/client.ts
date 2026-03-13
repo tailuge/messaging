@@ -30,6 +30,7 @@ let mySeekTableId: string | null = null;
 
 function setupLobbyEvents(lobbyInstance: Lobby) {
     lobbyInstance.onUsersChange((users: PresenceMessage[]) => {
+        console.log('Online users (full payload with _meta):', users);
         ui.renderUserList(users, userId);
 
         // Check if someone joined our seek - if so, auto-join the game
@@ -45,6 +46,7 @@ function setupLobbyEvents(lobbyInstance: Lobby) {
     });
 
     lobbyInstance.onChallenge((challenge: ChallengeMessage) => {
+        console.log('Challenge received (full payload):', challenge);
         if (challenge.type === 'offer') {
             activeChallenge = challenge;
             ui.showChallenge(challenge);
@@ -177,7 +179,6 @@ async function disconnect() {
 
 (window as any).challengeUser = async (targetUserId: string) => {
     if (!lobby) return;
-    console.log('Challenging user:', targetUserId);
     await lobby.challenge(targetUserId, 'standard');
 };
 

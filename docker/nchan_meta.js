@@ -18,27 +18,15 @@ async function buildMeta(r) {
   let cache = null;
 
   try {
-    // Log environment info once
-    if (typeof njs !== 'undefined' && !njs._logged) {
-      const njsKeys = Object.keys(njs || {}).join(', ');
-      const ngxKeys = (typeof ngx !== 'undefined') ? Object.keys(ngx || {}).join(', ') : 'undefined';
-      console.log(`njs version: ${njs ? njs.version : 'unknown'}, njs.shared: ${!!(njs && njs.shared)}, ngx.shared: ${!!(typeof ngx !== 'undefined' && ngx.shared)}, njs keys: [${njsKeys}], ngx keys: [${ngxKeys}]`);
-      njs._logged = true;
-    }
-    cache = (typeof njs !== 'undefined' && njs.shared && njs.shared.ip_cache) ||
-            (typeof ngx !== 'undefined' && ngx.shared && ngx.shared.ip_cache);
+    cache = (typeof ngx !== 'undefined' && ngx.shared && ngx.shared.ip_cache) ? ngx.shared.ip_cache : null;
   } catch (e) {
     cache = null;
-    console.log(`cache detection error: ${e.message}`);
   }
 
-  if (!cache) {
-    console.log(`cache 'ip_cache' is not available in njs.shared or ngx.shared`);
-  } else {
+  if (cache) {
     const cached = cache.get(ip);
     if (cached) {
       country = cached;
-      console.log(`country from cache: ${country}`);
       return {
         ts: new Date().toISOString(),
         origin: r.headersIn.origin || "",
@@ -58,12 +46,11 @@ async function buildMeta(r) {
         headers: { "User-Agent": "Nginx-NJS-Messaging" }
       });
       let text = await reply.text();
-      console.log(`api response for ${ip}: ${text}`);
       let data = JSON.parse(text);
       country = data.country || "XX";
     } catch (e) {
       country = "XX";
-      console.log(`api error: ${e.message} for ip: ${ip}`, e);
+      console.log(`api error: ${e.message} for ip: ${ip}`);
     }
   
 
@@ -71,8 +58,7 @@ async function buildMeta(r) {
     try {
       // NJS shared dict timeout is in milliseconds (since 0.8.0)
       // 86400000 ms = 24 hours
-      cache.set(ip, country, { timeout: 86400000 });
-      console.log(`country cached: ${country} for ip: ${ip}`);
+      cache.set(ip, country, 86400000);
     } catch (e) {
       console.log(`failed to set cache: ${e.message}`);
     }
@@ -177,23 +163,34 @@ function parseNchanStatus(text) {
 async function stats(r) {
   function getIpCache() {
     try {
-      const cache = (typeof njs !== 'undefined' && njs.shared && njs.shared.ip_cache) ||
-                    (typeof ngx !== 'undefined' && ngx.shared && ngx.shared.ip_cache);
-      if (cache) {
-        if (typeof cache.keys !== "function") {
-          return { note: "ip_cache keys() not supported in this NJS build" };
+      const shared = (typeof ngx !== 'undefined' && ngx.shared) ? ngx.shared : null;
+      const cache = (shared && shared.ip_cache) ? shared.ip_cache : null;
+      const meta = shared ? (function () {
+        try {
+          const serialized = JSON.parse(JSON.stringify(shared));
+          return serialized && serialized.ip_cache ? serialized.ip_cache : null;
+        } catch (e) {
+          return null;
         }
-        const keys = cache.keys() || [];
-        const data = {};
-        keys.forEach(k => {
-          data[k] = cache.get(k);
-        });
-        return data;
+      })() : null;
+      if (!cache) {
+        return { note: "ip_cache unavailable", meta };
       }
+      if (typeof cache.keys !== "function") {
+        return { note: "ip_cache keys() not supported in this NJS build", meta };
+      }
+      const keys = cache.keys() || [];
+      const entries = {};
+      keys.forEach(k => {
+        const value = cache.get(k);
+        if (typeof value !== "undefined") {
+          entries[k] = value;
+        }
+      });
+      return { meta, entries };
     } catch (e) {
       return { error: e.message };
     }
-    return { note: "ip_cache unavailable" };
   }
 
   function sendResponse(nginx, nchan) {
