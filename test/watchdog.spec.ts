@@ -1,5 +1,11 @@
 import { PresenceMessage } from "../src/types";
-import { startContainer, stopContainer, createTestClient, waitUntil, cleanupClients } from "./utils";
+import {
+  startContainer,
+  stopContainer,
+  createTestClient,
+  waitUntil,
+  cleanupClients,
+} from "./utils";
 
 describe("Watchdog Integration", () => {
   beforeAll(async () => {
@@ -51,10 +57,7 @@ describe("Watchdog Integration", () => {
     await clientA.joinTable(tableId, "user-a");
 
     // Wait until Bob sees Alice
-    await waitUntil(() =>
-      usersB.some((u) => u.userId === "user-a" && u.tableId === tableId),
-      3000
-    );
+    await waitUntil(() => usersB.some((u) => u.userId === "user-a" && u.tableId === tableId), 3000);
 
     // 3. Simulate Alice crashing
     (lobbyA as any).stopHeartbeat();

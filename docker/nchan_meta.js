@@ -4,66 +4,10 @@ function getClientIp(r) {
     const first = xff.split(",")[0].trim();
     if (first) return first;
   }
-  return (
-    r.headersIn["cf-connecting-ip"] ||
-    r.headersIn["x-real-ip"] ||
-    r.remoteAddress
-  );
+  return r.headersIn["cf-connecting-ip"] || r.headersIn["x-real-ip"] || r.remoteAddress;
 }
 
-
-async function buildMeta(r) {
-  const ip = getClientIp(r);
-  let country = "XX";
-  let cache = null;
-
-  try {
-    cache = (typeof ngx !== 'undefined' && ngx.shared && ngx.shared.ip_cache) ? ngx.shared.ip_cache : null;
-  } catch (e) {
-    cache = null;
-  }
-
-  if (cache) {
-    const cached = cache.get(ip);
-    if (cached) {
-      country = cached;
-      return {
-        ts: new Date().toISOString(),
-        origin: r.headersIn.origin || "",
-        locale: r.headersIn["accept-language"] || "",
-        ua: r.headersIn["user-agent"] || "",
-        host: r.headersIn.host || "",
-        path: r.uri,
-        country: country
-      };
-    }
-  }
-
- 
-    try {
-      let reply = await ngx.fetch(`https://api.country.is/${ip}`, {
-        timeout: 3000,
-        headers: { "User-Agent": "Nginx-NJS-Messaging" }
-      });
-      let text = await reply.text();
-      let data = JSON.parse(text);
-      country = data.country || "XX";
-    } catch (e) {
-      country = "XX";
-      console.log(`api error: ${e.message} for ip: ${ip}`);
-    }
-  
-
-  if (cache) {
-    try {
-      // NJS shared dict timeout is in milliseconds (since 0.8.0)
-      // 86400000 ms = 24 hours
-      cache.set(ip, country, 86400000);
-    } catch (e) {
-      console.log(`failed to set cache: ${e.message}`);
-    }
-  }
-
+function createMeta(r, country) {
   return {
     ts: new Date().toISOString(),
     origin: r.headersIn.origin || "",
@@ -71,18 +15,47 @@ async function buildMeta(r) {
     ua: r.headersIn["user-agent"] || "",
     host: r.headersIn.host || "",
     path: r.uri,
-    country: country
+    country: country,
   };
+}
+
+async function buildMeta(r) {
+  const ip = getClientIp(r);
+  const cache = ngx.shared.ip_cache;
+
+  const cached = cache.get(ip);
+  if (cached) {
+    console.log(`using cached country: ${cached} for ip: ${ip}`);
+    return createMeta(r, cached);
+  }
+
+  // Fetch country from API
+  let country = "XX";
+  try {
+    const reply = await ngx.fetch(`https://api.country.is/${ip}`, {
+      timeout: 2000,
+      headers: { "User-Agent": "Nginx-NJS-Messaging" },
+    });
+    const text = await reply.text();
+    const data = JSON.parse(text);
+    country = data.country || "XX";
+    console.log(`fetched country: ${country} for ip: ${ip}`);
+  } catch (e) {
+    console.log(`api error: ${e.message} for ip: ${ip}`);
+  }
+
+  // Cache for 1 hour (3600000 ms)
+  cache.set(ip, country, 3600000);
+
+  return createMeta(r, country);
 }
 
 function mergeMeta(payload, meta) {
   if (payload && typeof payload === "object" && !Array.isArray(payload)) {
-    // Delete any client-provided _meta to prevent tampering
     delete payload._meta;
     payload._meta = meta;
     return payload;
   }
-
   return { data: payload, _meta: meta };
 }
 
@@ -102,7 +75,7 @@ async function publish(r) {
   if (!isJson) {
     const res = await r.subrequest("/internal" + r.uri, {
       method: r.method,
-      body: r.requestText || ""
+      body: r.requestText || "",
     });
     r.return(res.status, res.responseText);
     return;
@@ -114,7 +87,7 @@ async function publish(r) {
 
   const res = await r.subrequest("/internal" + r.uri, {
     method: r.method,
-    body
+    body,
   });
 
   r.headersOut["Content-Type"] = "application/json";
@@ -133,15 +106,7 @@ function parseNginxStatus(text) {
   const writing = parseInt(readingMetrics[3]);
   const waiting = parseInt(readingMetrics[5]);
 
-  return {
-    active,
-    accepts,
-    handled,
-    requests,
-    reading,
-    writing,
-    waiting
-  };
+  return { active, accepts, handled, requests, reading, writing, waiting };
 }
 
 function parseNchanStatus(text) {
@@ -162,59 +127,33 @@ function parseNchanStatus(text) {
 
 async function stats(r) {
   function getIpCache() {
-    try {
-      const shared = (typeof ngx !== 'undefined' && ngx.shared) ? ngx.shared : null;
-      const cache = (shared && shared.ip_cache) ? shared.ip_cache : null;
-      const meta = shared ? (function () {
-        try {
-          const serialized = JSON.parse(JSON.stringify(shared));
-          return serialized && serialized.ip_cache ? serialized.ip_cache : null;
-        } catch (e) {
-          return null;
-        }
-      })() : null;
-      if (!cache) {
-        return { note: "ip_cache unavailable", meta };
+    const cache = ngx.shared.ip_cache;
+    const keys = cache.keys() || [];
+    const entries = {};
+    keys.forEach((k) => {
+      const value = cache.get(k);
+      if (typeof value !== "undefined") {
+        entries[k] = value;
       }
-      if (typeof cache.keys !== "function") {
-        return { note: "ip_cache keys() not supported in this NJS build", meta };
-      }
-      const keys = cache.keys() || [];
-      const entries = {};
-      keys.forEach(k => {
-        const value = cache.get(k);
-        if (typeof value !== "undefined") {
-          entries[k] = value;
-        }
-      });
-      return { meta, entries };
-    } catch (e) {
-      return { error: e.message };
-    }
-  }
-
-  function sendResponse(nginx, nchan) {
-    const data = {
-      nginx,
-      nchan,
-      ip_cache: getIpCache(),
-      ts: new Date().toISOString()
-    };
-    r.headersOut["Content-Type"] = "application/json";
-    r.return(200, JSON.stringify(data));
-  }
-
-  try {
-    r.subrequest("/basic_status", { method: "GET" }, function(nginxRes) {
-      const nginx = nginxRes.status === 200 ? parseNginxStatus(nginxRes.responseText) : null;
-      r.subrequest("/nchan_stats", { method: "GET" }, function(nchanRes) {
-        const nchan = nchanRes.status === 200 ? parseNchanStatus(nchanRes.responseText) : null;
-        sendResponse(nginx, nchan);
-      });
     });
-  } catch (e) {
-    r.return(500, JSON.stringify({ error: e.message }));
+    return entries;
   }
+
+  const nginxRes = await r.subrequest("/basic_status", { method: "GET" });
+  const nginx = nginxRes.status === 200 ? parseNginxStatus(nginxRes.responseText) : null;
+
+  const nchanRes = await r.subrequest("/nchan_stats", { method: "GET" });
+  const nchan = nchanRes.status === 200 ? parseNchanStatus(nchanRes.responseText) : null;
+
+  const data = {
+    nginx,
+    nchan,
+    ip_cache: getIpCache(),
+    ts: new Date().toISOString(),
+  };
+
+  r.headersOut["Content-Type"] = "application/json";
+  r.return(200, JSON.stringify(data));
 }
 
 export default { publish, stats };

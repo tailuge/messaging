@@ -60,7 +60,7 @@ export async function forceCleanup(): Promise<void> {
 export async function waitUntil(
   condition: () => boolean,
   timeout = 2000,
-  pollInterval = 50
+  pollInterval = 50,
 ): Promise<void> {
   const start = Date.now();
   while (!condition()) {
@@ -74,10 +74,13 @@ export async function waitUntil(
 // Waits for a callback to be invoked and returns the emitted value
 export async function waitFor<T>(
   subscribe: (cb: (value: T) => void) => void,
-  timeout = 2000
+  timeout = 2000,
 ): Promise<T> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`waitFor timeout after ${timeout}ms`)), timeout);
+    const timer = setTimeout(
+      () => reject(new Error(`waitFor timeout after ${timeout}ms`)),
+      timeout,
+    );
 
     subscribe((value) => {
       clearTimeout(timer);

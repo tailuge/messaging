@@ -1,5 +1,12 @@
 import { PresenceMessage } from "../src/types";
-import { startContainer, stopContainer, createTestClient, waitUntil, wait, cleanupClients } from "./utils";
+import {
+  startContainer,
+  stopContainer,
+  createTestClient,
+  waitUntil,
+  wait,
+  cleanupClients,
+} from "./utils";
 
 describe("MessagingClient - Phase 1", () => {
   beforeAll(async () => {
@@ -96,7 +103,9 @@ describe("MessagingClient - Phase 1", () => {
       await lobbyA.updatePresence({ userName: "Alice Updated" });
 
       // Wait for update propagation
-      await waitUntil(() => usersB.some((u) => u.userId === "alice" && u.userName === "Alice Updated"));
+      await waitUntil(() =>
+        usersB.some((u) => u.userId === "alice" && u.userName === "Alice Updated"),
+      );
 
       const aliceInB = usersB.find((u) => u.userId === "alice");
       expect(aliceInB).toBeDefined();
