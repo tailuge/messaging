@@ -35,21 +35,24 @@ export function hideChallenge() {
     if (container) container.style.display = 'none';
 }
 
-export function renderUserList(users: PresenceMessage[], currentUserId: string) {
+export function renderUserList(users: PresenceMessage[], currentUserId: string, currentTableId?: string) {
     const list = document.getElementById('user-list');
     const countEl = document.getElementById('count');
     
     if (countEl) countEl.innerText = `Online Users: ${users.length}`;
     if (list) {
-        list.innerHTML = users.map(u => {
+        const sortedUsers = [...users].sort((a, b) => a.userName.localeCompare(b.userName));
+        list.innerHTML = sortedUsers.map(u => {
             const isMe = u.userId === currentUserId;
             const inGame = !!u.tableId;
             const isSeeking = !!u.seek;
             
             let actionBtn = '';
             if (!isMe) {
-                if (inGame) {
+                if (inGame && u.tableId !== currentTableId) {
                     actionBtn = `<button class="btn-spectate" onclick="spectateGame('${u.tableId}')">Spectate</button>`;
+                } else if (inGame) {
+                    // Already in this game
                 } else if (isSeeking) {
                     actionBtn = `<button class="btn-join" onclick="joinSeek('${u.userId}', '${u.seek?.tableId}', '${u.seek?.ruleType}')">Join Game</button>`;
                 } else {

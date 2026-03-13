@@ -6,15 +6,17 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>">
     <script defer src="client.js"></script>
     <style>
-        body { font-family: sans-serif; padding: 1rem; background: #f9f9f9; color: #333; }
-        .card { background: #fff; padding: 1rem; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 1rem; }
+        body { font-family: sans-serif; padding: 0.25rem; background: #f9f9f9; color: #333; }
+        .card { background: #fff; padding: 0.5rem; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 0.5rem; }
         .user-list { list-style: none; padding: 0; }
-        .user-item { padding: 0.5rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .user-item { padding: 0.25rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
         .user-item.me { font-weight: bold; color: #007bff; }
-        .status { font-size: 0.8rem; color: #666; }
+        .status { font-size: 0.4rem; color: #666; }
         .form { margin-top: 1rem; display: flex; gap: 0.5rem; }
         .challenge-box { background: #fff3cd; border: 1px solid #ffeeba; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
-        .game-box { background: #d4edda; border: 1px solid #c3e6cb; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
+        .game-box { background: #d4edda; border: 1px solid #c3e6cb; padding: 0.5rem; border-radius: 8px; margin-bottom: 0.5rem; display: none; }
+        .game-box strong { font-size: 0.8rem; margin-right: 0.5rem; }
+        .game-box #game-text { font-size: 0.8rem; display: inline; }
         .seek-box { background: #e2e3e5; border: 1px solid #d6d8db; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
         button { cursor: pointer; padding: 0.25rem 0.5rem; border: 1px solid #ccc; border-radius: 4px; background: #fff; }
         button:hover { background: #eee; }
@@ -26,14 +28,17 @@
         .btn-seek { background: #6f42c1; color: white; border: none; }
         .btn-connect { background: #28a745; color: white; border: none; }
         .btn-disconnect { background: #6c757d; color: white; border: none; }
-        .connection-status { margin-bottom: 1rem; font-weight: bold; }
+        .connection-status { font-weight: bold; font-size: 0.8rem; }
         .connection-status.online { color: #28a745; }
         .connection-status.offline { color: #dc3545; }
+        #game-iframe { width: 100%; min-height: 320px; border: none; }
+        h3 { margin: 0.25rem 0; font-size: 1rem; }
+        hr { margin: 0.5rem 0; }
     </style>
 </head>
 <body>
-    <div id="conn-status" class="connection-status offline">OFFLINE</div>
-    <div class="form" style="margin-bottom: 1rem;">
+    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+        <span id="conn-status" class="connection-status offline">OFFLINE</span>
         <button id="btn-connect" class="btn-connect" onclick="connect()">Connect</button>
         <button id="btn-disconnect" class="btn-disconnect" onclick="disconnect()" style="display:none;">Disconnect</button>
     </div>
@@ -55,7 +60,10 @@
 
     <div class="card">
         <h3 id="my-name">Connecting...</h3>
-        <div id="count" class="status">Online Users: 0</div>
+        <div>
+            <span id="count" class="status">Online Users: 0</span>
+            <button onclick="consoleUsers()" title="Log users to console" style="padding: 2px 6px; font-size: 12px;">👁</button>
+        </div>
         <hr>
         <div class="form" style="margin-bottom: 1rem;">
             <button id="btn-find-game" class="btn-seek" onclick="findGame()">Find Game (Seek)</button>
@@ -63,15 +71,15 @@
         <ul id="user-list" class="user-list"></ul>
         
         <div class="form">
-            <input type="text" id="name-input" placeholder="New Name">
-            <button onclick="updateName()">Update Name</button>
+            <input type="text" id="name-input" placeholder="New Name" style="padding: 0.1rem;">
+            <button onclick="updateName()">update</button>
         </div>
     </div>
 
     <div id="game-container" class="game-box">
         <strong>In Game</strong>
-        <div id="game-text"></div>
-        <iframe id="game-iframe" style="width: 100%; min-height: 300px; border: none;"></iframe>
+        <span id="game-text"></span>
+        <iframe id="game-iframe"></iframe>
         <button onclick="leaveGame()">Leave Game</button>
     </div>
 </body>

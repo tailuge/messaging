@@ -23,6 +23,7 @@ let lobby: Lobby | null = null;
 let currentTable: Table | null = null;
 let activeChallenge: ChallengeMessage | null = null;
 let mySeekTableId: string | null = null;
+let onlineUsers: PresenceMessage[] = [];
 
 // =============================================================================
 // Lobby Setup
@@ -30,7 +31,8 @@ let mySeekTableId: string | null = null;
 
 function setupLobbyEvents(lobbyInstance: Lobby) {
     lobbyInstance.onUsersChange((users: PresenceMessage[]) => {
-        ui.renderUserList(users, userId);
+        onlineUsers = users;
+        ui.renderUserList(users, userId, currentTable ? currentTable.tableId : undefined);
 
         // Check if someone joined our seek - if so, auto-join the game
         if (mySeekTableId) {
@@ -202,6 +204,10 @@ async function disconnect() {
         await lobby.updatePresence({ userName: newName });
         ui.updateMyName(newName, userId);
     }
+};
+
+(window as any).consoleUsers = () => {
+    console.log('Online users:', onlineUsers);
 };
 
 // =============================================================================
