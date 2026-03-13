@@ -29,6 +29,7 @@
     "docker:start": "bash scripts/docker-nchan.sh",
     "docker:stop": "bash scripts/docker-nchan.sh stop",
     "docker:build": "npm run build:all",
+    "docker:push": "docker push tailuge/billiards-network:3.0.0",
     "deps": "npx npm-check"
   },
   "keywords": [
