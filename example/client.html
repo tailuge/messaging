@@ -9,16 +9,16 @@
     <style>
         html, body { height: 100%; margin: 0; }
         body { font-family: sans-serif; padding: 0.25rem; background: #f9f9f9; color: #333; display: flex; flex-direction: column; box-sizing: border-box; }
-        .card { background: #fff; padding: 0.15rem 0.25rem; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 0.25rem; overflow-y: auto; min-height: 0; }
+        .card { background: #fff; padding: 0.05rem 0.05rem; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 0.05rem; overflow-y: auto; min-height: 0; }
         .user-list { list-style: none; padding: 0; }
-        .user-item { padding: 0.1rem 0.25rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .user-item { padding: 0.01rem 0.01rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
         .user-item.me { font-weight: bold; color: #007bff; }
         .status { font-size: 0.4rem; color: #666; }
-        .form { margin-top: 0.25rem; display: flex; gap: 0.5rem; }
+        .form { margin-top: 0.05rem; display: flex; gap: 0.25rem; }
         .challenge-box { background: #fff3cd; border: 1px solid #ffeeba; padding: 0.5rem 1rem; border-radius: 8px; margin-bottom: 0.5rem; display: none; }
         .game-box { background: #d4edda; border: 1px solid #c3e6cb; padding: 0.15rem 0.25rem; border-radius: 8px; margin-bottom: 0; display: none; flex-direction: column; flex: 1; min-height: 0; }
-        .game-box strong { font-size: 0.8rem; margin-right: 0.25rem; }
-        .game-box #game-text { font-size: 0.65rem; display: inline; }
+        .game-box strong { font-size: 0.6rem; }
+        .game-box #game-text { font-size: 0.55rem; display: inline; }
         .seek-box { background: #e2e3e5; border: 1px solid #d6d8db; padding: 0.5rem 1rem; border-radius: 8px; margin-bottom: 0.5rem; display: none; }
         button { cursor: pointer; padding: 0.15rem 0.4rem; border: 1px solid #ccc; border-radius: 4px; background: #fff; }
         button:hover { background: #eee; }
@@ -62,16 +62,15 @@
     </div>
 
     <div class="card">
-        <h3 id="my-name">Connecting...</h3>
-        <div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 id="my-name">Connecting...</h3>
             <span id="count" class="status">Online Users: 0</span>
         </div>
         <hr>
-        <div class="form" style="margin-bottom: 1rem;">
+        <div class="form" style="margin-bottom: 0.25rem;">
             <button id="btn-find-game" class="btn-seek" onclick="findGame()">Find Game (Seek)</button>
         </div>
         <ul id="user-list" class="user-list"></ul>
-        
         <div class="form">
             <input type="text" id="name-input" placeholder="New Name" style="padding: 0.1rem;">
             <button onclick="updateName()">update</button>
@@ -79,10 +78,14 @@
     </div>
 
     <div id="game-container" class="game-box">
-        <strong>In Game</strong>
-        <span id="game-text"></span>
+        <div style="display: flex; align-items: center; gap: 0.25rem; margin-bottom: 0.1rem; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 0.25rem;">
+                <strong>In Game</strong>
+                <span id="game-text" style="font-size: 0.55rem;"></span>
+            </div>
+            <button onclick="leaveGame()" style="padding: 2px 4px; font-size: 0.55rem;">Leave Game</button>
+        </div>
         <iframe id="game-iframe"></iframe>
-        <button onclick="leaveGame()">Leave Game</button>
     </div>
 </body>
 </html>
