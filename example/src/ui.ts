@@ -85,7 +85,7 @@ export function showGameInfo(tableId: string, opponentName: string, ruleType: st
         text.innerText = isSpectator 
             ? `Spectating game: ${tableId}`
             : `Playing on table: ${tableId} against ${opponentName}`;
-        container.style.display = 'block';
+        container.style.display = 'flex';
     }
     if (iframe) {
         let url = `https://billiards.tailuge.workers.dev/?websocketserver=wss://billiards.onrender.com/ws&tableId=${tableId}&name=${encodeURIComponent(userName)}&clientId=${userId}&ruletype=${ruleType}`;

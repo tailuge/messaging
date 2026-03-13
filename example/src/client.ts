@@ -106,6 +106,12 @@ document.getElementById('btn-decline')?.addEventListener('click', async () => {
     await challengeManager.decline();
 });
 
+document.getElementById('name-input')?.addEventListener('keyup', async (event) => {
+    if (event.key === 'Enter') {
+        (window as any).updateName();
+    }
+});
+
 // =============================================================================
 // Initialization
 // =============================================================================
