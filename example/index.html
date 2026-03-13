@@ -27,6 +27,13 @@
     </div>
 
     <script>
+        function hideThirdPaneOnMobile() {
+            if (window.matchMedia("(orientation: portrait)").matches) {
+                document.querySelector(".pane:last-child").remove();
+            }
+        }
+        hideThirdPaneOnMobile();
+
         // Check if Nchan is reachable
         async function checkNchan() {
             try {
