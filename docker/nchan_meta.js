@@ -18,6 +18,11 @@ async function buildMeta(r) {
   let cache = null;
 
   try {
+    // Log njs info once
+    if (typeof njs !== 'undefined' && !njs._logged) {
+      console.log(`njs version: ${njs.version}, shared exists: ${!!njs.shared}, keys: ${Object.keys(njs).join(', ')}`);
+      njs._logged = true;
+    }
     cache = njs.shared && njs.shared.ip_cache;
   } catch (e) {
     cache = null;
@@ -25,7 +30,7 @@ async function buildMeta(r) {
   }
 
   if (!cache) {
-    console.log("cache is not available");
+    console.log(`cache is not available (njs.shared exists: ${!!(njs && njs.shared)}, ip_cache exists: ${!!(njs && njs.shared && njs.shared.ip_cache)})`);
   } else {
     const cached = cache.get(ip);
     if (cached) {
@@ -45,10 +50,14 @@ async function buildMeta(r) {
 
  
     try {
-      let reply = await ngx.fetch(`https://api.country.is/${ip}`, { timeout: 3000 });
-      let data = await reply.json();
+      let reply = await ngx.fetch(`https://api.country.is/${ip}`, {
+        timeout: 3000,
+        headers: { "User-Agent": "Nginx-NJS-Messaging" }
+      });
+      let text = await reply.text();
+      console.log(`api response for ${ip}: ${text}`);
+      let data = JSON.parse(text);
       country = data.country || "XX";
-      console.log(`country from api: ${country}`);
     } catch (e) {
       country = "XX";
       console.log(`api error: ${e.message} for ip: ${ip}`, e);

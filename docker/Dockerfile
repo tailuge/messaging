@@ -43,7 +43,9 @@ ARG NGINX_VERSION
 LABEL org.opencontainers.image.source="https://github.com/tailuge/scoreboard" \
       org.opencontainers.image.description="Billiards Network Nchan Server"
 
-RUN mkdir -p /etc/nginx/modules /var/cache/nginx /var/log/nginx \
+RUN apk add --no-cache ca-certificates && \
+    update-ca-certificates && \
+    mkdir -p /etc/nginx/modules /var/cache/nginx /var/log/nginx \
              /tmp/client_temp /tmp/proxy_temp_path /tmp/fastcgi_temp \
              /tmp/uwsgi_temp /tmp/scgi_temp
 
