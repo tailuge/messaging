@@ -43,7 +43,9 @@ ARG NGINX_VERSION
 LABEL org.opencontainers.image.source="https://github.com/tailuge/scoreboard" \
       org.opencontainers.image.description="Billiards Network Nchan Server"
 
-RUN mkdir -p /etc/nginx/modules /var/cache/nginx /var/run /var/log/nginx
+RUN mkdir -p /etc/nginx/modules /var/cache/nginx /var/log/nginx \
+             /tmp/client_temp /tmp/proxy_temp_path /tmp/fastcgi_temp \
+             /tmp/uwsgi_temp /tmp/scgi_temp
 
 COPY --from=builder /build/ngx_nchan_module.so /etc/nginx/modules/
 COPY --from=builder /build/ngx_http_js_module.so /etc/nginx/modules/
@@ -53,7 +55,7 @@ COPY nchan.conf /etc/nginx/conf.d/default.conf
 COPY nchan_meta.js /etc/nginx/nchan_meta.js
 COPY html/ /usr/share/nginx/html/
 
-RUN chown -R nginx:nginx /etc/nginx /usr/share/nginx/html /var/cache/nginx /var/run /var/log/nginx
+RUN chown -R nginx:nginx /etc/nginx /usr/share/nginx/html /var/cache/nginx /var/log/nginx /tmp
 
 USER nginx
 
