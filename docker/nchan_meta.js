@@ -7,7 +7,7 @@ function getClientIp(r) {
   return r.headersIn["cf-connecting-ip"] || r.headersIn["x-real-ip"] || r.remoteAddress;
 }
 
-function createMeta(r, country) {
+function createMeta(r, country, city) {
   return {
     ts: new Date().toISOString(),
     origin: r.headersIn.origin || "",
@@ -16,6 +16,7 @@ function createMeta(r, country) {
     host: r.headersIn.host || "",
     path: r.uri,
     country: country,
+    city: city || "",
   };
 }
 
@@ -25,29 +26,34 @@ async function buildMeta(r) {
 
   const cached = cache.get(ip);
   if (cached) {
-    console.log(`using cached country: ${cached} for ip: ${ip}`);
-    return createMeta(r, cached);
+    const parts = cached.split("|");
+    const country = parts[0];
+    const city = parts[1] || "";
+    console.log(`using cached location: ${country}, ${city} for ip: ${ip}`);
+    return createMeta(r, country, city);
   }
 
-  // Fetch country from API
+  // Fetch country and city from API
   let country = "XX";
+  let city = "";
   try {
-    const reply = await ngx.fetch(`https://api.country.is/${ip}`, {
+    const reply = await ngx.fetch(`https://api.country.is/${ip}?fields=city`, {
       timeout: 2000,
       headers: { "User-Agent": "Nginx-NJS-Messaging" },
     });
     const text = await reply.text();
     const data = JSON.parse(text);
     country = data.country || "XX";
-    console.log(`fetched country: ${country} for ip: ${ip}`);
+    city = data.city || "";
+    console.log(`fetched location: ${country}, ${city} for ip: ${ip}`);
   } catch (e) {
     console.log(`api error: ${e.message} for ip: ${ip}`);
   }
 
   // Cache for 1 hour (3600000 ms)
-  cache.set(ip, country, 3600000);
+  cache.set(ip, `${country}|${city}`, 3600000);
 
-  return createMeta(r, country);
+  return createMeta(r, country, city);
 }
 
 function mergeMeta(payload, meta) {
