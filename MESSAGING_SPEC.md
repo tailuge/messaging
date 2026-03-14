@@ -55,7 +55,8 @@ Represents the global presence state and matchmaking.
 interface Lobby {
   /**
    * Stream of the current online users.
-   * Emits the full list or patches whenever users join, leave, or time out.
+   * Emits the full list whenever users join, leave, or time out.
+   * The list must be sorted alphabetically by `userName` (case-insensitive).
    */
   onUsersChange(callback: (users: PresenceMessage[]) => void): void;
 
@@ -189,7 +190,7 @@ interface ChallengeMessage {
 }
 ```
 
-### `TableInfo`
+### `TableInfo` (UNDER REVIEW)
 
 Lobby-level information about an active game table.
 
@@ -216,6 +217,30 @@ interface TableMessage<T = any> {
   _meta?: _Meta; // Server-enriched metadata (received messages only)
 }
 ```
+
+---
+
+## Derived State & Logic
+
+Clients can derive additional state from the presence data provided by the `Lobby`.
+
+### 1. Active Games List
+
+The list of active games is derived by grouping all users in the lobby by their `tableId`.
+- A unique `tableId` represents an active game room.
+- Users with the same `tableId` are participants (players or spectators) in that game.
+
+### 2. Predicates
+
+#### `canChallenge(me: PresenceMessage, target: PresenceMessage): boolean`
+A user can be challenged if:
+- The current user (`me`) is not already at a table (`!me.tableId`).
+- The target user (`target`) is not already at a table (`!target.tableId`).
+- The target user is not the current user.
+
+#### `canSpectate(me: PresenceMessage, tableId: string): boolean`
+A game can be spectated if:
+- The current user (`me`) is not already at a table (`!me.tableId`).
 
 ---
 
