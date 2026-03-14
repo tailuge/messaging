@@ -2,7 +2,7 @@
  * Server-enriched metadata added to all messages by Nchan.
  * This is the absolute source of truth for timing and origin.
  */
-export interface _Meta {
+export interface Meta {
   ts: string; // ISO timestamp of the request (Source of Truth for time)
   locale: string; // Accept-Language header
   ua: string; // User-Agent header
@@ -35,7 +35,7 @@ export interface PresenceMessage {
   opponentId?: string | null;
   seek?: Seek;
   lastSeen?: number; // Managed internally (derived from _meta.ts)
-  _meta?: _Meta; // Server-enriched metadata (received messages only)
+  _meta?: Meta; // Server-enriched metadata (received messages only)
   tableId?: string; // Current game/spectating table
 }
 
@@ -50,7 +50,7 @@ export interface ChallengeMessage {
   recipientId: string;
   ruleType: string;
   tableId?: string; // Optional: table created by challenger
-  _meta?: _Meta; // Server-enriched metadata (received messages only)
+  _meta?: Meta; // Server-enriched metadata (received messages only)
 }
 
 /**
@@ -60,7 +60,7 @@ export interface TableMessage<T = unknown> {
   type: string;
   senderId: string;
   data: T; // Application-specific payload
-  _meta?: _Meta; // Server-enriched metadata (received messages only)
+  _meta?: Meta; // Server-enriched metadata (received messages only)
 }
 
 /**

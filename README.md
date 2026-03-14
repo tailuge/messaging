@@ -77,5 +77,19 @@ npm run docker:build
 
 - **Linting**: `npm run lint`
 - **Formatting**: `npm run format`
+
+## Publishing
+
+To release a new version to npm:
+
+```bash
+npm run release  # Builds and bumps version
+npm login        # Login to npm (if needed)
+npm publish      # Publish to npm registry
+```
+
+## Additional Documentation
+
 - **Specification**: See [MESSAGING_SPEC.md](./MESSAGING_SPEC.md) for the API contract and data models.
+- **Usage Guide**: See [SKILL.md](./SKILL.md) for a quick reference guide.
 - **Architectural Overview**: See [AGENTS.md](./AGENTS.md) for the design patterns used.

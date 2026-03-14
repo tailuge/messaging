@@ -28,7 +28,7 @@ interface MessagingClient {
    * Handles initial connection and automatic reconnection logic.
    * In browser environments, attaches lifecycle event listeners.
    */
-  start(): Promise<void>;
+  start(): void;
 
   /**
    * Stop all connections, timers (heartbeats), and clean up resources.
@@ -136,7 +136,7 @@ interface Table<T = any> {
 All messages published through the transport layer are automatically enriched by the server with metadata from HTTP headers and connection info. This `_meta` object is **added by the server** and should be used by clients as the absolute source of truth for timing (`ts`) and origin.
 
 ```typescript
-interface _Meta {
+interface Meta {
   ts: string; // ISO timestamp of the request (Source of Truth for time)
   locale: string; // Accept-Language header (use for flag rendering)
   ua: string; // User-Agent header
@@ -145,6 +145,7 @@ interface _Meta {
   host: string; // Host header value
   path: string; // Request URI path
   method: string; // HTTP method (always POST for publish)
+  country: string; // Country code from IP (e.g., "US", "GB", "XX")
 }
 ```
 
@@ -164,7 +165,7 @@ interface PresenceMessage {
   opponentId?: string | null;
   seek?: Seek;
   lastSeen?: number; // Managed internally for pruning (derived from _meta.ts)
-  _meta?: _Meta; // Server-enriched metadata (received messages only)
+  _meta?: Meta; // Server-enriched metadata (received messages only)
 
   // Current game state:
   // - If present: user is playing or spectating at that table (available for spectating)
@@ -186,7 +187,7 @@ interface ChallengeMessage {
   recipientId: string;
   ruleType: string;
   tableId?: string; // Optional: table created by challenger
-  _meta?: _Meta; // Server-enriched metadata (received messages only)
+  _meta?: Meta; // Server-enriched metadata (received messages only)
 }
 ```
 
@@ -214,7 +215,7 @@ interface TableMessage<T = any> {
   type: string;
   senderId: string;
   data: T; // Application-specific payload
-  _meta?: _Meta; // Server-enriched metadata (received messages only)
+  _meta?: Meta; // Server-enriched metadata (received messages only)
 }
 ```
 
@@ -368,3 +369,23 @@ table.onMessage((msg) => {
 
 table.publish("MOVE", { x: 10, y: 20 });
 ```
+
+---
+
+## Future Considerations
+
+### 1. `beforeunload` Handler
+
+The current implementation uses `pagehide` to handle browser page dismissal. An alternative approach is to use `beforeunload` to send a synchronous (or near-synchronous) "leave" presence message before the page unloads. This provides a fallback for browsers where `pagehide` may not fire reliably.
+
+Trade-offs:
+- `beforeunload` is synchronous and may delay page dismissal
+- Not supported in all browsers (e.g., Safari iOS)
+- `pagehide` is the modern recommended approach, but may not send network requests in some cases
+
+### 2. `joinTable` Behavior
+
+The current `joinTable` method automatically updates the user's presence to include `tableId` (marking them as "at a table"). Future iterations could:
+- Make this behavior optional via a configuration flag
+- Allow spectating without affecting the user's availability status
+- Provide separate methods: `joinTableAsPlayer()` vs. `joinTableAsSpectator()`
