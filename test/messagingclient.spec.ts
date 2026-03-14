@@ -75,6 +75,136 @@ describe("MessagingClient - Phase 1", () => {
       expect(usersA[0].userId).toBe("user-a");
     });
 
+    it("should show B sees A even when joining after initial heartbeat (message retention)", async () => {
+      // Nchan message retention (message_buffer_length=2000, message_timeout=90s)
+      // ensures late subscribers receive buffered presence messages.
+      const clientA = createClient();
+      const clientB = createClient();
+
+      const userA: PresenceMessage = {
+        messageType: "presence",
+        type: "join",
+        userId: "user-a",
+        userName: "Alice",
+      };
+
+      const userB: PresenceMessage = {
+        messageType: "presence",
+        type: "join",
+        userId: "user-b",
+        userName: "Bob",
+      };
+
+      // 1. Client A joins lobby with long heartbeat (no heartbeats during test)
+      const lobbyA = await clientA.joinLobby(userA, {
+        heartbeatInterval: 10000,
+        pruneInterval: 10000,
+        staleTtl: 30000,
+      });
+
+      let usersA: PresenceMessage[] = [];
+      lobbyA.onUsersChange((u) => (usersA = u));
+
+      // Wait for A to see themselves
+      await waitUntil(() => usersA.length === 1 && usersA[0].userId === "user-a");
+
+      // 2. Wait 1 second - no heartbeats will fire
+      await wait(1000);
+
+      // 3. Client B joins lobby AFTER A's initial join (but no heartbeat yet)
+      const lobbyB = await clientB.joinLobby(userB, {
+        heartbeatInterval: 10000,
+        pruneInterval: 10000,
+        staleTtl: 30000,
+      });
+
+      let usersB: PresenceMessage[] = [];
+      lobbyB.onUsersChange((u) => (usersB = u));
+
+      // Wait for B to stabilize
+      await wait(500);
+
+      // BUG: B should see A but doesn't (because A hasn't sent a heartbeat yet)
+      const userIdsB = usersB.map((u) => u.userId);
+      
+      // This will fail if the bug exists - B should see A but won't
+      expect(userIdsB).toContain("user-a");
+    }, 10000);
+
+    it("should show A sees B after reconnecting (message retention)", async () => {
+      const clientA = createClient();
+      const clientB = createClient();
+
+      const userA: PresenceMessage = {
+        messageType: "presence",
+        type: "join",
+        userId: "user-a",
+        userName: "Alice",
+      };
+
+      const userB: PresenceMessage = {
+        messageType: "presence",
+        type: "join",
+        userId: "user-b",
+        userName: "Bob",
+      };
+
+      // 1. Client A joins lobby
+      const lobbyA = await clientA.joinLobby(userA, {
+        heartbeatInterval: 100,
+        pruneInterval: 100,
+        staleTtl: 300,
+      });
+
+      let usersA: PresenceMessage[] = [];
+      lobbyA.onUsersChange((u) => (usersA = u));
+
+      // Wait for A to see themselves
+      await waitUntil(() => usersA.length === 1 && usersA[0].userId === "user-a");
+
+      // 2. Client B joins lobby
+      const lobbyB = await clientB.joinLobby(userB, {
+        heartbeatInterval: 100,
+        pruneInterval: 100,
+        staleTtl: 300,
+      });
+
+      let usersB: PresenceMessage[] = [];
+      lobbyB.onUsersChange((u) => (usersB = u));
+
+      // Wait for both to see each other
+      await waitUntil(() => usersA.length === 2 && usersB.length === 2);
+      
+      expect(usersA.map(u => u.userId).sort()).toEqual(["user-a", "user-b"]);
+      expect(usersB.map(u => u.userId).sort()).toEqual(["user-a", "user-b"]);
+
+      // 3. A disconnects and reconnects
+      await clientA.stop();
+      
+      // Give B time to see A leave
+      await wait(200);
+      
+      // A reconnects
+      await clientA.start();
+      const lobbyA2 = await clientA.joinLobby(userA, {
+        heartbeatInterval: 100,
+        pruneInterval: 100,
+        staleTtl: 300,
+      });
+
+      let usersA2: PresenceMessage[] = [];
+      lobbyA2.onUsersChange((u) => (usersA2 = u));
+
+      // Wait for A to stabilize after reconnect
+      await wait(200);
+
+      // BUG: A should see B but doesn't
+      const userIdsA2 = usersA2.map((u) => u.userId);
+      
+      // This will fail if the bug exists - A should see B but won't
+      expect(userIdsA2).toContain("user-b");
+    }, 10000);
+
     it("should update presence metadata correctly", async () => {
       const clientA = createClient();
       const clientB = createClient();

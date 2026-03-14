@@ -235,6 +235,15 @@ interface TableMessage<T = any> {
   - Transparently handle transition between online/offline states.
 - **Concurrency**: Ensure multiple `Table` instances can coexist if needed (though typically one game at a time).
 
+### 3. Message Retention
+
+The Nchan server retains presence messages for a configurable duration (default: 90 seconds, 2000 messages). This ensures:
+- Late subscribers receive buffered presence messages from existing users
+- Clients reconnecting can see active users without waiting for the next heartbeat
+- The system is resilient to brief network interruptions
+
+**Note**: This is handled by the Nchan server configuration (`nchan_message_timeout` and `nchan_message_buffer_length`).
+
 ### 3. Page Visibility & Browser Lifecycle
 
 Page visibility handling (`pagehide`, `pageshow`, `visibilitychange`) is the responsibility of `MessagingClient` (application layer), **not** `NchanClient` (transport layer). This keeps the transport layer platform-agnostic.
@@ -276,7 +285,7 @@ private handlePageShow = (event: PageTransitionEvent): void => {
 
 ### 3. State Reconstruction
 
-Since the transport is primarily pub/sub, a new client joining the lobby won't immediately know about existing tables or users until the next heartbeat.
+Since the transport retains messages server-side, a new client joining the lobby will receive buffered presence messages from existing users.
 
 ---
 

@@ -71,3 +71,11 @@ The Docker container uses Nginx with the Nchan module and an NJS script (`nchan_
 **Verification:**
 - `npm run test` verifies that `_meta` is correctly received and parsed by the client.
 - `./docker/testnchan.sh` provides 8 specific assertions for metadata enrichment.
+
+## Nchan Message Retention
+
+The Nchan server is configured with message retention:
+- `nchan_message_timeout`: 90 seconds
+- `nchan_message_buffer_length`: 2000 messages
+
+This ensures late subscribers receive buffered presence messages, making the system resilient to brief network interruptions and allowing reconnecting clients to see active users immediately.
