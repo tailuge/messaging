@@ -279,6 +279,6 @@ export class Lobby {
   }
 
   private getUsersList(): PresenceMessage[] {
-    return Array.from(this.users.values());
+    return Array.from(this.users.values()).sort((a, b) => a.userName.localeCompare(b.userName));
   }
 }

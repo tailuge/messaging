@@ -75,6 +75,49 @@ describe("MessagingClient - Phase 1", () => {
       expect(usersA[0].userId).toBe("user-a");
     });
 
+    it("should return users sorted alphabetically by userName", async () => {
+      const clientA = createClient();
+      const clientB = createClient();
+      const clientC = createClient();
+
+      // Join in non-alphabetical order: Charlie, Alice, Bob
+      const userC: PresenceMessage = {
+        messageType: "presence",
+        type: "join",
+        userId: "user-c",
+        userName: "Charlie",
+      };
+
+      const userA: PresenceMessage = {
+        messageType: "presence",
+        type: "join",
+        userId: "user-a",
+        userName: "Alice",
+      };
+
+      const userB: PresenceMessage = {
+        messageType: "presence",
+        type: "join",
+        userId: "user-b",
+        userName: "Bob",
+      };
+
+      // Join clients in non-alphabetical order
+      const lobbyA = await clientA.joinLobby(userA);
+      await clientB.joinLobby(userB);
+      await clientC.joinLobby(userC);
+
+      let usersA: PresenceMessage[] = [];
+      lobbyA.onUsersChange((u) => (usersA = u));
+
+      // Wait for all three to see each other
+      await waitUntil(() => usersA.length === 3);
+
+      // Verify alphabetical sorting by userName
+      const userNames = usersA.map((u) => u.userName);
+      expect(userNames).toEqual(["Alice", "Bob", "Charlie"]);
+    });
+
     it("should show B sees A even when joining after initial heartbeat (message retention)", async () => {
       // Nchan message retention (message_buffer_length=2000, message_timeout=90s)
       // ensures late subscribers receive buffered presence messages.

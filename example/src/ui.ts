@@ -41,8 +41,7 @@ export function renderUserList(users: PresenceMessage[], currentUserId: string, 
     
     if (countEl) countEl.innerText = `Online Users: ${users.length}`;
     if (list) {
-        const sortedUsers = [...users].sort((a, b) => a.userName.localeCompare(b.userName));
-        list.innerHTML = sortedUsers.map(u => {
+        list.innerHTML = users.map(u => {
             const isMe = u.userId === currentUserId;
             const inGame = !!u.tableId;
             const isSeeking = !!u.seek;
