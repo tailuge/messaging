@@ -119,6 +119,11 @@ run_test "Meta: Publish response contains path field" bash -c '
 	echo "$response" | grep -q "\"path\":"
 '
 
+run_test "Meta: Publish response contains city field" bash -c '
+	response=$(curl -fsS --max-time 5 -X POST -d "{\"event\": \"meta_test\"}" "http://localhost/publish/lobby/meta_city")
+	echo "$response" | grep -q "\"city\":"
+'
+
 run_test "Meta: Subscribe receives _meta in published message" bash -c '
 	curl -fsS --max-time 5 "http://localhost/subscribe/lobby/meta_sub" >/tmp/nchan-meta-sub.out &
 	SUB_PID=$!
