@@ -76,6 +76,15 @@ export interface TableInfo {
 }
 
 /**
+ * Derived active game from presence list
+ */
+export interface ActiveGame {
+  tableId: string;
+  players: { id: string; name: string }[];
+  ruleType?: string;
+}
+
+/**
  * Union type for messages received via the lobby channel
  */
 export type LobbyIncomingMessage = PresenceMessage | ChallengeMessage;
@@ -89,6 +98,55 @@ export function isPresenceMessage(msg: any): msg is PresenceMessage {
 
 export function isChallengeMessage(msg: any): msg is ChallengeMessage {
   return msg?.messageType === "challenge";
+}
+
+/**
+ * Predicate: can the current user challenge this target?
+ * Returns true if target is not self, not in a game, and not seeking
+ */
+export function canChallenge(target: PresenceMessage, currentUserId: string): boolean {
+  return (
+    target.userId !== currentUserId &&
+    !target.tableId &&
+    !target.seek
+  );
+}
+
+/**
+ * Predicate: can the current user spectate this target's game?
+ * Returns true if target is at a table and it's not the current user's table
+ */
+export function canSpectate(target: PresenceMessage, currentTableId?: string): boolean {
+  return (
+    !!target.tableId &&
+    target.tableId !== currentTableId
+  );
+}
+
+/**
+ * Filter: derive active games from presence list
+ * Returns unique games (one entry per tableId) with their players
+ */
+export function activeGames(users: PresenceMessage[]): ActiveGame[] {
+  const gameMap = new Map<string, ActiveGame>();
+
+  for (const user of users) {
+    if (user.tableId) {
+      if (!gameMap.has(user.tableId)) {
+        gameMap.set(user.tableId, {
+          tableId: user.tableId,
+          players: [],
+          ruleType: user.ruleType,
+        });
+      }
+      gameMap.get(user.tableId)!.players.push({
+        id: user.userId,
+        name: user.userName,
+      });
+    }
+  }
+
+  return Array.from(gameMap.values());
 }
 
 /**

@@ -1,4 +1,4 @@
-import { PresenceMessage } from "../src/types";
+import { PresenceMessage, ActiveGame, canChallenge, canSpectate, activeGames } from "../src/types";
 import {
   startContainer,
   stopContainer,
@@ -436,5 +436,107 @@ describe("MessagingClient - Phase 1", () => {
       expect(usersA.find((u) => u.userId === "bob")).toBeUndefined();
       expect(usersA.length).toBe(1); // Only Alice remains
     }, 5000);
+  });
+
+  describe("Helper Functions", () => {
+    it("canChallenge: returns false for self", () => {
+      const user: PresenceMessage = {
+        messageType: "presence",
+        type: "join",
+        userId: "user-1",
+        userName: "Alice",
+      };
+      expect(canChallenge(user, "user-1")).toBe(false);
+    });
+
+    it("canChallenge: returns false if target is in a game", () => {
+      const user: PresenceMessage = {
+        messageType: "presence",
+        type: "join",
+        userId: "user-2",
+        userName: "Bob",
+        tableId: "table-1",
+      };
+      expect(canChallenge(user, "user-1")).toBe(false);
+    });
+
+    it("canChallenge: returns false if target is seeking", () => {
+      const user: PresenceMessage = {
+        messageType: "presence",
+        type: "join",
+        userId: "user-2",
+        userName: "Bob",
+        seek: { tableId: "table-1" },
+      };
+      expect(canChallenge(user, "user-1")).toBe(false);
+    });
+
+    it("canChallenge: returns true for valid target", () => {
+      const user: PresenceMessage = {
+        messageType: "presence",
+        type: "join",
+        userId: "user-2",
+        userName: "Bob",
+      };
+      expect(canChallenge(user, "user-1")).toBe(true);
+    });
+
+    it("canSpectate: returns false if target not in game", () => {
+      const user: PresenceMessage = {
+        messageType: "presence",
+        type: "join",
+        userId: "user-2",
+        userName: "Bob",
+      };
+      expect(canSpectate(user)).toBe(false);
+    });
+
+    it("canSpectate: returns false if target at same table", () => {
+      const user: PresenceMessage = {
+        messageType: "presence",
+        type: "join",
+        userId: "user-2",
+        userName: "Bob",
+        tableId: "table-1",
+      };
+      expect(canSpectate(user, "table-1")).toBe(false);
+    });
+
+    it("canSpectate: returns true for different table", () => {
+      const user: PresenceMessage = {
+        messageType: "presence",
+        type: "join",
+        userId: "user-2",
+        userName: "Bob",
+        tableId: "table-2",
+      };
+      expect(canSpectate(user, "table-1")).toBe(true);
+    });
+
+    it("activeGames: returns empty for no users in games", () => {
+      const users: PresenceMessage[] = [
+        { messageType: "presence", type: "join", userId: "u1", userName: "A" },
+        { messageType: "presence", type: "join", userId: "u2", userName: "B" },
+      ];
+      expect(activeGames(users)).toEqual([]);
+    });
+
+    it("activeGames: returns games grouped by tableId", () => {
+      const users: PresenceMessage[] = [
+        { messageType: "presence", type: "join", userId: "u1", userName: "Alice", tableId: "t1" },
+        { messageType: "presence", type: "join", userId: "u2", userName: "Bob", tableId: "t1" },
+        { messageType: "presence", type: "join", userId: "u3", userName: "Charlie", tableId: "t2" },
+      ];
+      const games = activeGames(users);
+      expect(games).toHaveLength(2);
+      
+      const t1 = games.find((g: ActiveGame) => g.tableId === "t1");
+      expect(t1?.players).toHaveLength(2);
+      expect(t1?.players.map((p: { id: string; name: string }) => p.name).sort()).toEqual(["Alice", "Bob"]);
+      
+      const t2 = games.find((g: ActiveGame) => g.tableId === "t2");
+      expect(t2?.players).toHaveLength(1);
+      expect(t2?.players[0].name).toBe("Charlie");
+    });
   });
 });

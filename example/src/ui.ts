@@ -1,4 +1,4 @@
-import { PresenceMessage, ChallengeMessage } from "../../src/index";
+import { PresenceMessage, ChallengeMessage, canChallenge, canSpectate, activeGames } from "../../src/index";
 import { countryToFlag } from "./utils/flag";
 
 // =============================================================================
@@ -48,13 +48,13 @@ export function renderUserList(users: PresenceMessage[], currentUserId: string, 
             
             let actionBtn = '';
             if (!isMe) {
-                if (inGame && u.tableId !== currentTableId) {
+                if (canSpectate(u, currentTableId)) {
                     actionBtn = `<button class="btn-spectate" onclick="spectateGame('${u.tableId}')">Spectate</button>`;
                 } else if (inGame) {
                     // Already in this game
                 } else if (isSeeking) {
                     actionBtn = `<button class="btn-join" onclick="joinSeek('${u.userId}', '${u.seek?.tableId}', '${u.seek?.ruleType}')">Join Game</button>`;
-                } else {
+                } else if (canChallenge(u, currentUserId)) {
                     actionBtn = `<button class="btn-challenge" onclick="challengeUser('${u.userId}')">Challenge</button>`;
                 }
             }

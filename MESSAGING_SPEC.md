@@ -226,21 +226,34 @@ Clients can derive additional state from the presence data provided by the `Lobb
 
 ### 1. Active Games List
 
-The list of active games is derived by grouping all users in the lobby by their `tableId`.
-- A unique `tableId` represents an active game room.
-- Users with the same `tableId` are participants (players or spectators) in that game.
+#### `activeGames(users: PresenceMessage[]): ActiveGame[]`
+
+Filters users with a `tableId` and returns one entry per unique table.
+
+```typescript
+interface ActiveGame {
+  tableId: string;
+  players: { id: string; name: string }[];
+  ruleType?: string;
+}
+```
+
+**Note**: Spectator vs player distinction is not available in presence data - all users with `tableId` are included as "players".
 
 ### 2. Predicates
 
-#### `canChallenge(me: PresenceMessage, target: PresenceMessage): boolean`
-A user can be challenged if:
-- The current user (`me`) is not already at a table (`!me.tableId`).
-- The target user (`target`) is not already at a table (`!target.tableId`).
-- The target user is not the current user.
+Exported helper functions for consumer use.
 
-#### `canSpectate(me: PresenceMessage, tableId: string): boolean`
-A game can be spectated if:
-- The current user (`me`) is not already at a table (`!me.tableId`).
+#### `canChallenge(target: PresenceMessage, currentUserId: string): boolean`
+Returns true if:
+- `target.userId !== currentUserId` (not self)
+- `!target.tableId` (not already at a table)
+- `!target.seek` (not seeking a game)
+
+#### `canSpectate(target: PresenceMessage, currentTableId?: string): boolean`
+Returns true if:
+- `target.tableId` exists (is at a table)
+- `target.tableId !== currentTableId` (not already at this table)
 
 ---
 
