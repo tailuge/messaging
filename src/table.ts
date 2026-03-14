@@ -81,21 +81,19 @@ export class Table<T = any> {
    * Leave the table and stop all subscriptions.
    */
   async leave(options: { isTeardown?: boolean } = {}): Promise<void> {
-    try {
-      // Explicitly notify the opponent we are leaving
-      await this.nchan.publishTable(
-        this.tableId,
-        { type: "SYSTEM_DISCONNECT", data: {} as T },
-        this.userId,
-        { keepalive: options.isTeardown },
-      );
-
-      if (!options.isTeardown) {
-        // Small delay to ensure the message is dispatched before closing the socket
+    // Only send leave message on explicit user action, not on page hide/teardown
+    if (!options.isTeardown) {
+      try {
+        await this.nchan.publishTable(
+          this.tableId,
+          { type: "table:leave", data: {} as T },
+          this.userId,
+        );
+        // Small delay to ensure message is dispatched before closing the socket
         await new Promise((r) => setTimeout(r, 100));
+      } catch (e) {
+        console.error("Error leaving table:", e);
       }
-    } catch (e) {
-      console.error("Error leaving table:", e);
     }
 
     // Clear lobby presence if we have one
@@ -116,7 +114,7 @@ export class Table<T = any> {
     if (!msg || !msg.type) return;
 
     // Handle system messages internally
-    if (msg.type === "SYSTEM_DISCONNECT" && msg.senderId !== this.userId) {
+    if (msg.type === "table:leave" && msg.senderId !== this.userId) {
       this.notifyOpponentLeft();
     }
 

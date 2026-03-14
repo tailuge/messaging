@@ -7,7 +7,7 @@ The current implementation of the messaging library is highly reliable for termi
 ### 1. Root Cause: Aggressive `pagehide` Teardown
 In `src/messagingclient.ts`, the `pagehide` event listener calls `this.stop({ isTeardown: true })`. This triggers:
 - `Lobby.leave()`: Sends an explicit `type: "leave"` presence message.
-- `Table.leave()`: Sends an explicit `type: "SYSTEM_DISCONNECT"` table message.
+- `Table.leave()`: Sends an explicit `type: "table:leave"` table message.
 
 ### 2. Immediate Opponent Notification
 When the opponent receives these messages, or when their "watchdog" (`Table.handleLobbyUsersChange`) sees the user disappear from the lobby list (which happens immediately after a "leave" message), they are notified that the player has left.
