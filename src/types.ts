@@ -1,15 +1,12 @@
 /**
  * Server-enriched metadata added to all messages by Nchan.
- * This is the absolute source of truth for timing and origin.
+ * This is the absolute source of truth for timing.
  */
 export interface Meta {
   ts: string; // ISO timestamp of the request (Source of Truth for time)
-  locale: string; // Accept-Language header
   ua: string; // User-Agent header
   ip: string; // Client remote address
-  origin: string; // Origin header value
   host: string; // Host header value
-  path: string; // Request URI path
   method: string; // HTTP method (always POST for publish)
   country: string; // Country code from IP (e.g., "US", "GB", "XX")
 }
@@ -20,7 +17,7 @@ export interface Meta {
 export interface Seek {
   tableId: string;
   ruleType?: string;
-  // Note: Timing is handled by the wrapping message's _meta.ts
+  // Note: Timing is handled by the wrapping message's meta.ts
 }
 
 /**
@@ -34,8 +31,8 @@ export interface PresenceMessage {
   ruleType?: string;
   opponentId?: string | null;
   seek?: Seek;
-  lastSeen?: number; // Managed internally (derived from _meta.ts)
-  _meta?: Meta; // Server-enriched metadata (received messages only)
+  lastSeen?: number; // Managed internally (derived from meta.ts)
+  meta?: Meta; // Server-enriched metadata (received messages only)
   tableId?: string; // Current game/spectating table
 }
 
@@ -50,7 +47,7 @@ export interface ChallengeMessage {
   recipientId: string;
   ruleType: string;
   tableId?: string; // Optional: table created by challenger
-  _meta?: Meta; // Server-enriched metadata (received messages only)
+  meta?: Meta; // Server-enriched metadata (received messages only)
 }
 
 /**
@@ -60,7 +57,7 @@ export interface TableMessage<T = unknown> {
   type: string;
   senderId: string;
   data: T; // Application-specific payload
-  _meta?: Meta; // Server-enriched metadata (received messages only)
+  meta?: Meta; // Server-enriched metadata (received messages only)
 }
 
 /**
@@ -72,7 +69,7 @@ export interface TableInfo {
   players: { id: string; name: string }[];
   spectatorCount: number;
   status: "waiting" | "playing" | "finished";
-  createdAt: number; // Derived from initial join _meta.ts
+  createdAt: number; // Derived from initial join meta.ts
 }
 
 /**
@@ -105,11 +102,7 @@ export function isChallengeMessage(msg: any): msg is ChallengeMessage {
  * Returns true if target is not self, not in a game, and not seeking
  */
 export function canChallenge(target: PresenceMessage, currentUserId: string): boolean {
-  return (
-    target.userId !== currentUserId &&
-    !target.tableId &&
-    !target.seek
-  );
+  return target.userId !== currentUserId && !target.tableId && !target.seek;
 }
 
 /**
@@ -117,10 +110,7 @@ export function canChallenge(target: PresenceMessage, currentUserId: string): bo
  * Returns true if target is at a table and it's not the current user's table
  */
 export function canSpectate(target: PresenceMessage, currentTableId?: string): boolean {
-  return (
-    !!target.tableId &&
-    target.tableId !== currentTableId
-  );
+  return !!target.tableId && target.tableId !== currentTableId;
 }
 
 /**

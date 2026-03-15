@@ -59,18 +59,18 @@ docker/
 
 ## Nchan Message Enrichment
 
-The Docker container uses Nginx with the Nchan module and an NJS script (`nchan_meta.js`) to enrich published messages with metadata (`_meta`).
+The Docker container uses Nginx with the Nchan module and an NJS script (`nchan_meta.js`) to enrich published messages with metadata (`meta`).
 
 **How it works:**
 1. All `/publish/*` endpoints route through `js_content nchan_meta.publish`
-2. The NJS script parses the JSON payload and builds a `_meta` object containing:
+2. The NJS script parses the JSON payload and builds a `meta` object containing:
    - `ts`: ISO timestamp of the request (Source of Truth for timing)
-   - `origin`, `locale`, `ua`, `ip`, `host`, `path`, `method`
-3. The original payload is merged with `_meta` and forwarded to the internal Nchan publisher
+   - `ua`, `host`, `ip`, `country`, `city`: Request metadata
+3. The original payload is merged with `meta` and forwarded to the internal Nchan publisher
 
 **Verification:**
-- `npm run test` verifies that `_meta` is correctly received and parsed by the client.
-- `./docker/testnchan.sh` provides 8 specific assertions for metadata enrichment.
+- `npm run test` verifies that `meta` is correctly received and parsed by the client.
+- `./docker/testnchan.sh` provides specific assertions for metadata enrichment.
 
 ## Nchan Message Retention
 

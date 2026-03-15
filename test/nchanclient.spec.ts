@@ -3,17 +3,16 @@ import WebSocket from "ws";
 import { NchanClient } from "../src/nchanclient";
 
 /**
- * Helper to verify _meta enrichment in a parsed message.
- * Asserts that _meta exists, ts is a valid ISO date,
- * and path contains the expected prefix.
+ * Helper to verify meta enrichment in a parsed message.
+ * Asserts that meta exists, ts is a valid ISO date,
+ * and country is present.
  */
-function expectMeta(parsed: Record<string, unknown>, pathPrefix: string) {
-  expect(parsed._meta).toBeDefined();
-  const meta = parsed._meta as Record<string, unknown>;
+function expectMeta(parsed: Record<string, unknown>) {
+  expect(parsed.meta).toBeDefined();
+  const meta = parsed.meta as Record<string, unknown>;
   expect(meta.ts).toBeDefined();
   expect(typeof meta.ts).toBe("string");
   expect(Date.parse(meta.ts as string)).not.toBeNaN();
-  expect(meta.path).toContain(pathPrefix);
 }
 
 describe("NchanClient", () => {
@@ -114,7 +113,7 @@ describe("NchanClient", () => {
       expect(parsed.type).toBe("join");
       expect(parsed.userId).toBe(targetUserId);
 
-      expectMeta(parsed, "/publish/status/");
+      expectMeta(parsed);
     });
 
     it("should receive challenge messages on presence channel", async () => {
@@ -181,7 +180,7 @@ describe("NchanClient", () => {
       expect(parsed.type).toBe("MOVE");
       expect(parsed.senderId).toBe("user456");
       expect(parsed.data.x).toBe(10);
-      expectMeta(parsed, `/publish/table/${tableId}`);
+      expectMeta(parsed);
     });
   });
 

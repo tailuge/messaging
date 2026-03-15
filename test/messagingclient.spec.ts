@@ -169,7 +169,7 @@ describe("MessagingClient - Phase 1", () => {
 
       // BUG: B should see A but doesn't (because A hasn't sent a heartbeat yet)
       const userIdsB = usersB.map((u) => u.userId);
-      
+
       // This will fail if the bug exists - B should see A but won't
       expect(userIdsB).toContain("user-a");
     }, 10000);
@@ -217,16 +217,16 @@ describe("MessagingClient - Phase 1", () => {
 
       // Wait for both to see each other
       await waitUntil(() => usersA.length === 2 && usersB.length === 2);
-      
-      expect(usersA.map(u => u.userId).sort()).toEqual(["user-a", "user-b"]);
-      expect(usersB.map(u => u.userId).sort()).toEqual(["user-a", "user-b"]);
+
+      expect(usersA.map((u) => u.userId).sort()).toEqual(["user-a", "user-b"]);
+      expect(usersB.map((u) => u.userId).sort()).toEqual(["user-a", "user-b"]);
 
       // 3. A disconnects and reconnects
       await clientA.stop();
-      
+
       // Give B time to see A leave
       await wait(200);
-      
+
       // A reconnects
       await clientA.start();
       const lobbyA2 = await clientA.joinLobby(userA, {
@@ -243,7 +243,7 @@ describe("MessagingClient - Phase 1", () => {
 
       // BUG: A should see B but doesn't
       const userIdsA2 = usersA2.map((u) => u.userId);
-      
+
       // This will fail if the bug exists - A should see B but won't
       expect(userIdsA2).toContain("user-b");
     }, 10000);
@@ -529,11 +529,14 @@ describe("MessagingClient - Phase 1", () => {
       ];
       const games = activeGames(users);
       expect(games).toHaveLength(2);
-      
+
       const t1 = games.find((g: ActiveGame) => g.tableId === "t1");
       expect(t1?.players).toHaveLength(2);
-      expect(t1?.players.map((p: { id: string; name: string }) => p.name).sort()).toEqual(["Alice", "Bob"]);
-      
+      expect(t1?.players.map((p: { id: string; name: string }) => p.name).sort()).toEqual([
+        "Alice",
+        "Bob",
+      ]);
+
       const t2 = games.find((g: ActiveGame) => g.tableId === "t2");
       expect(t2?.players).toHaveLength(1);
       expect(t2?.players[0].name).toBe("Charlie");

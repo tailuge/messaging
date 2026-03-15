@@ -12,7 +12,7 @@ Bash script that runs against Docker Nchan container (or production). Tests HTTP
 - Publish to lobby/presence/table channels
 - Pub/Sub for all channels
 - WebSocket handshake
-- **Meta enrichment** (8 assertions for `_meta` fields: ts, origin, method, path, etc.)
+- **Meta enrichment** (assertions for `meta` fields: ts, country, etc.)
 
 **Run:**
 
@@ -30,7 +30,7 @@ Uses `testcontainers` to spin up the Docker image, tests `NchanClient` transport
 - `publishPresence`, `publishChallenge`, `publishTable`
 - `subscribePresence`, `subscribeTable`
 - Message receipt verification
-- `_meta` enrichment validation
+- `meta` enrichment validation
 - Reconnection logic (exponential backoff)
 - Raw WebSocket connection
 
@@ -71,7 +71,7 @@ Tests run against the real Docker Nchan container, same as existing `nchanclient
 
 - `onUsersChange` callback fires with correct user list
 - User count increments/decrements correctly
-- User objects contain expected fields (`userId`, `userName`, `_meta`)
+- User objects contain expected fields (`userId`, `userName`, `meta`)
 - User who leaves is removed from list
 
 #### 2. Update Presence (Username / Playing Status)
@@ -131,15 +131,15 @@ Tests run against the real Docker Nchan container, same as existing `nchanclient
 3. Client A publishes Move to Table 1
 4. Client B receives TableMessage<Move> with correct data
 5. Client C does NOT receive Client A's message (isolation)
-6. Client B receives _meta.ts from server, confirms it matches receipt time
+6. Client B receives meta.ts from server, confirms it matches receipt time
 ```
 
 **Assertions:**
 
 - `onMessage` callback fires with generic `data` payload.
-- `TableMessage` structure correct (`type`, `senderId`, `data`, `_meta`).
+- `TableMessage` structure correct (`type`, `senderId`, `data`, `meta`).
 - Messages are strictly isolated by `tableId`.
-- **Source of Truth**: Assert that timing is derived from `_meta.ts`.
+- **Source of Truth**: Assert that timing is derived from `meta.ts`.
 
 #### 6. Heartbeat & Pruning (Time Synchronized)
 
@@ -155,7 +155,7 @@ Tests run against the real Docker Nchan container, same as existing `nchanclient
 
 - Periodic heartbeat messages sent to presence channel.
 - Users without heartbeat pruned after TTL.
-- **Source of Truth**: `lastSeen` must be derived from `_meta.ts` of the last received message, protecting against client clock drift.
+- **Source of Truth**: `lastSeen` must be derived from `meta.ts` of the last received message, protecting against client clock drift.
 
 #### 7. Multiple Concurrent Users
 

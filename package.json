@@ -1,6 +1,6 @@
 {
   "name": "@tailuge/messaging",
-  "version": "1.3.0",
+  "version": "1.5.0",
   "type": "module",
   "description": "A stateful messaging library for Nchan-powered real-time applications.",
   "main": "./dist/index.js",
@@ -23,7 +23,7 @@
     "test:debug": "npm run playwright",
     "lint": "tsc --noEmit && npx oxlint src test",
     "prettify": "npx oxfmt src test",
-    "build": "tsc --declaration",
+    "build": "tsc --declaration && node scripts/add-js-extensions.js",
     "release": "npm version minor --no-git-tag-version && npm run build",
     "build:all": "npm run build && npm run build:example && npm run docker:start",
     "build:example": "mkdir -p docker/html/example && npx esbuild example/src/client.ts --bundle --outfile=docker/html/example/client.js && cp example/*.html docker/html/example/",

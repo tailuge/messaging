@@ -10,11 +10,8 @@ function getClientIp(r) {
 function createMeta(r, country, city) {
   return {
     ts: new Date().toISOString(),
-    origin: r.headersIn.origin || "",
-    locale: r.headersIn["accept-language"] || "",
     ua: r.headersIn["user-agent"] || "",
     host: r.headersIn.host || "",
-    path: r.uri,
     country: country,
     city: city || "",
   };
@@ -58,11 +55,11 @@ async function buildMeta(r) {
 
 function mergeMeta(payload, meta) {
   if (payload && typeof payload === "object" && !Array.isArray(payload)) {
-    delete payload._meta;
-    payload._meta = meta;
+    delete payload.meta;
+    payload.meta = meta;
     return payload;
   }
-  return { data: payload, _meta: meta };
+  return { data: payload, meta: meta };
 }
 
 async function publish(r) {

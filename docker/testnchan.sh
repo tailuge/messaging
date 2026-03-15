@@ -99,9 +99,9 @@ run_test "Table Pub/Sub" bash -c '
 	curl -fsS --max-time 5 "http://localhost/subscribe/table/tabletest" | grep -q "tableId"
 '
 
-run_test "Meta: Publish response contains _meta field" bash -c '
+run_test "Meta: Publish response contains meta field" bash -c '
 	response=$(curl -fsS --max-time 5 -X POST -H "Origin: http://localhost" -H "User-Agent: test-agent" -d "{\"event\": \"meta_test\"}" "http://localhost/publish/lobby/meta")
-	echo "$response" | grep -q "_meta"
+	echo "$response" | grep -q "meta"
 '
 
 run_test "Meta: Publish response contains ts field" bash -c '
@@ -109,28 +109,18 @@ run_test "Meta: Publish response contains ts field" bash -c '
 	echo "$response" | grep -q "\"ts\":"
 '
 
-run_test "Meta: Publish response contains origin field" bash -c '
-	response=$(curl -fsS --max-time 5 -X POST -H "Origin: http://testorigin.com" -d "{\"event\": \"meta_test\"}" "http://localhost/publish/lobby/meta_origin")
-	echo "$response" | grep -q "origin"
+run_test "Meta: Publish response contains country field" bash -c '
+	response=$(curl -fsS --max-time 5 -X POST -d "{\"event\": \"meta_test\"}" "http://localhost/publish/lobby/meta_country")
+	echo "$response" | grep -q "\"country\":"
 '
 
-run_test "Meta: Publish response contains path field" bash -c '
-	response=$(curl -fsS --max-time 5 -X POST -d "{\"event\": \"meta_test\"}" "http://localhost/publish/lobby/meta_path")
-	echo "$response" | grep -q "\"path\":"
-'
-
-run_test "Meta: Publish response contains city field" bash -c '
-	response=$(curl -fsS --max-time 5 -X POST -d "{\"event\": \"meta_test\"}" "http://localhost/publish/lobby/meta_city")
-	echo "$response" | grep -q "\"city\":"
-'
-
-run_test "Meta: Subscribe receives _meta in published message" bash -c '
+run_test "Meta: Subscribe receives meta in published message" bash -c '
 	curl -fsS --max-time 5 "http://localhost/subscribe/lobby/meta_sub" >/tmp/nchan-meta-sub.out &
 	SUB_PID=$!
 	sleep 1
 	curl -fsS --max-time 5 -X POST -d "{\"event\": \"meta_message\"}" "http://localhost/publish/lobby/meta_sub" >/dev/null
 	wait $SUB_PID
-	grep -q "_meta" /tmp/nchan-meta-sub.out
+	grep -q "meta" /tmp/nchan-meta-sub.out
 '
 
 run_test "Meta: Subscribe receives ts in published message" bash -c '

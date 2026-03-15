@@ -40,7 +40,7 @@ const lobby = await client.joinLobby({
 lobby.onUsersChange((users) => {
   console.log(`Online: ${users.length}`);
   users.forEach(u => {
-    const flag = countryToFlag(u._meta?.country);
+    const flag = countryToFlag(u.meta?.country);
     console.log(`${flag} ${u.userName}`);
   });
 });
@@ -66,7 +66,7 @@ const table = await client.joinTable<Move>("table-xyz", "user-123");
 
 table.onMessage((msg) => {
   if (msg.type === "MOVE") {
-    console.log(`Move at: ${msg._meta?.ts}`);
+    console.log(`Move at: ${msg.meta?.ts}`);
   }
 });
 

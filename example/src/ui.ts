@@ -62,7 +62,7 @@ export function renderUserList(users: PresenceMessage[], currentUserId: string, 
             return `
                 <li class="user-item ${isMe ? 'me' : ''}">
                     <div>
-                        <span>${countryToFlag(u._meta?.country)} ${u.userName}</span>
+                        <span>${countryToFlag(u.meta?.country)} ${u.userName}</span>
                         <div class="status">
                             ${u.userId} 
                             ${inGame ? '(In Game: ' + u.tableId + ')' : ''}

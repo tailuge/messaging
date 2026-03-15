@@ -1,6 +1,6 @@
 # NchanClient
 
-A low-level, platform-agnostic transport layer for interacting with an Nchan-powered messaging server. It handles WebSocket subscriptions and HTTP POST publishing, with built-in support for automatic reconnection and server-enriched metadata (`_meta`).
+A low-level, platform-agnostic transport layer for interacting with an Nchan-powered messaging server. It handles WebSocket subscriptions and HTTP POST publishing, with built-in support for automatic reconnection and server-enriched metadata (`meta`).
 
 ## Browser Compatibility
 
@@ -20,7 +20,7 @@ const client = new NchanClient("your-server.com:8080");
 
 ## Publishing
 
-All published messages are automatically enriched by the server with a `_meta` object containing timing and origin information.
+All published messages are automatically enriched by the server with a `meta` object containing timing and origin information.
 
 ### Presence
 
@@ -73,7 +73,7 @@ Subscription methods return a `Subscription` object. The client will automatical
 const sub = client.subscribePresence((data: string) => {
   const msg = JSON.parse(data);
   // msg is either PresenceMessage or ChallengeMessage
-  console.log(msg.messageType, msg._meta.ts);
+  console.log(msg.messageType, msg.meta.ts);
 });
 ```
 
@@ -103,4 +103,4 @@ The client uses an exponential backoff strategy for reconnections:
 
 ## Data Models
 
-Refer to `src/types.ts` for the full TypeScript interfaces, including the `_meta` structure which provides the absolute source of truth for message timing.
+Refer to `src/types.ts` for the full TypeScript interfaces, including the `meta` structure which provides the absolute source of truth for message timing.

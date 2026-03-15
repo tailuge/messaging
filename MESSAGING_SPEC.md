@@ -131,29 +131,27 @@ interface Table<T = any> {
 
 ## Data Models
 
-### `_meta` (Server-Enriched Metadata)
+### `meta` (Server-Enriched Metadata)
 
-All messages published through the transport layer are automatically enriched by the server with metadata from HTTP headers and connection info. This `_meta` object is **added by the server** and should be used by clients as the absolute source of truth for timing (`ts`) and origin.
+All messages published through the transport layer are automatically enriched by the server with metadata from HTTP headers and connection info. This `meta` object is **added by the server** and should be used by clients as the absolute source of truth for timing (`ts`).
 
 ```typescript
 interface Meta {
   ts: string; // ISO timestamp of the request (Source of Truth for time)
-  locale: string; // Accept-Language header (use for flag rendering)
   ua: string; // User-Agent header
   ip: string; // Client remote address
-  origin: string; // Origin header value
   host: string; // Host header value
-  path: string; // Request URI path
   method: string; // HTTP method (always POST for publish)
   country: string; // Country code from IP (e.g., "US", "GB", "XX")
+  city: string; // City from IP geolocation
 }
 ```
 
-**Note**: The client should NOT include `locale` or `ua` in published messages — the server adds these automatically from HTTP headers. This ensures reliable, tamper-resistant metadata for UI features like flag rendering.
+**Note**: The client should NOT include `ua` in published messages — the server adds this automatically from HTTP headers. This ensures reliable, tamper-resistant metadata for UI features like flag rendering.
 
 ### `PresenceMessage`
 
-Information about a user in the lobby. The `locale` and `ua` fields are **not** set by the client — they are provided by the server via `_meta`.
+Information about a user in the lobby. The `ua` field is **not** set by the client — it is provided by the server via `meta`.
 
 ```typescript
 interface PresenceMessage {
@@ -164,8 +162,8 @@ interface PresenceMessage {
   ruleType?: string;
   opponentId?: string | null;
   seek?: Seek;
-  lastSeen?: number; // Managed internally for pruning (derived from _meta.ts)
-  _meta?: Meta; // Server-enriched metadata (received messages only)
+  lastSeen?: number; // Managed internally for pruning (derived from meta.ts)
+  meta?: Meta; // Server-enriched metadata (received messages only)
 
   // Current game state:
   // - If present: user is playing or spectating at that table (available for spectating)
@@ -187,7 +185,7 @@ interface ChallengeMessage {
   recipientId: string;
   ruleType: string;
   tableId?: string; // Optional: table created by challenger
-  _meta?: Meta; // Server-enriched metadata (received messages only)
+  meta?: Meta; // Server-enriched metadata (received messages only)
 }
 ```
 
@@ -215,7 +213,7 @@ interface TableMessage<T = any> {
   type: string;
   senderId: string;
   data: T; // Application-specific payload
-  _meta?: Meta; // Server-enriched metadata (received messages only)
+  meta?: Meta; // Server-enriched metadata (received messages only)
 }
 ```
 
@@ -363,7 +361,7 @@ table.onMessage((msg) => {
   if (msg.type === "MOVE") {
     // msg.data is typed as Move
     applyMove(msg.data);
-    console.log("Move received at:", msg._meta?.ts);
+    console.log("Move received at:", msg.meta?.ts);
   }
 });
 
