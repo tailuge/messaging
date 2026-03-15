@@ -172,6 +172,56 @@ interface PresenceMessage {
 }
 ```
 
+#### External Game Integration
+
+When users are redirected from the lobby to an external game page (e.g., billiards), the game page can maintain the user's presence as "in a table" by passing `tableId` when joining the lobby:
+
+```typescript
+// In the external game page
+const client = new MessagingClient({ baseUrl: nchanUrl });
+
+// Join lobby with tableId already set - lobby users see this player as "in game"
+const lobby = await client.joinLobby({
+  messageType: "presence",
+  type: "join",
+  userId: "player1",
+  userName: "Player One",
+  tableId: "table-123",  // Marks user as at table-123
+});
+```
+
+This is useful when:
+- The game was launched from a URL with tableId (e.g., after challenge acceptance)
+- The new page creates a fresh MessagingClient but wants to preserve presence state
+- Other lobby users should see this player as "currently in a game"
+
+To clear the table status (e.g., when the game ends):
+```typescript
+await lobby.updatePresence({ tableId: undefined });
+```
+
+**Page unload:** When the lobby page unloads, a `leave` message is sent automatically. The external game page is expected to call `joinLobby()` with `tableId` to re-establish presence as "in game". This ensures no ghost users if the redirect fails.
+
+#### Minimal Presence for Games
+
+Games that only need online user count (no table joining):
+
+```typescript
+// Join without tableId - user appears as "available" in lobby
+await client.joinLobby({
+  messageType: "presence",
+  type: "join",
+  userId: "player1",
+  userName: "Player One",
+});
+
+// Add tableId when starting a multiplayer game
+await lobby.updatePresence({ tableId: "table-123" });
+
+// Remove tableId when game ends
+await lobby.updatePresence({ tableId: undefined });
+```
+
 ### `ChallengeMessage`
 
 Represents a peer-to-peer challenge request.

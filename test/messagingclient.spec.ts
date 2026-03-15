@@ -284,6 +284,39 @@ describe("MessagingClient - Phase 1", () => {
       expect(aliceInB).toBeDefined();
       expect(aliceInB?.userName).toBe("Alice Updated");
     });
+
+    it("should allow joining with tableId for games that already know their table", async () => {
+      const clientA = createClient(); // This is a "game" client that knows it's at a table
+      const clientB = createClient(); // This is a regular lobby client
+
+      // Client A joins lobby with tableId already set (e.g., launched from game URL)
+      await clientA.joinLobby({
+        messageType: "presence",
+        type: "join",
+        userId: "player1",
+        userName: "Player One",
+        tableId: "table-123",
+      });
+
+      // Client B joins regular lobby
+      const lobbyB = await clientB.joinLobby({
+        messageType: "presence",
+        type: "join",
+        userId: "player2",
+        userName: "Player Two",
+      });
+
+      let usersB: PresenceMessage[] = [];
+      lobbyB.onUsersChange((u) => (usersB = u));
+
+      // Wait for player1 to appear in player2's user list
+      await waitUntil(() => usersB.some((u) => u.userId === "player1"));
+
+      const player1InB = usersB.find((u) => u.userId === "player1");
+      expect(player1InB).toBeDefined();
+      // Verify player1 is shown as at table-123
+      expect(player1InB?.tableId).toBe("table-123");
+    });
   });
 
   describe("Challenges & Tables (Phase 2)", () => {
