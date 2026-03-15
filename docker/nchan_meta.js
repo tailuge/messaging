@@ -11,7 +11,7 @@ function createMeta(r, country, city) {
   return {
     ts: new Date().toISOString(),
     ua: r.headersIn["user-agent"] || "",
-    host: r.headersIn.host || "",
+    origin: r.headersIn.origin || "",
     country: country,
     city: city || "",
   };

@@ -140,7 +140,7 @@ interface Meta {
   ts: string; // ISO timestamp of the request (Source of Truth for time)
   ua: string; // User-Agent header
   ip: string; // Client remote address
-  host: string; // Host header value
+  origin: string; // Origin header value
   method: string; // HTTP method (always POST for publish)
   country: string; // Country code from IP (e.g., "US", "GB", "XX")
   city: string; // City from IP geolocation

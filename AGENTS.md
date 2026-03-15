@@ -65,7 +65,7 @@ The Docker container uses Nginx with the Nchan module and an NJS script (`nchan_
 1. All `/publish/*` endpoints route through `js_content nchan_meta.publish`
 2. The NJS script parses the JSON payload and builds a `meta` object containing:
    - `ts`: ISO timestamp of the request (Source of Truth for timing)
-   - `ua`, `host`, `ip`, `country`, `city`: Request metadata
+   - `ua`, `origin`, `ip`, `country`, `city`: Request metadata
 3. The original payload is merged with `meta` and forwarded to the internal Nchan publisher
 
 **Verification:**
