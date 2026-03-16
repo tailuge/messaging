@@ -140,6 +140,11 @@ export class NchanClient {
 
       ws.onopen = () => {
         reconnectAttempts = 0;
+        // Clear any pending reconnect timer from previous disconnect
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer);
+          reconnectTimer = null;
+        }
         resolveReady();
       };
 
