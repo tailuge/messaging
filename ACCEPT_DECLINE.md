@@ -38,15 +38,15 @@ Use a dedicated class to encapsulate the state. Data structures:
 
 ## Phased Implementation Plan
 
-### Phase 1: Timer Foundation
-- Introduce a simple 250ms delay for emitting `onChallenge` events in the existing `Lobby` component.
-- Run all existing tests to ensure the asynchronous delay doesn't break current functionality or assumptions.
+### Phase 1: Timer Foundation [COMPLETED]
+- [x] Introduce a simple 250ms delay for emitting `onChallenge` events in the existing `Lobby` component.
+- [x] Run all existing tests to ensure the asynchronous delay doesn't break current functionality or assumptions.
 
-### Phase 2: Refactoring (SOLID & DRY)
-- Create a new class, `ChallengeDeduplicator`, to encapsulate the timer and state logic.
-- Move the timer logic from Phase 1 into this class.
-- Update `Lobby.ts` to instantiate and use `ChallengeDeduplicator` instead of handling the timer directly.
-- Ensure all tests still pass.
+### Phase 2: Refactoring (SOLID & DRY) [COMPLETED]
+- [x] Create a new class, `ChallengeDeduplicator`, to encapsulate the timer and state logic.
+- [x] Move the timer logic from Phase 1 into this class.
+- [x] Update `Lobby.ts` to instantiate and use `ChallengeDeduplicator` instead of handling the timer directly.
+- [x] Ensure all tests still pass.
 
 ### Phase 3: Full Deduplication Logic
 - Implement the `pendingOffers` and `resolvedOffers` state tracking within `ChallengeDeduplicator`.

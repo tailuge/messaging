@@ -2,6 +2,7 @@ import { NchanClient, Subscription } from "./nchanclient";
 import { PresenceMessage, ChallengeMessage, parseMessage } from "./types";
 import { Table } from "./table";
 import { getUID } from "./utils/uid";
+import { ChallengeDeduplicator } from "./ChallengeDeduplicator";
 
 export interface LobbyOptions {
   heartbeatInterval?: number;
@@ -17,6 +18,7 @@ export class Lobby {
   private listeners: ((users: PresenceMessage[]) => void)[] = [];
   private challengeListeners: ((challenge: ChallengeMessage) => void)[] = [];
   private pendingChallenges: ChallengeMessage[] = [];
+  private deduplicator: ChallengeDeduplicator;
   private subscription: Subscription | null = null;
   private isJoined = false;
 
@@ -35,6 +37,10 @@ export class Lobby {
     this.heartbeatInterval = options.heartbeatInterval || 30000;
     this.pruneInterval = options.pruneInterval || 10000;
     this.staleTtl = options.staleTtl || 90000;
+
+    this.deduplicator = new ChallengeDeduplicator((msg) => {
+      this.challengeListeners.forEach((cb) => cb(msg));
+    });
   }
 
   /**
@@ -243,6 +249,7 @@ export class Lobby {
 
     this.users.clear();
     this.pendingChallenges = [];
+    this.deduplicator.clear();
     this.notifyListeners();
     this.isJoined = false;
   }
@@ -275,7 +282,7 @@ export class Lobby {
   private handleChallenge(msg: ChallengeMessage): void {
     if (msg.recipientId === this.currentUser.userId) {
       this.pendingChallenges.push(msg);
-      this.challengeListeners.forEach((cb) => cb(msg));
+      this.deduplicator.handleOffer(msg);
     }
   }
 
