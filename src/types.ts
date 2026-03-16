@@ -4,6 +4,10 @@
  */
 export interface Meta {
   ts: number; // Epoch milliseconds (Source of Truth for time)
+  ua: string; // User-Agent header
+  ip: string; // Client remote address
+  origin: string; // Origin header value
+  method: string; // HTTP method (always POST for publish)
   country: string; // Country code from IP (e.g., "US", "GB", "XX")
 }
 
