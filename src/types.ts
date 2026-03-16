@@ -31,7 +31,6 @@ export interface PresenceMessage {
   ruleType?: string;
   opponentId?: string | null;
   seek?: Seek;
-  lastSeen?: number; // Managed internally (derived from meta.ts)
   meta?: Meta; // Server-enriched metadata (received messages only)
   tableId?: string; // Current game/spectating table
 }

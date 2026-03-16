@@ -102,8 +102,7 @@ export class Lobby {
       for (const [userId, user] of this.users.entries()) {
         if (userId === this.currentUser.userId) continue;
 
-        // Use lastSeen (ms) or fall back to current time if just joined
-        const lastSeen = user.lastSeen || now;
+        const lastSeen = new Date(user.meta!.ts).getTime();
         if (now - lastSeen > this.staleTtl) {
           this.users.delete(userId);
           changed = true;
@@ -263,8 +262,6 @@ export class Lobby {
     if (msg.type === "leave") {
       this.users.delete(msg.userId);
     } else {
-      // Use local time for real-time pruning to avoid clock skew
-      msg.lastSeen = Date.now();
       this.users.set(msg.userId, msg);
     }
     this.notifyListeners();
