@@ -1,4 +1,4 @@
-import { startContainer, stopContainer, wait, cleanupClients } from "./utils";
+import { startContainer, stopContainer, waitUntil, cleanupClients } from "./utils";
 import WebSocket from "ws";
 import { NchanClient } from "../src/nchanclient";
 
@@ -89,8 +89,7 @@ describe("NchanClient", () => {
         messages.push(data);
       });
 
-      // Wait for WS to connect
-      await wait();
+      await subscription.ready;
 
       await client.publishPresence({
         type: "join",
@@ -98,11 +97,10 @@ describe("NchanClient", () => {
         userName: "PresenceSubTest",
       });
 
-      await wait();
+      await waitUntil(() => messages.some((m) => JSON.parse(m).userId === targetUserId));
 
       subscription.stop();
 
-      expect(messages.length).toBeGreaterThan(0);
       const recentMessage = messages.reverse().find((m) => {
         const parsed = JSON.parse(m);
         return parsed.userId === targetUserId;
@@ -125,7 +123,7 @@ describe("NchanClient", () => {
         messages.push(data);
       });
 
-      await wait();
+      await subscription.ready;
 
       await client.publishChallenge({
         type: "offer",
@@ -135,7 +133,7 @@ describe("NchanClient", () => {
         ruleType: "standard",
       });
 
-      await wait();
+      await waitUntil(() => messages.some((m) => JSON.parse(m).recipientId === recipientId));
 
       subscription.stop();
 
@@ -160,7 +158,7 @@ describe("NchanClient", () => {
         messages.push(data);
       });
 
-      await wait();
+      await subscription.ready;
 
       await client.publishTable(
         tableId,
@@ -171,7 +169,7 @@ describe("NchanClient", () => {
         "user456",
       );
 
-      await wait();
+      await waitUntil(() => messages.some((m) => JSON.parse(m).senderId === "user456"));
 
       subscription.stop();
 
