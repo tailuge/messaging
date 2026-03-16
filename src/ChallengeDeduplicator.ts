@@ -30,6 +30,11 @@ export class ChallengeDeduplicator {
       // Message types: accept, decline, cancel
       // When any resolution happens, cancel any pending timer for this interaction
       this.clearInteraction(interactionKey);
+
+      // We must notify the application if the resolution is directed at us!
+      if (msg.recipientId === currentUserId) {
+        this.onEmit(msg);
+      }
     }
   }
 
