@@ -10,77 +10,51 @@ When B accepts (or declines) a challenge then reconnects, they receive the buffe
 3. B disconnects and reconnects
 4. Nchan delivers buffered messages: "offer" → "accept"
 5. B receives "offer" notification again (bug!)
+6. Game client opened in a new webpage reads the Nchan stream and incorrectly thinks there is a pending offer.
 
 ## Solution
 
-Track responded challenges and filter offers before notifying listeners.
+Rely entirely on the Nchan event stream instead of `sessionStorage` or any global persistent storage. Since Nchan rapidly replays buffered messages on reconnect, we can introduce a small delay (250ms) to allow subsequent "accept", "decline", or "cancel" messages to override a buffered "offer" before notifying the application.
 
-## Implementation
-
-### Storage (persists across Lobby instances)
-```typescript
-// Module-level for tests, sessionStorage for browser
-const respondedChallengesStorage = new Map<string, number>();
-```
-
-### Data Structures
-- `pendingChallenges: ChallengeMessage[]` - offers awaiting 250ms timer
-- Single 250ms timer - starts on first challenge arrival
-- Responded challenges stored in module-level Map
+### State Management
+Use a dedicated class to encapsulate the state. Data structures:
+- `pendingOffers: Map<string, { timeoutId: NodeJS.Timeout, offer: ChallengeMessage }>` - Track offers awaiting the 250ms timer. Keyed by `tableId`.
+- `resolvedOffers: Set<string>` - Track `tableId`s that have been accepted, declined, or canceled.
 
 ### Flow
 
-**When offer arrives:**
-1. Add to pendingChallenges
-2. Start 250ms timer if not running
+**When an `offer` arrives:**
+1. Check if the `tableId` is in `resolvedOffers`. If so, drop it immediately.
+2. Otherwise, store it in `pendingOffers` and start a 250ms timer.
 
-**When accept/decline arrives:**
-1. Key = `tableId || recipientId`
-2. Save to respondedChallenges storage
+**When an `accept`, `decline`, or `cancel` arrives:**
+1. Add the `tableId` to `resolvedOffers`.
+2. If there is an active timeout in `pendingOffers` for this `tableId`, clear the timeout and remove it from `pendingOffers`.
 
-**When timer fires:**
-1. For each pending challenge
-2. If key exists in respondedChallenges → skip notification
-3. Otherwise → notify listeners
+**When the 250ms timer fires:**
+1. Check if the `tableId` is in `resolvedOffers` (as a safety measure).
+2. If not, emit the `onChallenge` event to the application.
+3. Remove the offer from `pendingOffers`.
 
-### Key Matching
-- Offer: `tableId` is set (challenger's table)
-- Accept: `tableId` is same value, `recipientId` is challenger
-- Key is `tableId` for both → matches correctly
+## Phased Implementation Plan
 
-### Storage Methods
+### Phase 1: Timer Foundation
+- Introduce a simple 250ms delay for emitting `onChallenge` events in the existing `Lobby` component.
+- Run all existing tests to ensure the asynchronous delay doesn't break current functionality or assumptions.
 
-```typescript
-private getRespondedChallenges(): Set<string> {
-  // Check sessionStorage (browser) or module-level Map (tests)
-}
+### Phase 2: Refactoring (SOLID & DRY)
+- Create a new class, `ChallengeDeduplicator`, to encapsulate the timer and state logic.
+- Move the timer logic from Phase 1 into this class.
+- Update `Lobby.ts` to instantiate and use `ChallengeDeduplicator` instead of handling the timer directly.
+- Ensure all tests still pass.
 
-private saveRespondedChallenge(key: string): void {
-  // Store in both sessionStorage and module-level Map
-}
-
-private hasResponded(key: string): boolean {
-  // Check both sessionStorage and module-level Map
-}
-```
-
-### Cleanup
-- `stopChallengeTimer()` clears the timer but does NOT clear responded challenges storage
-- This allows state to persist across reconnects within the same session
+### Phase 3: Full Deduplication Logic
+- Implement the `pendingOffers` and `resolvedOffers` state tracking within `ChallengeDeduplicator`.
+- Implement the filtering logic discussed above (canceling timers when accept/decline/cancel arrives).
+- Enable and verify the `challenge-deduplication.spec.ts` tests.
 
 ## Why This Works
 
-1. **Fresh challenge**: Timer fires after 250ms → check responded → no match → notify
-2. **Reconnect with accept in buffer**: 
-   - Offer arrives → pending, timer starts
-   - Accept arrives → key saved to storage
-   - Timer fires → check responded → match found → skip notification
-3. **Same for decline**: Same logic applies
-
-## Edge Cases Handled
-
-- Multiple challenges from different users: Each tracked by unique key
-- Decline: Works because decline also saves key
-- Cancel: Works because cancel also saves key
-- Page refresh: sessionStorage persists across refreshes
-- Test environment: Module-level Map provides fallback
+1. **Stateless on the Client side:** When the user loads the game client in a new webpage, it starts with a clean slate. It doesn't need to know anything; it just reads Nchan's replays.
+2. **Nchan Replay Characteristics:** Nchan delivers recent history in rapid succession upon connection: `Offer(A->B)` followed very quickly by `Accept(B->A)`. The 250ms window is more than enough to capture the resolution.
+3. **No Storage Cleanup Needed:** Memory is bound to the `Lobby` lifecycle in the specific browser tab. It handles reconnects, page refreshes, and new tabs consistently by treating the Nchan stream as the single source of truth.
