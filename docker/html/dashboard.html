@@ -133,7 +133,6 @@
         <h1>Nchan Dashboard</h1>
         <div class="controls">
           <span id="last-update" class="refresh-tag"></span>
-          <label><input type="checkbox" id="auto-refresh" checked /> Auto-refresh</label>
           <button onclick="fetchStats()">Refresh</button>
         </div>
       </header>
@@ -221,8 +220,6 @@
     </div>
 
     <script>
-      let refreshTimer = null;
-
       async function fetchStats() {
         const dashboard = document.querySelector(".dashboard");
         // dashboard.classList.add('loading'); // Optional: show loading state
@@ -297,26 +294,7 @@
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
       }
 
-      function setupAutoRefresh() {
-        const checkbox = document.getElementById("auto-refresh");
-        const startTimer = () => {
-          if (refreshTimer) clearInterval(refreshTimer);
-          refreshTimer = setInterval(fetchStats, 60000);
-        };
-
-        checkbox.addEventListener("change", () => {
-          if (checkbox.checked) {
-            startTimer();
-          } else {
-            clearInterval(refreshTimer);
-          }
-        });
-
-        if (checkbox.checked) startTimer();
-      }
-
       fetchStats();
-      setupAutoRefresh();
     </script>
   </body>
 </html>

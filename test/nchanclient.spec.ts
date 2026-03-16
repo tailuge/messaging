@@ -186,7 +186,7 @@ describe("NchanClient", () => {
 
   describe("WebSocket connection", () => {
     it("should connect to nchan websocket", (done) => {
-      const ws = new WebSocket(`ws://localhost:${port}/subscribe/status/lobby`);
+      const ws = new WebSocket(`ws://localhost:${port}/subscribe/presence/lobby`);
 
       ws.on("open", () => {
         expect(ws.readyState).toBe(WebSocket.OPEN);
