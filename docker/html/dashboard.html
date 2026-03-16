@@ -154,6 +154,10 @@
           <div id="stat-mem-used" class="metric-value">-</div>
           <div class="metric-label">Memory Used</div>
         </div>
+        <div class="card metric">
+          <div id="stat-uptime" class="metric-value">-</div>
+          <div class="metric-label">Uptime</div>
+        </div>
       </div>
 
       <div class="card">
@@ -173,6 +177,18 @@
               <tr>
                 <td>Requests</td>
                 <td id="ngx-requests">-</td>
+              </tr>
+              <tr>
+                <td>Reading</td>
+                <td id="ngx-reading">-</td>
+              </tr>
+              <tr>
+                <td>Writing</td>
+                <td id="ngx-writing">-</td>
+              </tr>
+              <tr>
+                <td>Waiting</td>
+                <td id="ngx-waiting">-</td>
               </tr>
             </table>
           </div>
@@ -246,11 +262,18 @@
       }
 
       function updateUI(data) {
+        if (typeof data.uptime === "number") {
+          document.getElementById("stat-uptime").textContent = formatUptime(data.uptime);
+        }
+
         if (data.nginx) {
           document.getElementById("stat-active-conns").textContent = data.nginx.active;
           document.getElementById("ngx-accepts").textContent = data.nginx.accepts;
           document.getElementById("ngx-handled").textContent = data.nginx.handled;
           document.getElementById("ngx-requests").textContent = data.nginx.requests;
+          document.getElementById("ngx-reading").textContent = data.nginx.reading;
+          document.getElementById("ngx-writing").textContent = data.nginx.writing;
+          document.getElementById("ngx-waiting").textContent = data.nginx.waiting;
         }
 
         if (data.nchan) {
@@ -292,6 +315,21 @@
         const sizes = ["B", "KB", "MB", "GB"];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+      }
+
+      function formatUptime(seconds) {
+        const d = Math.floor(seconds / (3600 * 24));
+        const h = Math.floor((seconds % (3600 * 24)) / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+
+        const parts = [];
+        if (d > 0) parts.push(`${d}d`);
+        if (h > 0) parts.push(`${h}h`);
+        if (m > 0) parts.push(`${m}m`);
+        if (s > 0 || parts.length === 0) parts.push(`${s}s`);
+
+        return parts.join(" ");
       }
 
       fetchStats();

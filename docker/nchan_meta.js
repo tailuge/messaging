@@ -129,6 +129,14 @@ function parseNchanStatus(text) {
 }
 
 async function stats(r) {
+  const systemStats = ngx.shared.system_stats;
+  let startTime = systemStats.get("start_time");
+  if (!startTime) {
+    startTime = Date.now();
+    systemStats.set("start_time", startTime);
+  }
+  const uptime = Math.floor((Date.now() - startTime) / 1000);
+
   function getIpCache() {
     const cache = ngx.shared.ip_cache;
     const keys = cache.keys() || [];
@@ -149,6 +157,7 @@ async function stats(r) {
   const nchan = nchanRes.status === 200 ? parseNchanStatus(nchanRes.responseText) : null;
 
   const data = {
+    uptime,
     nginx,
     nchan,
     ip_cache: getIpCache(),
