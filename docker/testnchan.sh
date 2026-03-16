@@ -83,12 +83,11 @@ run_test "WebSocket Handshake" bash -c '
 '
 
 run_test "Publish to Presence" curl -fsS --max-time 5 -X POST \
-	-d '{"userId":"user1","userName":"Alice","type":"join"}' "http://localhost/publish/status/lobby"
+	-d '{"userId":"user1","userName":"Alice","type":"join"}' "http://localhost/publish/presence/lobby"
 
 run_test "Presence Pub/Sub" bash -c '
-	curl -fsS --max-time 5 -X POST -d "{\"userId\":\"user1\",\"userName\":\"Alice\",\"type\":\"join\"}" "http://localhost/publish/status/lobby" >/dev/null
-	curl -fsS --max-time 5 -X POST -d "{\"userId\":\"user2\",\"userName\":\"Bob\",\"type\":\"join\"}" "http://localhost/publish/status/lobby" >/dev/null
-	curl -fsS --max-time 5 "http://localhost/subscribe/status/lobby" | grep -q "userId"
+	curl -fsS --max-time 5 -X POST -d "{\"userId\":\"user1\",\"userName\":\"Alice\",\"type\":\"join\"}" "http://localhost/publish/presence/lobby" >/dev/null
+	curl -fsS --max-time 5 "http://localhost/subscribe/presence/lobby" | grep -q "userId"
 '
 
 run_test "Publish to Table" curl -fsS --max-time 5 -X POST \
@@ -142,6 +141,33 @@ run_test "API: Stats endpoint contains nchan data" bash -c '
 
 run_test "API: Stats endpoint contains ip_cache" bash -c '
 	curl -fsS --max-time 5 "http://localhost/api/stats" | grep -q "\"ip_cache\":"
+'
+
+# CORS Tests
+run_test "CORS: Health check contains Allow-Origin" bash -c '
+	curl -sS -i --max-time 5 "http://localhost/health" | grep -qi "access-control-allow-origin: \*"
+'
+
+run_test "CORS: Publisher OPTIONS contains Allow-Origin" bash -c '
+	curl -sS -i --max-time 5 -X OPTIONS -H "Origin: http://test.com" -H "Access-Control-Request-Method: POST" "http://localhost/publish/lobby/test" | grep -qi "access-control-allow-origin: \*"
+'
+
+run_test "CORS: Publisher POST contains Allow-Origin" bash -c '
+	curl -sS -i --max-time 5 -X POST -H "Origin: http://test.com" -d "{}" "http://localhost/publish/lobby/test" | grep -qi "access-control-allow-origin: \*"
+'
+
+run_test "CORS: Subscriber GET contains Allow-Origin" bash -c '
+	# Publish a message first so GET returns immediately
+	curl -sS --max-time 5 -X POST -d "ping" "http://localhost/publish/lobby/cors-test" >/dev/null
+	curl -sS -I --max-time 5 -H "Origin: http://test.com" "http://localhost/subscribe/lobby/cors-test" | grep -qi "access-control-allow-origin: \*"
+'
+
+run_test "CORS: Subscriber OPTIONS contains Allow-Origin" bash -c '
+	curl -sS -i --max-time 5 -X OPTIONS -H "Origin: http://test.com" -H "Access-Control-Request-Method: GET" "http://localhost/subscribe/lobby/test" | grep -qi "access-control-allow-origin: \*"
+'
+
+run_test "CORS: Stats endpoint contains Allow-Origin" bash -c '
+	curl -sS -I --max-time 5 "http://localhost/api/stats" | grep -qi "access-control-allow-origin: \*"
 '
 
 echo ""
