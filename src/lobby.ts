@@ -39,6 +39,7 @@ export class Lobby {
     this.staleTtl = options.staleTtl || 90000;
 
     this.deduplicator = new ChallengeDeduplicator((msg) => {
+      this.pendingChallenges.push(msg);
       this.challengeListeners.forEach((cb) => cb(msg));
     });
   }
@@ -280,10 +281,8 @@ export class Lobby {
   }
 
   private handleChallenge(msg: ChallengeMessage): void {
-    if (msg.recipientId === this.currentUser.userId) {
-      this.pendingChallenges.push(msg);
-      this.deduplicator.handleOffer(msg);
-    }
+    // Deduplicator tracks state from ALL challenge interactions (offer, accept, decline, cancel)
+    this.deduplicator.processMessage(msg, this.currentUser.userId);
   }
 
   private notifyListeners(): void {

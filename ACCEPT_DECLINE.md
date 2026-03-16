@@ -48,10 +48,10 @@ Use a dedicated class to encapsulate the state. Data structures:
 - [x] Update `Lobby.ts` to instantiate and use `ChallengeDeduplicator` instead of handling the timer directly.
 - [x] Ensure all tests still pass.
 
-### Phase 3: Full Deduplication Logic
-- Implement the `pendingOffers` and `resolvedOffers` state tracking within `ChallengeDeduplicator`.
-- Implement the filtering logic discussed above (canceling timers when accept/decline/cancel arrives).
-- Enable and verify the `challenge-deduplication.spec.ts` tests.
+### Phase 3: Full Deduplication Logic [COMPLETED]
+- [x] Implement the `pendingOffers` state tracking within `ChallengeDeduplicator`.
+- [x] Implement the filtering logic discussed above (canceling timers when accept/decline/cancel arrives).
+- [x] Enable and verify the `challenge-deduplication.spec.ts` tests.
 
 ## Why This Works
 
