@@ -419,7 +419,7 @@ describe("MessagingClient - Phase 1", () => {
       // the listener to be already registered to catch them
       const clientB2 = createClient();
       let receivedChallengeAfterReconnect: any = null;
-      
+
       // First, join and get the lobby
       const lobbyB2 = await clientB2.joinLobby({
         messageType: "presence",
@@ -427,7 +427,7 @@ describe("MessagingClient - Phase 1", () => {
         userId: "user-b",
         userName: "Bob",
       });
-      
+
       // Register listener immediately - but buffered messages may have already arrived!
       // The key insight: we need to wait a bit for the subscription to fully initialize
       // then check for challenges

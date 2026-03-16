@@ -138,11 +138,7 @@ All messages published through the transport layer are automatically enriched by
 ```typescript
 interface Meta {
   ts: string; // ISO timestamp of the request (Source of Truth for time)
-  ua: string; // User-Agent header
-  origin: string; // Origin header value
-  method: string; // HTTP method (always POST for publish)
   country: string; // Country code from IP (e.g., "US", "GB", "XX")
-  city: string; // City from IP geolocation
 }
 ```
 
