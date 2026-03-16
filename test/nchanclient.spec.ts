@@ -11,8 +11,8 @@ function expectMeta(parsed: Record<string, unknown>) {
   expect(parsed.meta).toBeDefined();
   const meta = parsed.meta as Record<string, unknown>;
   expect(meta.ts).toBeDefined();
-  expect(typeof meta.ts).toBe("string");
-  expect(Date.parse(meta.ts as string)).not.toBeNaN();
+  expect(typeof meta.ts).toBe("number");
+  expect(meta.ts).toBeGreaterThan(0);
 }
 
 describe("NchanClient", () => {

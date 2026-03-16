@@ -9,7 +9,7 @@ function getClientIp(r) {
 
 function createMeta(r, country, city) {
   return {
-    ts: new Date().toISOString(),
+    ts: Date.now(),
     ua: r.headersIn["user-agent"] || "",
     origin: r.headersIn.origin || "",
     country: country,

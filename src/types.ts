@@ -3,7 +3,7 @@
  * This is the absolute source of truth for timing.
  */
 export interface Meta {
-  ts: string; // ISO timestamp of the request (Source of Truth for time)
+  ts: number; // Epoch milliseconds (Source of Truth for time)
   ua: string; // User-Agent header
   ip: string; // Client remote address
   origin: string; // Origin header value

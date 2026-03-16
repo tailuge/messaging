@@ -102,7 +102,7 @@ export class Lobby {
       for (const [userId, user] of this.users.entries()) {
         if (userId === this.currentUser.userId) continue;
 
-        const lastSeen = new Date(user.meta!.ts).getTime();
+        const lastSeen = user.meta!.ts;
         if (now - lastSeen > this.staleTtl) {
           this.users.delete(userId);
           changed = true;
@@ -258,6 +258,11 @@ export class Lobby {
     }
   }
 
+  /**
+   * Handles incoming presence updates.
+   * Note: Nchan guarantees ordered delivery, so we don't need to check meta.ts for ordering.
+   * The last message received for each userId will be the current state.
+   */
   private handlePresenceUpdate(msg: PresenceMessage): void {
     if (msg.type === "leave") {
       this.users.delete(msg.userId);

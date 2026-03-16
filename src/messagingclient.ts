@@ -59,6 +59,8 @@ export class MessagingClient {
 
   /**
    * Enters the global lobby for presence broadcasting and tracking.
+   * Note: Nchan guarantees ordered message delivery, so the Lobby class does not need
+   * to implement message ordering or deduplication based on meta.ts timestamps.
    */
   async joinLobby(user: PresenceMessage, options?: LobbyOptions): Promise<Lobby> {
     // Prevent duplicate joins if already in a lobby for this user
