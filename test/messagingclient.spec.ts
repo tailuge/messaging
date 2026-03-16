@@ -483,7 +483,7 @@ describe("MessagingClient - Phase 1", () => {
       // ... (unchanged)
     });
 
-    it.skip("should return existing table when joining same tableId twice", async () => {
+    it("should return existing table when joining same tableId twice", async () => {
       const clientA = createClient();
 
       const tableId = "shared-table";
