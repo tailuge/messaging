@@ -16,6 +16,7 @@ export class Lobby {
   private users = new Map<string, PresenceMessage>();
   private listeners: ((users: PresenceMessage[]) => void)[] = [];
   private challengeListeners: ((challenge: ChallengeMessage) => void)[] = [];
+  private pendingChallenges: ChallengeMessage[] = [];
   private subscription: Subscription | null = null;
   private isJoined = false;
 
@@ -214,9 +215,11 @@ export class Lobby {
 
   /**
    * Subscribe to incoming challenges directed at the current user.
+   * Delivers any pending challenges that were received while disconnected.
    */
   onChallenge(callback: (challenge: ChallengeMessage) => void): void {
     this.challengeListeners.push(callback);
+    this.pendingChallenges.forEach((challenge) => callback(challenge));
   }
 
   /**
@@ -240,6 +243,7 @@ export class Lobby {
     }
 
     this.users.clear();
+    this.pendingChallenges = [];
     this.notifyListeners();
     this.isJoined = false;
   }
@@ -267,8 +271,8 @@ export class Lobby {
   }
 
   private handleChallenge(msg: ChallengeMessage): void {
-    // Filter messages directed at us (or broadcasted ones)
     if (msg.recipientId === this.currentUser.userId) {
+      this.pendingChallenges.push(msg);
       this.challengeListeners.forEach((cb) => cb(msg));
     }
   }

@@ -378,6 +378,74 @@ describe("MessagingClient - Phase 1", () => {
       expect(messageReceivedByB.senderId).toBe("user-a");
     });
 
+    it("should receive pending challenges after rejoining the lobby", async () => {
+      const clientA = createClient();
+      const clientB = createClient();
+
+      // 1. Both users join the lobby
+      const lobbyA = await clientA.joinLobby({
+        messageType: "presence",
+        type: "join",
+        userId: "user-a",
+        userName: "Alice",
+      });
+
+      const lobbyB = await clientB.joinLobby({
+        messageType: "presence",
+        type: "join",
+        userId: "user-b",
+        userName: "Bob",
+      });
+
+      // 2. B listens for challenges
+      let receivedChallenge: any = null;
+      lobbyB.onChallenge((c) => {
+        receivedChallenge = c;
+      });
+
+      // Wait for B's subscription to be ready
+      await wait();
+
+      // 3. A challenges B
+      const tableId = await lobbyA.challenge("user-b", "standard");
+      expect(tableId).toBeDefined();
+
+      // 4. B should receive the challenge
+      await waitUntil(() => receivedChallenge !== null);
+      expect(receivedChallenge.challengerId).toBe("user-a");
+      expect(receivedChallenge.type).toBe("offer");
+
+      // 5. B disconnects (leaves lobby without isTeardown to simulate disconnect)
+      await lobbyB.leave({ isTeardown: false });
+
+      // 6. B rejoins - register challenge listener BEFORE joinLobby returns
+      // This is critical: buffered messages arrive during joinLobby(), so we need
+      // the listener to be already registered to catch them
+      const clientB2 = createClient();
+      let receivedChallengeAfterReconnect: any = null;
+      
+      // First, join and get the lobby
+      const lobbyB2 = await clientB2.joinLobby({
+        messageType: "presence",
+        type: "join",
+        userId: "user-b",
+        userName: "Bob",
+      });
+      
+      // Register listener immediately - but buffered messages may have already arrived!
+      // The key insight: we need to wait a bit for the subscription to fully initialize
+      // then check for challenges
+      lobbyB2.onChallenge((c) => {
+        receivedChallengeAfterReconnect = c;
+      });
+
+      // Wait for buffered messages to be received (challenge should be in the buffer)
+      await waitUntil(() => receivedChallengeAfterReconnect !== null, 3000, 100);
+      expect(receivedChallengeAfterReconnect.challengerId).toBe("user-a");
+      expect(receivedChallengeAfterReconnect.type).toBe("offer");
+      expect(receivedChallengeAfterReconnect.tableId).toBe(tableId);
+    });
+
     it("should notify when an opponent leaves the table explicitly", async () => {
       const clientA = createClient();
       const clientB = createClient();
