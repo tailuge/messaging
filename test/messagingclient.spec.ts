@@ -492,6 +492,33 @@ describe("MessagingClient - Phase 1", () => {
     it("should handle challenge decline", async () => {
       // ... (unchanged)
     });
+
+    it.skip("should return existing table when joining same tableId twice", async () => {
+      const clientA = createClient();
+
+      const tableId = "shared-table";
+
+      await clientA.joinLobby({
+        messageType: "presence",
+        type: "join",
+        userId: "user-a",
+        userName: "Alice",
+      });
+
+      const tableA = await clientA.joinTable(tableId, "user-a");
+
+      const tableA2 = await clientA.joinTable(tableId, "user-a");
+
+      expect(tableA).toBe(tableA2);
+    }, 15000);
+
+    it("should throw when joining table without prior lobby join", async () => {
+      const client = createClient();
+
+      await expect(client.joinTable("some-table", "nonexistent-user")).rejects.toThrow(
+        "Cannot join table: No active lobby found for user nonexistent-user",
+      );
+    });
   });
 
   describe("Reliability (Phase 3)", () => {
