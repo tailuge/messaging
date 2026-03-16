@@ -47,6 +47,9 @@ export class ConnectionManager {
         this.state.mySeekTableId = null;
         ui.updateConnectionUI(false);
         ui.clearUserList();
+        ui.hideChallenge();
+        ui.hideGameInfo();
+        ui.hideSeekStatus();
         ui.showDisconnected();
     }
 }
