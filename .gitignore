@@ -6,3 +6,4 @@ coverage/
 *.log
 *~
 scripts/trigger_hook.url
+test-results/

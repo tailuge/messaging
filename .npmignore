@@ -4,6 +4,7 @@ playwright/
 docker/
 example/
 scripts/
+test-results/
 tsconfig.json
 *.spec.ts
 jest.config.cjs
