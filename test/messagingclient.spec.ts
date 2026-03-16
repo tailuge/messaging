@@ -164,8 +164,8 @@ describe("MessagingClient - Phase 1", () => {
       let usersB: PresenceMessage[] = [];
       lobbyB.onUsersChange((u) => (usersB = u));
 
-      // Wait for B to stabilize
-      await wait(500);
+      // Wait for B to stabilize - check that B sees themselves and possibly A
+      await waitUntil(() => usersB.some((u) => u.userId === "user-b"));
 
       // BUG: B should see A but doesn't (because A hasn't sent a heartbeat yet)
       const userIdsB = usersB.map((u) => u.userId);
@@ -224,8 +224,8 @@ describe("MessagingClient - Phase 1", () => {
       // 3. A disconnects and reconnects
       await clientA.stop();
 
-      // Give B time to see A leave
-      await wait(200);
+      // Wait for B to see A leave
+      await waitUntil(() => !usersB.some((u) => u.userId === "user-a"));
 
       // A reconnects
       await clientA.start();
@@ -238,8 +238,8 @@ describe("MessagingClient - Phase 1", () => {
       let usersA2: PresenceMessage[] = [];
       lobbyA2.onUsersChange((u) => (usersA2 = u));
 
-      // Wait for A to stabilize after reconnect
-      await wait(200);
+      // Wait for A to stabilize after reconnect - should see B
+      await waitUntil(() => usersA2.some((u) => u.userId === "user-b"));
 
       // BUG: A should see B but doesn't
       const userIdsA2 = usersA2.map((u) => u.userId);
@@ -369,7 +369,6 @@ describe("MessagingClient - Phase 1", () => {
         messageReceivedByB = m;
       });
 
-      await wait(); // wait for subscription
       await tableA.publish("MOVE", { x: 5, y: 10 });
 
       await waitUntil(() => messageReceivedByB !== null);
@@ -402,9 +401,6 @@ describe("MessagingClient - Phase 1", () => {
       lobbyB.onChallenge((c) => {
         receivedChallenge = c;
       });
-
-      // Wait for B's subscription to be ready
-      await wait();
 
       // 3. A challenges B
       const tableId = await lobbyA.challenge("user-b", "standard");
@@ -466,9 +462,6 @@ describe("MessagingClient - Phase 1", () => {
         opponentLeft = true;
       });
 
-      // Wait for Bob's subscription to be ready
-      await wait();
-
       // 2. Alice joins lobby and table
       await clientA.joinLobby({
         messageType: "presence",
@@ -477,9 +470,6 @@ describe("MessagingClient - Phase 1", () => {
         userName: "Alice",
       });
       const tableA = await clientA.joinTable(tableId, "user-a");
-
-      // Wait for presence propagation
-      await wait();
 
       // 3. Alice leaves the table
       await tableA.leave();
