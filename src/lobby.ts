@@ -34,8 +34,8 @@ export class Lobby {
     public currentUser: PresenceMessage,
     options: LobbyOptions = {},
   ) {
-    this.heartbeatInterval = options.heartbeatInterval || 30000;
-    this.pruneInterval = options.pruneInterval || 10000;
+    this.heartbeatInterval = options.heartbeatInterval || 60000;
+    this.pruneInterval = options.pruneInterval || 30000;
     this.staleTtl = options.staleTtl || 90000;
 
     this.deduplicator = new ChallengeDeduplicator((msg) => {
