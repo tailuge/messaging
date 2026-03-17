@@ -155,6 +155,19 @@ function getIpCache() {
     }
   }
 
+  function getLogs() {
+    const fs = require("fs");
+    try {
+      const content = fs.readFileSync("/var/log/nginx/error.log", "utf8");
+      const lines = content.split("\n");
+      const filtered = lines//.filter((line) => line.includes("nchan_meta"));
+      const last50 = filtered.slice(-50);
+      return last50;
+    } catch (e) {
+      return [e.message];
+    }
+  }
+
   async function stats(r) {
 
   const nginxRes = await r.subrequest("/basic_status", { method: "GET" });
@@ -168,6 +181,7 @@ function getIpCache() {
     nchan,
     ip_cache: getIpCache(),
     uptime: getUptime(),
+    logs: getLogs(),
     ts: new Date().toISOString(),
   };
 

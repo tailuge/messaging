@@ -13,6 +13,7 @@ export class MessagingClient {
   private activeTables: Table[] = [];
   private lastLobbyConfig?: { user: PresenceMessage; options?: LobbyOptions };
   private isStopping = false;
+  private isStarted = false;
 
   constructor(options: { baseUrl: string }) {
     this.nchan = new NchanClient(options.baseUrl);
@@ -23,11 +24,13 @@ export class MessagingClient {
    * In browser environments, attaches lifecycle event listeners.
    */
   start(): void {
+    if (this.isStarted) return;
     if (typeof window !== "undefined") {
       window.addEventListener("pagehide", this.handlePageHide);
       window.addEventListener("pageshow", this.handlePageShow);
       document.addEventListener("visibilitychange", this.handleVisibilityChange);
     }
+    this.isStarted = true;
   }
 
   /**
@@ -43,6 +46,7 @@ export class MessagingClient {
         window.removeEventListener("pageshow", this.handlePageShow);
         document.removeEventListener("visibilitychange", this.handleVisibilityChange);
       }
+      this.isStarted = false;
 
       const lobbies = [...this.activeLobbies];
       this.activeLobbies = [];
@@ -63,6 +67,7 @@ export class MessagingClient {
    * to implement message ordering or deduplication based on meta.ts timestamps.
    */
   async joinLobby(user: PresenceMessage, options?: LobbyOptions): Promise<Lobby> {
+    this.start();
     // Prevent duplicate joins if already in a lobby for this user
     const existing = this.activeLobbies.find((l) => l.currentUser.userId === user.userId);
     if (existing) return existing;

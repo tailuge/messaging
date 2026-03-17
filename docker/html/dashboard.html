@@ -125,6 +125,10 @@
         opacity: 0.5;
         pointer-events: none;
       }
+      .log-error {
+        color: #dc3545;
+        background-color: #f8d7da;
+      }
     </style>
   </head>
   <body>
@@ -221,6 +225,28 @@
           </table>
         </div>
       </div>
+
+      <div class="card">
+        <h3>NJS Logs</h3>
+        <div id="njs-logs-meta" class="refresh-tag"></div>
+        <div id="njs-logs-info">
+          <table id="njs-logs-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Message</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="2" style="text-align: center; color: var(--secondary-color)">
+                  No logs available.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <script>
@@ -292,6 +318,27 @@
         } else {
           ipCacheTableBody.innerHTML =
             '<tr><td colspan="2" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
+        }
+
+        const njsLogsTableBody = document.querySelector("#njs-logs-table tbody");
+        const njsLogsMeta = document.getElementById("njs-logs-meta");
+        const njsLogs = Array.isArray(data.njs_logs) ? data.njs_logs : null;
+        njsLogsMeta.textContent = "";
+
+        if (njsLogs && njsLogs.length > 0) {
+          njsLogsTableBody.innerHTML = njsLogs
+            .map((logLine) => {
+              const isError = logLine.toLowerCase().includes("api error");
+              const errorClass = isError ? "log-error" : "";
+              const match = logLine.match(/^(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2})/);
+              const timestamp = match ? match[1] : "";
+              const message = logLine.replace(/^(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2})\s*\[.*?\]\s*/, "");
+              return `<tr class="${errorClass}"><td>${timestamp}</td><td>${message}</td></tr>`;
+            })
+            .join("");
+        } else {
+          njsLogsTableBody.innerHTML =
+            '<tr><td colspan="2" style="text-align: center; color: var(--secondary-color);">No logs available.</td></tr>';
         }
       }
 
