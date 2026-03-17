@@ -128,8 +128,7 @@ function parseNchanStatus(text) {
   return stats;
 }
 
-async function stats(r) {
-  function getIpCache() {
+function getIpCache() {
     const cache = ngx.shared.ip_cache;
     const keys = cache.keys() || [];
     const entries = {};
@@ -142,6 +141,22 @@ async function stats(r) {
     return entries;
   }
 
+  function getUptime() {
+    const fs = require("fs");
+    try {
+      const uptimeRaw = fs.readFileSync("/proc/uptime", "utf8");
+      const seconds = parseFloat(uptimeRaw.split(" ")[0]);
+      const days = Math.floor(seconds / 86400);
+      const hours = Math.floor((seconds % 86400) / 3600);
+      const mins = Math.floor((seconds % 3600) / 60);
+      return { seconds, days, hours, mins };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function stats(r) {
+
   const nginxRes = await r.subrequest("/basic_status", { method: "GET" });
   const nginx = nginxRes.status === 200 ? parseNginxStatus(nginxRes.responseText) : null;
 
@@ -152,6 +167,7 @@ async function stats(r) {
     nginx,
     nchan,
     ip_cache: getIpCache(),
+    uptime: getUptime(),
     ts: new Date().toISOString(),
   };
 

@@ -163,6 +163,10 @@
             <h4>Nginx</h4>
             <table id="nginx-table">
               <tr>
+                <td>Uptime</td>
+                <td id="ngx-uptime">-</td>
+              </tr>
+              <tr>
                 <td>Accepts</td>
                 <td id="ngx-accepts">-</td>
               </tr>
@@ -251,6 +255,11 @@
           document.getElementById("ngx-accepts").textContent = data.nginx.accepts;
           document.getElementById("ngx-handled").textContent = data.nginx.handled;
           document.getElementById("ngx-requests").textContent = data.nginx.requests;
+        }
+
+        if (data.uptime) {
+          const up = data.uptime;
+          document.getElementById("ngx-uptime").textContent = `${up.days}d ${up.hours}h ${up.mins}m`;
         }
 
         if (data.nchan) {
