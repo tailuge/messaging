@@ -142,10 +142,17 @@ function getIpCache() {
   }
 
   function getUptime() {
-    const fs = require("fs");
     try {
-      const uptimeRaw = fs.readFileSync("/proc/uptime", "utf8");
-      const seconds = parseFloat(uptimeRaw.split(" ")[0]);
+      const stats = ngx.shared.system_stats;
+      let startTime = stats.get("start_time");
+      const now = Date.now();
+
+      if (!startTime) {
+        startTime = now;
+        stats.set("start_time", startTime);
+      }
+
+      const seconds = Math.floor((now - startTime) / 1000);
       const days = Math.floor(seconds / 86400);
       const hours = Math.floor((seconds % 86400) / 3600);
       const mins = Math.floor((seconds % 3600) / 60);
