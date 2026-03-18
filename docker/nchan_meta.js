@@ -165,9 +165,9 @@ function getIpCache() {
   function getLogs() {
     const fs = require("fs");
     try {
-      const content = fs.readFileSync("/var/log/nginx/error.log", "utf8");
-      const lines = content.split("\n");
-      const filtered = lines//.filter((line) => line.includes("nchan_meta"));
+      const content = fs.readFileSync("/var/log/nginx/njs_error.log", "utf8");
+      const lines = content.trim().split("\n");
+      const filtered = lines; // .filter((line) => line.includes("nchan_meta"));
       const last50 = filtered.slice(-50);
       return last50;
     } catch (e) {
@@ -176,21 +176,20 @@ function getIpCache() {
   }
 
   async function stats(r) {
+    const nginxRes = await r.subrequest("/basic_status", { method: "GET" });
+    const nginx = nginxRes.status === 200 ? parseNginxStatus(nginxRes.responseText) : null;
 
-  const nginxRes = await r.subrequest("/basic_status", { method: "GET" });
-  const nginx = nginxRes.status === 200 ? parseNginxStatus(nginxRes.responseText) : null;
+    const nchanRes = await r.subrequest("/nchan_stats", { method: "GET" });
+    const nchan = nchanRes.status === 200 ? parseNchanStatus(nchanRes.responseText) : null;
 
-  const nchanRes = await r.subrequest("/nchan_stats", { method: "GET" });
-  const nchan = nchanRes.status === 200 ? parseNchanStatus(nchanRes.responseText) : null;
-
-  const data = {
-    nginx,
-    nchan,
-    ip_cache: getIpCache(),
-    uptime: getUptime(),
-    logs: getLogs(),
-    ts: new Date().toISOString(),
-  };
+    const data = {
+      nginx,
+      nchan,
+      ip_cache: getIpCache(),
+      uptime: getUptime(),
+      njs_logs: getLogs(),
+      ts: new Date().toISOString(),
+    };
 
   r.headersOut["Content-Type"] = "application/json";
   r.return(200, JSON.stringify(data));
