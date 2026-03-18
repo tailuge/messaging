@@ -26,7 +26,6 @@ async function buildMeta(r) {
     const parts = cached.split("|");
     const country = parts[0];
     const city = parts[1] || "";
-    console.log(`using cached location: ${country}, ${city} for ip: ${ip}`);
     return createMeta(r, country, city);
   }
 
@@ -42,13 +41,13 @@ async function buildMeta(r) {
     const data = JSON.parse(text);
     country = data.country || "XX";
     city = data.city || "";
-    console.log(`fetched location: ${country}, ${city} for ip: ${ip}`);
+    console.log(`fetched location: ${country}, ${city} for ip: ${ip.substring(0, 8)}....`);
   } catch (e) {
     console.log(`api error: ${e.message} for ip: ${ip}`);
   }
 
-  // Cache for 1 hour (3600000 ms)
-  cache.set(ip, `${country}|${city}`, 3600000);
+  // Cache for 24 hours (86400000 ms)
+  cache.set(ip, `${country}|${city}`, 86400000);
 
   return createMeta(r, country, city);
 }
@@ -145,14 +144,15 @@ function getIpCache() {
     try {
       const stats = ngx.shared.system_stats;
       let startTime = stats.get("start_time");
-      const now = Date.now();
+      const now = Date.now().toString();
 
       if (!startTime) {
         startTime = now;
         stats.set("start_time", startTime);
       }
 
-      const seconds = Math.floor((now - startTime) / 1000);
+      const diff = Date.now() - parseInt(startTime);
+      const seconds = Math.floor(diff / 1000);
       const days = Math.floor(seconds / 86400);
       const hours = Math.floor((seconds % 86400) / 3600);
       const mins = Math.floor((seconds % 3600) / 60);

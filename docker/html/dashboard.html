@@ -195,10 +195,6 @@
                 <td>Total Subscribed</td>
                 <td id="nch-subscribed">-</td>
               </tr>
-              <tr>
-                <td>Redis Pending</td>
-                <td id="nch-redis">-</td>
-              </tr>
             </table>
           </div>
         </div>
@@ -299,7 +295,6 @@
             data.nchan.total_published_messages || 0;
           document.getElementById("nch-subscribed").textContent =
             data.nchan.total_subscribed_messages || 0;
-          document.getElementById("nch-redis").textContent = data.nchan.redis_pending_commands || 0;
         }
 
         const ipCacheTableBody = document.querySelector("#ip-cache-table tbody");
