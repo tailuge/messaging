@@ -200,28 +200,29 @@
         </div>
       </div>
 
-      <div class="card">
-        <h3>IP Cache (shared dict)</h3>
-        <div id="ip-cache-meta" class="refresh-tag"></div>
-        <div id="ip-cache-info">
-          <table id="ip-cache-table">
-            <thead>
-              <tr>
-                <th>IP Address</th>
-                <th>Country Code</th>
-                <th>Hits</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td colspan="2" style="text-align: center; color: var(--secondary-color)">
-                  No cache data available.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+       <div class="card">
+         <h3>IP Cache (shared dict)</h3>
+         <div id="ip-cache-meta" class="refresh-tag"></div>
+         <div id="ip-cache-info">
+           <table id="ip-cache-table">
+             <thead>
+               <tr>
+                 <th>IP Address</th>
+                 <th>Country Code</th>
+                 <th>Location</th>
+                 <th>Hits</th>
+               </tr>
+             </thead>
+             <tbody>
+               <tr>
+                 <td colspan="3" style="text-align: center; color: var(--secondary-color)">
+                   No cache data available.
+                 </td>
+               </tr>
+             </tbody>
+           </table>
+         </div>
+       </div>
 
       <div class="card">
         <h3>NJS Logs</h3>
@@ -298,26 +299,26 @@
             data.nchan.total_subscribed_messages || 0;
         }
 
-        const ipCacheTableBody = document.querySelector("#ip-cache-table tbody");
-        const ipCacheMeta = document.getElementById("ip-cache-meta");
-        const ipCacheEntries = data.ip_cache && typeof data.ip_cache === "object" ? data.ip_cache : null;
-        ipCacheMeta.textContent = "";
+         const ipCacheTableBody = document.querySelector("#ip-cache-table tbody");
+         const ipCacheMeta = document.getElementById("ip-cache-meta");
+         const ipCacheEntries = data.ip_cache && typeof data.ip_cache === "object" ? data.ip_cache : null;
+         ipCacheMeta.textContent = "";
 
-        if (ipCacheEntries && Object.keys(ipCacheEntries).length > 0) {
-          ipCacheTableBody.innerHTML = Object.entries(ipCacheEntries)
-            .map(([ip, value]) => {
-              const parts = value.split("|");
-              const country = parts[0] || "-";
-              const city = parts[1] || "";
-              const hits = parts[2] || "1";
-              const location = city ? `${city}` : country;
-              return `<tr><td>${ip.replace(/\d(?=\.)/g, "x")}</td><td>${location}</td><td>${hits}</td></tr>`;
-            })
-            .join("");
-        } else {
-          ipCacheTableBody.innerHTML =
-            '<tr><td colspan="3" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
-        }
+         if (ipCacheEntries && Object.keys(ipCacheEntries).length > 0) {
+           ipCacheTableBody.innerHTML = Object.entries(ipCacheEntries)
+             .map(([ip, value]) => {
+               const parts = value.split("|");
+               const country = parts[0] || "-";
+               const city = parts[1] || "";
+               const hits = parts[2] || "1";
+               const location = city ? city : "-";
+               return `<tr><td>${ip.replace(/\d(?=\.)/g, "x")}</td><td>${country}</td><td>${location}</td><td>${hits}</td></tr>`;
+             })
+             .join("");
+         } else {
+           ipCacheTableBody.innerHTML =
+             '<tr><td colspan="4" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
+         }
 
         const njsLogsTableBody = document.querySelector("#njs-logs-table tbody");
         const njsLogsMeta = document.getElementById("njs-logs-meta");
