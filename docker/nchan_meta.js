@@ -22,32 +22,34 @@ async function buildMeta(r) {
   const cache = ngx.shared.ip_cache;
 
   const cached = cache.get(ip);
-  if (cached) {
-    const parts = cached.split("|");
-    const country = parts[0];
-    const city = parts[1] || "";
-    return createMeta(r, country, city);
-  }
-
-  // Fetch country and city from API
   let country = "XX";
   let city = "";
-  try {
-    const reply = await ngx.fetch(`https://api.country.is/${ip}?fields=city`, {
-      timeout: 2000,
-      headers: { "User-Agent": "Nginx-NJS-Messaging" },
-    });
-    const text = await reply.text();
-    const data = JSON.parse(text);
-    country = data.country || "XX";
-    city = data.city || "";
-    console.log(`fetched location: ${country}, ${city} for ip: ${ip.substring(0, 8)}....`);
-  } catch (e) {
-    console.log(`api error: ${e.message} for ip: ${ip}`);
+  let hits = 1;
+
+  if (cached) {
+    const parts = cached.split("|");
+    country = parts[0];
+    city = parts[1] || "";
+    hits = parseInt(parts[2] || "0") + 1;
+  } else {
+    // Fetch country and city from API
+    try {
+      const reply = await ngx.fetch(`https://api.country.is/${ip}?fields=city`, {
+        timeout: 2000,
+        headers: { "User-Agent": "Nginx-NJS-Messaging" },
+      });
+      const text = await reply.text();
+      const data = JSON.parse(text);
+      country = data.country || "XX";
+      city = data.city || "";
+      console.log(`fetched location: ${country}, ${city} for ip: ${ip.substring(0, 8)}....`);
+    } catch (e) {
+      console.log(`api error: ${e.message} for ip: ${ip}`);
+    }
   }
 
   // Cache for 24 hours (86400000 ms)
-  cache.set(ip, `${country}|${city}`, 86400000);
+  cache.set(ip, `${country}|${city}|${hits}`, 86400000);
 
   return createMeta(r, country, city);
 }

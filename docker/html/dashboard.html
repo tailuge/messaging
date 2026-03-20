@@ -208,12 +208,13 @@
             <thead>
               <tr>
                 <th>IP Address</th>
-                <th>Country Code</th>
+                <th>Location</th>
+                <th>Hits</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td colspan="2" style="text-align: center; color: var(--secondary-color)">
+                <td colspan="3" style="text-align: center; color: var(--secondary-color)">
                   No cache data available.
                 </td>
               </tr>
@@ -304,15 +305,19 @@
 
         if (ipCacheEntries && Object.keys(ipCacheEntries).length > 0) {
           ipCacheTableBody.innerHTML = Object.entries(ipCacheEntries)
-            .map(
-              ([ip, country]) => `
-                    <tr><td>${ip.replace(/(\d)\d+/g, "$1x")}</td><td>${country}</td></tr>
-                `,
-            )
+            .map(([ip, value]) => {
+              const parts = value.split("|");
+              const country = parts[0] || "XX";
+              const city = parts[1] || "";
+              const hits = parts[2] || "1";
+              const location = city ? `${city}, ${country}` : country;
+              const maskedIp = ip.replace(/(\d+)\.(\d+)\.(\d+)\.(\d+)/, "$1.$2.x.x");
+              return `<tr><td>${maskedIp}</td><td>${location}</td><td>${hits}</td></tr>`;
+            })
             .join("");
         } else {
           ipCacheTableBody.innerHTML =
-            '<tr><td colspan="2" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
+            '<tr><td colspan="3" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
         }
 
         const njsLogsTableBody = document.querySelector("#njs-logs-table tbody");
