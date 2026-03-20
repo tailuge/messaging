@@ -26,6 +26,9 @@ async function buildMeta(r) {
     const parts = cached.split("|");
     const country = parts[0];
     const city = parts[1] || "";
+    const count = parseInt(parts[2]) || 0;
+    const newCount = count + 1;
+    cache.set(ip, `${country}|${city}|${newCount}`, 86400000);
     return createMeta(r, country, city);
   }
 
@@ -47,7 +50,7 @@ async function buildMeta(r) {
   }
 
   // Cache for 24 hours (86400000 ms)
-  cache.set(ip, `${country}|${city}`, 86400000);
+  cache.set(ip, `${country}|${city}|1`, 86400000);
 
   return createMeta(r, country, city);
 }

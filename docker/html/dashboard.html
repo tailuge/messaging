@@ -209,6 +209,7 @@
               <tr>
                 <th>IP Address</th>
                 <th>Country Code</th>
+                <th>Hits</th>
               </tr>
             </thead>
             <tbody>
@@ -304,15 +305,18 @@
 
         if (ipCacheEntries && Object.keys(ipCacheEntries).length > 0) {
           ipCacheTableBody.innerHTML = Object.entries(ipCacheEntries)
-            .map(
-              ([ip, country]) => `
-                    <tr><td>${ip.replace(/(\d)\d+/g, "$1x")}</td><td>${country}</td></tr>
-                `,
-            )
+            .map(([ip, value]) => {
+              const parts = value.split("|");
+              const country = parts[0] || "-";
+              const city = parts[1] || "";
+              const hits = parts[2] || "1";
+              const location = city ? `${city}` : country;
+              return `<tr><td>${ip.replace(/\d(?=\.)/g, "x")}</td><td>${location}</td><td>${hits}</td></tr>`;
+            })
             .join("");
         } else {
           ipCacheTableBody.innerHTML =
-            '<tr><td colspan="2" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
+            '<tr><td colspan="3" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
         }
 
         const njsLogsTableBody = document.querySelector("#njs-logs-table tbody");
