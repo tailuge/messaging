@@ -304,21 +304,26 @@
          const ipCacheEntries = data.ip_cache && typeof data.ip_cache === "object" ? data.ip_cache : null;
          ipCacheMeta.textContent = "";
 
-         if (ipCacheEntries && Object.keys(ipCacheEntries).length > 0) {
-           ipCacheTableBody.innerHTML = Object.entries(ipCacheEntries)
-             .map(([ip, value]) => {
-               const parts = value.split("|");
-               const country = parts[0] || "-";
-               const city = parts[1] || "";
-               const hits = parts[2] || "1";
-               const location = city ? city : "-";
-               return `<tr><td>${ip.replace(/\d(?=\.)/g, "x")}</td><td>${country}</td><td>${location}</td><td>${hits}</td></tr>`;
-             })
-             .join("");
-         } else {
-           ipCacheTableBody.innerHTML =
-             '<tr><td colspan="4" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
-         }
+          if (ipCacheEntries && Object.keys(ipCacheEntries).length > 0) {
+            ipCacheTableBody.innerHTML = Object.entries(ipCacheEntries)
+              .sort((a, b) => {
+                const hitsA = parseInt(a[1].split("|")[2]) || 0;
+                const hitsB = parseInt(b[1].split("|")[2]) || 0;
+                return hitsB - hitsA; // Descending order (highest first)
+              })
+              .map(([ip, value]) => {
+                const parts = value.split("|");
+                const country = parts[0] || "-";
+                const city = parts[1] || "";
+                const hits = parts[2] || "1";
+                const location = city ? city : "-";
+                return `<tr><td>${ip.replace(/\d(?=\.)/g, "x")}</td><td>${country}</td><td>${location}</td><td>${hits}</td></tr>`;
+              })
+              .join("");
+          } else {
+            ipCacheTableBody.innerHTML =
+              '<tr><td colspan="4" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
+          }
 
         const njsLogsTableBody = document.querySelector("#njs-logs-table tbody");
         const njsLogsMeta = document.getElementById("njs-logs-meta");
