@@ -377,6 +377,44 @@ describe("MessagingClient - Phase 1", () => {
       expect(messageReceivedByB.senderId).toBe("user-a");
     });
 
+    it("should handle challenge with rematch info", async () => {
+      const clientA = createClient();
+      const clientB = createClient();
+
+      const lobbyA = await clientA.joinLobby({
+        messageType: "presence",
+        type: "join",
+        userId: "user-a",
+        userName: "Alice",
+      });
+
+      const lobbyB = await clientB.joinLobby({
+        messageType: "presence",
+        type: "join",
+        userId: "user-b",
+        userName: "Bob",
+      });
+
+      let receivedChallenge: any = null;
+      lobbyB.onChallenge((c) => {
+        receivedChallenge = c;
+      });
+
+      const rematchInfo = {
+        lastScores: [
+          { userId: "user-a", score: 10 },
+          { userId: "user-b", score: 5 },
+        ],
+        isRematch: true,
+        nextTurnId: "user-b",
+      };
+
+      await lobbyA.challenge("user-b", "standard", rematchInfo);
+
+      await waitUntil(() => receivedChallenge !== null);
+      expect(receivedChallenge.rematch).toEqual(rematchInfo);
+    });
+
     it("should receive pending challenges after rejoining the lobby", async () => {
       const clientA = createClient();
       const clientB = createClient();
