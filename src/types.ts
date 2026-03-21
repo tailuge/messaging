@@ -36,6 +36,15 @@ export interface PresenceMessage {
 }
 
 /**
+ * Context about a previous game for rematch challenges.
+ */
+export interface RematchInfo {
+  readonly lastScores: { readonly userId: string; readonly score: number }[];
+  readonly isRematch: boolean;
+  readonly nextTurnId: string; // The ID of the player who should break/go first
+}
+
+/**
  * Peer-to-peer challenge request
  */
 export interface ChallengeMessage {
@@ -46,6 +55,7 @@ export interface ChallengeMessage {
   recipientId: string;
   ruleType: string;
   tableId?: string; // Optional: table created by challenger
+  readonly rematch?: RematchInfo; // Optional: context about a previous game
   meta?: Meta; // Server-enriched metadata (received messages only)
 }
 

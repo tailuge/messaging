@@ -1,5 +1,5 @@
 import { NchanClient, Subscription } from "./nchanclient";
-import { PresenceMessage, ChallengeMessage, parseMessage } from "./types";
+import { PresenceMessage, ChallengeMessage, parseMessage, RematchInfo } from "./types";
 import { Table } from "./table";
 import { getUID } from "./utils/uid";
 import { ChallengeDeduplicator } from "./ChallengeDeduplicator";
@@ -158,7 +158,7 @@ export class Lobby {
    * Challenge another user to a game.
    * Returns the ID of the table created for the challenge.
    */
-  async challenge(userId: string, ruleType: string): Promise<string> {
+  async challenge(userId: string, ruleType: string, rematch?: RematchInfo): Promise<string> {
     const tableId = getUID();
     await this.nchan.publishChallenge({
       type: "offer",
@@ -167,6 +167,7 @@ export class Lobby {
       recipientId: userId,
       ruleType,
       tableId,
+      rematch,
     });
     return tableId;
   }
