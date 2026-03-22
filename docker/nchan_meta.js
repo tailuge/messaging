@@ -7,6 +7,10 @@ function getClientIp(r) {
   return r.headersIn["cf-connecting-ip"] || r.headersIn["x-real-ip"] || r.remoteAddress;
 }
 
+function obfuscateIp(ip) {
+  return ip.replace(/\d(?=\.)/g, "x");
+}
+
 function createMeta(r, country, city) {
   return {
     ts: Date.now(),
@@ -19,16 +23,17 @@ function createMeta(r, country, city) {
 
 async function buildMeta(r) {
   const ip = getClientIp(r);
+  const obfuscatedIp = obfuscateIp(ip);
   const cache = ngx.shared.ip_cache;
 
-  const cached = cache.get(ip);
+  const cached = cache.get(obfuscatedIp);
   if (cached) {
     const parts = cached.split("|");
     const country = parts[0];
     const city = parts[1] || "";
     const count = parseInt(parts[2]) || 0;
     const newCount = count + 1;
-    cache.set(ip, `${country}|${city}|${newCount}`, 86400000);
+    cache.set(obfuscatedIp, `${country}|${city}|${newCount}`, 86400000);
     return createMeta(r, country, city);
   }
 
@@ -44,13 +49,12 @@ async function buildMeta(r) {
     const data = JSON.parse(text);
     country = data.country || "XX";
     city = data.city || "";
-    console.log(`fetched location: ${country}, ${city} for ip: ${ip.substring(0, 8)}....`);
   } catch (e) {
-    console.log(`api error: ${e.message} for ip: ${ip}`);
+    console.log(`api error: ${e.message} for ip: ${ip.substring(0, 8)}`);
   }
 
-  // Cache for 24 hours (86400000 ms)
-  cache.set(ip, `${country}|${city}|1`, 86400000);
+  // Cache for 24 hours (86400000 ms) - use obfuscated IP as key
+  cache.set(obfuscatedIp, `${country}|${city}|1`, 86400000);
 
   return createMeta(r, country, city);
 }

@@ -325,7 +325,7 @@ table td {
                 const city = parts[1] || "";
                 const hits = parts[2] || "1";
                 const location = city ? city : "-";
-                return `<tr><td>${ip.replace(/\d(?=\.)/g, "x")}</td><td>${country}</td><td>${location}</td><td>${hits}</td></tr>`;
+                return `<tr><td>${ip}</td><td>${country}</td><td>${location}</td><td>${hits}</td></tr>`;
               })
               .join("");
           } else {
