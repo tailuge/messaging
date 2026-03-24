@@ -2,7 +2,7 @@ import { ChallengeMessage } from "./types";
 
 export class ChallengeDeduplicator {
   private onEmit: (challenge: ChallengeMessage) => void;
-  private pendingOffers = new Map<string, NodeJS.Timeout>();
+  private pendingOffers = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(onEmit: (challenge: ChallengeMessage) => void) {
     this.onEmit = onEmit;
@@ -22,7 +22,10 @@ export class ChallengeDeduplicator {
           this.onEmit(msg);
           this.pendingOffers.delete(interactionKey);
         }, 250);
-        timeoutId.unref?.();
+        
+        if (timeoutId && typeof timeoutId === 'object' && 'unref' in timeoutId) {
+          (timeoutId as any).unref();
+        }
 
         this.pendingOffers.set(interactionKey, timeoutId);
       }
