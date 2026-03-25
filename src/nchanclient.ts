@@ -1,4 +1,4 @@
-import type { PresenceMessage, ChallengeMessage, TableMessage } from "./types";
+import type { PresenceMessage, ChallengeMessage, TableMessage, ChatMessage } from "./types";
 
 const PATHS = {
   PRESENCE_PUBLISH: "/publish/presence/lobby",
@@ -81,6 +81,20 @@ export class NchanClient {
       {
         ...message,
         messageType: "challenge",
+      },
+      options,
+    );
+  }
+
+  async publishChat(
+    message: Omit<ChatMessage, "messageType">,
+    options?: { keepalive?: boolean },
+  ): Promise<Response> {
+    return this.publish(
+      PATHS.PRESENCE_PUBLISH,
+      {
+        ...message,
+        messageType: "chat",
       },
       options,
     );

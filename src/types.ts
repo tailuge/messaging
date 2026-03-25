@@ -60,6 +60,17 @@ export interface ChallengeMessage {
 }
 
 /**
+ * 1-to-1 public-broadcast chat message
+ */
+export interface ChatMessage {
+  messageType: "chat";
+  senderId: string;
+  recipientId: string;
+  text: string;
+  meta?: Meta; // Server-enriched metadata (received messages only)
+}
+
+/**
  * Generic structure for table/game events
  */
 export interface TableMessage<T = unknown> {
@@ -93,7 +104,7 @@ export interface ActiveGame {
 /**
  * Union type for messages received via the lobby channel
  */
-export type LobbyIncomingMessage = PresenceMessage | ChallengeMessage;
+export type LobbyIncomingMessage = PresenceMessage | ChallengeMessage | ChatMessage;
 
 /**
  * Type guards
@@ -104,6 +115,10 @@ export function isPresenceMessage(msg: any): msg is PresenceMessage {
 
 export function isChallengeMessage(msg: any): msg is ChallengeMessage {
   return msg?.messageType === "challenge";
+}
+
+export function isChatMessage(msg: any): msg is ChatMessage {
+  return msg?.messageType === "chat";
 }
 
 /**
