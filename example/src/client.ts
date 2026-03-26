@@ -38,6 +38,11 @@ function initializeManagers(lobby: Lobby) {
         console.log('Challenge received (full payload):', challenge);
         challengeManager.onChallenge(challenge);
     });
+
+    lobby.onChat((msg) => {
+        console.log('Chat received:', msg);
+        ui.showChat(msg.senderId, msg.text);
+    });
 }
 
 // =============================================================================
@@ -69,6 +74,14 @@ function initializeManagers(lobby: Lobby) {
     const state = connectionManager.getState();
     if (state.lobby) {
         await state.lobby.challenge(targetUserId, 'standard');
+    }
+};
+
+(window as any).promptChat = async (targetUserId: string) => {
+    const text = prompt(`Message to ${targetUserId}:`);
+    const state = connectionManager.getState();
+    if (text && state.lobby) {
+        await state.lobby.sendChat(targetUserId, text);
     }
 };
 
@@ -104,6 +117,23 @@ document.getElementById('btn-accept')?.addEventListener('click', async () => {
 
 document.getElementById('btn-decline')?.addEventListener('click', async () => {
     await challengeManager.decline();
+});
+
+document.getElementById('btn-chat-reply')?.addEventListener('click', async () => {
+    const input = document.getElementById('chat-reply-input') as HTMLInputElement;
+    const recipientId = input?.dataset.recipientId;
+    const text = input?.value;
+    const state = connectionManager.getState();
+    if (recipientId && text && state.lobby) {
+        await state.lobby.sendChat(recipientId, text);
+        document.getElementById('chat-container')!.style.display = 'none';
+    }
+});
+
+document.getElementById('chat-reply-input')?.addEventListener('keyup', async (event) => {
+    if (event.key === 'Enter') {
+        document.getElementById('btn-chat-reply')?.click();
+    }
 });
 
 document.getElementById('name-input')?.addEventListener('keyup', async (event) => {

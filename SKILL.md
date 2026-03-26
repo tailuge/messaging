@@ -56,6 +56,16 @@ lobby.onChallenge((challenge) => {
     lobby.acceptChallenge(challenge.challengerId, challenge.ruleType, challenge.tableId);
   }
 });
+
+## Chat
+
+```typescript
+await lobby.sendChat(targetUserId, "Hello!");
+
+lobby.onChat((msg) => {
+  console.log(`Message from ${msg.senderId}: ${msg.text}`);
+});
+```
 ```
 
 ## Table Messaging

@@ -93,6 +93,16 @@ interface Lobby {
   onChallenge(callback: (challenge: ChallengeMessage) => void): void;
 
   /**
+   * Send a chat message to another user.
+   */
+  sendChat(recipientId: string, text: string): Promise<void>;
+
+  /**
+   * Subscribe to incoming chat messages directed at the current user.
+   */
+  onChat(callback: (message: ChatMessage) => void): void;
+
+  /**
    * Leave the lobby.
    */
   leave(): Promise<void>;
@@ -251,6 +261,20 @@ interface ChallengeMessage {
 }
 ```
 
+### `ChatMessage`
+
+Represents a peer-to-peer chat message.
+
+```typescript
+interface ChatMessage {
+  messageType: "chat";
+  senderId: string;
+  recipientId: string;
+  text: string;
+  meta?: Meta; // Server-enriched metadata (received messages only)
+}
+```
+
 ### `TableInfo` (UNDER REVIEW)
 
 Lobby-level information about an active game table.
@@ -404,6 +428,12 @@ const lobby = await client.joinLobby({
   userId: "user-123",
   userName: "Alice",
 });
+
+lobby.onChat((msg) => {
+  console.log(`Chat from ${msg.senderId}: ${msg.text}`);
+});
+
+await lobby.sendChat("user-456", "Hi Bob!");
 
 lobby.onUsersChange((users) => {
   console.log("Online users:", users.length);

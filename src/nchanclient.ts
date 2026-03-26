@@ -87,7 +87,7 @@ export class NchanClient {
   }
 
   async publishChat(
-    message: Omit<ChatMessage, "messageType">,
+    message: Omit<ChatMessage, "messageType" | "meta">,
     options?: { keepalive?: boolean },
   ): Promise<Response> {
     return this.publish(
