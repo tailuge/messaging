@@ -61,6 +61,16 @@
         </div>
     </div>
 
+    <div id="chat-container" class="challenge-box" style="background: #e1f5fe; border-color: #b3e5fc;">
+        <strong>New Message</strong>
+        <div id="chat-text"></div>
+        <div class="form">
+            <input type="text" id="chat-reply-input" placeholder="Reply..." style="flex: 1;">
+            <button class="btn-connect" id="btn-chat-reply">Reply</button>
+            <button class="btn-decline" onclick="document.getElementById('chat-container').style.display='none'">Close</button>
+        </div>
+    </div>
+
     <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <h3 id="my-name">Connecting...</h3>

@@ -35,6 +35,20 @@ export function hideChallenge() {
     if (container) container.style.display = 'none';
 }
 
+export function showChat(senderId: string, text: string) {
+    const container = document.getElementById('chat-container');
+    const textEl = document.getElementById('chat-text');
+    const input = document.getElementById('chat-reply-input') as HTMLInputElement;
+    if (container && textEl) {
+        textEl.innerText = `${senderId}: ${text}`;
+        container.style.display = 'block';
+        if (input) {
+            input.dataset.recipientId = senderId;
+            input.value = '';
+        }
+    }
+}
+
 export function renderUserList(users: PresenceMessage[], currentUserId: string, currentTableId?: string) {
     const list = document.getElementById('user-list');
     const countEl = document.getElementById('count');
@@ -55,7 +69,10 @@ export function renderUserList(users: PresenceMessage[], currentUserId: string, 
                 } else if (isSeeking) {
                     actionBtn = `<button class="btn-join" onclick="joinSeek('${u.userId}', '${u.seek?.tableId}', '${u.seek?.ruleType}')">Join Game</button>`;
                 } else if (canChallenge(u, currentUserId)) {
-                    actionBtn = `<button class="btn-challenge" onclick="challengeUser('${u.userId}')">Challenge</button>`;
+                    actionBtn = `
+                        <button class="btn-challenge" onclick="challengeUser('${u.userId}')">Challenge</button>
+                        <button class="btn-join" onclick="promptChat('${u.userId}')">Chat</button>
+                    `;
                 }
             }
 

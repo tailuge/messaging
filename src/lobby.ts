@@ -1,5 +1,11 @@
 import { NchanClient, Subscription } from "./nchanclient";
-import { PresenceMessage, ChallengeMessage, parseMessage, RematchInfo } from "./types";
+import {
+  PresenceMessage,
+  ChallengeMessage,
+  parseMessage,
+  RematchInfo,
+  ChatMessage,
+} from "./types";
 import { Table } from "./table";
 import { getUID } from "./utils/uid";
 import { ChallengeDeduplicator } from "./ChallengeDeduplicator";
@@ -17,6 +23,7 @@ export class Lobby {
   private users = new Map<string, PresenceMessage>();
   private listeners: ((users: PresenceMessage[]) => void)[] = [];
   private challengeListeners: ((challenge: ChallengeMessage) => void)[] = [];
+  private chatListeners: ((message: ChatMessage) => void)[] = [];
   private pendingChallenges: ChallengeMessage[] = [];
   private deduplicator: ChallengeDeduplicator;
   private subscription: Subscription | null = null;
@@ -41,6 +48,24 @@ export class Lobby {
     this.deduplicator = new ChallengeDeduplicator((msg) => {
       this.pendingChallenges.push(msg);
       this.challengeListeners.forEach((cb) => cb(msg));
+    });
+  }
+
+  /**
+   * Subscribe to incoming chat messages directed at the current user.
+   */
+  onChat(callback: (message: ChatMessage) => void): void {
+    this.chatListeners.push(callback);
+  }
+
+  /**
+   * Send a chat message to another user.
+   */
+  async sendChat(recipientId: string, text: string): Promise<void> {
+    await this.nchan.publishChat({
+      senderId: this.currentUser.userId,
+      recipientId,
+      text,
     });
   }
 
@@ -264,6 +289,8 @@ export class Lobby {
       this.handlePresenceUpdate(rawMsg as PresenceMessage);
     } else if (rawMsg.messageType === "challenge") {
       this.handleChallenge(rawMsg as ChallengeMessage);
+    } else if (rawMsg.messageType === "chat") {
+      this.handleChat(rawMsg as ChatMessage);
     }
   }
 
@@ -284,6 +311,12 @@ export class Lobby {
   private handleChallenge(msg: ChallengeMessage): void {
     // Deduplicator tracks state from ALL challenge interactions (offer, accept, decline, cancel)
     this.deduplicator.processMessage(msg, this.currentUser.userId);
+  }
+
+  private handleChat(msg: ChatMessage): void {
+    if (msg.recipientId === this.currentUser.userId) {
+      this.chatListeners.forEach((cb) => cb(msg));
+    }
   }
 
   private notifyListeners(): void {
