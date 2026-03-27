@@ -151,10 +151,25 @@ function getIpCache() {
     try {
       const stats = ngx.shared.system_stats;
       let startTime = stats.get("start_time");
-      const now = Date.now().toString();
 
       if (!startTime) {
-        startTime = now;
+        try {
+          const fs = require("fs");
+          const content = fs.readFileSync("/var/log/nginx/njs_error.log", "utf8");
+          const firstLine = content.split("\n")[0];
+          const tsMatch = firstLine.match(/^(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2})/);
+          if (tsMatch) {
+            const tsStr = tsMatch[1].replace(/\//g, "-").replace(" ", "T");
+            startTime = new Date(tsStr).getTime().toString();
+            stats.set("start_time", startTime);
+          }
+        } catch (e) {
+          // fallback to now
+        }
+      }
+
+      if (!startTime) {
+        startTime = Date.now().toString();
         stats.set("start_time", startTime);
       }
 
