@@ -151,10 +151,37 @@ function getIpCache() {
     try {
       const stats = ngx.shared.system_stats;
       let startTime = stats.get("start_time");
-      const now = Date.now().toString();
+
+      // Attempt to get reliable start time from log if not already verified
+      if (!stats.get("log_start_time_found")) {
+        // Mark as "tried" to avoid repeated (failed) disk access on every call
+        stats.set("log_start_time_found", "true");
+        try {
+          const fs = require("fs");
+          const fd = fs.openSync("/var/log/nginx/njs_error.log", "r");
+          const buffer = Buffer.allocUnsafe(256);
+          const bytesRead = fs.readSync(fd, buffer, 0, 256);
+          fs.closeSync(fd);
+
+          if (bytesRead > 0) {
+            const firstLine = buffer.toString("utf8", 0, bytesRead).split("\n")[0];
+            const tsMatch = firstLine.match(/^(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2})/);
+            if (tsMatch) {
+              const tsStr = tsMatch[1].replace(/\//g, "-").replace(" ", "T");
+              const logStartTime = new Date(tsStr).getTime();
+              if (!isNaN(logStartTime)) {
+                startTime = logStartTime.toString();
+                stats.set("start_time", startTime);
+              }
+            }
+          }
+        } catch (e) {
+          // ignore log errors, fallback to existing logic
+        }
+      }
 
       if (!startTime) {
-        startTime = now;
+        startTime = Date.now().toString();
         stats.set("start_time", startTime);
       }
 
