@@ -14,6 +14,7 @@ export class MessagingClient {
   private lastLobbyConfig?: { user: PresenceMessage; options?: LobbyOptions };
   private isStopping = false;
   private isStarted = false;
+  private listenersAttached = false;
 
   constructor(options: { baseUrl: string }) {
     this.nchan = new NchanClient(options.baseUrl);
@@ -24,12 +25,13 @@ export class MessagingClient {
    * In browser environments, attaches lifecycle event listeners.
    */
   start(): void {
-    if (this.isStarted) return;
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && !this.listenersAttached) {
       window.addEventListener("pagehide", this.handlePageHide);
       window.addEventListener("pageshow", this.handlePageShow);
       document.addEventListener("visibilitychange", this.handleVisibilityChange);
+      this.listenersAttached = true;
     }
+    if (this.isStarted) return;
     this.isStarted = true;
   }
 
@@ -41,11 +43,6 @@ export class MessagingClient {
     this.isStopping = true;
 
     try {
-      if (typeof window !== "undefined") {
-        window.removeEventListener("pagehide", this.handlePageHide);
-        window.removeEventListener("pageshow", this.handlePageShow);
-        document.removeEventListener("visibilitychange", this.handleVisibilityChange);
-      }
       this.isStarted = false;
 
       const lobbies = [...this.activeLobbies];
@@ -122,10 +119,23 @@ export class MessagingClient {
   };
 
   private handleVisibilityChange = (): void => {
-    if (document.hidden) {
+    if (document.visibilityState === "hidden") {
       this.activeLobbies.forEach((l) => l.pauseHeartbeat());
-    } else {
-      this.activeLobbies.forEach((l) => l.resumeHeartbeat());
+    } else if (document.visibilityState === "visible") {
+      if (!this.isStarted && this.lastLobbyConfig) {
+        // If we were stopped (e.g. by pagehide), restart everything
+        this.joinLobby(this.lastLobbyConfig.user, this.lastLobbyConfig.options).catch((e) =>
+          console.error("Failed to restore lobby on visibilitychange:", e),
+        );
+      } else {
+        this.activeLobbies.forEach((l) => {
+          l.resumeHeartbeat();
+          // Proactively re-publish presence to ensure we're seen as online
+          l.updatePresence({}).catch((e) =>
+            console.error("Failed to refresh presence on visibilitychange:", e),
+          );
+        });
+      }
     }
   };
 }

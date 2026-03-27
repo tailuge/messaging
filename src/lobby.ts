@@ -79,6 +79,12 @@ export class Lobby {
       this.handleIncomingMessage(data);
     });
 
+    this.subscription.onReconnect = () => {
+      this.nchan.publishPresence(this.currentUser).catch((_e) => {
+        console.error("Failed to re-broadcast presence on reconnect:", _e);
+      });
+    };
+
     await this.subscription.ready;
 
     // Broadcast our own presence
