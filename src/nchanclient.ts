@@ -7,7 +7,11 @@ const PATHS = {
   TABLE_SUBSCRIBE: (tableId: string) => `/subscribe/table/${tableId}`,
 } as const;
 
-export type Subscription = { stop: () => void; ready: Promise<void> };
+export type Subscription = {
+  stop: () => void;
+  ready: Promise<void>;
+  onReconnect?: () => void;
+};
 
 export class NchanClient {
   private server: string;
@@ -133,9 +137,25 @@ export class NchanClient {
     let reconnectAttempts = 0;
     const maxReconnectDelay = 30000;
     let reconnectTimer: any = null;
+    let firstConnection = true;
+
+    const subscription: Subscription = {
+      stop: () => {
+        stopped = true;
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer);
+          reconnectTimer = null;
+        }
+        if (ws) {
+          ws.close();
+          ws = null;
+        }
+      },
+      ready: null as any,
+    };
 
     let resolveReady: () => void;
-    const ready = new Promise<void>((r) => {
+    subscription.ready = new Promise<void>((r) => {
       resolveReady = r;
     });
 
@@ -153,6 +173,8 @@ export class NchanClient {
       };
 
       ws.onopen = () => {
+        const isReconnect = !firstConnection;
+        firstConnection = false;
         reconnectAttempts = 0;
         // Clear any pending reconnect timer from previous disconnect
         if (reconnectTimer) {
@@ -160,6 +182,9 @@ export class NchanClient {
           reconnectTimer = null;
         }
         resolveReady();
+        if (isReconnect && subscription.onReconnect) {
+          subscription.onReconnect();
+        }
       };
 
       ws.onclose = () => {
@@ -178,19 +203,6 @@ export class NchanClient {
 
     connect();
 
-    return {
-      ready,
-      stop: () => {
-        stopped = true;
-        if (reconnectTimer) {
-          clearTimeout(reconnectTimer);
-          reconnectTimer = null;
-        }
-        if (ws) {
-          ws.close();
-          ws = null;
-        }
-      },
-    };
+    return subscription;
   }
 }
