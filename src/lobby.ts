@@ -14,6 +14,7 @@ export interface LobbyOptions {
   heartbeatInterval?: number;
   pruneInterval?: number;
   staleTtl?: number;
+  onReconnect?: () => void;
 }
 
 /**
@@ -39,7 +40,7 @@ export class Lobby {
   constructor(
     private nchan: NchanClient,
     public currentUser: PresenceMessage,
-    options: LobbyOptions = {},
+    private options: LobbyOptions = {},
   ) {
     this.heartbeatInterval = options.heartbeatInterval || 60000;
     this.pruneInterval = options.pruneInterval || 30000;
@@ -80,9 +81,17 @@ export class Lobby {
     });
 
     this.subscription.onReconnect = () => {
-      this.nchan.publishPresence(this.currentUser).catch((_e) => {
-        console.error("Failed to re-broadcast presence on reconnect:", _e);
-      });
+      // Trigger any external reconnect handlers first (e.g., MessagingClient.resumeSession)
+      // This allows centralized orchestration to handle state and presence updates.
+      this.resumeHeartbeat();
+      if (this.options.onReconnect) {
+        this.options.onReconnect();
+      } else {
+        // Fallback: Re-broadcast presence state if no external orchestrator is handling it
+        this.nchan.publishPresence(this.currentUser).catch((_e) => {
+          console.error("Failed to re-broadcast presence on reconnect:", _e);
+        });
+      }
     };
 
     await this.subscription.ready;

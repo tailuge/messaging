@@ -11,7 +11,7 @@ export class MessagingClient {
   private nchan: NchanClient;
   private activeLobbies: Lobby[] = [];
   private activeTables: Table[] = [];
-  private lastLobbyConfig?: { user: PresenceMessage; options?: LobbyOptions };
+  private lobbyConfigs: Map<string, { user: PresenceMessage; options?: LobbyOptions }> = new Map();
   private isStopping = false;
   private isStarted = false;
   private listenersAttached = false;
@@ -67,13 +67,42 @@ export class MessagingClient {
     this.start();
     // Prevent duplicate joins if already in a lobby for this user
     const existing = this.activeLobbies.find((l) => l.currentUser.userId === user.userId);
-    if (existing) return existing;
 
-    this.lastLobbyConfig = { user, options };
-    const lobby = new Lobby(this.nchan, user, options);
+    const lobbyOptions: LobbyOptions = {
+      ...options,
+      onReconnect: () => {
+        // When any lobby reconnects, ensure the whole session is healthy
+        this.resumeSession().catch((e) =>
+          console.error("Session resume failed after lobby reconnect:", e),
+        );
+        options?.onReconnect?.();
+      },
+    };
+
+    this.lobbyConfigs.set(user.userId, { user, options });
+
+    if (existing) {
+      existing.resumeHeartbeat();
+      return existing;
+    }
+
+    const lobby = new Lobby(this.nchan, user, lobbyOptions);
     await lobby.join();
     this.activeLobbies.push(lobby);
     return lobby;
+  }
+
+  /**
+   * Gracefully leaves a lobby.
+   */
+  async leaveLobby(userId: string): Promise<void> {
+    const index = this.activeLobbies.findIndex((l) => l.currentUser.userId === userId);
+    if (index !== -1) {
+      const lobby = this.activeLobbies[index];
+      await lobby.leave();
+      this.activeLobbies.splice(index, 1);
+    }
+    this.lobbyConfigs.delete(userId);
   }
 
   /**
@@ -109,33 +138,41 @@ export class MessagingClient {
 
   private handlePageShow = async (event: PageTransitionEvent): Promise<void> => {
     // If returning via bfcache, restore connections
-    if (event.persisted && this.lastLobbyConfig) {
-      try {
-        await this.joinLobby(this.lastLobbyConfig.user, this.lastLobbyConfig.options);
-      } catch (e) {
-        console.error("Failed to restore lobby on pageshow:", e);
-      }
+    if (event.persisted) {
+      await this.resumeSession();
     }
   };
 
-  private handleVisibilityChange = (): void => {
+  private handleVisibilityChange = async (): Promise<void> => {
     if (document.visibilityState === "hidden") {
       this.activeLobbies.forEach((l) => l.pauseHeartbeat());
     } else if (document.visibilityState === "visible") {
-      if (!this.isStarted && this.lastLobbyConfig) {
-        // If we were stopped (e.g. by pagehide), restart everything
-        this.joinLobby(this.lastLobbyConfig.user, this.lastLobbyConfig.options).catch((e) =>
-          console.error("Failed to restore lobby on visibilitychange:", e),
-        );
-      } else {
-        this.activeLobbies.forEach((l) => {
-          l.resumeHeartbeat();
-          // Proactively re-publish presence to ensure we're seen as online
-          l.updatePresence({}).catch((e) =>
-            console.error("Failed to refresh presence on visibilitychange:", e),
-          );
-        });
-      }
+      await this.resumeSession();
     }
   };
+
+  /**
+   * Central orchestrator for session restoration.
+   * Ensures connection, lobby joins, and presence sync after a lifecycle event or reconnect.
+   */
+  async resumeSession(): Promise<void> {
+    if (!this.isStarted && this.lobbyConfigs.size > 0) {
+      this.isStarted = true;
+      const configs = Array.from(this.lobbyConfigs.values());
+      try {
+        await Promise.all(configs.map((c) => this.joinLobby(c.user, c.options)));
+      } catch (e) {
+        console.error("Failed to restore lobbies during session resume:", e);
+      }
+      return;
+    }
+
+    this.activeLobbies.forEach((l) => {
+      l.resumeHeartbeat();
+      // Proactively re-publish presence to ensure we're seen as online
+      l.updatePresence({}).catch((e) =>
+        console.error("Failed to refresh presence during session resume:", e),
+      );
+    });
+  }
 }
