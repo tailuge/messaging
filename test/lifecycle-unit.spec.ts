@@ -154,4 +154,37 @@ describe("MessagingClient Lifecycle Unit Tests", () => {
     expect(mockNchan.subscribePresence).toHaveBeenCalledTimes(1);
     expect(client["activeLobbies"].length).toBe(0);
   });
+
+  it("should prevent concurrent session resumptions", async () => {
+    client.start();
+    await client.joinLobby(user);
+
+    // Simulate multiple concurrent events
+    const p1 = client.resumeSession();
+    const p2 = client.resumeSession();
+    const p3 = client.resumeSession();
+
+    await Promise.all([p1, p2, p3]);
+
+    // Initial join + 1 restoration
+    expect(mockNchan.publishPresence).toHaveBeenCalledTimes(2);
+  });
+
+  it("should prevent concurrent lobby joins", async () => {
+    // Make lobby.join take some time
+    mockNchan.subscribePresence.mockImplementation(() => {
+        return {
+            ready: new Promise(r => setTimeout(r, 50)),
+            stop: jest.fn()
+        };
+    });
+
+    const p1 = client.joinLobby(user);
+    const p2 = client.joinLobby(user);
+
+    const [l1, l2] = await Promise.all([p1, p2]);
+
+    expect(l1).toBe(l2);
+    expect(mockNchan.subscribePresence).toHaveBeenCalledTimes(1);
+  });
 });

@@ -16,6 +16,9 @@ export class MessagingClient {
   private isStarted = false;
   private listenersAttached = false;
 
+  private resumePromise: Promise<void> | null = null;
+  private joiningLobbies: Map<string, Promise<Lobby>> = new Map();
+
   constructor(options: { baseUrl: string }) {
     this.nchan = new NchanClient(options.baseUrl);
   }
@@ -65,31 +68,46 @@ export class MessagingClient {
    */
   async joinLobby(user: PresenceMessage, options?: LobbyOptions): Promise<Lobby> {
     this.start();
-    // Prevent duplicate joins if already in a lobby for this user
-    const existing = this.activeLobbies.find((l) => l.currentUser.userId === user.userId);
 
-    const lobbyOptions: LobbyOptions = {
-      ...options,
-      onReconnect: () => {
-        // When any lobby reconnects, ensure the whole session is healthy
-        this.resumeSession().catch((e) =>
-          console.error("Session resume failed after lobby reconnect:", e),
-        );
-        options?.onReconnect?.();
-      },
-    };
-
-    this.lobbyConfigs.set(user.userId, { user, options });
-
-    if (existing) {
-      existing.resumeHeartbeat();
-      return existing;
+    // Prevent duplicate concurrent joins for the same user
+    if (this.joiningLobbies.has(user.userId)) {
+      return this.joiningLobbies.get(user.userId)!;
     }
 
-    const lobby = new Lobby(this.nchan, user, lobbyOptions);
-    await lobby.join();
-    this.activeLobbies.push(lobby);
-    return lobby;
+    const joinPromise = (async () => {
+      try {
+        // Prevent duplicate joins if already in a lobby for this user
+        const existing = this.activeLobbies.find((l) => l.currentUser.userId === user.userId);
+
+        const lobbyOptions: LobbyOptions = {
+          ...options,
+          onReconnect: () => {
+            // When any lobby reconnects, ensure the whole session is healthy
+            this.resumeSession().catch((e) =>
+              console.error("Session resume failed after lobby reconnect:", e),
+            );
+            options?.onReconnect?.();
+          },
+        };
+
+        this.lobbyConfigs.set(user.userId, { user, options });
+
+        if (existing) {
+          existing.resumeHeartbeat();
+          return existing;
+        }
+
+        const lobby = new Lobby(this.nchan, user, lobbyOptions);
+        await lobby.join();
+        this.activeLobbies.push(lobby);
+        return lobby;
+      } finally {
+        this.joiningLobbies.delete(user.userId);
+      }
+    })();
+
+    this.joiningLobbies.set(user.userId, joinPromise);
+    return joinPromise;
   }
 
   /**
@@ -156,23 +174,33 @@ export class MessagingClient {
    * Ensures connection, lobby joins, and presence sync after a lifecycle event or reconnect.
    */
   async resumeSession(): Promise<void> {
-    if (!this.isStarted && this.lobbyConfigs.size > 0) {
-      this.isStarted = true;
-      const configs = Array.from(this.lobbyConfigs.values());
-      try {
-        await Promise.all(configs.map((c) => this.joinLobby(c.user, c.options)));
-      } catch (e) {
-        console.error("Failed to restore lobbies during session resume:", e);
-      }
-      return;
-    }
+    if (this.resumePromise) return this.resumePromise;
 
-    this.activeLobbies.forEach((l) => {
-      l.resumeHeartbeat();
-      // Proactively re-publish presence to ensure we're seen as online
-      l.updatePresence({}).catch((e) =>
-        console.error("Failed to refresh presence during session resume:", e),
-      );
-    });
+    this.resumePromise = (async () => {
+      try {
+        if (!this.isStarted && this.lobbyConfigs.size > 0) {
+          this.isStarted = true;
+          const configs = Array.from(this.lobbyConfigs.values());
+          await Promise.all(configs.map((c) => this.joinLobby(c.user, c.options)));
+          return;
+        }
+
+        await Promise.all(
+          this.activeLobbies.map(async (l) => {
+            l.resumeHeartbeat();
+            // Proactively re-publish presence to ensure we're seen as online
+            try {
+              await l.syncPresence();
+            } catch (e) {
+              console.error("Failed to refresh presence during session resume:", e);
+            }
+          }),
+        );
+      } finally {
+        this.resumePromise = null;
+      }
+    })();
+
+    return this.resumePromise;
   }
 }

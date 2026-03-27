@@ -191,6 +191,14 @@ export class Lobby {
    */
   async updatePresence(update: Partial<PresenceMessage>): Promise<void> {
     this.currentUser = { ...this.currentUser, ...update };
+    await this.syncPresence();
+  }
+
+  /**
+   * Proactively re-publishes the current presence state to the lobby.
+   * Useful for session restoration or ensuring state synchronization.
+   */
+  async syncPresence(): Promise<void> {
     await this.nchan.publishPresence(this.currentUser);
   }
 
