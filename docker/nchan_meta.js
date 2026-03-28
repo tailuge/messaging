@@ -71,6 +71,7 @@ function mergeMeta(payload, meta) {
 async function publish(r) {
   let parsed = null;
   let isJson = false;
+  const ip = getClientIp(r);
 
   if (r.requestText && r.requestText.length > 0) {
     try {
@@ -80,6 +81,8 @@ async function publish(r) {
       isJson = false;
     }
   }
+
+  r.log(`Publishing: ${r.method} ${r.uri} from ${ip} (JSON: ${isJson})`);
 
   if (!isJson) {
     const res = await r.subrequest("/internal" + r.uri, {
@@ -93,6 +96,10 @@ async function publish(r) {
   const meta = await buildMeta(r);
   const enriched = mergeMeta(parsed, meta);
   const body = JSON.stringify(enriched);
+
+  if (enriched.type) {
+    r.log(`Message type: ${enriched.type} to ${r.uri}`);
+  }
 
   const res = await r.subrequest("/internal" + r.uri, {
     method: r.method,
@@ -217,4 +224,30 @@ function getIpCache() {
   r.return(200, JSON.stringify(data));
 }
 
-export default { publish, stats };
+function get_country(r) {
+  const ip = getClientIp(r);
+  const obfuscatedIp = obfuscateIp(ip);
+  const cache = ngx.shared.ip_cache;
+  const cached = cache.get(obfuscatedIp);
+  if (cached) {
+    return cached.split("|")[0];
+  }
+  return "XX";
+}
+
+function get_city(r) {
+  const ip = getClientIp(r);
+  const obfuscatedIp = obfuscateIp(ip);
+  const cache = ngx.shared.ip_cache;
+  const cached = cache.get(obfuscatedIp);
+  if (cached) {
+    return cached.split("|")[1] || "";
+  }
+  return "";
+}
+
+function get_real_ip(r) {
+  return getClientIp(r);
+}
+
+export default { publish, stats, get_country, get_city, get_real_ip };
