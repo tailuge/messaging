@@ -1,5 +1,4 @@
 import { MessagingClient } from "../src/messagingclient";
-import { NchanClient } from "../src/nchanclient";
 import { PresenceMessage } from "../src/types";
 
 jest.mock("../src/nchanclient");
@@ -122,6 +121,62 @@ describe("MessagingClient Lifecycle Unit Tests", () => {
 
     expect(mockNchan.subscribePresence).toHaveBeenCalledTimes(4); // 2 initial + 2 restore
     expect(client["activeLobbies"].length).toBe(2);
+  });
+
+  it("should preserve lobby identity and listeners across session resume", async () => {
+    const presenceHandlers: Array<(data: string) => void> = [];
+    mockNchan.subscribePresence.mockImplementation((handler: (data: string) => void) => {
+      presenceHandlers.push(handler);
+      return {
+        ready: Promise.resolve(),
+        stop: jest.fn(),
+      };
+    });
+
+    const lobby = await client.joinLobby(user);
+    const snapshots: string[][] = [];
+    lobby.onUsersChange((users) => snapshots.push(users.map((u) => u.userId)));
+
+    presenceHandlers[0](
+      JSON.stringify({
+        messageType: "presence",
+        type: "join",
+        userId: "peer-1",
+        userName: "Peer 1",
+        meta: {
+          ts: Date.now(),
+          ua: "",
+          ip: "",
+          origin: "",
+          method: "POST",
+          country: "XX",
+        },
+      }),
+    );
+    expect(snapshots[snapshots.length - 1]).toEqual(["peer-1"]);
+
+    await client.stop({ isTeardown: true });
+    await client.resumeSession();
+
+    expect(client["activeLobbies"][0]).toBe(lobby);
+
+    presenceHandlers[1](
+      JSON.stringify({
+        messageType: "presence",
+        type: "join",
+        userId: "peer-2",
+        userName: "Peer 2",
+        meta: {
+          ts: Date.now(),
+          ua: "",
+          ip: "",
+          origin: "",
+          method: "POST",
+          country: "XX",
+        },
+      }),
+    );
+    expect(snapshots[snapshots.length - 1]).toEqual(["peer-2"]);
   });
 
   it("should re-broadcast presence on NchanClient reconnection without redundancy", async () => {

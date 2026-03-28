@@ -10,6 +10,7 @@ import { PresenceMessage } from "./types";
 export class MessagingClient {
   private nchan: NchanClient;
   private activeLobbies: Lobby[] = [];
+  private lobbyInstances: Map<string, Lobby> = new Map();
   private activeTables: Table[] = [];
   private lobbyConfigs: Map<string, { user: PresenceMessage; options?: LobbyOptions }> = new Map();
   private isStopping = false;
@@ -17,6 +18,7 @@ export class MessagingClient {
   private listenersAttached = false;
 
   private resumePromise: Promise<void> | null = null;
+  private stopPromise: Promise<void> | null = null;
   private joiningLobbies: Map<string, Promise<Lobby>> = new Map();
 
   constructor(options: { baseUrl: string }) {
@@ -42,23 +44,29 @@ export class MessagingClient {
    * Stops all active connections and cleans up.
    */
   async stop(options: { isTeardown?: boolean } = {}): Promise<void> {
-    if (this.isStopping) return;
-    this.isStopping = true;
+    if (this.stopPromise) return this.stopPromise;
 
-    try {
-      this.isStarted = false;
+    this.stopPromise = (async () => {
+      this.isStopping = true;
 
-      const lobbies = [...this.activeLobbies];
-      this.activeLobbies = [];
-      await Promise.all(lobbies.map((lobby) => lobby.leave(options)));
+      try {
+        this.isStarted = false;
 
-      const tables = [...this.activeTables];
-      this.activeTables = [];
-      // Tables can be left in parallel since each operates independently
-      await Promise.all(tables.map((table) => table.leave(options)));
-    } finally {
-      this.isStopping = false;
-    }
+        const lobbies = [...this.activeLobbies];
+        this.activeLobbies = [];
+        await Promise.all(lobbies.map((lobby) => lobby.leave(options)));
+
+        const tables = [...this.activeTables];
+        this.activeTables = [];
+        // Tables can be left in parallel since each operates independently
+        await Promise.all(tables.map((table) => table.leave(options)));
+      } finally {
+        this.isStopping = false;
+        this.stopPromise = null;
+      }
+    })();
+
+    return this.stopPromise;
   }
 
   /**
@@ -77,7 +85,7 @@ export class MessagingClient {
     const joinPromise = (async () => {
       try {
         // Prevent duplicate joins if already in a lobby for this user
-        const existing = this.activeLobbies.find((l) => l.currentUser.userId === user.userId);
+        const existing = this.lobbyInstances.get(user.userId);
 
         const lobbyOptions: LobbyOptions = {
           ...options,
@@ -93,12 +101,18 @@ export class MessagingClient {
         this.lobbyConfigs.set(user.userId, { user, options });
 
         if (existing) {
+          existing.currentUser = user;
+          await existing.join();
           existing.resumeHeartbeat();
+          if (!this.activeLobbies.includes(existing)) {
+            this.activeLobbies.push(existing);
+          }
           return existing;
         }
 
         const lobby = new Lobby(this.nchan, user, lobbyOptions);
         await lobby.join();
+        this.lobbyInstances.set(user.userId, lobby);
         this.activeLobbies.push(lobby);
         return lobby;
       } finally {
@@ -120,6 +134,7 @@ export class MessagingClient {
       await lobby.leave();
       this.activeLobbies.splice(index, 1);
     }
+    this.lobbyInstances.delete(userId);
     this.lobbyConfigs.delete(userId);
   }
 
@@ -178,6 +193,10 @@ export class MessagingClient {
 
     this.resumePromise = (async () => {
       try {
+        if (this.stopPromise) {
+          await this.stopPromise;
+        }
+
         if (!this.isStarted && this.lobbyConfigs.size > 0) {
           this.isStarted = true;
           const configs = Array.from(this.lobbyConfigs.values());
