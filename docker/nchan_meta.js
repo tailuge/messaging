@@ -81,8 +81,6 @@ async function publish(r) {
     }
   }
 
-  r.log(`Publishing: ${r.method} ${r.uri} (JSON: ${isJson})`);
-
   if (!isJson) {
     const res = await r.subrequest("/internal" + r.uri, {
       method: r.method,
@@ -95,10 +93,6 @@ async function publish(r) {
   const meta = await buildMeta(r);
   const enriched = mergeMeta(parsed, meta);
   const body = JSON.stringify(enriched);
-
-  if (enriched.type) {
-    r.log(`Message type: ${enriched.type} to ${r.uri}`);
-  }
 
   const res = await r.subrequest("/internal" + r.uri, {
     method: r.method,
