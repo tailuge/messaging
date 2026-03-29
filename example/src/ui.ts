@@ -1,10 +1,13 @@
-import { PresenceMessage, ChallengeMessage, canChallenge, canSpectate, activeGames } from "../../src/index";
+import { PresenceMessage, ChallengeMessage, canChallenge, canSpectate } from "../../src/index";
 import { countryToFlag } from "./utils/flag";
 
 // =============================================================================
 // UI Rendering Functions
 // These functions handle all DOM manipulation and display logic.
 // =============================================================================
+
+const escape = (s: string | undefined) => (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+const jsEscape = (s: string | undefined) => escape((s || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'"));
 
 export function updateConnectionUI(online: boolean) {
     const statusEl = document.getElementById('conn-status');
@@ -56,34 +59,28 @@ export function renderUserList(users: PresenceMessage[], currentUserId: string, 
     if (countEl) countEl.innerText = `Online Users: ${users.length}`;
     if (list) {
         list.innerHTML = users.map(u => {
-            const isMe = u.userId === currentUserId;
-            const inGame = !!u.tableId;
-            const isSeeking = !!u.seek;
+            const isMe = u.userId === currentUserId, inGame = !!u.tableId, isSeeking = !!u.seek;
+            const jsId = jsEscape(u.userId), jsTid = jsEscape(u.tableId), jsSid = jsEscape(u.seek?.tableId), jsRule = jsEscape(u.seek?.ruleType);
+            const escId = escape(u.userId), escName = escape(u.userName), escTid = escape(u.tableId);
             
             let actionBtn = '';
             if (!isMe) {
                 if (canSpectate(u, currentTableId)) {
-                    actionBtn = `<button class="btn-spectate" onclick="spectateGame('${u.tableId}')">Spectate</button>`;
-                } else if (inGame) {
-                    // Already in this game
+                    actionBtn = `<button class="btn-spectate" onclick="spectateGame('${jsTid}')">Spectate</button>`;
                 } else if (isSeeking) {
-                    actionBtn = `<button class="btn-join" onclick="joinSeek('${u.userId}', '${u.seek?.tableId}', '${u.seek?.ruleType}')">Join Game</button>`;
-                } else if (canChallenge(u, currentUserId)) {
-                    actionBtn = `
-                        <button class="btn-challenge" onclick="challengeUser('${u.userId}')">Challenge</button>
-                        <button class="btn-join" onclick="promptChat('${u.userId}')">Chat</button>
-                    `;
+                    actionBtn = `<button class="btn-join" onclick="joinSeek('${jsId}', '${jsSid}', '${jsRule}')">Join Game</button>`;
+                } else if (!inGame && canChallenge(u, currentUserId)) {
+                    actionBtn = `<button class="btn-challenge" onclick="challengeUser('${jsId}')">Challenge</button>
+                                 <button class="btn-join" onclick="promptChat('${jsId}')">Chat</button>`;
                 }
             }
 
             return `
                 <li class="user-item ${isMe ? 'me' : ''}">
                     <div>
-                        <span>${countryToFlag(u.meta?.country)} ${u.userName}</span>
+                        <span>${countryToFlag(u.meta?.country)} ${escName}</span>
                         <div class="status">
-                            ${u.userId} 
-                            ${inGame ? '(In Game: ' + u.tableId + ')' : ''}
-                            ${isSeeking ? '(Seeking Game...)' : ''}
+                            ${escId} ${inGame ? '(In Game: ' + escTid + ')' : ''} ${isSeeking ? '(Seeking Game...)' : ''}
                         </div>
                     </div>
                     ${actionBtn}
