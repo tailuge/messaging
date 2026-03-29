@@ -26,6 +26,7 @@ export class Lobby {
   private challengeListeners: ((challenge: ChallengeMessage) => void)[] = [];
   private chatListeners: ((message: ChatMessage) => void)[] = [];
   private pendingChallenges: ChallengeMessage[] = [];
+  private cachedUsersList: PresenceMessage[] | null = null;
   private deduplicator: ChallengeDeduplicator;
   private subscription: Subscription | null = null;
   private isJoined = false;
@@ -157,6 +158,7 @@ export class Lobby {
       }
 
       if (changed) {
+        this.cachedUsersList = null;
         this.notifyListeners();
       }
     }, this.pruneInterval);
@@ -298,6 +300,7 @@ export class Lobby {
     }
 
     this.users.clear();
+    this.cachedUsersList = null;
     this.pendingChallenges = [];
     this.deduplicator.clear();
     this.notifyListeners();
@@ -323,11 +326,26 @@ export class Lobby {
    * The last message received for each userId will be the current state.
    */
   private handlePresenceUpdate(msg: PresenceMessage): void {
+    const existing = this.users.get(msg.userId);
+
     if (msg.type === "leave") {
-      this.users.delete(msg.userId);
-    } else {
-      this.users.set(msg.userId, msg);
+      if (existing) {
+        this.users.delete(msg.userId);
+        this.cachedUsersList = null;
+        this.notifyListeners();
+      }
+      return;
     }
+
+    // Always update to keep metadata (like ts) current for pruning
+    this.users.set(msg.userId, msg);
+
+    // Skip notification if it's just a heartbeat with no meaningful data changes
+    if (existing && !this.hasMeaningfulChange(existing, msg)) {
+      return;
+    }
+
+    this.cachedUsersList = null;
     this.notifyListeners();
   }
 
@@ -342,12 +360,29 @@ export class Lobby {
     }
   }
 
+  private hasMeaningfulChange(oldMsg: PresenceMessage, newMsg: PresenceMessage): boolean {
+    return (
+      oldMsg.userName !== newMsg.userName ||
+      oldMsg.tableId !== newMsg.tableId ||
+      oldMsg.ruleType !== newMsg.ruleType ||
+      oldMsg.opponentId !== newMsg.opponentId ||
+      oldMsg.seek?.tableId !== newMsg.seek?.tableId ||
+      oldMsg.seek?.ruleType !== newMsg.seek?.ruleType
+    );
+  }
+
   private notifyListeners(): void {
     const list = this.getUsersList();
     this.listeners.forEach((cb) => cb(list));
   }
 
   private getUsersList(): PresenceMessage[] {
-    return Array.from(this.users.values()).sort((a, b) => a.userName.localeCompare(b.userName));
+    if (this.cachedUsersList) {
+      return this.cachedUsersList;
+    }
+    this.cachedUsersList = Array.from(this.users.values()).sort((a, b) =>
+      a.userName.localeCompare(b.userName),
+    );
+    return this.cachedUsersList;
   }
 }
