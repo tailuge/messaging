@@ -143,6 +143,14 @@ run_test "API: Stats endpoint contains ip_cache" bash -c '
 	curl -fsS --max-time 5 "http://localhost/api/stats" | grep -q "\"ip_cache\":"
 '
 
+run_test "API: Stats endpoint contains access_logs" bash -c '
+	curl -fsS --max-time 5 "http://localhost/api/stats" | grep -q "\"access_logs\":"
+'
+
+run_test "API: Stats endpoint contains error_logs" bash -c '
+	curl -fsS --max-time 5 "http://localhost/api/stats" | grep -q "\"error_logs\":"
+'
+
 # CORS Tests
 run_test "CORS: Health check contains Allow-Origin" bash -c '
 	curl -sS -i --max-time 5 "http://localhost/health" | grep -qi "access-control-allow-origin: \*"

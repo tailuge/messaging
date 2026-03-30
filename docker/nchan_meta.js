@@ -184,16 +184,15 @@ function getIpCache() {
     }
   }
 
-  function getLogs() {
+  function getLastLines(path, maxLines) {
     const fs = require("fs");
     try {
-      const content = fs.readFileSync("/var/log/nginx/njs_error.log", "utf8");
+      if (!fs.existsSync(path)) return [];
+      const content = fs.readFileSync(path, "utf8");
       const lines = content.trim().split("\n");
-      const filtered = lines; // .filter((line) => line.includes("nchan_meta"));
-      const last50 = filtered.slice(-50);
-      return last50;
+      return lines.slice(-maxLines);
     } catch (e) {
-      return [e.message];
+      return ["Error reading " + path + ": " + e.message];
     }
   }
 
@@ -209,12 +208,14 @@ function getIpCache() {
       nchan,
       ip_cache: getIpCache(),
       uptime: getUptime(),
-      njs_logs: getLogs(),
+      njs_logs: getLastLines("/var/log/nginx/njs_error.log", 50),
+      access_logs: getLastLines("/var/log/nginx/access_file.log", 100),
+      error_logs: getLastLines("/var/log/nginx/error_file.log", 100),
       ts: new Date().toISOString(),
     };
 
-  r.headersOut["Content-Type"] = "application/json";
-  r.return(200, JSON.stringify(data));
-}
+    r.headersOut["Content-Type"] = "application/json";
+    r.return(200, JSON.stringify(data));
+  }
 
 export default { publish, stats };
