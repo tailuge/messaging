@@ -8,7 +8,23 @@ function getClientIp(r) {
 }
 
 function obfuscateIp(ip) {
+  if (ip.includes(":")) {
+    return ip.replace(/[0-9a-f](?=:)/gi, "x");
+  }
   return ip.replace(/\d(?=\.)/g, "x");
+}
+
+function obfuscateOrigin(origin) {
+  var protoEnd = origin.indexOf("://");
+  if (protoEnd === -1) return origin;
+
+  var proto = origin.substring(0, protoEnd + 3);
+  var rest = origin.substring(protoEnd + 3);
+  var pathStart = rest.indexOf("/");
+  var hostPart = pathStart === -1 ? rest : rest.substring(0, pathStart);
+  var pathPart = pathStart === -1 ? "" : rest.substring(pathStart);
+
+  return proto + obfuscateIp(hostPart) + pathPart;
 }
 
 function createMeta(r, country, city) {
@@ -36,8 +52,9 @@ async function buildMeta(r) {
     let origins = parts[3] || "";
 
     const originsArr = origins ? origins.split(",") : [];
-    if (origin && originsArr.indexOf(origin) === -1) {
-      originsArr.push(origin);
+    const obfuscatedOrigin = origin ? obfuscateOrigin(origin) : "";
+    if (obfuscatedOrigin && originsArr.indexOf(obfuscatedOrigin) === -1) {
+      originsArr.push(obfuscatedOrigin);
       origins = originsArr.join(",");
     }
 
@@ -63,7 +80,8 @@ async function buildMeta(r) {
   }
 
   // Cache for 24 hours (86400000 ms) - use obfuscated IP as key
-  cache.set(obfuscatedIp, `${country}|${city}|1|${origin}`, 86400000);
+  const obfuscatedOrigin = origin ? obfuscateOrigin(origin) : "";
+  cache.set(obfuscatedIp, `${country}|${city}|1|${obfuscatedOrigin}`, 86400000);
 
   return createMeta(r, country, city);
 }
