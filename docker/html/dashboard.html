@@ -259,11 +259,6 @@ table td {
         <h3>Access Logs (last 100 lines)</h3>
         <pre id="access-logs" style="max-height: 300px; overflow-y: auto; font-family: monospace;"></pre>
       </div>
-
-      <div class="card">
-        <h3>Error Logs (last 100 lines)</h3>
-        <pre id="error-logs" style="max-height: 300px; overflow-y: auto; font-family: monospace; color: #dc3545;"></pre>
-      </div>
     </div>
 
     <script>
@@ -379,13 +374,6 @@ table td {
           accessLogsPre.textContent = data.access_logs.join("\n");
         } else {
           accessLogsPre.textContent = "No access logs available.";
-        }
-
-        const errorLogsPre = document.getElementById("error-logs");
-        if (data.error_logs && data.error_logs.length > 0) {
-          errorLogsPre.textContent = data.error_logs.join("\n");
-        } else {
-          errorLogsPre.textContent = "No error logs available.";
         }
       }
 
