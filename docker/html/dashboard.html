@@ -219,11 +219,12 @@ table td {
                  <th>Country Code</th>
                  <th>Location</th>
                  <th>Hits</th>
+                 <th>Origins</th>
                </tr>
              </thead>
              <tbody>
                <tr>
-                 <td colspan="3" style="text-align: center; color: var(--secondary-color)">
+                 <td colspan="5" style="text-align: center; color: var(--secondary-color)">
                    No cache data available.
                  </td>
                </tr>
@@ -266,6 +267,12 @@ table td {
     </div>
 
     <script>
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
       async function fetchStats() {
         const dashboard = document.querySelector(".dashboard");
         // dashboard.classList.add('loading'); // Optional: show loading state
@@ -325,22 +332,25 @@ table td {
           if (ipCacheEntries && Object.keys(ipCacheEntries).length > 0) {
             ipCacheTableBody.innerHTML = Object.entries(ipCacheEntries)
               .sort((a, b) => {
-                const hitsA = parseInt(a[1].split("|")[2]) || 0;
-                const hitsB = parseInt(b[1].split("|")[2]) || 0;
+                const partsA = a[1].split("|");
+                const partsB = b[1].split("|");
+                const hitsA = parseInt(partsA[2]) || 0;
+                const hitsB = parseInt(partsB[2]) || 0;
                 return hitsB - hitsA; // Descending order (highest first)
               })
               .map(([ip, value]) => {
                 const parts = value.split("|");
-                const country = parts[0] || "-";
-                const city = parts[1] || "";
-                const hits = parts[2] || "1";
+                const country = escapeHtml(parts[0] || "-");
+                const city = escapeHtml(parts[1] || "");
+                const hits = escapeHtml(parts[2] || "1");
+                const origins = escapeHtml(parts[3] || "-");
                 const location = city ? city : "-";
-                return `<tr><td>${ip}</td><td>${country}</td><td>${location}</td><td>${hits}</td></tr>`;
+                return `<tr><td>${escapeHtml(ip)}</td><td>${country}</td><td>${location}</td><td>${hits}</td><td>${origins}</td></tr>`;
               })
               .join("");
           } else {
             ipCacheTableBody.innerHTML =
-              '<tr><td colspan="4" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
+              '<tr><td colspan="5" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
           }
 
         const njsLogsTableBody = document.querySelector("#njs-logs-table tbody");

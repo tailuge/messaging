@@ -25,6 +25,7 @@ async function buildMeta(r) {
   const ip = getClientIp(r);
   const obfuscatedIp = obfuscateIp(ip);
   const cache = ngx.shared.ip_cache;
+  const origin = r.headersIn.origin || "";
 
   const cached = cache.get(obfuscatedIp);
   if (cached) {
@@ -32,8 +33,16 @@ async function buildMeta(r) {
     const country = parts[0];
     const city = parts[1] || "";
     const count = parseInt(parts[2]) || 0;
+    let origins = parts[3] || "";
+
+    const originsArr = origins ? origins.split(",") : [];
+    if (origin && originsArr.indexOf(origin) === -1) {
+      originsArr.push(origin);
+      origins = originsArr.join(",");
+    }
+
     const newCount = count + 1;
-    cache.set(obfuscatedIp, `${country}|${city}|${newCount}`, 86400000);
+    cache.set(obfuscatedIp, `${country}|${city}|${newCount}|${origins}`, 86400000);
     return createMeta(r, country, city);
   }
 
@@ -54,7 +63,7 @@ async function buildMeta(r) {
   }
 
   // Cache for 24 hours (86400000 ms) - use obfuscated IP as key
-  cache.set(obfuscatedIp, `${country}|${city}|1`, 86400000);
+  cache.set(obfuscatedIp, `${country}|${city}|1|${origin}`, 86400000);
 
   return createMeta(r, country, city);
 }
