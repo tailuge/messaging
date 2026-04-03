@@ -236,7 +236,6 @@ function getIpCache() {
       ip_cache: getIpCache(),
       uptime: getUptime(),
       njs_logs: getLastLines("/var/log/nginx/njs_error.log", 50),
-      access_logs: getLastLines("/var/log/nginx/access_file.log", 100),
       error_logs: getLastLines("/var/log/nginx/error_file.log", 100),
       ts: new Date().toISOString(),
     };

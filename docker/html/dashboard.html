@@ -254,11 +254,6 @@ table td {
           </table>
         </div>
       </div>
-
-      <div class="card">
-        <h3>Access Logs (last 100 lines)</h3>
-        <pre id="access-logs" style="max-height: 300px; overflow-y: auto; font-family: monospace;"></pre>
-      </div>
     </div>
 
     <script>
@@ -367,13 +362,6 @@ table td {
         } else {
           njsLogsTableBody.innerHTML =
             '<tr><td colspan="2" style="text-align: center; color: var(--secondary-color);">No logs available.</td></tr>';
-        }
-
-        const accessLogsPre = document.getElementById("access-logs");
-        if (data.access_logs && data.access_logs.length > 0) {
-          accessLogsPre.textContent = data.access_logs.join("\n");
-        } else {
-          accessLogsPre.textContent = "No access logs available.";
         }
       }
 
