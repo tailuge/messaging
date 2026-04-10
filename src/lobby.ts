@@ -32,6 +32,7 @@ export class Lobby {
 
   private heartbeatTimer?: any;
   private pruneTimer?: any;
+  private presenceMessageCount = 0;
 
   private readonly heartbeatInterval: number;
   private readonly pruneInterval: number;
@@ -199,6 +200,11 @@ export class Lobby {
    * Useful for session restoration or ensuring state synchronization.
    */
   async syncPresence(): Promise<void> {
+    this.presenceMessageCount++;
+    if (this.presenceMessageCount >= 120) {
+      await this.leave();
+      return;
+    }
     await this.nchan.publishPresence(this.currentUser);
   }
 
