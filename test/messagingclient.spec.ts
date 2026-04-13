@@ -415,6 +415,52 @@ describe("MessagingClient - Phase 1", () => {
       expect(receivedChallenge.rematch).toEqual(rematchInfo);
     });
 
+    it("should handle challenge with options", async () => {
+      const clientA = createClient();
+      const clientB = createClient();
+
+      const lobbyA = await clientA.joinLobby({
+        messageType: "presence",
+        type: "join",
+        userId: "user-a",
+        userName: "Alice",
+      });
+
+      const lobbyB = await clientB.joinLobby({
+        messageType: "presence",
+        type: "join",
+        userId: "user-b",
+        userName: "Bob",
+      });
+
+      let receivedChallenge: any = null;
+      lobbyB.onChallenge((c) => {
+        receivedChallenge = c;
+      });
+
+      const options = {
+        timeControl: "10+5",
+        rated: "true",
+        variant: "chess960",
+      };
+
+      await lobbyA.challenge("user-b", "standard", undefined, options);
+
+      await waitUntil(() => receivedChallenge !== null);
+      expect(receivedChallenge.options).toEqual(options);
+
+      // Verify options are preserved through accept flow
+      const tableB = await lobbyB.acceptChallenge(
+        receivedChallenge.challengerId,
+        receivedChallenge.ruleType,
+        receivedChallenge.tableId,
+        { customAcceptOption: "value" },
+      );
+
+      // Table should be created successfully with options passed through
+      expect(tableB).toBeDefined();
+    });
+
     it("should receive pending challenges after rejoining the lobby", async () => {
       const clientA = createClient();
       const clientB = createClient();

@@ -56,6 +56,7 @@ export interface ChallengeMessage {
   ruleType: string;
   tableId?: string; // Optional: table created by challenger
   readonly rematch?: RematchInfo; // Optional: context about a previous game
+  readonly options?: Record<string, string>; // Optional: game-specific configuration
   meta?: Meta; // Server-enriched metadata (received messages only)
 }
 

@@ -212,7 +212,12 @@ export class Lobby {
    * Challenge another user to a game.
    * Returns the ID of the table created for the challenge.
    */
-  async challenge(userId: string, ruleType: string, rematch?: RematchInfo): Promise<string> {
+  async challenge(
+    userId: string,
+    ruleType: string,
+    rematch?: RematchInfo,
+    options?: Record<string, string>,
+  ): Promise<string> {
     const tableId = getUID();
     await this.nchan.publishChallenge({
       type: "offer",
@@ -222,6 +227,7 @@ export class Lobby {
       ruleType,
       tableId,
       rematch,
+      options,
     });
     return tableId;
   }
@@ -230,7 +236,12 @@ export class Lobby {
    * Accept an incoming challenge.
    * Returns the Table instance for the accepted game.
    */
-  async acceptChallenge(userId: string, ruleType: string, tableId: string): Promise<Table> {
+  async acceptChallenge(
+    userId: string,
+    ruleType: string,
+    tableId: string,
+    options?: Record<string, string>,
+  ): Promise<Table> {
     await this.nchan.publishChallenge({
       type: "accept",
       challengerId: this.currentUser.userId,
@@ -238,6 +249,7 @@ export class Lobby {
       recipientId: userId,
       ruleType,
       tableId,
+      options,
     });
 
     // Automatically update our presence to show we've joined the table
