@@ -51,7 +51,7 @@
     "esbuild": "^0.28.0",
     "http-server": "^14.1.1",
     "jest": "30.3.0",
-    "oxlint": "^1.59.0",
+    "oxlint": "^1.60.0",
     "testcontainers": "^11.14.0",
     "ts-jest": "^29.4.9",
     "typescript": "^6.0.2",
