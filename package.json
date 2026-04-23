@@ -1,6 +1,6 @@
 {
   "name": "@tailuge/messaging",
-  "version": "1.16.0",
+  "version": "1.17.0",
   "type": "module",
   "description": "A stateful messaging library for Nchan-powered real-time applications.",
   "main": "./dist/index.js",
@@ -51,10 +51,10 @@
     "esbuild": "^0.28.0",
     "http-server": "^14.1.1",
     "jest": "30.3.0",
-    "oxlint": "^1.60.0",
+    "oxlint": "^1.61.0",
     "testcontainers": "^11.14.0",
     "ts-jest": "^29.4.9",
-    "typescript": "^6.0.2",
+    "typescript": "^6.0.3",
     "ws": "^8.20.0"
   },
   "browserslist": [

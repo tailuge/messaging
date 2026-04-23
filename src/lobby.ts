@@ -123,10 +123,7 @@ export class Lobby {
     this.stopHeartbeat();
     this.heartbeatTimer = setInterval(async () => {
       try {
-        await this.nchan.publishPresence({
-          ...this.currentUser,
-          type: "heartbeat",
-        });
+        await this.syncPresence({ type: "heartbeat" });
       } catch (_e) {
         console.error("Failed to send heartbeat:", _e);
       }
@@ -199,13 +196,16 @@ export class Lobby {
    * Proactively re-publishes the current presence state to the lobby.
    * Useful for session restoration or ensuring state synchronization.
    */
-  async syncPresence(): Promise<void> {
+  async syncPresence(update: Partial<PresenceMessage> = {}): Promise<void> {
     this.presenceMessageCount++;
     if (this.presenceMessageCount >= 120) {
       await this.leave();
       return;
     }
-    await this.nchan.publishPresence(this.currentUser);
+    await this.nchan.publishPresence({
+      ...this.currentUser,
+      ...update,
+    });
   }
 
   /**
