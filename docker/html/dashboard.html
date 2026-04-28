@@ -220,11 +220,12 @@ table td {
                  <th>Location</th>
                  <th>Hits</th>
                  <th>Origins</th>
+                 <th>Since</th>
                </tr>
              </thead>
              <tbody>
                <tr>
-                 <td colspan="5" style="text-align: center; color: var(--secondary-color)">
+                 <td colspan="6" style="text-align: center; color: var(--secondary-color)">
                    No cache data available.
                  </td>
                </tr>
@@ -335,12 +336,14 @@ table td {
                 const hits = escapeHtml(parts[2] || "1");
                 const origins = escapeHtml(parts[3] || "-");
                 const location = city ? city : "-";
-                return `<tr><td>${escapeHtml(ip)}</td><td>${country}</td><td>${location}</td><td>${hits}</td><td>${origins}</td></tr>`;
+                const sinceTs = parseInt(parts[4]);
+                const since = sinceTs ? new Date(sinceTs).toLocaleString() : "-";
+                return `<tr><td>${escapeHtml(ip)}</td><td>${country}</td><td>${location}</td><td>${hits}</td><td>${origins}</td><td>${since}</td></tr>`;
               })
               .join("");
           } else {
             ipCacheTableBody.innerHTML =
-              '<tr><td colspan="5" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
+              '<tr><td colspan="6" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
           }
 
         const njsLogsTableBody = document.querySelector("#njs-logs-table tbody");

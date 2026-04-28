@@ -87,14 +87,21 @@ export class MessagingClient {
         // Prevent duplicate joins if already in a lobby for this user
         const existing = this.lobbyInstances.get(user.userId);
 
+        let lobbyRef: Lobby | undefined;
         const lobbyOptions: LobbyOptions = {
           ...options,
           onReconnect: () => {
-            // When any lobby reconnects, ensure the whole session is healthy
             this.resumeSession().catch((e) =>
               console.error("Session resume failed after lobby reconnect:", e),
             );
             options?.onReconnect?.();
+          },
+          onLeave: () => {
+            const target = lobbyRef ?? existing;
+            if (target) {
+              const idx = this.activeLobbies.indexOf(target);
+              if (idx !== -1) this.activeLobbies.splice(idx, 1);
+            }
           },
         };
 
@@ -111,6 +118,7 @@ export class MessagingClient {
         }
 
         const lobby = new Lobby(this.nchan, user, lobbyOptions);
+        lobbyRef = lobby;
         await lobby.join();
         this.lobbyInstances.set(user.userId, lobby);
         this.activeLobbies.push(lobby);

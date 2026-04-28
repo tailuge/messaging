@@ -27,13 +27,14 @@ function obfuscateOrigin(origin) {
   return proto + obfuscateIp(hostPart) + pathPart;
 }
 
-function createMeta(r, country, city) {
+function createMeta(r, country, city, since) {
   return {
     ts: Date.now(),
     ua: r.headersIn["user-agent"] || "",
     origin: r.headersIn.origin || "",
     country: country,
     city: city || "",
+    since: since,
   };
 }
 
@@ -58,9 +59,10 @@ async function buildMeta(r) {
       origins = originsArr.join(",");
     }
 
+    const since = parseInt(parts[4]) || Date.now();
     const newCount = count + 1;
-    cache.set(obfuscatedIp, `${country}|${city}|${newCount}|${origins}`, 86400000);
-    return createMeta(r, country, city);
+    cache.set(obfuscatedIp, `${country}|${city}|${newCount}|${origins}|${since}`, 86400000);
+    return createMeta(r, country, city, since);
   }
 
   // Fetch country and city from API
@@ -81,9 +83,10 @@ async function buildMeta(r) {
 
   // Cache for 24 hours (86400000 ms) - use obfuscated IP as key
   const obfuscatedOrigin = origin ? obfuscateOrigin(origin) : "";
-  cache.set(obfuscatedIp, `${country}|${city}|1|${obfuscatedOrigin}`, 86400000);
+  const since = Date.now();
+  cache.set(obfuscatedIp, `${country}|${city}|1|${obfuscatedOrigin}|${since}`, 86400000);
 
-  return createMeta(r, country, city);
+  return createMeta(r, country, city, since);
 }
 
 function mergeMeta(payload, meta) {

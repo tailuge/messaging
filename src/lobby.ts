@@ -15,6 +15,7 @@ export interface LobbyOptions {
   pruneInterval?: number;
   staleTtl?: number;
   onReconnect?: () => void;
+  onLeave?: () => void;
 }
 
 /**
@@ -318,8 +319,10 @@ export class Lobby {
     this.users.clear();
     this.pendingChallenges = [];
     this.deduplicator.clear();
+    this.presenceMessageCount = 0;
     this.notifyListeners();
     this.isJoined = false;
+    this.options.onLeave?.();
   }
 
   private handleIncomingMessage(data: string): void {
