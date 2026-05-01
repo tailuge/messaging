@@ -65,6 +65,22 @@ The example is bundled using `esbuild`:
 npm run build:example
 ```
 
+### Lobby (React + TypeScript)
+The lobby page is a separate Vite + React app in `example/`. It reads image assets from `example/assets/` and outputs to `example/dist/`, then copies the artefacts into `docker/html/` so they are served by the Nginx container.
+
+```bash
+npm run build:lobby
+```
+
+This runs `npm install` inside `example/`, builds with Vite, and copies the output (including `lobby.html` and hashed asset files) into `docker/html/`.
+
+For local development with hot-reload:
+```bash
+cd example
+npm install
+npm run dev
+```
+
 ### Docker Image
 To rebuild the Nchan server image:
 ```bash
