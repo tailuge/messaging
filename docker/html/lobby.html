@@ -55,65 +55,59 @@
             return url;
         };
 
-        // ── State / Models ─────────────────────────────────────────────────
+        // ── Controller (networking + state) ───────────────────────────────
 
-        class LobbyState {
-            constructor() {
+        class LobbyController {
+            // ReactiveController lifecycle
+            host; _lobby = null; _table = null; _pendingTableId = null;
+
+            // State read by the host template
+            connected = false; users = []; activeChallenge = null; activeChat = null;
+            tableId = null; ruleType = 'standard'; spectating = false; isFirst = false;
+
+            constructor(host) {
                 const p = new URLSearchParams(location.search);
                 this.myId   = p.get('id')   || 'user-' + Math.random().toString(36).slice(2, 7);
                 this.myName = p.get('name') || 'Player';
-                this.connected       = false;
-                this.users           = [];
-                this.activeChallenge = null;
-                this.activeChat      = null;
-                this.tableId         = null;
-                this.ruleType        = 'standard';
-                this.spectating      = false;
-                this.isFirst         = false;
-            }
-        }
-
-        // ── Services (networking) ──────────────────────────────────────────
-
-        class LobbyService {
-            constructor(state, notify) {
-                this._state  = state;
-                this._notify = notify;  // () => requestUpdate on the host
                 this._client = new MessagingClient({ baseUrl: location.hostname });
-                this._lobby  = null;
-                this._table  = null;
-                this._pendingTableId = null;
+                (this.host = host).addController(this);
             }
 
-            async connect() {
+            // Called by Lit when the host connects to the DOM
+            async hostConnected() {
+                try { await this._connect(); }
+                catch (e) { console.error('Lobby connect failed:', e); }
+            }
+
+            async _connect() {
                 this._lobby = await this._client.joinLobby({
                     messageType: 'presence', type: 'join',
-                    userId: this._state.myId, userName: this._state.myName,
+                    userId: this.myId, userName: this.myName,
                 });
-                this._state.connected = true;
-                this._notify(this._state);
+                this.connected = true;
+                this.host.requestUpdate();
 
                 this._lobby.onUsersChange(users => {
-                    this._state.users = users;
-                    this._notify(this._state);
+                    this.users = users;
+                    this.host.requestUpdate();
                 });
 
                 this._lobby.onChallenge(msg => {
                     if (msg.type === 'offer') {
-                        this._state.activeChallenge = msg;
+                        this.activeChallenge = msg;
                     } else if (msg.type === 'accept' && this._pendingTableId === msg.tableId) {
                         this._pendingTableId = null;
-                        Object.assign(this._state, { ruleType: msg.ruleType, spectating: false, isFirst: true, tableId: msg.tableId });
+                        Object.assign(this, { ruleType: msg.ruleType, spectating: false, isFirst: true, tableId: msg.tableId });
                     } else if ((msg.type === 'decline' || msg.type === 'cancel')
-                               && this._state.activeChallenge?.challengerId === msg.challengerId) {
-                        this._state.activeChallenge = null;
+                               && this.activeChallenge?.challengerId === msg.challengerId) {
+                        this.activeChallenge = null;
                     }
-                    this._notify(this._state);
+                    this.host.requestUpdate();
                 });
 
                 this._lobby.onChat(msg => {
-                    this._state.activeChat = msg;
-                    this._notify(this._state);
+                    this.activeChat = msg;
+                    this.host.requestUpdate();
                 });
             }
 
@@ -122,30 +116,30 @@
             }
 
             async acceptChallenge() {
-                const c = this._state.activeChallenge;
+                const c = this.activeChallenge;
                 this._table = await this._lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId);
-                Object.assign(this._state, { ruleType: c.ruleType, spectating: false, isFirst: false, tableId: c.tableId, activeChallenge: null });
-                this._notify(this._state);
+                Object.assign(this, { ruleType: c.ruleType, spectating: false, isFirst: false, tableId: c.tableId, activeChallenge: null });
+                this.host.requestUpdate();
             }
 
             async declineChallenge() {
-                const c = this._state.activeChallenge;
+                const c = this.activeChallenge;
                 await this._lobby.declineChallenge(c.challengerId, c.ruleType);
-                this._state.activeChallenge = null;
-                this._notify(this._state);
+                this.activeChallenge = null;
+                this.host.requestUpdate();
             }
 
             async spectate(tableId) {
-                this._table = await this._client.joinTable(tableId, this._state.myId);
-                Object.assign(this._state, { spectating: true, ruleType: 'standard', tableId });
-                this._notify(this._state);
+                this._table = await this._client.joinTable(tableId, this.myId);
+                Object.assign(this, { spectating: true, ruleType: 'standard', tableId });
+                this.host.requestUpdate();
             }
 
             async leaveGame() {
                 if (this._table) { await this._table.leave(); this._table = null; }
                 await this._lobby.updatePresence({ tableId: undefined });
-                this._state.tableId = null;
-                this._notify(this._state);
+                this.tableId = null;
+                this.host.requestUpdate();
             }
 
             sendChat(recipientId, text) {
@@ -265,10 +259,6 @@
         // ── Main App ───────────────────────────────────────────────────────
 
         class LobbyApp extends LitElement {
-            static properties = {
-                _s: { type: Object, state: true },  // LobbyState (triggers re-render on reassign)
-            };
-
             static styles = css`
                 :host { display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; font-size: 0.85rem; box-sizing: border-box; padding: 0.5rem; gap: 0.4rem; background: #f5f5f5; }
                 .status-bar { display: flex; align-items: center; gap: 0.5rem; }
@@ -289,23 +279,16 @@
 
             constructor() {
                 super();
-                this._s = new LobbyState();
-                this._svc = new LobbyService(this._s, (state) => { this._s = { ...state }; });
-            }
-
-            async connectedCallback() {
-                super.connectedCallback();
-                try { await this._svc.connect(); }
-                catch (e) { console.error('Lobby connect failed:', e); }
+                this._ctrl = new LobbyController(this);
             }
 
             _renderStatusBar() {
-                const s = this._s;
+                const c = this._ctrl;
                 return html`
                     <div class="status-bar">
-                        <span class="dot ${s.connected ? 'on' : ''}"></span>
-                        <strong>${s.myName}</strong>
-                        <span style="color:#888;font-size:0.75rem">${s.connected ? 'online' : 'connecting…'} · ${s.users.length} online</span>
+                        <span class="dot ${c.connected ? 'on' : ''}"></span>
+                        <strong>${c.myName}</strong>
+                        <span style="color:#888;font-size:0.75rem">${c.connected ? 'online' : 'connecting…'} · ${c.users.length} online</span>
                     </div>`;
             }
 
@@ -321,41 +304,41 @@
             }
 
             _renderUsers() {
-                const s = this._s;
+                const c = this._ctrl;
                 return html`
                     <challenge-banner
-                        .challenge=${s.activeChallenge}
-                        @accept=${() => this._svc.acceptChallenge()}
-                        @decline=${() => this._svc.declineChallenge()}>
+                        .challenge=${c.activeChallenge}
+                        @accept=${() => c.acceptChallenge()}
+                        @decline=${() => c.declineChallenge()}>
                     </challenge-banner>
                     <chat-banner
-                        .message=${s.activeChat}
-                        @reply=${e => { this._svc.sendChat(s.activeChat.senderId, e.detail); this._s = { ...this._s, activeChat: null }; }}
-                        @dismiss=${() => { this._s = { ...this._s, activeChat: null }; }}>
+                        .message=${c.activeChat}
+                        @reply=${e => { c.sendChat(c.activeChat.senderId, e.detail); c.activeChat = null; this.requestUpdate(); }}
+                        @dismiss=${() => { c.activeChat = null; this.requestUpdate(); }}>
                     </chat-banner>
                     <div class="panel">
-                        <div class="panel-title">Online Players (${s.users.length})</div>
+                        <div class="panel-title">Online Players (${c.users.length})</div>
                         <user-list
-                            .users=${s.users}
-                            myId=${s.myId}
-                            tableId=${s.tableId || ''}
-                            @challenge=${e => this._svc.challenge(e.detail)}
-                            @spectate=${e => this._svc.spectate(e.detail)}
-                            @chat=${e => { const t = prompt('Message:'); if (t) this._svc.sendChat(e.detail, t); }}>
+                            .users=${c.users}
+                            myId=${c.myId}
+                            tableId=${c.tableId || ''}
+                            @challenge=${e => c.challenge(e.detail)}
+                            @spectate=${e => c.spectate(e.detail)}
+                            @chat=${e => { const t = prompt('Message:'); if (t) c.sendChat(e.detail, t); }}>
                         </user-list>
                     </div>`;
             }
 
             _renderGamePanel() {
-                const s = this._s;
-                if (!s.tableId) return html``;
+                const c = this._ctrl;
+                if (!c.tableId) return html``;
                 return html`
                     <div class="game-panel">
                         <div class="game-panel-bar">
-                            <span>${s.spectating ? '👁 Spectating' : '🎱 Playing'} · table ${s.tableId}</span>
-                            <button class="btn-leave" @click=${() => this._svc.leaveGame()}>Leave</button>
+                            <span>${c.spectating ? '👁 Spectating' : '🎱 Playing'} · table ${c.tableId}</span>
+                            <button class="btn-leave" @click=${() => c.leaveGame()}>Leave</button>
                         </div>
-                        <iframe src=${gameUrl({ tableId: s.tableId, userId: s.myId, userName: s.myName, ruleType: s.ruleType, spectating: s.spectating, isFirst: s.isFirst })}></iframe>
+                        <iframe src=${gameUrl({ tableId: c.tableId, userId: c.myId, userName: c.myName, ruleType: c.ruleType, spectating: c.spectating, isFirst: c.isFirst })}></iframe>
                     </div>`;
             }
 
