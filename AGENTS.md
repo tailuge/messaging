@@ -49,6 +49,8 @@ docker/
   Dockerfile         # Nginx + Nchan + NJS image
   nginx.conf         # Nchan channel configurations
   nchan_meta.js      # NJS script for message enrichment
+  html/
+    lobby.html       # Single-file lobby implementation (Lit)
 ```
 
 ## Testing Strategy

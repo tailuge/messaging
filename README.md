@@ -65,21 +65,8 @@ The example is bundled using `esbuild`:
 npm run build:example
 ```
 
-### Lobby (React + TypeScript)
-The lobby page is a separate Vite + React app in `example/`. It reads image assets from `example/assets/` and outputs to `example/dist/`, then copies the artefacts into `docker/html/` so they are served by the Nginx container.
-
-```bash
-npm run build:lobby
-```
-
-This runs `npm install` inside `example/`, builds with Vite, and copies the output (including `lobby.html` and hashed asset files) into `docker/html/`.
-
-For local development with hot-reload:
-```bash
-cd example
-npm install
-npm run dev
-```
+### Lobby (Lit)
+The lobby is a single-file implementation using Google Lit, located at `docker/html/lobby.html`. It provides a lightweight, reactive UI for presence, challenges, and chat, designed to be served directly by the Nchan/Nginx container.
 
 ### Docker Image
 To rebuild the Nchan server image:
