@@ -12,209 +12,172 @@
         import { LitElement, html, css } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
         import { MessagingClient, canChallenge, canSpectate } from 'https://unpkg.com/@tailuge/messaging';
 
+        // ── Constants ──────────────────────────────────────────────────────
+
         const GAMES = [
-            { label: "Eight Ball",     img: "assets/eightball.png" },
-            { label: "Nine Ball",      img: "assets/nineball.png" },
-            { label: "Snooker",        img: "assets/snooker.png" },
-            { label: "Three Cushion",  img: "assets/threecushion.png" },
-            { label: "Practice",       img: "assets/practice.png" },
+            { label: "Eight Ball",    img: "assets/eightball.png" },
+            { label: "Nine Ball",     img: "assets/nineball.png" },
+            { label: "Snooker",       img: "assets/snooker.png" },
+            { label: "Three Cushion", img: "assets/threecushion.png" },
+            { label: "Practice",      img: "assets/practice.png" },
         ];
 
-        const GAME_URL = (tableId, userId, userName, ruleType, spectator, isFirst) => {
-            let url = `https://billiards.tailuge.workers.dev/?websocketserver=wss://billiards.onrender.com/ws`
-                + `&tableId=${tableId}&name=${encodeURIComponent(userName)}&clientId=${userId}&ruletype=${ruleType}`;
-            if (spectator) url += '&spectator=true';
-            else if (isFirst) url += '&first=true';
-            return url;
-        };
+        const SHARED_STYLES = css`
+            button { cursor: pointer; padding: 0.15rem 0.4rem; border: 1px solid #ccc; border-radius: 4px; background: #fff; font-size: 0.75rem; }
+            .btn-challenge { background: #007bff; color: #fff; border-color: #007bff; }
+            .btn-spectate  { background: #fd7e14; color: #fff; border-color: #fd7e14; }
+            .btn-chat      { background: #6c757d; color: #fff; border-color: #6c757d; }
+            .btn-accept    { background: #28a745; color: #fff; border-color: #28a745; }
+            .btn-decline   { background: #dc3545; color: #fff; border-color: #dc3545; }
+            .btn-leave     { background: #6c757d; color: #fff; border-color: #6c757d; }
+        `;
+
+        // ── Helpers ────────────────────────────────────────────────────────
 
         const flag = (code) => code
             ? [...code.toUpperCase()].map(c => String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0))).join('')
             : '🌐';
 
-        class LobbyApp extends LitElement {
+        const gameUrl = ({ tableId, userId, userName, ruleType, spectating, isFirst }) => {
+            let url = `https://billiards.tailuge.workers.dev/?websocketserver=wss://billiards.onrender.com/ws`
+                + `&tableId=${tableId}&name=${encodeURIComponent(userName)}&clientId=${userId}&ruletype=${ruleType}`;
+            if (spectating) url += '&spectator=true';
+            else if (isFirst) url += '&first=true';
+            return url;
+        };
+
+        // ── State / Models ─────────────────────────────────────────────────
+
+        class LobbyState {
+            constructor() {
+                const p = new URLSearchParams(location.search);
+                this.myId   = p.get('id')   || 'user-' + Math.random().toString(36).slice(2, 7);
+                this.myName = p.get('name') || 'Player';
+                this.connected       = false;
+                this.users           = [];
+                this.activeChallenge = null;
+                this.activeChat      = null;
+                this.tableId         = null;
+                this.ruleType        = 'standard';
+                this.spectating      = false;
+                this.isFirst         = false;
+            }
+        }
+
+        // ── Services (networking) ──────────────────────────────────────────
+
+        class LobbyService {
+            constructor(state, notify) {
+                this._state  = state;
+                this._notify = notify;  // () => requestUpdate on the host
+                this._client = new MessagingClient({ baseUrl: location.hostname });
+                this._lobby  = null;
+                this._table  = null;
+                this._pendingTableId = null;
+            }
+
+            async connect() {
+                this._lobby = await this._client.joinLobby({
+                    messageType: 'presence', type: 'join',
+                    userId: this._state.myId, userName: this._state.myName,
+                });
+                this._state.connected = true;
+                this._notify(this._state);
+
+                this._lobby.onUsersChange(users => {
+                    this._state.users = users;
+                    this._notify(this._state);
+                });
+
+                this._lobby.onChallenge(msg => {
+                    if (msg.type === 'offer') {
+                        this._state.activeChallenge = msg;
+                    } else if (msg.type === 'accept' && this._pendingTableId === msg.tableId) {
+                        this._pendingTableId = null;
+                        Object.assign(this._state, { ruleType: msg.ruleType, spectating: false, isFirst: true, tableId: msg.tableId });
+                    } else if ((msg.type === 'decline' || msg.type === 'cancel')
+                               && this._state.activeChallenge?.challengerId === msg.challengerId) {
+                        this._state.activeChallenge = null;
+                    }
+                    this._notify(this._state);
+                });
+
+                this._lobby.onChat(msg => {
+                    this._state.activeChat = msg;
+                    this._notify(this._state);
+                });
+            }
+
+            async challenge(userId) {
+                this._pendingTableId = await this._lobby.challenge(userId, 'standard');
+            }
+
+            async acceptChallenge() {
+                const c = this._state.activeChallenge;
+                this._table = await this._lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId);
+                Object.assign(this._state, { ruleType: c.ruleType, spectating: false, isFirst: false, tableId: c.tableId, activeChallenge: null });
+                this._notify(this._state);
+            }
+
+            async declineChallenge() {
+                const c = this._state.activeChallenge;
+                await this._lobby.declineChallenge(c.challengerId, c.ruleType);
+                this._state.activeChallenge = null;
+                this._notify(this._state);
+            }
+
+            async spectate(tableId) {
+                this._table = await this._client.joinTable(tableId, this._state.myId);
+                Object.assign(this._state, { spectating: true, ruleType: 'standard', tableId });
+                this._notify(this._state);
+            }
+
+            async leaveGame() {
+                if (this._table) { await this._table.leave(); this._table = null; }
+                await this._lobby.updatePresence({ tableId: undefined });
+                this._state.tableId = null;
+                this._notify(this._state);
+            }
+
+            sendChat(recipientId, text) {
+                this._lobby.sendChat(recipientId, text);
+            }
+        }
+
+        // ── UI Components ──────────────────────────────────────────────────
+
+        class UserList extends LitElement {
             static properties = {
-                connected:       { type: Boolean },
-                users:           { type: Array },
-                activeChallenge: { type: Object },
-                activeChat:      { type: Object },
-                tableId:         { type: String },
-                ruleType:        { type: String },
-                spectating:      { type: Boolean },
-                isFirst:         { type: Boolean },
+                users:   { type: Array },
+                myId:    { type: String },
+                tableId: { type: String },
             };
-
-            static styles = css`
-                :host { display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; font-size: 0.85rem; box-sizing: border-box; padding: 0.5rem; gap: 0.4rem; background: #f5f5f5; }
-
-                /* status bar */
-                .status-bar { display: flex; align-items: center; gap: 0.5rem; }
-                .dot { width: 8px; height: 8px; border-radius: 50%; background: #dc3545; }
-                .dot.on { background: #28a745; }
-                .name { font-weight: bold; }
-
-                /* game icons row */
-                .games { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-                .game-btn { border: none; background: none; cursor: pointer; padding: 0.25rem; text-align: center; opacity: 0.7; }
-                .game-btn:hover { opacity: 1; }
-                .game-btn img { display: block; width: 48px; height: 48px; }
-                .game-btn span { font-size: 0.65rem; display: block; }
-
-                /* user list */
-                .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 0.4rem; }
-                .panel-title { font-weight: bold; margin-bottom: 0.25rem; font-size: 0.8rem; color: #555; }
+            static styles = [SHARED_STYLES, css`
+                :host { display: block; }
                 ul { list-style: none; margin: 0; padding: 0; max-height: 160px; overflow-y: auto; }
                 li { display: flex; justify-content: space-between; align-items: center; padding: 0.15rem 0; border-bottom: 1px solid #f0f0f0; gap: 0.25rem; }
                 li:last-child { border-bottom: none; }
                 .user-info { display: flex; flex-direction: column; }
-                .user-name { font-weight: 500; }
+                .user-name { font-weight: 500; font-size: 0.85rem; }
                 .user-status { font-size: 0.7rem; color: #888; }
                 .actions { display: flex; gap: 0.2rem; flex-shrink: 0; }
+            `];
 
-                /* banners */
-                .banner { border-radius: 6px; padding: 0.4rem 0.6rem; display: flex; flex-direction: column; gap: 0.3rem; }
-                .banner.challenge { background: #fff3cd; border: 1px solid #ffc107; }
-                .banner.chat     { background: #e1f5fe; border: 1px solid #81d4fa; }
-                .banner-row { display: flex; gap: 0.3rem; align-items: center; }
-                .banner-row input { flex: 1; padding: 0.2rem 0.4rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.8rem; }
-
-                /* game panel */
-                .game-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; border-radius: 6px; overflow: hidden; border: 1px solid #ddd; }
-                .game-panel-bar { display: flex; align-items: center; justify-content: space-between; padding: 0.25rem 0.5rem; background: #e8f5e9; font-size: 0.75rem; }
-                iframe { flex: 1; border: none; width: 100%; }
-
-                /* buttons */
-                button { cursor: pointer; padding: 0.15rem 0.4rem; border: 1px solid #ccc; border-radius: 4px; background: #fff; font-size: 0.75rem; }
-                .btn-challenge { background: #007bff; color: #fff; border-color: #007bff; }
-                .btn-spectate  { background: #fd7e14; color: #fff; border-color: #fd7e14; }
-                .btn-chat      { background: #6c757d; color: #fff; border-color: #6c757d; }
-                .btn-accept    { background: #28a745; color: #fff; border-color: #28a745; }
-                .btn-decline   { background: #dc3545; color: #fff; border-color: #dc3545; }
-                .btn-leave     { background: #6c757d; color: #fff; border-color: #6c757d; }
-            `;
-
-            constructor() {
-                super();
-                const p = new URLSearchParams(location.search);
-                this.myId   = p.get('id')   || 'user-' + Math.random().toString(36).slice(2, 7);
-                this.myName = p.get('name') || 'Player';
-                this.connected = false;
-                this.users = [];
-                this.activeChallenge = null;
-                this.activeChat = null;
-                this.tableId = null;
-                this.ruleType = 'standard';
-                this.spectating = false;
-                this.isFirst = false;
-                this._lobby = null;
-                this._table = null;
-                this._client = new MessagingClient({ baseUrl: location.hostname });
-                this._pendingTableId = null;
+            render() {
+                return html`<ul>${(this.users || []).map(u => this._row(u))}</ul>`;
             }
 
-            async connectedCallback() {
-                super.connectedCallback();
-                try {
-                    this._lobby = await this._client.joinLobby({
-                        messageType: 'presence', type: 'join',
-                        userId: this.myId, userName: this.myName,
-                    });
-                    this.connected = true;
-
-                    this._lobby.onUsersChange(users => { this.users = users; });
-
-                    this._lobby.onChallenge(msg => {
-                        if (msg.type === 'offer') {
-                            this.activeChallenge = msg;
-                        } else if (msg.type === 'accept' && this._pendingTableId === msg.tableId) {
-                            // I am the challenger — game is on
-                            this._pendingTableId = null;
-                            this.ruleType = msg.ruleType;
-                            this.spectating = false;
-                            this.isFirst = true;
-                            this.tableId = msg.tableId;
-                        } else if (msg.type === 'decline' || msg.type === 'cancel') {
-                            if (this.activeChallenge?.challengerId === msg.challengerId) {
-                                this.activeChallenge = null;
-                            }
-                        }
-                    });
-
-                    this._lobby.onChat(msg => { this.activeChat = msg; });
-                } catch (e) {
-                    console.error('Lobby connect failed:', e);
-                }
-            }
-
-            // ── Challenge actions ──────────────────────────────────────────
-
-            async _challenge(userId) {
-                this._pendingTableId = await this._lobby.challenge(userId, 'standard');
-            }
-
-            async _accept() {
-                const c = this.activeChallenge;
-                this._table = await this._lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId);
-                this.ruleType = c.ruleType;
-                this.spectating = false;
-                this.isFirst = false;
-                this.tableId = c.tableId;
-                this.activeChallenge = null;
-            }
-
-            async _decline() {
-                const c = this.activeChallenge;
-                await this._lobby.declineChallenge(c.challengerId, c.ruleType);
-                this.activeChallenge = null;
-            }
-
-            // ── Spectate ───────────────────────────────────────────────────
-
-            async _spectate(tid) {
-                this._table = await this._client.joinTable(tid, this.myId);
-                this.spectating = true;
-                this.ruleType = 'standard';
-                this.tableId = tid;
-            }
-
-            // ── Leave game ─────────────────────────────────────────────────
-
-            async _leave() {
-                if (this._table) { await this._table.leave(); this._table = null; }
-                await this._lobby.updatePresence({ tableId: undefined });
-                this.tableId = null;
-            }
-
-            // ── Chat ───────────────────────────────────────────────────────
-
-            _sendChat(e) {
-                const input = this.shadowRoot.getElementById('chat-input');
-                if (input?.value) {
-                    this._lobby.sendChat(this.activeChat.senderId, input.value);
-                    input.value = '';
-                    this.activeChat = null;
-                }
-            }
-
-            _chatWith(userId) {
-                const text = prompt('Message:');
-                if (text) this._lobby.sendChat(userId, text);
-            }
-
-            // ── Render helpers ─────────────────────────────────────────────
-
-            _renderUserItem(u) {
-                const isMe = u.userId === this.myId;
-                const status = u.tableId ? `🎱 in game` : u.seek ? `🔍 seeking` : `✓ available`;
-                let actions = html``;
+            _row(u) {
+                const isMe   = u.userId === this.myId;
+                const status = u.tableId ? '🎱 in game' : u.seek ? '🔍 seeking' : '✓ available';
+                let actions  = html``;
                 if (!isMe) {
                     if (canSpectate(u, this.tableId)) {
-                        actions = html`<button class="btn-spectate" @click=${() => this._spectate(u.tableId)}>Spectate</button>`;
+                        actions = html`<button class="btn-spectate" @click=${() => this._emit('spectate', u.tableId)}>Spectate</button>`;
                     } else if (canChallenge(u, this.myId)) {
                         actions = html`
-                            <button class="btn-challenge" @click=${() => this._challenge(u.userId)}>Challenge</button>
-                            <button class="btn-chat"      @click=${() => this._chatWith(u.userId)}>Chat</button>
-                        `;
+                            <button class="btn-challenge" @click=${() => this._emit('challenge', u.userId)}>Challenge</button>
+                            <button class="btn-chat"      @click=${() => this._emit('chat', u.userId)}>Chat</button>`;
                     }
                 }
                 return html`
@@ -227,65 +190,174 @@
                     </li>`;
             }
 
-            render() {
-                return html`
-                    <!-- Status bar -->
-                    <div class="status-bar">
-                        <span class="dot ${this.connected ? 'on' : ''}"></span>
-                        <span class="name">${this.myName}</span>
-                        <span style="color:#888;font-size:0.75rem">${this.connected ? 'online' : 'connecting…'} · ${this.users.length} online</span>
-                    </div>
+            _emit(type, detail) {
+                this.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
+            }
+        }
 
-                    <!-- Game icons -->
+        class ChallengeBanner extends LitElement {
+            static properties = { challenge: { type: Object } };
+            static styles = [SHARED_STYLES, css`
+                :host { display: block; }
+                .banner { background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 0.4rem 0.6rem; display: flex; flex-direction: column; gap: 0.3rem; }
+                .row { display: flex; gap: 0.3rem; }
+            `];
+            render() {
+                if (!this.challenge) return html``;
+                return html`
+                    <div class="banner">
+                        <strong>⚔️ Challenge from ${this.challenge.challengerName}</strong>
+                        <div class="row">
+                            <button class="btn-accept"  @click=${() => this._emit('accept')}>Accept</button>
+                            <button class="btn-decline" @click=${() => this._emit('decline')}>Decline</button>
+                        </div>
+                    </div>`;
+            }
+            _emit(type) {
+                this.dispatchEvent(new CustomEvent(type, { bubbles: true, composed: true }));
+            }
+        }
+
+        class ChatBanner extends LitElement {
+            static properties = { message: { type: Object } };
+            static styles = [SHARED_STYLES, css`
+                :host { display: block; }
+                .banner { background: #e1f5fe; border: 1px solid #81d4fa; border-radius: 6px; padding: 0.4rem 0.6rem; display: flex; flex-direction: column; gap: 0.3rem; }
+                .row { display: flex; gap: 0.3rem; align-items: center; }
+                input { flex: 1; padding: 0.2rem 0.4rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.8rem; }
+            `];
+            render() {
+                if (!this.message) return html``;
+                return html`
+                    <div class="banner">
+                        <strong>💬 ${this.message.senderId}: ${this.message.text}</strong>
+                        <div class="row">
+                            <input id="reply" placeholder="Reply…" @keyup=${e => e.key === 'Enter' && this._send()} />
+                            <button class="btn-accept" @click=${this._send}>Send</button>
+                            <button @click=${() => this._emit('dismiss')}>✕</button>
+                        </div>
+                    </div>`;
+            }
+            _send() {
+                const val = this.shadowRoot.getElementById('reply')?.value;
+                if (val) this._emit('reply', val);
+            }
+            _emit(type, detail) {
+                this.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
+            }
+        }
+
+        // ── Main App ───────────────────────────────────────────────────────
+
+        class LobbyApp extends LitElement {
+            static properties = {
+                _s: { type: Object, state: true },  // LobbyState (triggers re-render on reassign)
+            };
+
+            static styles = css`
+                :host { display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; font-size: 0.85rem; box-sizing: border-box; padding: 0.5rem; gap: 0.4rem; background: #f5f5f5; }
+                .status-bar { display: flex; align-items: center; gap: 0.5rem; }
+                .dot { width: 8px; height: 8px; border-radius: 50%; background: #dc3545; flex-shrink: 0; }
+                .dot.on { background: #28a745; }
+                .games { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+                .game-btn { border: none; background: none; cursor: pointer; padding: 0.25rem; text-align: center; opacity: 0.7; }
+                .game-btn:hover { opacity: 1; }
+                .game-btn img { display: block; width: 48px; height: 48px; }
+                .game-btn span { font-size: 0.65rem; display: block; }
+                .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 0.4rem; }
+                .panel-title { font-weight: bold; margin-bottom: 0.25rem; font-size: 0.8rem; color: #555; }
+                .game-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; border-radius: 6px; overflow: hidden; border: 1px solid #ddd; }
+                .game-panel-bar { display: flex; align-items: center; justify-content: space-between; padding: 0.25rem 0.5rem; background: #e8f5e9; font-size: 0.75rem; }
+                iframe { flex: 1; border: none; width: 100%; }
+                button.btn-leave { cursor: pointer; padding: 0.15rem 0.4rem; border: 1px solid #6c757d; border-radius: 4px; background: #6c757d; color: #fff; font-size: 0.75rem; }
+            `;
+
+            constructor() {
+                super();
+                this._s = new LobbyState();
+                this._svc = new LobbyService(this._s, (state) => { this._s = { ...state }; });
+            }
+
+            async connectedCallback() {
+                super.connectedCallback();
+                try { await this._svc.connect(); }
+                catch (e) { console.error('Lobby connect failed:', e); }
+            }
+
+            _renderStatusBar() {
+                const s = this._s;
+                return html`
+                    <div class="status-bar">
+                        <span class="dot ${s.connected ? 'on' : ''}"></span>
+                        <strong>${s.myName}</strong>
+                        <span style="color:#888;font-size:0.75rem">${s.connected ? 'online' : 'connecting…'} · ${s.users.length} online</span>
+                    </div>`;
+            }
+
+            _renderGames() {
+                return html`
                     <div class="games">
                         ${GAMES.map(g => html`
                             <button class="game-btn" title=${g.label}>
                                 <img src=${g.img} alt=${g.label} />
                                 <span>${g.label}</span>
                             </button>`)}
-                    </div>
+                    </div>`;
+            }
 
-                    <!-- Challenge banner -->
-                    ${this.activeChallenge ? html`
-                        <div class="banner challenge">
-                            <strong>⚔️ Challenge from ${this.activeChallenge.challengerName}</strong>
-                            <div class="banner-row">
-                                <button class="btn-accept"  @click=${this._accept}>Accept</button>
-                                <button class="btn-decline" @click=${this._decline}>Decline</button>
-                            </div>
-                        </div>` : ''}
-
-                    <!-- Chat banner -->
-                    ${this.activeChat ? html`
-                        <div class="banner chat">
-                            <strong>💬 ${this.activeChat.senderId}: ${this.activeChat.text}</strong>
-                            <div class="banner-row">
-                                <input id="chat-input" placeholder="Reply…" @keyup=${e => e.key === 'Enter' && this._sendChat()} />
-                                <button class="btn-accept" @click=${this._sendChat}>Send</button>
-                                <button @click=${() => this.activeChat = null}>✕</button>
-                            </div>
-                        </div>` : ''}
-
-                    <!-- Online users -->
+            _renderUsers() {
+                const s = this._s;
+                return html`
+                    <challenge-banner
+                        .challenge=${s.activeChallenge}
+                        @accept=${() => this._svc.acceptChallenge()}
+                        @decline=${() => this._svc.declineChallenge()}>
+                    </challenge-banner>
+                    <chat-banner
+                        .message=${s.activeChat}
+                        @reply=${e => { this._svc.sendChat(s.activeChat.senderId, e.detail); this._s = { ...this._s, activeChat: null }; }}
+                        @dismiss=${() => { this._s = { ...this._s, activeChat: null }; }}>
+                    </chat-banner>
                     <div class="panel">
-                        <div class="panel-title">Online Players</div>
-                        <ul>${this.users.map(u => this._renderUserItem(u))}</ul>
-                    </div>
+                        <div class="panel-title">Online Players (${s.users.length})</div>
+                        <user-list
+                            .users=${s.users}
+                            myId=${s.myId}
+                            tableId=${s.tableId || ''}
+                            @challenge=${e => this._svc.challenge(e.detail)}
+                            @spectate=${e => this._svc.spectate(e.detail)}
+                            @chat=${e => { const t = prompt('Message:'); if (t) this._svc.sendChat(e.detail, t); }}>
+                        </user-list>
+                    </div>`;
+            }
 
-                    <!-- Game panel (iframe) -->
-                    ${this.tableId ? html`
-                        <div class="game-panel">
-                            <div class="game-panel-bar">
-                                <span>${this.spectating ? '👁 Spectating' : '🎱 Playing'} · table ${this.tableId}</span>
-                                <button class="btn-leave" @click=${this._leave}>Leave</button>
-                            </div>
-                            <iframe src=${GAME_URL(this.tableId, this.myId, this.myName, this.ruleType, this.spectating, this.isFirst)}></iframe>
-                        </div>` : ''}
+            _renderGamePanel() {
+                const s = this._s;
+                if (!s.tableId) return html``;
+                return html`
+                    <div class="game-panel">
+                        <div class="game-panel-bar">
+                            <span>${s.spectating ? '👁 Spectating' : '🎱 Playing'} · table ${s.tableId}</span>
+                            <button class="btn-leave" @click=${() => this._svc.leaveGame()}>Leave</button>
+                        </div>
+                        <iframe src=${gameUrl({ tableId: s.tableId, userId: s.myId, userName: s.myName, ruleType: s.ruleType, spectating: s.spectating, isFirst: s.isFirst })}></iframe>
+                    </div>`;
+            }
+
+            render() {
+                return html`
+                    ${this._renderStatusBar()}
+                    ${this._renderGames()}
+                    ${this._renderUsers()}
+                    ${this._renderGamePanel()}
                 `;
             }
         }
 
-        customElements.define('lobby-app', LobbyApp);
+        customElements.define('user-list',        UserList);
+        customElements.define('challenge-banner', ChallengeBanner);
+        customElements.define('chat-banner',      ChatBanner);
+        customElements.define('lobby-app',        LobbyApp);
     </script>
 </body>
 </html>
