@@ -69,7 +69,7 @@
                 const p = new URLSearchParams(location.search);
                 this.myId   = p.get('id')   || 'user-' + Math.random().toString(36).slice(2, 7);
                 this.myName = p.get('name') || 'Player';
-                this._client = new MessagingClient({ baseUrl: location.hostname });
+                this._client = new MessagingClient({ baseUrl: location.hostname === 'localhost' ? location.hostname : 'billiards-network.onrender.com' });
                 (this.host = host).addController(this);
             }
 
@@ -111,8 +111,8 @@
                 });
             }
 
-            async challenge(userId) {
-                this._pendingTableId = await this._lobby.challenge(userId, 'standard');
+            async challenge(userId, ruleType) {
+                this._pendingTableId = await this._lobby.challenge(userId, ruleType);
             }
 
             async acceptChallenge() {
@@ -210,12 +210,21 @@
                 :host { display: block; }
                 .banner { background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 0.4rem 0.6rem; display: flex; flex-direction: column; gap: 0.3rem; }
                 .row { display: flex; gap: 0.3rem; }
+                .details { font-size: 0.72rem; color: #666; display: flex; flex-wrap: wrap; gap: 0.4rem; }
             `];
             render() {
                 if (!this.challenge) return html``;
+                const c = this.challenge;
+                const extras = Object.entries(c.options ?? {}).map(([k, v]) => `${k}: ${v}`);
+                const location = [c.meta?.city, c.meta?.country ? flag(c.meta.country) : null].filter(Boolean).join(' ');
                 return html`
                     <div class="banner">
-                        <strong>⚔️ Challenge from ${this.challenge.challengerName}</strong>
+                        <strong>⚔️ Challenge from ${c.challengerName}</strong>
+                        <div class="details">
+                            <span>📋 ${c.ruleType}</span>
+                            ${location ? html`<span>${location}</span>` : ''}
+                            ${extras.map(e => html`<span>${e}</span>`)}
+                        </div>
                         <div class="row">
                             <button class="btn-accept"  @click=${() => this._emit('accept')}>Accept</button>
                             <button class="btn-decline" @click=${() => this._emit('decline')}>Decline</button>
@@ -256,6 +265,45 @@
             }
         }
 
+        class ChallengeModal extends LitElement {
+            static properties = { userId: { type: String }, userName: { type: String } };
+            static styles = [SHARED_STYLES, css`
+                :host { display: block; }
+                .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
+                .modal { background: #fff; border-radius: 8px; padding: 1rem; min-width: 220px; display: flex; flex-direction: column; gap: 0.5rem; box-shadow: 0 4px 24px rgba(0,0,0,0.2); }
+                h3 { margin: 0; font-size: 0.95rem; }
+                .rules { display: flex; flex-direction: column; gap: 0.3rem; }
+                button.rule { text-align: left; padding: 0.35rem 0.6rem; font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem; }
+                button.rule img { width: 28px; height: 28px; display: block; }
+                button.cancel { background: #f8f9fa; color: #333; border-color: #ccc; }
+            `];
+            static RULES = [
+                { id: 'eightball',     label: 'Eight Ball',    img: 'assets/eightball.png' },
+                { id: 'nineball',      label: 'Nine Ball',     img: 'assets/nineball.png' },
+                { id: 'threecushion',  label: 'Three Cushion', img: 'assets/threecushion.png' },
+                { id: 'snooker',       label: 'Snooker',       img: 'assets/snooker.png' },
+            ];
+            render() {
+                if (!this.userId) return html``;
+                return html`
+                    <div class="backdrop" @click=${e => e.target === e.currentTarget && this._emit('cancel')}>
+                        <div class="modal" role="dialog" aria-modal="true" aria-label="Select game type">
+                            <h3>Challenge ${this.userName}</h3>
+                            <div class="rules">
+                                ${ChallengeModal.RULES.map(r => html`
+                                    <button class="rule btn-challenge" @click=${() => this._emit('confirm', r.id)}>
+                                        <img src=${r.img} alt=${r.label} />${r.label}
+                                    </button>`)}
+                            </div>
+                            <button class="cancel" @click=${() => this._emit('cancel')}>Cancel</button>
+                        </div>
+                    </div>`;
+            }
+            _emit(type, detail) {
+                this.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
+            }
+        }
+
         // ── Main App ───────────────────────────────────────────────────────
 
         class LobbyApp extends LitElement {
@@ -280,6 +328,7 @@
             constructor() {
                 super();
                 this._ctrl = new LobbyController(this);
+                this._pendingChallenge = null; // { userId, userName }
             }
 
             _renderStatusBar() {
@@ -322,7 +371,11 @@
                             .users=${c.users}
                             myId=${c.myId}
                             tableId=${c.tableId || ''}
-                            @challenge=${e => c.challenge(e.detail)}
+                            @challenge=${e => {
+                                const u = c.users.find(u => u.userId === e.detail);
+                                this._pendingChallenge = { userId: e.detail, userName: u?.userName ?? e.detail };
+                                this.requestUpdate();
+                            }}
                             @spectate=${e => c.spectate(e.detail)}
                             @chat=${e => { const t = prompt('Message:'); if (t) c.sendChat(e.detail, t); }}>
                         </user-list>
@@ -343,11 +396,18 @@
             }
 
             render() {
+                const p = this._pendingChallenge;
                 return html`
                     ${this._renderStatusBar()}
                     ${this._renderGames()}
                     ${this._renderUsers()}
                     ${this._renderGamePanel()}
+                    <challenge-modal
+                        .userId=${p?.userId ?? null}
+                        .userName=${p?.userName ?? ''}
+                        @confirm=${e => { this._ctrl.challenge(p.userId, e.detail); this._pendingChallenge = null; }}
+                        @cancel=${() => { this._pendingChallenge = null; this.requestUpdate(); }}>
+                    </challenge-modal>
                 `;
             }
         }
@@ -355,6 +415,7 @@
         customElements.define('user-list',        UserList);
         customElements.define('challenge-banner', ChallengeBanner);
         customElements.define('chat-banner',      ChatBanner);
+        customElements.define('challenge-modal',  ChallengeModal);
         customElements.define('lobby-app',        LobbyApp);
     </script>
 </body>
