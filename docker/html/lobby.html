@@ -23,13 +23,22 @@
         ];
 
         const SHARED_STYLES = css`
-            button { cursor: pointer; padding: 0.15rem 0.4rem; border: 1px solid #ccc; border-radius: 4px; background: #fff; font-size: 0.75rem; }
+            button { cursor: pointer; padding: 0.15rem 0.4rem; border: 1px solid #ccc; border-radius: 4px; background: #fff; font-size: 0.75rem; transition: background-color 0.2s, opacity 0.2s; }
+            button:hover { background-color: #f0f0f0; }
+            button:active { background-color: #e0e0e0; }
+            button:focus-visible { outline: 2px solid #007bff; outline-offset: 2px; }
             .btn-challenge { background: #007bff; color: #fff; border-color: #007bff; }
+            .btn-challenge:hover { background: #0069d9; border-color: #0062cc; }
             .btn-spectate  { background: #fd7e14; color: #fff; border-color: #fd7e14; }
+            .btn-spectate:hover { background: #e36e0b; border-color: #d6660a; }
             .btn-chat      { background: #6c757d; color: #fff; border-color: #6c757d; }
+            .btn-chat:hover { background: #5a6268; border-color: #545b62; }
             .btn-accept    { background: #28a745; color: #fff; border-color: #28a745; }
+            .btn-accept:hover { background: #218838; border-color: #1e7e34; }
             .btn-decline   { background: #dc3545; color: #fff; border-color: #dc3545; }
+            .btn-decline:hover { background: #c82333; border-color: #bd2130; }
             .btn-leave     { background: #6c757d; color: #fff; border-color: #6c757d; }
+            .btn-leave:hover { background: #5a6268; border-color: #545b62; }
         `;
 
         // ── Helpers ────────────────────────────────────────────────────────
@@ -164,6 +173,12 @@
             `];
 
             render() {
+                const others = (this.users || []).filter(u => u.userId !== this.myId);
+                if (others.length === 0) {
+                    return html`<div style="padding: 1rem; text-align: center; color: #888; font-style: italic; font-size: 0.8rem;">
+                        No other players online yet. Invite a friend!
+                    </div>`;
+                }
                 return html`<ul>${(this.users || []).map(u => this._row(u))}</ul>`;
             }
 
@@ -234,7 +249,7 @@
                         <div class="row">
                             <input id="reply" placeholder="Reply…" @keyup=${e => e.key === 'Enter' && this._send()} />
                             <button class="btn-accept" @click=${this._send}>Send</button>
-                            <button @click=${() => this._emit('dismiss')}>✕</button>
+                            <button @click=${() => this._emit('dismiss')} aria-label="Dismiss message">✕</button>
                         </div>
                     </div>`;
             }
@@ -298,7 +313,7 @@
                 return html`
                     <div class="games">
                         ${GAMES.map(g => html`
-                            <button class="game-btn" title=${g.label}>
+                            <button class="game-btn" title=${g.label} aria-label="Play ${g.label}">
                                 <img src=${g.img} alt=${g.label} />
                                 <span>${g.label}</span>
                             </button>`)}
