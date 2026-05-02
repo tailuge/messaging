@@ -1,12 +1,84 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lobby</title>
-    <script type="module" crossorigin src="/assets/lobby-C_fHRj4Q.js"></script>
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
+</head>
+<body>
+    <game-lobby></game-lobby>
+
+    <script type="module">
+        import { LitElement, html, css } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
+        import { MessagingClient } from 'https://unpkg.com/@tailuge/messaging';
+
+        const games = [
+            { label: "Eight Ball", img: "assets/eightball.png" },
+            { label: "Nine Ball", img: "assets/nineball.png" },
+            { label: "Snooker", img: "assets/snooker.png" },
+            { label: "Three Cushion", img: "assets/threecushion.png" },
+            { label: "Practice", img: "assets/practice.png" }
+        ];
+
+        class GameLobby extends LitElement {
+            static styles = css`
+                :host {
+                    display: block;
+                    font-family: sans-serif;
+                    text-align: center;
+                    padding: 2rem;
+                }
+                .games {
+                    display: flex;
+                    gap: 1rem;
+                    justify-content: center;
+                    flex-wrap: wrap;
+                }
+                button {
+                    border: none;
+                    background: none;
+                    cursor: pointer;
+                    padding: 0.5rem;
+                }
+                button:hover {
+                    opacity: 0.8;
+                }
+                img {
+                    display: block;
+                    width: 80px;
+                    height: 80px;
+                }
+                span {
+                    font-size: 0.85rem;
+                }
+            `;
+
+            handleGameClick(label) {
+                alert(`Selected: ${label}`);
+            }
+
+            render() {
+                return html`
+                    <main>
+                        <h1>Hello World</h1>
+                        <p>Choose a game to play:</p>
+                        <div class="games">
+                            ${games.map(({ label, img }) => html`
+                                <button 
+                                    @click=${() => this.handleGameClick(label)}
+                                    aria-label=${label}
+                                >
+                                    <img src=${img} alt=${label} />
+                                    <span>${label}</span>
+                                </button>
+                            `)}
+                        </div>
+                    </main>
+                `;
+            }
+        }
+
+        customElements.define('game-lobby', GameLobby);
+    </script>
+</body>
 </html>
