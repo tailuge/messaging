@@ -55,16 +55,113 @@
             return url;
         };
 
+        const INITIAL_STATE = {
+            connected: false,
+            users: [],
+            challenges: {}, // indexed by other player's ID
+            currentMatch: null, // { tableId, ruleType, spectating, isFirst }
+            activeChat: null
+        };
+
+        function reduce(state, action) {
+            switch (action.type) {
+                case 'CONNECTED':
+                    return { ...state, connected: action.payload };
+                case 'USERS_UPDATE':
+                    return { ...state, users: action.payload };
+                case 'CHALLENGE_SENT':
+                    return {
+                        ...state,
+                        challenges: {
+                            ...state.challenges,
+                            [action.payload.recipientId]: { ...action.payload, status: 'pending' }
+                        }
+                    };
+                case 'CHALLENGE_MSG': {
+                    const msg = action.payload;
+                    const { myId } = action;
+                    const challenges = { ...state.challenges };
+                    if (msg.type === 'offer') {
+                        challenges[msg.challengerId] = { ...msg, status: 'pending' };
+                    } else if (msg.type === 'accept') {
+                        const otherId = msg.challengerId === myId ? msg.recipientId : msg.challengerId;
+                        if (challenges[otherId] && challenges[otherId].tableId === msg.tableId) {
+                            delete challenges[otherId];
+                        }
+                        // If we are the challenger, we need to enter the game now
+                        if (msg.recipientId === myId) {
+                            return {
+                                ...state,
+                                challenges,
+                                currentMatch: { tableId: msg.tableId, ruleType: msg.ruleType, spectating: false, isFirst: true }
+                            };
+                        }
+                    } else if (msg.type === 'decline' || msg.type === 'cancel') {
+                        const otherId = msg.challengerId === myId ? msg.recipientId : msg.challengerId;
+                        if (challenges[otherId]) {
+                            if (msg.type === 'decline' && challenges[otherId].recipientId === otherId) {
+                                challenges[otherId] = { ...challenges[otherId], status: 'declined' };
+                            } else {
+                                delete challenges[otherId];
+                            }
+                        }
+                    }
+                    return { ...state, challenges };
+                }
+                case 'CHALLENGE_TIMEOUT':
+                    if (state.challenges[action.payload]?.status === 'pending') {
+                        return {
+                            ...state,
+                            challenges: {
+                                ...state.challenges,
+                                [action.payload]: { ...state.challenges[action.payload], status: 'timeout' }
+                            }
+                        };
+                    }
+                    return state;
+                case 'CHALLENGE_DISMISS': {
+                    const challenges = { ...state.challenges };
+                    delete challenges[action.payload];
+                    return { ...state, challenges };
+                }
+                case 'MATCH_SET':
+                    return { ...state, currentMatch: action.payload };
+                case 'MATCH_LEAVE':
+                    return { ...state, currentMatch: null };
+                case 'CHAT_MSG':
+                    return { ...state, activeChat: action.payload };
+                case 'CHAT_DISMISS':
+                    return { ...state, activeChat: null };
+                default:
+                    return state;
+            }
+        }
+
         // ── Controller (networking + state) ───────────────────────────────
 
         class LobbyController {
             // ReactiveController lifecycle
-            host; _lobby = null; _table = null; _pendingTableId = null; _challengeTimeoutId = null;
+            host; _lobby = null; _table = null; _challengeTimers = new Map();
 
-            // State read by the host template
-            connected = false; users = []; activeChallenge = null; activeChat = null;
-            sentChallenge = null; // { recipientId: string, recipientName: string, ruleType: string, status: 'waiting'|'declined'|'timeout' }
-            tableId = null; ruleType = 'standard'; spectating = false; isFirst = false;
+            // State derived via getters
+            state = { ...INITIAL_STATE };
+
+            get connected() { return this.state.connected; }
+            get users() { return this.state.users; }
+            get activeChat() { return this.state.activeChat; }
+            get tableId() { return this.state.currentMatch?.tableId; }
+            get ruleType() { return this.state.currentMatch?.ruleType || 'standard'; }
+            get spectating() { return !!this.state.currentMatch?.spectating; }
+            get isFirst() { return !!this.state.currentMatch?.isFirst; }
+
+            get activeChallenge() {
+                return Object.values(this.state.challenges)
+                    .find(c => c.recipientId === this.myId && c.status === 'pending');
+            }
+            get sentChallenge() {
+                return Object.values(this.state.challenges)
+                    .find(c => c.challengerId === this.myId);
+            }
 
             constructor(host) {
                 const p = new URLSearchParams(location.search);
@@ -81,6 +178,11 @@
                 (this.host = host).addController(this);
             }
 
+            dispatch(action) {
+                this.state = reduce(this.state, { ...action, myId: this.myId });
+                this.host.requestUpdate();
+            }
+
             // Called by Lit when the host connects to the DOM
             async hostConnected() {
                 try { await this._connect(); }
@@ -88,7 +190,7 @@
             }
 
             hostDisconnected() {
-                this._clearChallengeTimeout();
+                this._clearAllChallengeTimers();
                 this._lobby?.leave();
             }
 
@@ -97,99 +199,86 @@
                     messageType: 'presence', type: 'join',
                     userId: this.myId, userName: this.myName,
                 });
-                this.connected = true;
-                this.host.requestUpdate();
+                this.dispatch({ type: 'CONNECTED', payload: true });
 
                 this._lobby.onUsersChange(users => {
-                    this.users = users;
-                    this.host.requestUpdate();
+                    this.dispatch({ type: 'USERS_UPDATE', payload: users });
                 });
 
                 this._lobby.onChallenge(msg => {
-                    if (msg.type === 'offer') {
-                        this.activeChallenge = msg;
-                    } else if (msg.type === 'accept' && this._pendingTableId === msg.tableId) {
-                        this._pendingTableId = null;
-                        this.clearSentChallenge();
-                        Object.assign(this, { ruleType: msg.ruleType, spectating: false, isFirst: true, tableId: msg.tableId });
-                    } else if (msg.type === 'decline' && this.sentChallenge?.status === 'waiting' && msg.recipientId === this.myId && msg.challengerId === this.sentChallenge.recipientId) {
-                        // The person we challenged declined it
-                        this.sentChallenge = { ...this.sentChallenge, status: 'decline' };
-                        this._clearChallengeTimeout();
-                    } else if ((msg.type === 'decline' || msg.type === 'cancel')
-                               && this.activeChallenge?.challengerId === msg.challengerId) {
-                        this.activeChallenge = null;
-                    }
-                    this.host.requestUpdate();
+                    this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
                 });
 
                 this._lobby.onChat(msg => {
-                    this.activeChat = msg;
-                    this.host.requestUpdate();
+                    this.dispatch({ type: 'CHAT_MSG', payload: msg });
                 });
             }
 
             async challenge(userId, ruleType) {
                 const u = this.users.find(u => u.userId === userId);
-                this.sentChallenge = { recipientId: userId, recipientName: u?.userName || userId, ruleType, status: 'waiting' };
-                this._pendingTableId = await this._lobby.challenge(userId, ruleType);
-                this._clearChallengeTimeout();
-                this._challengeTimeoutId = setTimeout(() => {
-                    if (this.sentChallenge?.status === 'waiting') {
-                        this.sentChallenge = { ...this.sentChallenge, status: 'timeout' };
-                        this.host.requestUpdate();
-                    }
+                const tableId = await this._lobby.challenge(userId, ruleType);
+                this.dispatch({
+                    type: 'CHALLENGE_SENT',
+                    payload: { challengerId: this.myId, recipientId: userId, recipientName: u?.userName || userId, ruleType, tableId }
+                });
+
+                const timerId = setTimeout(() => {
+                    this.dispatch({ type: 'CHALLENGE_TIMEOUT', payload: userId });
+                    this._challengeTimers.delete(userId);
                 }, 30000);
-                this.host.requestUpdate();
+                this._challengeTimers.set(userId, timerId);
             }
 
             async cancelChallenge() {
-                if (this.sentChallenge?.status === 'waiting') {
-                    // Logic to actually cancel if the library supports it,
-                    // for now just clear local state as the library doesn't easily expose the recipientId here
-                    // but we can find it if we stored it.
+                const s = this.sentChallenge;
+                if (s?.status === 'pending') {
+                    await this._lobby.cancelChallenge(s.recipientId, s.ruleType);
                     this.clearSentChallenge();
                 }
             }
 
             clearSentChallenge() {
-                this.sentChallenge = null;
-                this._clearChallengeTimeout();
-                this.host.requestUpdate();
+                const s = this.sentChallenge;
+                if (s) {
+                    const timerId = this._challengeTimers.get(s.recipientId);
+                    if (timerId) { clearTimeout(timerId); this._challengeTimers.delete(s.recipientId); }
+                    this.dispatch({ type: 'CHALLENGE_DISMISS', payload: s.recipientId });
+                }
             }
 
-            _clearChallengeTimeout() {
-                if (this._challengeTimeoutId) {
-                    clearTimeout(this._challengeTimeoutId);
-                    this._challengeTimeoutId = null;
-                }
+            _clearAllChallengeTimers() {
+                for (const timerId of this._challengeTimers.values()) clearTimeout(timerId);
+                this._challengeTimers.clear();
             }
 
             async acceptChallenge() {
                 const c = this.activeChallenge;
                 this._table = await this._lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId);
-                Object.assign(this, { ruleType: c.ruleType, spectating: false, isFirst: false, tableId: c.tableId, activeChallenge: null });
-                this.host.requestUpdate();
+                this.dispatch({
+                    type: 'MATCH_SET',
+                    payload: { tableId: c.tableId, ruleType: c.ruleType, spectating: false, isFirst: false }
+                });
+                this.dispatch({ type: 'CHALLENGE_DISMISS', payload: c.challengerId });
             }
 
             async declineChallenge() {
                 const c = this.activeChallenge;
                 await this._lobby.declineChallenge(c.challengerId, c.ruleType);
-                this.activeChallenge = null;
-                this.host.requestUpdate();
+                this.dispatch({ type: 'CHALLENGE_DISMISS', payload: c.challengerId });
             }
 
             async spectate(tableId) {
                 this._table = await this._client.joinTable(tableId, this.myId);
-                Object.assign(this, { spectating: true, ruleType: 'standard', tableId });
-                this.host.requestUpdate();
+                this.dispatch({
+                    type: 'MATCH_SET',
+                    payload: { tableId, ruleType: 'standard', spectating: true, isFirst: false }
+                });
             }
 
             async leaveGame() {
                 if (this._table) { await this._table.leave(); this._table = null; }
                 await this._lobby.updatePresence({ tableId: undefined });
-                this.tableId = null;
-                this.host.requestUpdate();
+                this.dispatch({ type: 'MATCH_LEAVE' });
             }
 
             sendChat(recipientId, text) {
@@ -289,8 +378,8 @@
             static styles = [SHARED_STYLES, css`
                 :host { display: block; }
                 .banner { border-radius: 6px; padding: 0.4rem 0.6rem; display: flex; flex-direction: column; gap: 0.3rem; border: 1px solid; }
-                .waiting { background: #fff3cd; border-color: #ffc107; }
-                .decline { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+                .pending { background: #fff3cd; border-color: #ffc107; }
+                .declined { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
                 .timeout { background: #e2e3e5; border-color: #d6d8db; color: #383d41; }
                 .row { display: flex; gap: 0.3rem; align-items: center; justify-content: space-between; }
                 .details { font-size: 0.72rem; }
@@ -298,8 +387,8 @@
             render() {
                 if (!this.challenge) return html``;
                 const c = this.challenge;
-                const isWaiting = c.status === 'waiting';
-                const isDecline = c.status === 'decline';
+                const isWaiting = c.status === 'pending';
+                const isDecline = c.status === 'declined';
                 const isTimeout = c.status === 'timeout';
 
                 return html`
@@ -454,8 +543,8 @@
                     </sent-challenge-banner>
                     <chat-banner
                         .message=${c.activeChat}
-                        @reply=${e => { c.sendChat(c.activeChat.senderId, e.detail); c.activeChat = null; this.requestUpdate(); }}
-                        @dismiss=${() => { c.activeChat = null; this.requestUpdate(); }}>
+                        @reply=${e => { c.sendChat(c.activeChat.senderId, e.detail); c.dispatch({ type: 'CHAT_DISMISS' }); }}
+                        @dismiss=${() => c.dispatch({ type: 'CHAT_DISMISS' })}>
                     </chat-banner>
                     <div class="panel">
                         <div class="panel-title">Online Players (${c.users.length})</div>
@@ -463,7 +552,7 @@
                             .users=${c.users}
                             myId=${c.myId}
                             tableId=${c.tableId || ''}
-                            .isChallengePending=${c.sentChallenge?.status === 'waiting'}
+                            .isChallengePending=${c.sentChallenge?.status === 'pending'}
                             @challenge=${e => {
                                 const u = c.users.find(u => u.userId === e.detail);
                                 this._pendingChallenge = { userId: e.detail, userName: u?.userName ?? e.detail };
