@@ -69,7 +69,14 @@
                 const p = new URLSearchParams(location.search);
                 this.myId   = p.get('id')   || 'user-' + Math.random().toString(36).slice(2, 7);
                 this.myName = p.get('name') || 'Player';
-                this._client = new MessagingClient({ baseUrl: location.hostname === 'localhost' ? location.hostname : 'billiards-network.onrender.com' });
+
+                let baseUrl = 'https://billiards-network.onrender.com';
+                if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+                    const protocol = location.protocol === 'https:' ? 'https:' : 'http:';
+                    baseUrl = `${protocol}//${location.host}`;
+                }
+
+                this._client = new MessagingClient({ baseUrl });
                 (this.host = host).addController(this);
             }
 
@@ -184,9 +191,7 @@
                     if (canSpectate(u, this.tableId)) {
                         actions = html`<button class="btn-spectate" @click=${() => this._emit('spectate', u.tableId)}>Spectate</button>`;
                     } else if (canChallenge(u, this.myId)) {
-                        actions = html`
-                            <button class="btn-challenge" @click=${() => this._emit('challenge', u.userId)}>Challenge</button>
-                            <button class="btn-chat"      @click=${() => this._emit('chat', u.userId)}>Chat</button>`;
+                        actions = html`<button class="btn-challenge" @click=${() => this._emit('challenge', u.userId)}>Challenge</button>`;
                     }
                 }
                 return html`
