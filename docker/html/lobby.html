@@ -59,10 +59,11 @@
 
         class LobbyController {
             // ReactiveController lifecycle
-            host; _lobby = null; _table = null; _pendingTableId = null;
+            host; _lobby = null; _table = null; _pendingTableId = null; _challengeTimeoutId = null;
 
             // State read by the host template
             connected = false; users = []; activeChallenge = null; activeChat = null;
+            sentChallenge = null; // { recipientId: string, recipientName: string, ruleType: string, status: 'waiting'|'declined'|'timeout' }
             tableId = null; ruleType = 'standard'; spectating = false; isFirst = false;
 
             constructor(host) {
@@ -86,6 +87,11 @@
                 catch (e) { console.error('Lobby connect failed:', e); }
             }
 
+            hostDisconnected() {
+                this._clearChallengeTimeout();
+                this._lobby?.leave();
+            }
+
             async _connect() {
                 this._lobby = await this._client.joinLobby({
                     messageType: 'presence', type: 'join',
@@ -104,7 +110,12 @@
                         this.activeChallenge = msg;
                     } else if (msg.type === 'accept' && this._pendingTableId === msg.tableId) {
                         this._pendingTableId = null;
+                        this.clearSentChallenge();
                         Object.assign(this, { ruleType: msg.ruleType, spectating: false, isFirst: true, tableId: msg.tableId });
+                    } else if (msg.type === 'decline' && this.sentChallenge?.status === 'waiting' && msg.recipientId === this.myId && msg.challengerId === this.sentChallenge.recipientId) {
+                        // The person we challenged declined it
+                        this.sentChallenge = { ...this.sentChallenge, status: 'decline' };
+                        this._clearChallengeTimeout();
                     } else if ((msg.type === 'decline' || msg.type === 'cancel')
                                && this.activeChallenge?.challengerId === msg.challengerId) {
                         this.activeChallenge = null;
@@ -119,7 +130,39 @@
             }
 
             async challenge(userId, ruleType) {
+                const u = this.users.find(u => u.userId === userId);
+                this.sentChallenge = { recipientId: userId, recipientName: u?.userName || userId, ruleType, status: 'waiting' };
                 this._pendingTableId = await this._lobby.challenge(userId, ruleType);
+                this._clearChallengeTimeout();
+                this._challengeTimeoutId = setTimeout(() => {
+                    if (this.sentChallenge?.status === 'waiting') {
+                        this.sentChallenge = { ...this.sentChallenge, status: 'timeout' };
+                        this.host.requestUpdate();
+                    }
+                }, 30000);
+                this.host.requestUpdate();
+            }
+
+            async cancelChallenge() {
+                if (this.sentChallenge?.status === 'waiting') {
+                    // Logic to actually cancel if the library supports it,
+                    // for now just clear local state as the library doesn't easily expose the recipientId here
+                    // but we can find it if we stored it.
+                    this.clearSentChallenge();
+                }
+            }
+
+            clearSentChallenge() {
+                this.sentChallenge = null;
+                this._clearChallengeTimeout();
+                this.host.requestUpdate();
+            }
+
+            _clearChallengeTimeout() {
+                if (this._challengeTimeoutId) {
+                    clearTimeout(this._challengeTimeoutId);
+                    this._challengeTimeoutId = null;
+                }
             }
 
             async acceptChallenge() {
@@ -161,6 +204,7 @@
                 users:   { type: Array },
                 myId:    { type: String },
                 tableId: { type: String },
+                isChallengePending: { type: Boolean },
             };
             static styles = [SHARED_STYLES, css`
                 :host { display: block; }
@@ -191,7 +235,7 @@
                     if (canSpectate(u, this.tableId)) {
                         actions = html`<button class="btn-spectate" @click=${() => this._emit('spectate', u.tableId)}>Spectate</button>`;
                     } else if (canChallenge(u, this.myId)) {
-                        actions = html`<button class="btn-challenge" @click=${() => this._emit('challenge', u.userId)}>Challenge</button>`;
+                        actions = html`<button class="btn-challenge" ?disabled=${this.isChallengePending} @click=${() => this._emit('challenge', u.userId)}>Challenge</button>`;
                     }
                 }
                 return html`
@@ -233,6 +277,45 @@
                             <button class="btn-accept"  @click=${() => this._emit('accept')}>Accept</button>
                             <button class="btn-decline" @click=${() => this._emit('decline')}>Decline</button>
                         </div>
+                    </div>`;
+            }
+            _emit(type) {
+                this.dispatchEvent(new CustomEvent(type, { bubbles: true, composed: true }));
+            }
+        }
+
+        class SentChallengeBanner extends LitElement {
+            static properties = { challenge: { type: Object } };
+            static styles = [SHARED_STYLES, css`
+                :host { display: block; }
+                .banner { border-radius: 6px; padding: 0.4rem 0.6rem; display: flex; flex-direction: column; gap: 0.3rem; border: 1px solid; }
+                .waiting { background: #fff3cd; border-color: #ffc107; }
+                .decline { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+                .timeout { background: #e2e3e5; border-color: #d6d8db; color: #383d41; }
+                .row { display: flex; gap: 0.3rem; align-items: center; justify-content: space-between; }
+                .details { font-size: 0.72rem; }
+            `];
+            render() {
+                if (!this.challenge) return html``;
+                const c = this.challenge;
+                const isWaiting = c.status === 'waiting';
+                const isDecline = c.status === 'decline';
+                const isTimeout = c.status === 'timeout';
+
+                return html`
+                    <div class="banner ${c.status}">
+                        <div class="row">
+                            <strong>
+                                ${isWaiting ? `⏳ Waiting for ${c.recipientName}…` : ''}
+                                ${isDecline ? `❌ ${c.recipientName} declined your challenge.` : ''}
+                                ${isTimeout ? `🕒 Challenge to ${c.recipientName} timed out.` : ''}
+                            </strong>
+                            ${isWaiting
+                                ? html`<button class="btn-leave" @click=${() => this._emit('cancel')}>Cancel</button>`
+                                : html`<button @click=${() => this._emit('dismiss')} aria-label="Dismiss">✕</button>`
+                            }
+                        </div>
+                        <div class="details">📋 ${c.ruleType}</div>
                     </div>`;
             }
             _emit(type) {
@@ -364,6 +447,11 @@
                         @accept=${() => c.acceptChallenge()}
                         @decline=${() => c.declineChallenge()}>
                     </challenge-banner>
+                    <sent-challenge-banner
+                        .challenge=${c.sentChallenge}
+                        @cancel=${() => c.cancelChallenge()}
+                        @dismiss=${() => c.clearSentChallenge()}>
+                    </sent-challenge-banner>
                     <chat-banner
                         .message=${c.activeChat}
                         @reply=${e => { c.sendChat(c.activeChat.senderId, e.detail); c.activeChat = null; this.requestUpdate(); }}
@@ -375,6 +463,7 @@
                             .users=${c.users}
                             myId=${c.myId}
                             tableId=${c.tableId || ''}
+                            .isChallengePending=${c.sentChallenge?.status === 'waiting'}
                             @challenge=${e => {
                                 const u = c.users.find(u => u.userId === e.detail);
                                 this._pendingChallenge = { userId: e.detail, userName: u?.userName ?? e.detail };
@@ -418,6 +507,7 @@
 
         customElements.define('user-list',        UserList);
         customElements.define('challenge-banner', ChallengeBanner);
+        customElements.define('sent-challenge-banner', SentChallengeBanner);
         customElements.define('chat-banner',      ChatBanner);
         customElements.define('challenge-modal',  ChallengeModal);
         customElements.define('lobby-app',        LobbyApp);
