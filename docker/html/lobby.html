@@ -18,8 +18,8 @@
             { label: "Eight Ball",    img: "assets/eightball.png" },
             { label: "Nine Ball",     img: "assets/nineball.png" },
             { label: "Snooker",       img: "assets/snooker.png" },
-            { label: "Three Cushion", img: "assets/threecushion.png" },
-            { label: "Practice",      img: "assets/practice.png" },
+            { label: "3-Cushion", img: "assets/threecushion.png" },
+            { label: "Trickshot",      img: "assets/practice.png" },
         ];
 
         const SHARED_STYLES = css`
@@ -180,7 +180,7 @@
                         No other players online yet. Invite a friend!
                     </div>`;
                 }
-                return html`<ul>${(this.users || []).map(u => this._row(u))}</ul>`;
+                return html`<ul>${others.map(u => this._row(u))}</ul>`;
             }
 
             _row(u) {
