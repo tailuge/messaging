@@ -88,12 +88,18 @@
                         if (challenges[otherId] && challenges[otherId].tableId === msg.tableId) {
                             delete challenges[otherId];
                         }
-                        // If we are the challenger, we need to enter the game now
+                        // Enter the match based on whether we sent or received the acceptance
                         if (msg.recipientId === myId) {
                             return {
                                 ...state,
                                 challenges,
                                 currentMatch: { tableId: msg.tableId, ruleType: msg.ruleType, spectating: false, isFirst: true }
+                            };
+                        } else if (msg.challengerId === myId) {
+                            return {
+                                ...state,
+                                challenges,
+                                currentMatch: { tableId: msg.tableId, ruleType: msg.ruleType, spectating: false, isFirst: false }
                             };
                         }
                     } else if (msg.type === 'decline' || msg.type === 'cancel') {
@@ -254,11 +260,7 @@
             async acceptChallenge() {
                 const c = this.activeChallenge;
                 this._table = await this._lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId);
-                this.dispatch({
-                    type: 'MATCH_SET',
-                    payload: { tableId: c.tableId, ruleType: c.ruleType, spectating: false, isFirst: false }
-                });
-                this.dispatch({ type: 'CHALLENGE_DISMISS', payload: c.challengerId });
+                // Note: MATCH_SET is now handled by the reducer via the 'accept' message broadcast
             }
 
             async declineChallenge() {
@@ -322,9 +324,9 @@
                 let actions  = html``;
                 if (!isMe) {
                     if (canSpectate(u, this.tableId)) {
-                        actions = html`<button class="btn-spectate" @click=${() => this._emit('spectate', u.tableId)}>Spectate</button>`;
+                        actions = html`<button class="btn-spectate" aria-label="Spectate ${u.userName}" @click=${() => this._emit('spectate', u.tableId)}>Spectate</button>`;
                     } else if (canChallenge(u, this.myId)) {
-                        actions = html`<button class="btn-challenge" ?disabled=${this.isChallengePending} @click=${() => this._emit('challenge', u.userId)}>Challenge</button>`;
+                        actions = html`<button class="btn-challenge" aria-label="Challenge ${u.userName}" ?disabled=${this.isChallengePending} @click=${() => this._emit('challenge', u.userId)}>Challenge</button>`;
                     }
                 }
                 return html`
@@ -363,8 +365,8 @@
                             ${extras.map(e => html`<span>${e}</span>`)}
                         </div>
                         <div class="row">
-                            <button class="btn-accept"  @click=${() => this._emit('accept')}>Accept</button>
-                            <button class="btn-decline" @click=${() => this._emit('decline')}>Decline</button>
+                            <button class="btn-accept" aria-label="Accept challenge" @click=${() => this._emit('accept')}>Accept</button>
+                            <button class="btn-decline" aria-label="Decline challenge" @click=${() => this._emit('decline')}>Decline</button>
                         </div>
                     </div>`;
             }
