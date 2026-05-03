@@ -82,8 +82,12 @@
                     const { myId } = action;
                     const challenges = { ...state.challenges };
                     if (msg.type === 'offer') {
-                        challenges[msg.challengerId] = { ...msg, status: 'pending' };
+                        const existing = challenges[msg.challengerId];
+                        if (!existing || existing.tableId !== msg.tableId) {
+                            challenges[msg.challengerId] = { ...msg, status: 'pending' };
+                        }
                     } else if (msg.type === 'accept') {
+                        if (state.currentMatch) return state;
                         const otherId = msg.challengerId === myId ? msg.recipientId : msg.challengerId;
                         if (challenges[otherId] && challenges[otherId].tableId === msg.tableId) {
                             delete challenges[otherId];
@@ -212,6 +216,7 @@
                 });
 
                 this._lobby.onChallenge(msg => {
+                    this._clearTimerFor(msg.challengerId === this.myId ? msg.recipientId : msg.challengerId);
                     this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
                 });
 
@@ -246,9 +251,16 @@
             clearSentChallenge() {
                 const s = this.sentChallenge;
                 if (s) {
-                    const timerId = this._challengeTimers.get(s.recipientId);
-                    if (timerId) { clearTimeout(timerId); this._challengeTimers.delete(s.recipientId); }
+                    this._clearTimerFor(s.recipientId);
                     this.dispatch({ type: 'CHALLENGE_DISMISS', payload: s.recipientId });
+                }
+            }
+
+            _clearTimerFor(userId) {
+                const t = this._challengeTimers.get(userId);
+                if (t) {
+                    clearTimeout(t);
+                    this._challengeTimers.delete(userId);
                 }
             }
 
