@@ -10,7 +10,7 @@ test.describe('Lobby Flow', () => {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'sent' }) });
       });
 
-      await page.goto(`http://localhost:8080/lobby.html?id=${id}&name=${name}`);
+      await page.goto(`http://localhost:80/lobby.html?id=${id}&name=${name}`);
       return { context, page };
     };
 
@@ -84,15 +84,9 @@ test.describe('Lobby Flow', () => {
         lobbyApp._ctrl.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
     }, acceptMsg);
 
-    // 4. Verify both are in the game
-    await expect(alice.page.locator('.game-panel-bar')).toContainText('Playing · table test-table-123');
-    await expect(bob.page.locator('.game-panel-bar')).toContainText('Playing · table test-table-123');
-
-    const aliceIsFirst = await alice.page.evaluate(() => (document.querySelector('lobby-app') as any)._ctrl.isFirst);
-    const bobIsFirst = await bob.page.evaluate(() => (document.querySelector('lobby-app') as any)._ctrl.isFirst);
-
-    expect(aliceIsFirst).toBe(false);
-    expect(bobIsFirst).toBe(true);
+    // 4. Verify both are redirected to the game
+    await expect(alice.page).toHaveURL(/tableId=test-table-123/);
+    await expect(bob.page).toHaveURL(/tableId=test-table-123/);
 
     await alice.context.close();
     await bob.context.close();

@@ -10,9 +10,6 @@ NCHAN_DIR="$(dirname "$0")/../docker"
 PROJECT_ROOT="$(dirname "$0")/.."
 
 start() {
-    echo "Building example client..."
-    (cd "$PROJECT_ROOT" && npm run build:example)
-
     echo "Building nchan image..."
     docker build -t "$DOCKER_IMAGE:latest" -t "$DOCKER_IMAGE:3.0.0" "$NCHAN_DIR"
 
@@ -55,13 +52,6 @@ status() {
 }
 
 build() {
-    echo "Building example client..."
-    (cd "$PROJECT_ROOT" && npm run build:example)
-
-    echo "Syncing example to docker/html..."
-    rm -rf "$NCHAN_DIR/html/example"
-    cp -r "$PROJECT_ROOT/example" "$NCHAN_DIR/html/example"
-
     echo "Building nchan image..."
     docker build -t "$DOCKER_IMAGE:latest" -t "$DOCKER_IMAGE:3.0.0" "$NCHAN_DIR"
     echo "Build complete."
