@@ -218,6 +218,7 @@
                 });
 
                 this._lobby.onChallenge(msg => {
+                    console.log('challenge msg:', JSON.stringify(msg, null, 2));
                     this._clearTimerFor(msg.challengerId === this.myId ? msg.recipientId : msg.challengerId);
                     this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
                 });
@@ -229,11 +230,10 @@
 
             async challenge(userId, ruleType, options) {
                 const u = this.users.find(u => u.userId === userId);
-                const tableId = await this._lobby.challenge(userId, ruleType, options);
-                this.dispatch({
-                    type: 'CHALLENGE_SENT',
-                    payload: { challengerId: this.myId, recipientId: userId, recipientName: u?.userName || userId, ruleType, options, tableId }
-                });
+                const tableId = await this._lobby.challenge(userId, ruleType, undefined, options);
+                const payload = { challengerId: this.myId, recipientId: userId, recipientName: u?.userName || userId, ruleType, options, tableId };
+                console.log('challenge sent:', JSON.stringify(payload, null, 2));
+                this.dispatch({ type: 'CHALLENGE_SENT', payload });
 
                 const timerId = setTimeout(() => {
                     this.dispatch({ type: 'CHALLENGE_TIMEOUT', payload: userId });
@@ -286,11 +286,11 @@
                 this.dispatch({ type: 'CHALLENGE_DISMISS', payload: c.challengerId });
             }
 
-            async spectate(tableId) {
+            async spectate(tableId, ruleType) {
                 this._table = await this._client.joinTable(tableId, this.myId);
                 this.dispatch({
                     type: 'MATCH_SET',
-                    payload: { tableId, ruleType: 'standard', spectating: true, isFirst: false }
+                    payload: { tableId, ruleType: ruleType || 'standard', spectating: true, isFirst: false }
                 });
             }
 
@@ -341,7 +341,7 @@
                 let actions  = html``;
                 if (!isMe) {
                     if (canSpectate(u, this.tableId)) {
-                        actions = html`<button class="btn-spectate" aria-label="Spectate ${u.userName}" @click=${() => this._emit('spectate', u.tableId)}>Spectate</button>`;
+                        actions = html`<button class="btn-spectate" aria-label="Spectate ${u.userName}" @click=${() => this._emit('spectate', { tableId: u.tableId, ruleType: u.ruleType })}>Spectate</button>`;
                     } else if (canChallenge(u, this.myId)) {
                         actions = html`<button class="btn-challenge" aria-label="Challenge ${u.userName}" ?disabled=${this.isChallengePending} @click=${() => this._emit('challenge', u.userId)}>Challenge</button>`;
                     }
@@ -374,7 +374,7 @@
                 const extras = Object.entries(c.options ?? {}).map(([k, v]) => `${k}: ${v}`);
                 return html`
                     <div class="banner">
-                        <strong>⚔️ Challenge from ${c.challengerName}</strong>
+                        <strong>Challenge from ${c.challengerName}</strong>
                         <div class="details">
                             <span>📋 ${c.ruleType}</span>
                             ${extras.map(e => html`<span>${e}</span>`)}
@@ -476,9 +476,11 @@
             static RULES = [
                 { id: 'eightball',     label: 'Eight Ball',       img: 'assets/eightball.png' },
                 { id: 'nineball',      label: 'Nine Ball',        img: 'assets/nineball.png' },
-                { id: 'threecushion',  label: 'Three Cushion',    img: 'assets/threecushion.png' },
-                { id: 'snooker',       label: 'Snooker',          img: 'assets/snooker.png' },
-                { id: 'snooker',       label: 'Snooker (6 reds)', img: 'assets/snooker.png', options: { reds: '6' } },
+                { id: 'threecushion',  label: 'Three Cushion',       img: 'assets/threecushion.png' },
+                { id: 'threecushion',  label: 'Three Cushion (11)', img: 'assets/threecushion.png', options: { raceTo: '11' } },
+                { id: 'threecushion',  label: 'Three Cushion (21)', img: 'assets/threecushion.png', options: { raceTo: '21' } },
+                { id: 'snooker',       label: 'Snooker',             img: 'assets/snooker.png' },
+                { id: 'snooker',       label: 'Snooker (6 reds)',    img: 'assets/snooker.png', options: { reds: '6' } },
             ];
             render() {
                 if (!this.userId) return html``;
@@ -491,7 +493,7 @@
                                     <button class="rule btn-challenge" @click=${() => this._emit('confirm', { ruleType: r.id, options: r.options })}>
                                         <span class="icon-wrap">
                                             <img src=${r.img} alt=${r.label} />
-                                            ${r.options?.reds ? html`<span class="badge">${r.options.reds}</span>` : ''}
+                                            ${r.options ? html`<span class="badge">${Object.values(r.options)[0]}</span>` : ''}
                                         </span>
                                         ${r.label}
                                     </button>`)}
@@ -579,7 +581,7 @@
                                 this._pendingChallenge = { userId: e.detail, userName: u?.userName ?? e.detail };
                                 this.requestUpdate();
                             }}
-                            @spectate=${e => c.spectate(e.detail)}
+                            @spectate=${e => c.spectate(e.detail.tableId, e.detail.ruleType)}
                             @chat=${e => { const t = prompt('Message:'); if (t) c.sendChat(e.detail, t); }}>
                         </user-list>
                     </div>`;
