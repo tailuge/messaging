@@ -98,13 +98,13 @@
                             return {
                                 ...state,
                                 challenges,
-                                currentMatch: { tableId: msg.tableId, ruleType: msg.ruleType, options: msg.options, spectating: false, isFirst: true }
+                                currentMatch: { tableId: msg.tableId, ruleType: msg.ruleType, options: msg.options, spectating: false, isFirst: false }
                             };
                         } else if (msg.challengerId === myId) {
                             return {
                                 ...state,
                                 challenges,
-                                currentMatch: { tableId: msg.tableId, ruleType: msg.ruleType, options: msg.options, spectating: false, isFirst: false }
+                                currentMatch: { tableId: msg.tableId, ruleType: msg.ruleType, options: msg.options, spectating: false, isFirst: true }
                             };
                         }
                     } else if (msg.type === 'decline' || msg.type === 'cancel') {
@@ -276,7 +276,7 @@
                 this._table = await this._lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId);
                 this.dispatch({
                     type: 'MATCH_SET',
-                    payload: { tableId: c.tableId, ruleType: c.ruleType, options: c.options, spectating: false, isFirst: true }
+                    payload: { tableId: c.tableId, ruleType: c.ruleType, options: c.options, spectating: false, isFirst: false }
                 });
             }
 
