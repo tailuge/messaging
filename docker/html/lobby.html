@@ -6,17 +6,18 @@
     <title>Lobby</title>
 </head>
 <body>
-    <lobby-app></lobby-app>
+    <main>
+        <lobby-app></lobby-app>
+    </main>
 
     <script type="module">
         import { LitElement, html } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
-        import { MessagingClient, canChallenge, canSpectate } from 'https://unpkg.com/@tailuge/messaging';
+        import { MessagingClient, canChallenge } from 'https://unpkg.com/@tailuge/messaging';
         import {
             SHARED_STYLES,
             USER_LIST_STYLES,
             CHALLENGE_BANNER_STYLES,
             SENT_CHALLENGE_BANNER_STYLES,
-            CHAT_BANNER_STYLES,
             CHALLENGE_MODAL_STYLES,
             LOBBY_APP_STYLES
         } from './styles.js';
@@ -27,11 +28,10 @@
             ? [...code.toUpperCase()].map(c => String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0))).join('')
             : '🌐';
 
-        const gameUrl = ({ tableId, userId, userName, ruleType, spectating, isFirst, options }) => {
+        const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options }) => {
             let url = `https://billiards.tailuge.workers.dev/?websocketserver=wss://billiards.onrender.com/ws`
                 + `&tableId=${tableId}&userName=${encodeURIComponent(userName)}&clientId=${userId}&ruletype=${ruleType}`;
-            if (spectating) url += '&spectator=true';
-            else if (isFirst) url += '&first=true';
+            if (isFirst) url += '&first=true';
             if (options) Object.entries(options).forEach(([k, v]) => url += `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
             return url;
         };
@@ -40,8 +40,7 @@
             connected: false,
             users: [],
             challenges: {}, // indexed by other player's ID
-            currentMatch: null, // { tableId, ruleType, spectating, isFirst }
-            activeChat: null
+            currentMatch: null // { tableId, ruleType, isFirst }
         };
 
         function reduce(state, action) {
@@ -80,13 +79,13 @@
                             return {
                                 ...state,
                                 challenges,
-                                currentMatch: { tableId: msg.tableId, ruleType: msg.ruleType, options, spectating: false, isFirst: true }
+                                currentMatch: { tableId: msg.tableId, ruleType: msg.ruleType, options, isFirst: true }
                             };
                         } else if (msg.challengerId === myId) {
                             return {
                                 ...state,
                                 challenges,
-                                currentMatch: { tableId: msg.tableId, ruleType: msg.ruleType, options, spectating: false, isFirst: false }
+                                currentMatch: { tableId: msg.tableId, ruleType: msg.ruleType, options, isFirst: false }
                             };
                         }
                     } else if (msg.type === 'decline' || msg.type === 'cancel') {
@@ -121,10 +120,6 @@
                     return { ...state, currentMatch: action.payload };
                 case 'MATCH_LEAVE':
                     return { ...state, currentMatch: null };
-                case 'CHAT_MSG':
-                    return { ...state, activeChat: action.payload };
-                case 'CHAT_DISMISS':
-                    return { ...state, activeChat: null };
                 default:
                     return state;
             }
@@ -141,10 +136,8 @@
 
             get connected() { return this.state.connected; }
             get users() { return this.state.users; }
-            get activeChat() { return this.state.activeChat; }
             get tableId() { return this.state.currentMatch?.tableId; }
             get ruleType() { return this.state.currentMatch?.ruleType || 'standard'; }
-            get spectating() { return !!this.state.currentMatch?.spectating; }
             get isFirst() { return !!this.state.currentMatch?.isFirst; }
             get matchOptions() { return this.state.currentMatch?.options; }
 
@@ -207,10 +200,6 @@
                     this._clearTimerFor(msg.challengerId === this.myId ? msg.recipientId : msg.challengerId);
                     this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
                 });
-
-                this._lobby.onChat(msg => {
-                    this.dispatch({ type: 'CHAT_MSG', payload: msg });
-                });
             }
 
             async challenge(userId, ruleType, options) {
@@ -261,7 +250,7 @@
                 this._table = await this._lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options);
                 this.dispatch({
                     type: 'MATCH_SET',
-                    payload: { tableId: c.tableId, ruleType: c.ruleType, options: c.options, spectating: false, isFirst: false }
+                    payload: { tableId: c.tableId, ruleType: c.ruleType, options: c.options, isFirst: false }
                 });
             }
 
@@ -271,22 +260,10 @@
                 this.dispatch({ type: 'CHALLENGE_DISMISS', payload: c.challengerId });
             }
 
-            async spectate(tableId, ruleType) {
-                this._table = await this._client.joinTable(tableId, this.myId);
-                this.dispatch({
-                    type: 'MATCH_SET',
-                    payload: { tableId, ruleType: ruleType || 'standard', spectating: true, isFirst: false }
-                });
-            }
-
             async leaveGame() {
                 if (this._table) { await this._table.leave(); this._table = null; }
                 await this._lobby.updatePresence({ tableId: undefined });
                 this.dispatch({ type: 'MATCH_LEAVE' });
-            }
-
-            sendChat(recipientId, text) {
-                this._lobby.sendChat(recipientId, text);
             }
         }
 
@@ -304,7 +281,7 @@
             render() {
                 const others = (this.users || []).filter(u => u.userId !== this.myId);
                 if (others.length === 0) {
-                    return html`<div style="padding: 1rem; text-align: center; color: #888; font-style: italic; font-size: 0.8rem;">
+                    return html`<div style="padding: 1rem; text-align: center; color: #757575; font-style: italic; font-size: 0.8rem;">
                         No other players online yet. Invite a friend!
                     </div>`;
                 }
@@ -313,12 +290,9 @@
 
             _row(u) {
                 const isMe   = u.userId === this.myId;
-                const status = u.tableId ? '🎱 in game' : u.seek ? '🔍 seeking' : '✓ available';
                 let actions  = html``;
                 if (!isMe) {
-                    if (canSpectate(u, this.tableId)) {
-                        actions = html`<button class="btn-spectate" aria-label="Spectate ${u.userName}" @click=${() => this._emit('spectate', { tableId: u.tableId, ruleType: u.ruleType })}>Spectate</button>`;
-                    } else if (canChallenge(u, this.myId)) {
+                    if (canChallenge(u, this.myId)) {
                         actions = html`<button class="btn-challenge" aria-label="Challenge ${u.userName}" ?disabled=${this.isChallengePending} @click=${() => this._emit('challenge', u.userId)}>Challenge</button>`;
                     }
                 }
@@ -392,30 +366,6 @@
             }
         }
 
-        class ChatBanner extends LitElement {
-            static properties = { message: { type: Object } };
-            static styles = [SHARED_STYLES, CHAT_BANNER_STYLES];
-            render() {
-                if (!this.message) return html``;
-                return html`
-                    <div class="banner">
-                        <strong>💬 ${this.message.senderId}: ${this.message.text}</strong>
-                        <div class="row">
-                            <input id="reply" placeholder="Reply…" @keyup=${e => e.key === 'Enter' && this._send()} />
-                            <button class="btn-accept" @click=${this._send}>Send</button>
-                            <button @click=${() => this._emit('dismiss')} aria-label="Dismiss message">✕</button>
-                        </div>
-                    </div>`;
-            }
-            _send() {
-                const val = this.shadowRoot.getElementById('reply')?.value;
-                if (val) this._emit('reply', val);
-            }
-            _emit(type, detail) {
-                this.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
-            }
-        }
-
         class ChallengeModal extends LitElement {
             static properties = { userId: { type: String }, userName: { type: String } };
             static styles = [SHARED_STYLES, CHALLENGE_MODAL_STYLES];
@@ -470,7 +420,7 @@
                     <div class="status-bar">
                         <span class="dot ${c.connected ? 'on' : ''}"></span>
                         <strong>${c.myName}</strong>
-                        <span style="color:#888;font-size:0.75rem">${c.connected ? 'online' : 'connecting…'} · ${c.users.length} online</span>
+                        <span style="color:#757575;font-size:0.75rem">${c.connected ? 'online' : 'connecting…'} · ${c.users.length} online</span>
                         <a href="solo.html?clientId=${c.myId}&userName=${encodeURIComponent(c.myName)}" style="margin-left:auto;font-size:0.75rem">Solo Practice</a>
                     </div>`;
             }
@@ -488,11 +438,6 @@
                         @cancel=${() => c.cancelChallenge()}
                         @dismiss=${() => c.clearSentChallenge()}>
                     </sent-challenge-banner>
-                    <chat-banner
-                        .message=${c.activeChat}
-                        @reply=${e => { c.sendChat(c.activeChat.senderId, e.detail); c.dispatch({ type: 'CHAT_DISMISS' }); }}
-                        @dismiss=${() => c.dispatch({ type: 'CHAT_DISMISS' })}>
-                    </chat-banner>
                     <div class="panel">
                         <div class="panel-title">Online Players (${c.users.length})</div>
                         <user-list
@@ -504,9 +449,7 @@
                                 const u = c.users.find(u => u.userId === e.detail);
                                 this._pendingChallenge = { userId: e.detail, userName: u?.userName ?? e.detail };
                                 this.requestUpdate();
-                            }}
-                            @spectate=${e => c.spectate(e.detail.tableId, e.detail.ruleType)}
-                            @chat=${e => { const t = prompt('Message:'); if (t) c.sendChat(e.detail, t); }}>
+                            }}>
                         </user-list>
                     </div>`;
             }
@@ -514,7 +457,7 @@
             _renderGamePanel() {
                 const c = this._ctrl;
                 if (!c.tableId) return html``;
-                const url = gameUrl({ tableId: c.tableId, userId: c.myId, userName: c.myName, ruleType: c.ruleType, spectating: c.spectating, isFirst: c.isFirst, options: c.matchOptions });
+                const url = gameUrl({ tableId: c.tableId, userId: c.myId, userName: c.myName, ruleType: c.ruleType, isFirst: c.isFirst, options: c.matchOptions });
                 window.location.href = url;
                 return html``;
             }
@@ -538,7 +481,6 @@
         customElements.define('user-list',        UserList);
         customElements.define('challenge-banner', ChallengeBanner);
         customElements.define('sent-challenge-banner', SentChallengeBanner);
-        customElements.define('chat-banner',      ChatBanner);
         customElements.define('challenge-modal',  ChallengeModal);
         customElements.define('lobby-app',        LobbyApp);
     </script>
