@@ -68,15 +68,19 @@
                             currentMatch: { tableId: m.tableId, ruleType: m.ruleType, options, isFirst: m.recipientId === action.myId }
                         };
                     } else if (m.type === 'decline') {
-                        if (C[id]) C[id] = { ...C[id], status: 'declined' };
+                        const key = C[m.challengerId] ? m.challengerId : m.recipientId;
+                        if (C[key]) C[key] = { ...C[key], status: 'declined' };
                     } else if (m.type === 'cancel') {
-                        delete C[id];
+                        const key = C[m.challengerId] ? m.challengerId : m.recipientId;
+                        delete C[key];
                     }
                     return { ...state, challenges: C };
                 }
-                case 'CHALLENGE_TIMEOUT':
-                    if (C[action.payload]?.status === 'pending') C[action.payload] = { ...C[action.payload], status: 'timeout' };
+                case 'CHALLENGE_TIMEOUT': {
+                    const c = C[action.payload];
+                    if (c?.status === 'pending') C[action.payload] = { ...c, status: 'timeout' };
                     return { ...state, challenges: C };
+                }
                 case 'CHALLENGE_DISMISS':
                     delete C[action.payload];
                     return { ...state, challenges: C };
@@ -158,7 +162,7 @@
                 });
 
                 this._lobby.onChallenge(msg => {
-                    const msgTime = msg.meta?.ts ? new Date(msg.meta.ts).getTime() : 0;
+                    const msgTime = msg.meta?.ts ? new Date(msg.meta.ts).getTime() : Infinity;
                     if (msgTime < this._connectTime) return; // ignore buffered messages from previous session
                     console.log('challenge msg:', JSON.stringify(msg, null, 2));
                     this._clearTimerFor(msg.challengerId === this.myId ? msg.recipientId : msg.challengerId);
@@ -274,31 +278,32 @@
         }
 
         class ChallengeBanner extends LitElement {
-            static properties = { challenge: { type: Object }, incoming: { type: Boolean } };
+            static properties = { challenge: { type: Object }, sent: { type: Object } };
             static styles = [SHARED_STYLES, CHALLENGE_BANNER_STYLES, SENT_CHALLENGE_BANNER_STYLES];
 
             render() {
-                const c = this.challenge;
-                if (!c) return html``;
+                if (this.challenge) return this._incoming(this.challenge);
+                if (this.sent) return this._sent(this.sent);
+                return html``;
+            }
 
-                if (this.incoming) {
-                    // incoming challenge
-                    const extras = Object.entries(c.options ?? {}).map(([k, v]) => `${k}: ${v}`);
-                    return html`
-                        <div class="banner">
-                            <strong>Challenge from ${c.challengerName}</strong>
-                            <div class="details">
-                                <span>📋 ${c.ruleType}</span>
-                                ${extras.map(e => html`<span>${e}</span>`)}
-                            </div>
-                            <div class="row">
-                                <button class="btn-accept" aria-label="Accept challenge" @click=${() => emit(this, 'accept')}>Accept</button>
-                                <button class="btn-decline" aria-label="Decline challenge" @click=${() => emit(this, 'decline')}>Decline</button>
-                            </div>
-                        </div>`;
-                }
+            _incoming(c) {
+                const extras = Object.entries(c.options ?? {}).map(([k, v]) => `${k}: ${v}`);
+                return html`
+                    <div class="banner">
+                        <strong>Challenge from ${c.challengerName}</strong>
+                        <div class="details">
+                            <span>📋 ${c.ruleType}</span>
+                            ${extras.map(e => html`<span>${e}</span>`)}
+                        </div>
+                        <div class="row">
+                            <button class="btn-accept" aria-label="Accept challenge" @click=${() => emit(this, 'accept')}>Accept</button>
+                            <button class="btn-decline" aria-label="Decline challenge" @click=${() => emit(this, 'decline')}>Decline</button>
+                        </div>
+                    </div>`;
+            }
 
-                // sent challenge
+            _sent(c) {
                 const isWaiting = c.status === 'pending';
                 const isDecline = c.status === 'declined';
                 const isTimeout = c.status === 'timeout';
@@ -380,8 +385,8 @@
                 const c = this._ctrl;
                 return html`
                     <challenge-banner
-                        .challenge=${c.activeChallenge || c.sentChallenge}
-                        ?incoming=${!!c.activeChallenge}
+                        .challenge=${c.activeChallenge}
+                        .sent=${c.sentChallenge}
                         @accept=${() => c.acceptChallenge()}
                         @decline=${() => c.declineChallenge()}
                         @cancel=${() => c.cancelChallenge()}

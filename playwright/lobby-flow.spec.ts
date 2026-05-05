@@ -159,10 +159,17 @@ test.describe('Lobby Flow', () => {
       (document.querySelector('lobby-app') as any)._ctrl.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
     }, declineMsg);
 
-    // Alice sees the declined message
-    // Note: We skip deep shadow DOM text assertion here due to environment limitations with Lit components
-    // but the presence of the component is verified.
-    // await expect(alice.page.locator('lobby-app >> sent-challenge-banner')).toBeVisible();
+    // Alice sees the declined message - check controller state
+    await expect(alice.page.evaluate(() => {
+      const app = document.querySelector('lobby-app') as any;
+      return app._ctrl.sentChallenge?.status;
+    })).resolves.toBe('declined');
+
+    // Wait for Lit to re-render then check banner shadow DOM
+    await alice.page.waitForFunction(() => {
+      const banner = document.querySelector('lobby-app')?.shadowRoot?.querySelector('challenge-banner');
+      return banner?.shadowRoot?.textContent?.toLowerCase().includes('declined');
+    });
 
     await alice.context.close();
     await bob.context.close();
