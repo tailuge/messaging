@@ -44,7 +44,7 @@
                 + `&tableId=${tableId}&name=${encodeURIComponent(userName)}&clientId=${userId}&ruletype=${ruleType}`;
             if (spectating) url += '&spectator=true';
             else if (isFirst) url += '&first=true';
-            if (options) Object.entries(options).forEach(([k, v]) => url += `&${k}=${encodeURIComponent(v)}`);
+            if (options) Object.entries(options).forEach(([k, v]) => url += `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
             return url;
         };
 
@@ -82,7 +82,9 @@
                     } else if (msg.type === 'accept') {
                         if (state.currentMatch) return state;
                         const otherId = msg.challengerId === myId ? msg.recipientId : msg.challengerId;
-                        if (challenges[otherId] && challenges[otherId].tableId === msg.tableId) {
+                        const pending = challenges[otherId];
+                        const options = msg.options || (pending?.tableId === msg.tableId ? pending.options : undefined);
+                        if (pending && pending.tableId === msg.tableId) {
                             delete challenges[otherId];
                         }
                         // Enter the match based on whether we sent or received the acceptance
@@ -90,13 +92,13 @@
                             return {
                                 ...state,
                                 challenges,
-                                currentMatch: { tableId: msg.tableId, ruleType: msg.ruleType, options: msg.options, spectating: false, isFirst: true }
+                                currentMatch: { tableId: msg.tableId, ruleType: msg.ruleType, options, spectating: false, isFirst: true }
                             };
                         } else if (msg.challengerId === myId) {
                             return {
                                 ...state,
                                 challenges,
-                                currentMatch: { tableId: msg.tableId, ruleType: msg.ruleType, options: msg.options, spectating: false, isFirst: false }
+                                currentMatch: { tableId: msg.tableId, ruleType: msg.ruleType, options, spectating: false, isFirst: false }
                             };
                         }
                     } else if (msg.type === 'decline' || msg.type === 'cancel') {
@@ -268,7 +270,7 @@
 
             async acceptChallenge() {
                 const c = this.activeChallenge;
-                this._table = await this._lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId);
+                this._table = await this._lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options);
                 this.dispatch({
                     type: 'MATCH_SET',
                     payload: { tableId: c.tableId, ruleType: c.ruleType, options: c.options, spectating: false, isFirst: false }
