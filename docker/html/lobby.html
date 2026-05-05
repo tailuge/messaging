@@ -14,14 +14,6 @@
 
         // ── Constants ──────────────────────────────────────────────────────
 
-        const GAMES = [
-            { label: "Eight Ball",    img: "assets/eightball.png" },
-            { label: "Nine Ball",     img: "assets/nineball.png" },
-            { label: "Snooker",       img: "assets/snooker.png" },
-            { label: "3-Cushion", img: "assets/threecushion.png" },
-            { label: "Trickshot",      img: "assets/practice.png" },
-        ];
-
         const SHARED_STYLES = css`
             button { cursor: pointer; padding: 0.15rem 0.4rem; border: 1px solid #ccc; border-radius: 4px; background: #fff; font-size: 0.75rem; transition: background-color 0.2s, opacity 0.2s; }
             button:hover { background-color: #f0f0f0; }
@@ -207,6 +199,7 @@
             }
 
             async _connect() {
+                this._connectTime = Date.now();
                 this._lobby = await this._client.joinLobby({
                     messageType: 'presence', type: 'join',
                     userId: this.myId, userName: this.myName,
@@ -218,6 +211,8 @@
                 });
 
                 this._lobby.onChallenge(msg => {
+                    const msgTime = msg.meta?.ts ? new Date(msg.meta.ts).getTime() : 0;
+                    if (msgTime < this._connectTime) return; // ignore buffered messages from previous session
                     console.log('challenge msg:', JSON.stringify(msg, null, 2));
                     this._clearTimerFor(msg.challengerId === this.myId ? msg.recipientId : msg.challengerId);
                     this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
@@ -274,6 +269,10 @@
             async acceptChallenge() {
                 const c = this.activeChallenge;
                 this._table = await this._lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId);
+                this.dispatch({
+                    type: 'MATCH_SET',
+                    payload: { tableId: c.tableId, ruleType: c.ruleType, options: c.options, spectating: false, isFirst: false }
+                });
             }
 
             async declineChallenge() {
@@ -511,11 +510,6 @@
                 .status-bar { display: flex; align-items: center; gap: 0.5rem; }
                 .dot { width: 8px; height: 8px; border-radius: 50%; background: #dc3545; flex-shrink: 0; }
                 .dot.on { background: #28a745; }
-                .games { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-                .game-btn { border: none; background: none; cursor: pointer; padding: 0.25rem; text-align: center; opacity: 0.7; }
-                .game-btn:hover { opacity: 1; }
-                .game-btn img { display: block; width: 48px; height: 48px; }
-                .game-btn span { font-size: 0.65rem; display: block; }
                 .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 0.4rem; }
                 .panel-title { font-weight: bold; margin-bottom: 0.25rem; font-size: 0.8rem; color: #555; }
             `;
@@ -533,17 +527,7 @@
                         <span class="dot ${c.connected ? 'on' : ''}"></span>
                         <strong>${c.myName}</strong>
                         <span style="color:#888;font-size:0.75rem">${c.connected ? 'online' : 'connecting…'} · ${c.users.length} online</span>
-                    </div>`;
-            }
-
-            _renderGames() {
-                return html`
-                    <div class="games">
-                        ${GAMES.map(g => html`
-                            <button class="game-btn" title=${g.label} aria-label="Play ${g.label}">
-                                <img src=${g.img} alt=${g.label} />
-                                <span>${g.label}</span>
-                            </button>`)}
+                        <a href="solo.html?id=${c.myId}&name=${encodeURIComponent(c.myName)}" style="margin-left:auto;font-size:0.75rem">Solo Practice</a>
                     </div>`;
             }
 
@@ -595,7 +579,6 @@
                 const p = this._pendingChallenge;
                 return html`
                     ${this._renderStatusBar()}
-                    ${this._renderGames()}
                     ${this._renderUsers()}
                     ${this._renderGamePanel()}
                     <challenge-modal
