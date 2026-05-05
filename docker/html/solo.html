@@ -20,11 +20,12 @@
             { label: "3-Cushion (11)",     img: "assets/threecushion.png", ruletype: "threecushion", options: { raceTo: "11" } },
             { label: "3-Cushion (21)",     img: "assets/threecushion.png", ruletype: "threecushion", options: { raceTo: "21" } },
             { label: "Trickshot",          img: "assets/practice.png",     url: "https://billiards.tailuge.workers.dev/practice" },
+            { label: "Research",           img: "assets/practice.png",     url: "https://billiards.tailuge.workers.dev/diagrams/three" },
         ];
 
         const soloUrl = (g, userId, userName) => {
             if (g.url) return g.url;
-            let url = `https://billiards.tailuge.workers.dev/?ruletype=${g.ruletype}&clientId=${encodeURIComponent(userId)}&name=${encodeURIComponent(userName)}`;
+            let url = `https://billiards.tailuge.workers.dev/?ruletype=${g.ruletype}&clientId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}`;
             if (g.options) Object.entries(g.options).forEach(([k, v]) => url += `&${k}=${encodeURIComponent(v)}`);
             return url;
         };
@@ -46,8 +47,8 @@
             connectedCallback() {
                 super.connectedCallback();
                 const p = new URLSearchParams(location.search);
-                this._userId   = p.get('id')   || 'user-' + Math.random().toString(36).slice(2, 7);
-                this._userName = p.get('name') || 'Player';
+                this._userId   = p.get('clientId') || 'user-' + Math.random().toString(36).slice(2, 7);
+                this._userName = p.get('userName')  || 'Player';
             }
 
             render() {

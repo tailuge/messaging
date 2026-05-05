@@ -41,7 +41,7 @@
 
         const gameUrl = ({ tableId, userId, userName, ruleType, spectating, isFirst, options }) => {
             let url = `https://billiards.tailuge.workers.dev/?websocketserver=wss://billiards.onrender.com/ws`
-                + `&tableId=${tableId}&name=${encodeURIComponent(userName)}&clientId=${userId}&ruletype=${ruleType}`;
+                + `&tableId=${tableId}&userName=${encodeURIComponent(userName)}&clientId=${userId}&ruletype=${ruleType}`;
             if (spectating) url += '&spectator=true';
             else if (isFirst) url += '&first=true';
             if (options) Object.entries(options).forEach(([k, v]) => url += `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
@@ -171,8 +171,8 @@
 
             constructor(host) {
                 const p = new URLSearchParams(location.search);
-                this.myId   = p.get('id')   || 'user-' + Math.random().toString(36).slice(2, 7);
-                this.myName = p.get('name') || 'Player';
+                this.myId   = p.get('clientId') || 'user-' + Math.random().toString(36).slice(2, 7);
+                this.myName = p.get('userName')  || 'Player';
 
                 let baseUrl = 'https://billiards-network.onrender.com';
                 if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
@@ -529,7 +529,7 @@
                         <span class="dot ${c.connected ? 'on' : ''}"></span>
                         <strong>${c.myName}</strong>
                         <span style="color:#888;font-size:0.75rem">${c.connected ? 'online' : 'connecting…'} · ${c.users.length} online</span>
-                        <a href="solo.html?id=${c.myId}&name=${encodeURIComponent(c.myName)}" style="margin-left:auto;font-size:0.75rem">Solo Practice</a>
+                        <a href="solo.html?clientId=${c.myId}&userName=${encodeURIComponent(c.myName)}" style="margin-left:auto;font-size:0.75rem">Solo Practice</a>
                     </div>`;
             }
 

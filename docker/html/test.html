@@ -27,7 +27,7 @@
             pane.className = 'pane';
             pane.innerHTML = `
                 <div class="pane-label">${u.name} (${u.id})</div>
-                <iframe src="lobby.html?id=${encodeURIComponent(u.id)}&name=${encodeURIComponent(u.name)}"></iframe>
+                <iframe src="lobby.html?clientId=${encodeURIComponent(u.id)}&userName=${encodeURIComponent(u.name)}"></iframe>
             `;
             document.body.appendChild(pane);
         });
