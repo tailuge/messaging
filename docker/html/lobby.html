@@ -44,78 +44,42 @@
         };
 
         function reduce(state, action) {
+            const C = { ...state.challenges };
+            const other = m => m.challengerId === action.myId ? m.recipientId : m.challengerId;
+
             switch (action.type) {
                 case 'CONNECTED':
                     return { ...state, connected: action.payload };
                 case 'USERS_UPDATE':
                     return { ...state, users: action.payload };
                 case 'CHALLENGE_SENT':
-                    return {
-                        ...state,
-                        challenges: {
-                            ...state.challenges,
-                            [action.payload.recipientId]: { ...action.payload, status: 'pending' }
-                        }
-                    };
+                    return { ...state, challenges: { ...C, [action.payload.recipientId]: { ...action.payload, status: 'pending' } } };
                 case 'CHALLENGE_MSG': {
-                    const msg = action.payload;
-                    const { myId } = action;
-                    const challenges = { ...state.challenges };
-                    if (msg.type === 'offer') {
-                        const existing = challenges[msg.challengerId];
-                        if (!existing || existing.tableId !== msg.tableId) {
-                            challenges[msg.challengerId] = { ...msg, status: 'pending' };
-                        }
-                    } else if (msg.type === 'accept') {
-                        if (state.currentMatch) return state;
-                        const otherId = msg.challengerId === myId ? msg.recipientId : msg.challengerId;
-                        const pending = challenges[otherId];
-                        const options = msg.options || (pending?.tableId === msg.tableId ? pending.options : undefined);
-                        if (pending && pending.tableId === msg.tableId) {
-                            delete challenges[otherId];
-                        }
-                        // Enter the match based on whether we sent or received the acceptance
-                        if (msg.recipientId === myId) {
-                            return {
-                                ...state,
-                                challenges,
-                                currentMatch: { tableId: msg.tableId, ruleType: msg.ruleType, options, isFirst: true }
-                            };
-                        } else if (msg.challengerId === myId) {
-                            return {
-                                ...state,
-                                challenges,
-                                currentMatch: { tableId: msg.tableId, ruleType: msg.ruleType, options, isFirst: false }
-                            };
-                        }
-                    } else if (msg.type === 'decline' || msg.type === 'cancel') {
-                        const otherId = msg.challengerId === myId ? msg.recipientId : msg.challengerId;
-                        if (challenges[otherId]) {
-                            if (msg.type === 'decline' && challenges[otherId].recipientId === otherId) {
-                                challenges[otherId] = { ...challenges[otherId], status: 'declined' };
-                            } else {
-                                delete challenges[otherId];
-                            }
-                        }
+                    const m = action.payload, id = other(m);
+                    if (m.type === 'offer') {
+                        if (!C[m.challengerId] || C[m.challengerId].tableId !== m.tableId)
+                            C[m.challengerId] = { ...m, status: 'pending' };
+                    } else if (m.type === 'accept' && !state.currentMatch) {
+                        const pending = C[id];
+                        const options = m.options || (pending?.tableId === m.tableId ? pending.options : undefined);
+                        delete C[id];
+                        return {
+                            ...state, challenges: C,
+                            currentMatch: { tableId: m.tableId, ruleType: m.ruleType, options, isFirst: m.recipientId === action.myId }
+                        };
+                    } else if (m.type === 'decline') {
+                        if (C[id]) C[id] = { ...C[id], status: 'declined' };
+                    } else if (m.type === 'cancel') {
+                        delete C[id];
                     }
-                    return { ...state, challenges };
+                    return { ...state, challenges: C };
                 }
                 case 'CHALLENGE_TIMEOUT':
-                    if (state.challenges[action.payload]?.status === 'pending') {
-                        return {
-                            ...state,
-                            challenges: {
-                                ...state.challenges,
-                                [action.payload]: { ...state.challenges[action.payload], status: 'timeout' }
-                            }
-                        };
-                    }
-                    return state;
-                case 'CHALLENGE_DISMISS': {
-                    const challenges = { ...state.challenges };
-                    delete challenges[action.payload];
-                    return { ...state, challenges };
-                }
+                    if (C[action.payload]?.status === 'pending') C[action.payload] = { ...C[action.payload], status: 'timeout' };
+                    return { ...state, challenges: C };
+                case 'CHALLENGE_DISMISS':
+                    delete C[action.payload];
+                    return { ...state, challenges: C };
                 case 'MATCH_SET':
                     return { ...state, currentMatch: action.payload };
                 case 'MATCH_LEAVE':
@@ -269,6 +233,9 @@
 
         // ── UI Components ──────────────────────────────────────────────────
 
+        const emit = (el, type, detail) =>
+            el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
+
         class UserList extends LitElement {
             static properties = {
                 users:   { type: Array },
@@ -293,7 +260,7 @@
                 let actions  = html``;
                 if (!isMe) {
                     if (canChallenge(u, this.myId)) {
-                        actions = html`<button class="btn-challenge" aria-label="Challenge ${u.userName}" ?disabled=${this.isChallengePending} @click=${() => this._emit('challenge', u.userId)}>Challenge</button>`;
+                        actions = html`<button class="btn-challenge" aria-label="Challenge ${u.userName}" ?disabled=${this.isChallengePending} @click=${() => emit(this, 'challenge', u.userId)}>Challenge</button>`;
                     }
                 }
                 return html`
@@ -304,47 +271,37 @@
                         <div class="actions">${actions}</div>
                     </li>`;
             }
-
-            _emit(type, detail) {
-                this.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
-            }
         }
 
         class ChallengeBanner extends LitElement {
-            static properties = { challenge: { type: Object } };
-            static styles = [SHARED_STYLES, CHALLENGE_BANNER_STYLES];
-            render() {
-                if (!this.challenge) return html``;
-                const c = this.challenge;
-                const extras = Object.entries(c.options ?? {}).map(([k, v]) => `${k}: ${v}`);
-                return html`
-                    <div class="banner">
-                        <strong>Challenge from ${c.challengerName}</strong>
-                        <div class="details">
-                            <span>📋 ${c.ruleType}</span>
-                            ${extras.map(e => html`<span>${e}</span>`)}
-                        </div>
-                        <div class="row">
-                            <button class="btn-accept" aria-label="Accept challenge" @click=${() => this._emit('accept')}>Accept</button>
-                            <button class="btn-decline" aria-label="Decline challenge" @click=${() => this._emit('decline')}>Decline</button>
-                        </div>
-                    </div>`;
-            }
-            _emit(type) {
-                this.dispatchEvent(new CustomEvent(type, { bubbles: true, composed: true }));
-            }
-        }
+            static properties = { challenge: { type: Object }, incoming: { type: Boolean } };
+            static styles = [SHARED_STYLES, CHALLENGE_BANNER_STYLES, SENT_CHALLENGE_BANNER_STYLES];
 
-        class SentChallengeBanner extends LitElement {
-            static properties = { challenge: { type: Object } };
-            static styles = [SHARED_STYLES, SENT_CHALLENGE_BANNER_STYLES];
             render() {
-                if (!this.challenge) return html``;
                 const c = this.challenge;
+                if (!c) return html``;
+
+                if (this.incoming) {
+                    // incoming challenge
+                    const extras = Object.entries(c.options ?? {}).map(([k, v]) => `${k}: ${v}`);
+                    return html`
+                        <div class="banner">
+                            <strong>Challenge from ${c.challengerName}</strong>
+                            <div class="details">
+                                <span>📋 ${c.ruleType}</span>
+                                ${extras.map(e => html`<span>${e}</span>`)}
+                            </div>
+                            <div class="row">
+                                <button class="btn-accept" aria-label="Accept challenge" @click=${() => emit(this, 'accept')}>Accept</button>
+                                <button class="btn-decline" aria-label="Decline challenge" @click=${() => emit(this, 'decline')}>Decline</button>
+                            </div>
+                        </div>`;
+                }
+
+                // sent challenge
                 const isWaiting = c.status === 'pending';
                 const isDecline = c.status === 'declined';
                 const isTimeout = c.status === 'timeout';
-
                 return html`
                     <div class="banner ${c.status}">
                         <div class="row">
@@ -354,15 +311,12 @@
                                 ${isTimeout ? `🕒 Challenge to ${c.recipientName} timed out.` : ''}
                             </strong>
                             ${isWaiting
-                                ? html`<button class="btn-leave" @click=${() => this._emit('cancel')}>Cancel</button>`
-                                : html`<button @click=${() => this._emit('dismiss')} aria-label="Dismiss">✕</button>`
+                                ? html`<button class="btn-leave" @click=${() => emit(this, 'cancel')}>Cancel</button>`
+                                : html`<button @click=${() => emit(this, 'dismiss')} aria-label="Dismiss">✕</button>`
                             }
                         </div>
                         <div class="details">📋 ${c.ruleType}</div>
                     </div>`;
-            }
-            _emit(type) {
-                this.dispatchEvent(new CustomEvent(type, { bubbles: true, composed: true }));
             }
         }
 
@@ -381,12 +335,12 @@
             render() {
                 if (!this.userId) return html``;
                 return html`
-                    <div class="backdrop" @click=${e => e.target === e.currentTarget && this._emit('cancel')}>
+                    <div class="backdrop" @click=${e => e.target === e.currentTarget && emit(this, 'cancel')}>
                         <div class="modal" role="dialog" aria-modal="true" aria-label="Select game type">
                             <h3>Challenge ${this.userName}</h3>
                             <div class="rules">
                                 ${ChallengeModal.RULES.map(r => html`
-                                    <button class="rule btn-challenge" @click=${() => this._emit('confirm', { ruleType: r.id, options: r.options })}>
+                                    <button class="rule btn-challenge" @click=${() => emit(this, 'confirm', { ruleType: r.id, options: r.options })}>
                                         <span class="icon-wrap">
                                             <img src=${r.img} alt=${r.label} />
                                             ${r.options ? html`<span class="badge">${Object.values(r.options)[0]}</span>` : ''}
@@ -394,12 +348,9 @@
                                         ${r.label}
                                     </button>`)}
                             </div>
-                            <button class="cancel" @click=${() => this._emit('cancel')}>Cancel</button>
+                            <button class="cancel" @click=${() => emit(this, 'cancel')}>Cancel</button>
                         </div>
                     </div>`;
-            }
-            _emit(type, detail) {
-                this.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
             }
         }
 
@@ -429,15 +380,13 @@
                 const c = this._ctrl;
                 return html`
                     <challenge-banner
-                        .challenge=${c.activeChallenge}
+                        .challenge=${c.activeChallenge || c.sentChallenge}
+                        ?incoming=${!!c.activeChallenge}
                         @accept=${() => c.acceptChallenge()}
-                        @decline=${() => c.declineChallenge()}>
-                    </challenge-banner>
-                    <sent-challenge-banner
-                        .challenge=${c.sentChallenge}
+                        @decline=${() => c.declineChallenge()}
                         @cancel=${() => c.cancelChallenge()}
                         @dismiss=${() => c.clearSentChallenge()}>
-                    </sent-challenge-banner>
+                    </challenge-banner>
                     <div class="panel">
                         <div class="panel-title">Online Players (${c.users.length})</div>
                         <user-list
@@ -480,7 +429,6 @@
 
         customElements.define('user-list',        UserList);
         customElements.define('challenge-banner', ChallengeBanner);
-        customElements.define('sent-challenge-banner', SentChallengeBanner);
         customElements.define('challenge-modal',  ChallengeModal);
         customElements.define('lobby-app',        LobbyApp);
     </script>
