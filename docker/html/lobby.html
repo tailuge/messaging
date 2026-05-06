@@ -65,7 +65,7 @@
                         delete C[id];
                         return {
                             ...state, challenges: C,
-                            currentMatch: { tableId: m.tableId, ruleType: m.ruleType, options, isFirst: m.challengeeId === action.myId }
+                            currentMatch: { tableId: m.tableId, ruleType: m.ruleType, options, isFirst: m.challengerId === action.myId }
                         };
                     } else if (m.type === 'decline') {
                         if (C[m.challengeeId]) C[m.challengeeId] = { ...C[m.challengeeId], status: 'declined' };
