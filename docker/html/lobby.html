@@ -70,7 +70,7 @@
                     } else if (m.type === 'decline') {
                         if (C[m.challengeeId]) C[m.challengeeId] = { ...C[m.challengeeId], status: 'declined' };
                     } else if (m.type === 'cancel') {
-                        delete C[m.challengeeId];
+                        delete C[other(m)];
                     }
                     return { ...state, challenges: C };
                 }
