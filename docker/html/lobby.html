@@ -12,7 +12,7 @@
 
     <script type="module">
         import { LitElement, html } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
-        import { MessagingClient, canChallenge } from 'https://unpkg.com/@tailuge/messaging';
+        import { MessagingClient, canChallenge } from '/messaging.js';
         import {
             SHARED_STYLES,
             USER_LIST_STYLES,
@@ -215,7 +215,7 @@
 
             async acceptChallenge() {
                 const c = this.activeChallenge;
-                this._table = await this._lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options);
+                this._table = await this._lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options, c.challengerName);
                 this.dispatch({
                     type: 'MATCH_SET',
                     payload: { tableId: c.tableId, ruleType: c.ruleType, options: c.options, isFirst: false }
@@ -224,7 +224,7 @@
 
             async declineChallenge() {
                 const c = this.activeChallenge;
-                await this._lobby.declineChallenge(c.challengerId, c.ruleType);
+                await this._lobby.declineChallenge(c.challengerId, c.ruleType, c.challengerName);
                 this.dispatch({ type: 'CHALLENGE_DISMISS', payload: c.challengerId });
             }
 

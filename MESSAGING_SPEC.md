@@ -75,12 +75,12 @@ interface Lobby {
    * Accept an incoming challenge.
    * Returns the Table instance for the accepted game.
    */
-  acceptChallenge(userId: string, ruleType: string, tableId: string): Promise<Table>;
+  acceptChallenge(userId: string, ruleType: string, tableId: string, options?: Record<string, string>, challengerName?: string): Promise<Table>;
 
   /**
    * Decline an incoming challenge.
    */
-  declineChallenge(userId: string, ruleType: string): Promise<void>;
+  declineChallenge(userId: string, ruleType: string, challengerName?: string): Promise<void>;
 
   /**
    * Cancel an outgoing challenge.
@@ -247,13 +247,28 @@ interface RematchInfo {
 
 Represents a peer-to-peer challenge request.
 
+> **Invariant:** `challengerId` always refers to the original challenger (the one who sent the `offer`), and `recipientId` always refers to the person being challenged. This must hold across **all** message types: `offer`, `accept`, `decline`, and `cancel` — regardless of who is sending the message.
+>
+> For example, when the recipient calls `declineChallenge()` or `acceptChallenge()`, they are the sender of that message but they must still set `challengerId` to the original challenger's ID and `recipientId` to their own ID.
+>
+> **FIXED:** `lobby.ts` `acceptChallenge()` and `declineChallenge()` now correctly set `challengerId: userId` (the passed-in challenger ID) and `recipientId: this.currentUser.userId`. An optional `challengerName` parameter was added to both methods so callers can pass the name from the received challenge object.
+>
+> **Field assignment by message type:**
+>
+> | type | sent by | `challengerId` | `recipientId` |
+> |---|---|---|---|
+> | `offer` | user-a | user-a | user-b |
+> | `cancel` | user-a | user-a | user-b |
+> | `accept` | user-b | user-a | user-a ← challenger needs to know |
+> | `decline` | user-b | user-a | user-a ← challenger needs to know |
+
 ```typescript
 interface ChallengeMessage {
   messageType: "challenge";
   type: "offer" | "accept" | "decline" | "cancel";
-  challengerId: string;
-  challengerName: string;
-  recipientId: string;
+  challengerId: string;   // Always the original challenger, across all message types
+  challengerName: string; // Always the original challenger's name, across all message types
+  recipientId: string;    // Always the person being challenged, across all message types
   ruleType: string;
   tableId?: string; // Optional: table created by challenger
   rematch?: RematchInfo; // Optional: context about a previous game

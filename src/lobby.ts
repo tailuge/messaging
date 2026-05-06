@@ -242,11 +242,12 @@ export class Lobby {
     ruleType: string,
     tableId: string,
     options?: Record<string, string>,
+    challengerName?: string,
   ): Promise<Table> {
     await this.nchan.publishChallenge({
       type: "accept",
-      challengerId: this.currentUser.userId,
-      challengerName: this.currentUser.userName,
+      challengerId: userId,
+      challengerName: challengerName ?? userId,
       recipientId: userId,
       ruleType,
       tableId,
@@ -264,11 +265,11 @@ export class Lobby {
   /**
    * Decline an incoming challenge.
    */
-  async declineChallenge(userId: string, ruleType: string): Promise<void> {
+  async declineChallenge(userId: string, ruleType: string, challengerName?: string): Promise<void> {
     await this.nchan.publishChallenge({
       type: "decline",
-      challengerId: this.currentUser.userId,
-      challengerName: this.currentUser.userName,
+      challengerId: userId,
+      challengerName: challengerName ?? userId,
       recipientId: userId,
       ruleType,
     });
