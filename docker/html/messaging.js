@@ -319,9 +319,9 @@ var ChallengeDeduplicator = class {
     this.onEmit = onEmit;
   }
   processMessage(msg, currentUserId) {
-    const interactionKey = [msg.challengerId, msg.recipientId].sort().join(":");
+    const interactionKey = [msg.challengerId, msg.challengeeId].sort().join(":");
     if (msg.type === "offer") {
-      if (msg.recipientId === currentUserId) {
+      if (msg.challengeeId === currentUserId) {
         this.clearInteraction(interactionKey);
         const timeoutId = setTimeout(() => {
           this.onEmit(msg);
@@ -334,7 +334,8 @@ var ChallengeDeduplicator = class {
       }
     } else {
       this.clearInteraction(interactionKey);
-      if (msg.recipientId === currentUserId) {
+      const isRelevant = msg.type === "cancel" ? msg.challengeeId === currentUserId : msg.challengerId === currentUserId;
+      if (isRelevant) {
         this.onEmit(msg);
       }
     }
@@ -515,7 +516,7 @@ var Lobby = class {
       type: "offer",
       challengerId: this.currentUser.userId,
       challengerName: this.currentUser.userName,
-      recipientId: userId,
+      challengeeId: userId,
       ruleType,
       tableId,
       rematch,
@@ -532,7 +533,7 @@ var Lobby = class {
       type: "accept",
       challengerId: userId,
       challengerName: challengerName ?? userId,
-      recipientId: userId,
+      challengeeId: this.currentUser.userId,
       ruleType,
       tableId,
       options
@@ -550,7 +551,7 @@ var Lobby = class {
       type: "decline",
       challengerId: userId,
       challengerName: challengerName ?? userId,
-      recipientId: userId,
+      challengeeId: this.currentUser.userId,
       ruleType
     });
   }
@@ -562,7 +563,7 @@ var Lobby = class {
       type: "cancel",
       challengerId: this.currentUser.userId,
       challengerName: this.currentUser.userName,
-      recipientId: userId,
+      challengeeId: userId,
       ruleType
     });
   }
