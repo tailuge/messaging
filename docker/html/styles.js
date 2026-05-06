@@ -29,7 +29,7 @@ export const USER_LIST_STYLES = css`
 export const CHALLENGE_BANNER_STYLES = css`
     :host { display: block; }
     .banner { background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 0.4rem 0.6rem; display: flex; flex-direction: column; gap: 0.3rem; }
-    .row { display: flex; gap: 0.3rem; }
+    .row { display: flex; gap: 0.3rem; justify-content: flex-end; }
     .details { font-size: 0.72rem; color: #595959; display: flex; flex-wrap: wrap; gap: 0.4rem; }
 `;
 
