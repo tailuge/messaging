@@ -224,7 +224,7 @@ export class Lobby {
       type: "offer",
       challengerId: this.currentUser.userId,
       challengerName: this.currentUser.userName,
-      recipientId: userId,
+      challengeeId: userId,
       ruleType,
       tableId,
       rematch,
@@ -248,7 +248,7 @@ export class Lobby {
       type: "accept",
       challengerId: userId,
       challengerName: challengerName ?? userId,
-      recipientId: userId,
+      challengeeId: this.currentUser.userId,
       ruleType,
       tableId,
       options,
@@ -270,7 +270,7 @@ export class Lobby {
       type: "decline",
       challengerId: userId,
       challengerName: challengerName ?? userId,
-      recipientId: userId,
+      challengeeId: this.currentUser.userId,
       ruleType,
     });
   }
@@ -283,7 +283,7 @@ export class Lobby {
       type: "cancel",
       challengerId: this.currentUser.userId,
       challengerName: this.currentUser.userName,
-      recipientId: userId,
+      challengeeId: userId,
       ruleType,
     });
   }

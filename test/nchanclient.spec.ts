@@ -55,7 +55,7 @@ describe("NchanClient", () => {
           type: "offer",
           challengerId: "user1",
           challengerName: "User 1",
-          recipientId: "user2",
+          challengeeId: "user2",
           ruleType: "standard",
         }),
       ).resolves.not.toThrow();
@@ -117,7 +117,7 @@ describe("NchanClient", () => {
     it("should receive challenge messages on presence channel", async () => {
       const client = new NchanClient(server);
       const messages: string[] = [];
-      const recipientId = "recipient-" + Date.now();
+      const challengeeId = "recipient-" + Date.now();
 
       const subscription = client.subscribePresence((data) => {
         messages.push(data);
@@ -129,17 +129,17 @@ describe("NchanClient", () => {
         type: "offer",
         challengerId: "challenger1",
         challengerName: "Challenger 1",
-        recipientId,
+        challengeeId,
         ruleType: "standard",
       });
 
-      await waitUntil(() => messages.some((m) => JSON.parse(m).recipientId === recipientId));
+      await waitUntil(() => messages.some((m) => JSON.parse(m).challengeeId === challengeeId));
 
       subscription.stop();
 
       const recentMessage = messages.reverse().find((m) => {
         const parsed = JSON.parse(m);
-        return parsed.recipientId === recipientId;
+        return parsed.challengeeId === challengeeId;
       });
       expect(recentMessage).toBeDefined();
       const parsed = JSON.parse(recentMessage!);

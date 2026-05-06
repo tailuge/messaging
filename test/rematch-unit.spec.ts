@@ -33,7 +33,7 @@ describe("Lobby Rematch", () => {
 
     expect(mockNchan.publishChallenge).toHaveBeenCalledWith(expect.objectContaining({
       type: "offer",
-      recipientId: "user-b",
+      challengeeId: "user-b",
       rematch: rematchInfo
     }));
   });
@@ -43,7 +43,7 @@ describe("Lobby Rematch", () => {
 
     expect(mockNchan.publishChallenge).toHaveBeenCalledWith(expect.objectContaining({
       type: "offer",
-      recipientId: "user-b",
+      challengeeId: "user-b",
       rematch: undefined
     }));
   });

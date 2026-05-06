@@ -53,7 +53,7 @@ export interface ChallengeMessage {
   type: "offer" | "accept" | "decline" | "cancel";
   challengerId: string;
   challengerName: string;
-  recipientId: string;
+  challengeeId: string;
   ruleType: string;
   tableId?: string; // Optional: table created by challenger
   readonly rematch?: RematchInfo; // Optional: context about a previous game

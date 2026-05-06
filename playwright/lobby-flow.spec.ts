@@ -50,7 +50,7 @@ test.describe('Lobby Flow', () => {
         type: 'offer',
         challengerId: 'alice',
         challengerName: 'Alice',
-        recipientId: 'bob',
+        challengeeId: 'bob',
         ruleType: 'eightball',
         tableId: 'test-table-123',
         meta: { country: 'US' }
@@ -68,9 +68,9 @@ test.describe('Lobby Flow', () => {
     const acceptMsg = {
         messageType: 'challenge',
         type: 'accept',
-        challengerId: 'bob',
-        challengerName: 'Bob',
-        recipientId: 'alice',
+        challengerId: 'alice',
+        challengerName: 'Alice',
+        challengeeId: 'bob',
         ruleType: 'eightball',
         tableId: 'test-table-123',
         meta: { country: 'GB' }
@@ -132,7 +132,7 @@ test.describe('Lobby Flow', () => {
     const challengeMsg = {
       messageType: 'challenge', type: 'offer',
       challengerId: 'alice', challengerName: 'Alice',
-      recipientId: 'bob', ruleType: 'eightball',
+      challengeeId: 'bob', ruleType: 'eightball',
       tableId: 'test-table-123', meta: { country: 'US' }
     };
 
@@ -148,9 +148,9 @@ test.describe('Lobby Flow', () => {
     const declineMsg = {
       messageType: 'challenge',
       type: 'decline',
-      challengerId: 'bob',
-      challengerName: 'Bob',
-      recipientId: 'alice',
+      challengerId: 'alice',
+      challengerName: 'Alice',
+      challengeeId: 'bob',
       ruleType: 'eightball',
       tableId: 'test-table-123',
       meta: { country: 'GB' }
@@ -209,7 +209,7 @@ test.describe('Lobby Flow', () => {
     const challengeMsg = {
       messageType: 'challenge', type: 'offer',
       challengerId: 'alice', challengerName: 'Alice',
-      recipientId: 'bob', ruleType: 'eightball',
+      challengeeId: 'bob', ruleType: 'eightball',
       tableId: 'test-table-123', meta: { country: 'US' }
     };
 
@@ -222,9 +222,9 @@ test.describe('Lobby Flow', () => {
     const acceptMsg = {
       messageType: 'challenge',
       type: 'accept',
-      challengerId: 'bob',
-      challengerName: 'Bob',
-      recipientId: 'alice',
+      challengerId: 'alice',
+      challengerName: 'Alice',
+      challengeeId: 'bob',
       ruleType: 'eightball',
       tableId: 'test-table-123',
       meta: { country: 'GB' }

@@ -58,3 +58,17 @@ Use a dedicated class to encapsulate the state. Data structures:
 1. **Stateless on the Client side:** When the user loads the game client in a new webpage, it starts with a clean slate. It doesn't need to know anything; it just reads Nchan's replays.
 2. **Nchan Replay Characteristics:** Nchan delivers recent history in rapid succession upon connection: `Offer(A->B)` followed very quickly by `Accept(B->A)`. The 250ms window is more than enough to capture the resolution.
 3. **No Storage Cleanup Needed:** Memory is bound to the `Lobby` lifecycle in the specific browser tab. It handles reconnects, page refreshes, and new tabs consistently by treating the Nchan stream as the single source of truth.
+
+
+--- after challngee change ---
+
+Consumers who interact directly with ChallengeMessage objects — for example in onChallenge     
+  callbacks — need to rename any references from recipientId to challengeeId. The field value    
+  itself is unchanged for offer and cancel messages (it's still the challengee's ID), so no logic
+  changes are needed there. However, for accept and decline messages, the value has changed:     
+  challengeeId is now always the challengee (B), whereas the old recipientId in those message    
+  types was incorrectly set to the challenger (A). Any code that was reading recipientId from an 
+  accept or decline message and expecting it to point back to the challenger will need to switch 
+  to challengerId instead. Consumers who only call the high-level methods (challenge,            
+  acceptChallenge, declineChallenge, cancelChallenge) and never inspect the raw ChallengeMessage 
+  fields beyond challengerId, ruleType, and tableId require no changes at all.    

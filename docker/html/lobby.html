@@ -45,7 +45,7 @@
 
         function reduce(state, action) {
             const C = { ...state.challenges };
-            const other = m => m.challengerId === action.myId ? m.recipientId : m.challengerId;
+            const other = m => m.challengerId === action.myId ? m.challengeeId : m.challengerId;
 
             switch (action.type) {
                 case 'CONNECTED':
@@ -53,7 +53,7 @@
                 case 'USERS_UPDATE':
                     return { ...state, users: action.payload };
                 case 'CHALLENGE_SENT':
-                    return { ...state, challenges: { ...C, [action.payload.recipientId]: { ...action.payload, status: 'pending' } } };
+                    return { ...state, challenges: { ...C, [action.payload.challengeeId]: { ...action.payload, status: 'pending' } } };
                 case 'CHALLENGE_MSG': {
                     const m = action.payload, id = other(m);
                     if (m.type === 'offer') {
@@ -65,14 +65,12 @@
                         delete C[id];
                         return {
                             ...state, challenges: C,
-                            currentMatch: { tableId: m.tableId, ruleType: m.ruleType, options, isFirst: m.recipientId === action.myId }
+                            currentMatch: { tableId: m.tableId, ruleType: m.ruleType, options, isFirst: m.challengeeId === action.myId }
                         };
                     } else if (m.type === 'decline') {
-                        const key = C[m.challengerId] ? m.challengerId : m.recipientId;
-                        if (C[key]) C[key] = { ...C[key], status: 'declined' };
+                        if (C[m.challengeeId]) C[m.challengeeId] = { ...C[m.challengeeId], status: 'declined' };
                     } else if (m.type === 'cancel') {
-                        const key = C[m.challengerId] ? m.challengerId : m.recipientId;
-                        delete C[key];
+                        delete C[m.challengeeId];
                     }
                     return { ...state, challenges: C };
                 }
@@ -111,7 +109,7 @@
 
             get activeChallenge() {
                 return Object.values(this.state.challenges)
-                    .find(c => c.recipientId === this.myId && c.status === 'pending');
+                    .find(c => c.challengeeId === this.myId && c.status === 'pending');
             }
             get sentChallenge() {
                 return Object.values(this.state.challenges)
@@ -165,7 +163,7 @@
                     const msgTime = msg.meta?.ts ? new Date(msg.meta.ts).getTime() : Infinity;
                     if (msgTime < this._connectTime) return; // ignore buffered messages from previous session
                     console.log('challenge msg:', JSON.stringify(msg, null, 2));
-                    this._clearTimerFor(msg.challengerId === this.myId ? msg.recipientId : msg.challengerId);
+                    this._clearTimerFor(msg.challengerId === this.myId ? msg.challengeeId : msg.challengerId);
                     this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
                 });
             }
@@ -173,7 +171,7 @@
             async challenge(userId, ruleType, options) {
                 const u = this.users.find(u => u.userId === userId);
                 const tableId = await this._lobby.challenge(userId, ruleType, undefined, options);
-                const payload = { challengerId: this.myId, recipientId: userId, recipientName: u?.userName || userId, ruleType, options, tableId };
+                const payload = { challengerId: this.myId, challengeeId: userId, recipientName: u?.userName || userId, ruleType, options, tableId };
                 console.log('challenge sent:', JSON.stringify(payload, null, 2));
                 this.dispatch({ type: 'CHALLENGE_SENT', payload });
 
@@ -187,7 +185,7 @@
             async cancelChallenge() {
                 const s = this.sentChallenge;
                 if (s?.status === 'pending') {
-                    await this._lobby.cancelChallenge(s.recipientId, s.ruleType);
+                    await this._lobby.cancelChallenge(s.challengeeId, s.ruleType);
                     this.clearSentChallenge();
                 }
             }
@@ -195,8 +193,8 @@
             clearSentChallenge() {
                 const s = this.sentChallenge;
                 if (s) {
-                    this._clearTimerFor(s.recipientId);
-                    this.dispatch({ type: 'CHALLENGE_DISMISS', payload: s.recipientId });
+                    this._clearTimerFor(s.challengeeId);
+                    this.dispatch({ type: 'CHALLENGE_DISMISS', payload: s.challengeeId });
                 }
             }
 
