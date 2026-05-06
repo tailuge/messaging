@@ -6,7 +6,7 @@ The game URL is constructed in `docker/html/lobby.html` using the `gameUrl` help
 |-----------|-------------|
 | `websocketserver` | The Nchan WebSocket endpoint (e.g., `wss://billiards.onrender.com/ws`). |
 | `tableId` | Unique identifier for the game table/room. |
-| `name` | The user's display name (URL-encoded). |
+| `userName` | The user's display name (URL-encoded). |
 | `clientId` | The user's unique ID. |
 | `ruletype` | The game rule type (e.g., `eightball`, `nineball`, `snooker`). |
 | `spectator` | `true` if the user is joining as a spectator. |
@@ -18,7 +18,7 @@ The game URL is constructed in `docker/html/lobby.html` using the `gameUrl` help
 ```javascript
 const gameUrl = ({ tableId, userId, userName, ruleType, spectating, isFirst, options }) => {
     let url = `https://billiards.tailuge.workers.dev/?websocketserver=wss://billiards.onrender.com/ws`
-        + `&tableId=${tableId}&name=${encodeURIComponent(userName)}&clientId=${userId}&ruletype=${ruleType}`;
+        + `&tableId=${tableId}&userName=${encodeURIComponent(userName)}&clientId=${userId}&ruletype=${ruleType}`;
     if (spectating) url += '&spectator=true';
     else if (isFirst) url += '&first=true';
     if (options) Object.entries(options).forEach(([k, v]) => url += `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
