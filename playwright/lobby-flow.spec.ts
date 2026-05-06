@@ -245,4 +245,72 @@ test.describe('Lobby Flow', () => {
     await alice.context.close();
     await bob.context.close();
   });
+
+  test('should remove challenge banner when challenger cancels', async ({ browser }) => {
+    const setupUser = async (name: string, id: string) => {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      await page.route('**/publish/presence/lobby', async (route) => {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'sent' }) });
+      });
+      await page.goto(`http://localhost:80/lobby.html?clientId=${id}&userName=${name}`);
+      return { context, page };
+    };
+
+    const alice = await setupUser('Alice', 'alice');
+    const bob = await setupUser('Bob', 'bob');
+
+    const users = [
+      { userId: 'alice', userName: 'Alice', messageType: 'presence', type: 'join', meta: { country: 'US' } },
+      { userId: 'bob', userName: 'Bob', messageType: 'presence', type: 'join', meta: { country: 'GB' } }
+    ];
+
+    for (const p of [alice.page, bob.page]) {
+      await p.evaluate((u) => {
+        const app = document.querySelector('lobby-app') as any;
+        app._ctrl.dispatch({ type: 'CONNECTED', payload: true });
+        app._ctrl.dispatch({ type: 'USERS_UPDATE', payload: u });
+      }, users);
+    }
+
+    // Alice challenges Bob
+    await alice.page.locator('button[aria-label="Challenge Bob"]').click();
+    await alice.page.locator('challenge-modal button:has-text("Eight Ball")').click();
+
+    const offerMsg = {
+      messageType: 'challenge', type: 'offer',
+      challengerId: 'alice', challengerName: 'Alice',
+      challengeeId: 'bob', ruleType: 'eightball',
+      tableId: 'test-table-123', meta: { country: 'US' }
+    };
+
+    await bob.page.evaluate((msg) => {
+      (document.querySelector('lobby-app') as any)._ctrl.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
+    }, offerMsg);
+
+    // Bob sees the incoming challenge banner
+    await expect(bob.page.locator('button[aria-label="Accept challenge"]')).toBeVisible();
+
+    // Alice cancels
+    const cancelMsg = {
+      messageType: 'challenge', type: 'cancel',
+      challengerId: 'alice', challengerName: 'Alice',
+      challengeeId: 'bob', ruleType: 'eightball',
+      tableId: 'test-table-123', meta: { country: 'US' }
+    };
+
+    await Promise.all([alice, bob].map(({ page }) =>
+      page.evaluate((msg) => {
+        (document.querySelector('lobby-app') as any)._ctrl.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
+      }, cancelMsg)
+    ));
+
+    // Bob's banner should be gone
+    await expect(bob.page.locator('button[aria-label="Accept challenge"]')).not.toBeVisible();
+    // Alice's sent banner should also be gone
+    await expect(alice.page.locator('challenge-banner')).not.toBeVisible();
+
+    await alice.context.close();
+    await bob.context.close();
+  });
 });
