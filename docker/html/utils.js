@@ -37,11 +37,6 @@ export function reduce(state, action) {
             }
             return { ...state, challenges: C };
         }
-        case 'CHALLENGE_TIMEOUT': {
-            const c = C[action.payload];
-            if (c?.status === 'pending') C[action.payload] = { ...c, status: 'timeout' };
-            return { ...state, challenges: C };
-        }
         case 'CHALLENGE_DISMISS':
             delete C[action.payload];
             return { ...state, challenges: C };
