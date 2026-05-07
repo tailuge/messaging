@@ -16,26 +16,25 @@ class InfoPanel extends LitElement {
         const { hiscores, topPlayers, recentMatches } = this._data;
         return html`
             ${Object.keys(hiscores).map(game => html`
-                <h2>${game}</h2>
-                <h3>High Scores</h3>
-                <table><tr><th>Name</th><th>Score</th></tr>
+                <div class="tbl"><table><caption>${game} · High Scores</caption>
+                <tr><th>Name</th><th>Score</th></tr>
                     ${hiscores[game].map(s => html`<tr><td>${s.name}</td><td>${s.score}</td></tr>`)}
-                </table>
-                <h3>Top Players</h3>
-                <table><tr><th>Name</th><th>Rating</th><th>W</th><th>L</th></tr>
+                </table></div>
+                <div class="tbl"><table><caption>${game} · Top Players</caption>
+                <tr><th>Name</th><th>Rating</th><th>W</th><th>L</th></tr>
                     ${topPlayers[game].map(p => html`<tr>
                         <td><a href="/player/${encodeURIComponent(p.name)}?ruleType=${game}">${p.name}</a></td>
                         <td>${Math.round(p.rating)}</td><td>${p.wins}</td><td>${p.losses}</td>
                     </tr>`)}
-                </table>
+                </table></div>
             `)}
-            <h2>Recent Matches</h2>
-            <table><tr><th>Winner</th><th>Loser</th><th>Rule</th><th>Date</th></tr>
+            <div class="tbl"><table><caption>Recent Matches</caption>
+            <tr><th>Winner</th><th>Loser</th><th>Rule</th><th>Date</th></tr>
                 ${recentMatches.map(m => html`<tr>
                     <td>${m.winner}</td><td>${m.loser||'-'}</td><td>${m.ruleType||'nineball'}</td>
                     <td>${new Date(m.timestamp).toLocaleString()}</td>
                 </tr>`)}
-            </table>`;
+            </table></div>`;
     }
 }
 

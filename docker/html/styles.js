@@ -68,11 +68,11 @@ export const SOLO_PANEL_STYLES = css`
 
 export const INFO_PANEL_STYLES = css`
     :host { display: block; overflow-y: auto; font-size: 0.75rem; }
-    table { border-collapse: collapse; width: auto; margin-bottom: 0.5rem; }
+    .tbl { display: inline-block; border: 1px solid #ccc; border-radius: 4px; margin: 0.25rem; overflow: hidden; }
+    table { border-collapse: collapse; width: auto; }
     th, td { border: 1px solid #ddd; padding: 0.15rem 0.3rem; text-align: left; }
     th { background: #f5f5f5; font-weight: 600; }
-    h2 { font-size: 0.85rem; margin: 0.5rem 0 0.2rem; }
-    h3 { font-size: 0.75rem; margin: 0.3rem 0 0.15rem; color: #555; }
+    caption { font-size: 0.8rem; font-weight: 600; text-align: center; padding: 0.2rem 0; color: #333; }
     a { color: #0d6efd; }
 `;
 
