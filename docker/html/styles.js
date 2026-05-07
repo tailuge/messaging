@@ -56,11 +56,36 @@ export const CHALLENGE_MODAL_STYLES = css`
     .badge { position: absolute; bottom: 0; right: 0; background: #dc3545; color: #fff; font-size: 0.55rem; font-weight: bold; border-radius: 3px; padding: 0 2px; line-height: 1.3; }
 `;
 
+export const SOLO_PANEL_STYLES = css`
+    :host { display: block; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.25rem; }
+    button { border: none; background: none; cursor: pointer; padding: 0.2rem; opacity: 0.7; border-radius: 4px; }
+    button:hover { opacity: 1; background: #f0f0f0; }
+    .icon-wrap { position: relative; display: block; }
+    img { display: block; width: 36px; height: 36px; margin: auto; }
+    .badge { position: absolute; bottom: 0; right: 0; background: #dc3545; color: #fff; font-size: 0.5rem; font-weight: bold; border-radius: 3px; padding: 0 2px; line-height: 1.3; }
+`;
+
+export const INFO_PANEL_STYLES = css`
+    :host { display: block; overflow-y: auto; font-size: 0.75rem; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 0.5rem; }
+    th, td { border: 1px solid #ddd; padding: 0.15rem 0.3rem; text-align: left; }
+    th { background: #f5f5f5; font-weight: 600; }
+    h2 { font-size: 0.85rem; margin: 0.5rem 0 0.2rem; }
+    h3 { font-size: 0.75rem; margin: 0.3rem 0 0.15rem; color: #555; }
+    a { color: #0d6efd; }
+`;
+
 export const LOBBY_APP_STYLES = css`
-    :host { display: flex; flex-direction: column; min-height: 100vh; font-family: sans-serif; font-size: 0.85rem; box-sizing: border-box; padding: 0.5rem; gap: 0.4rem; background: #f5f5f5; }
-    .status-bar { display: flex; align-items: center; gap: 0.5rem; }
+    :host { display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; font-size: 0.85rem; box-sizing: border-box; padding: 0.5rem; gap: 0.4rem; background: #f5f5f5; overflow: hidden; }
+    .status-bar { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
     .dot { width: 8px; height: 8px; border-radius: 50%; background: #dc3545; flex-shrink: 0; }
     .dot.on { background: #198754; }
-    .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 0.4rem; }
-    .panel-title { font-weight: bold; margin-bottom: 0.25rem; font-size: 0.8rem; color: #555; }
+    .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 0.4rem; overflow: hidden; }
+    .panel-title { font-weight: bold; margin-bottom: 0.25rem; font-size: 0.8rem; color: #555; text-align: center; }
+    .main-row { display: flex; gap: 0.4rem; flex-shrink: 0; }
+    .main-row .solo { flex: 0 0 auto; }
+    .main-row .players { flex: 1; display: flex; flex-direction: column; }
+    .info-row { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .info-row .panel { flex: 1; min-height: 0; overflow: hidden; }
 `;
