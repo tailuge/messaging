@@ -30,10 +30,11 @@ class InfoPanel extends LitElement {
                 </table></div>
             `)}
             <div class="tbl"><table><caption>Recent Matches</caption>
-            <tr><th>Winner</th><th>Loser</th><th>Rule</th><th>Date</th></tr>
+            <tr><th>Winner</th><th>Loser</th><th>Rule</th><th>Date</th><th></th></tr>
                 ${recentMatches.map(m => html`<tr>
                     <td>${m.winner}</td><td>${m.loser||'-'}</td><td>${m.ruleType||'nineball'}</td>
                     <td>${new Date(m.timestamp).toLocaleString()}</td>
+                    <td>${m.hasReplay ? html`<a href="${SCOREBOARD_URL}/api/match-replay?id=${m.id}">replay</a>` : ''}</td>
                 </tr>`)}
             </table></div>`;
     }

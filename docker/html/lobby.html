@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lobby</title>
-    <style>*, html, body { margin: 0; padding: 0; box-sizing: border-box; } body { overflow-y: auto; scrollbar-width: none; } body::-webkit-scrollbar { display: none; }</style>
+    <style>*, html, body { margin: 0; padding: 0; box-sizing: border-box; } html, body { height: 100%; overflow-y: auto; scrollbar-width: none; } body::-webkit-scrollbar { display: none; } main { margin: 0 0.2rem; }</style>
 </head>
 <body>
     <main>
@@ -231,11 +231,7 @@
             }
 
             _renderInfo() {
-                return html`
-                    <div class="panel">
-                        <div class="panel-title">Scores</div>
-                        <info-panel></info-panel>
-                    </div>`;
+                return html`<div class="panel"><info-panel></info-panel></div>`;
             }
 
             _renderGamePanel() {
