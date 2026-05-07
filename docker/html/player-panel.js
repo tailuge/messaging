@@ -17,7 +17,7 @@ class UserList extends LitElement {
 
     render() {
         const others = (this.users || []).filter(u => u.userId !== this.myId);
-        if (others.length === 0) return html`<div style="padding:1rem;text-align:center;color:#757575;font-style:italic;font-size:0.8rem">No other players online yet. Invite a friend!</div>`;
+        if (others.length === 0) return html`<div class="empty">No other players online yet. Invite a friend!</div>`;
         return html`<ul>${others.map(u => this._row(u))}</ul>`;
     }
 

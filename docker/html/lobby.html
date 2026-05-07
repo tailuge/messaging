@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lobby</title>
     <style>*, html, body { margin: 0; padding: 0; box-sizing: border-box; } html, body { height: 100%; overflow-y: auto; scrollbar-width: none; } body::-webkit-scrollbar { display: none; } main { margin: 0 0.2rem; }</style>
+    <script>
+        // Anti-FART: set theme before first render
+        const _t = localStorage.getItem('theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('theme', _t);
+    </script>
 </head>
 <body>
     <main>
@@ -190,12 +195,44 @@
         // ── Main App ───────────────────────────────────────────────────────
 
         class LobbyApp extends LitElement {
-            static styles = LOBBY_APP_STYLES;
+            static styles = [LOBBY_APP_STYLES, css`
+                .topbar { position: relative; display: flex; justify-content: flex-end; flex-shrink: 0; }
+                .burger { background: none; border: none; font-size: 1.1rem; cursor: pointer; padding: 0.1rem 0.3rem; color: var(--text-muted); line-height: 1; }
+                .burger:hover { color: var(--text); background: none; }
+                .menu { position: absolute; top: 100%; right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem 0.6rem; z-index: 50; display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+                .menu label { color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 0.3rem; }
+            `];
 
             constructor() {
                 super();
                 this._ctrl = new LobbyController(this);
-                this._pendingChallenge = null; // { userId, userName }
+                this._pendingChallenge = null;
+                this._menuOpen = false;
+                // sync theme attribute from html element
+                this._theme = document.documentElement.getAttribute('theme') || 'light';
+            }
+
+            _toggleMenu() { this._menuOpen = !this._menuOpen; this.requestUpdate(); }
+
+            _setTheme(theme) {
+                this._theme = theme;
+                this.setAttribute('theme', theme);
+                document.documentElement.setAttribute('theme', theme);
+                localStorage.setItem('theme', theme);
+                this._menuOpen = false;
+                this.requestUpdate();
+            }
+
+            connectedCallback() {
+                super.connectedCallback();
+                this.setAttribute('theme', this._theme);
+                this._closeMenu = e => { if (!this.renderRoot.contains(e.target)) { this._menuOpen = false; this.requestUpdate(); } };
+                document.addEventListener('click', this._closeMenu);
+            }
+
+            disconnectedCallback() {
+                super.disconnectedCallback();
+                document.removeEventListener('click', this._closeMenu);
             }
 
             _renderPlayers() {
@@ -244,7 +281,19 @@
 
             render() {
                 const p = this._pendingChallenge;
+                const isDark = this._theme === 'dark';
                 return html`
+                    <div class="topbar">
+                        <button class="burger" aria-label="Menu" @click=${this._toggleMenu}>&#9776;</button>
+                        ${this._menuOpen ? html`
+                            <div class="menu">
+                                <label>
+                                    <input type="checkbox" .checked=${isDark}
+                                        @change=${e => this._setTheme(e.target.checked ? 'dark' : 'light')}>
+                                    Dark mode
+                                </label>
+                            </div>` : ''}
+                    </div>
                     <h1>Billiards</h1>
                     <div class="main-row">
                         <div class="solo">${this._renderSolo()}</div>
