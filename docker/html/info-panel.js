@@ -15,12 +15,15 @@ class InfoPanel extends LitElement {
         if (this._err) return html`<span style="color:#999">Could not load scores.</span>`;
         if (!this._data) return html`<span style="color:#999">Loading…</span>`;
         const { hiscores, topPlayers, recentMatches } = this._data;
+        const games = Object.keys(hiscores);
         return html`
-            ${Object.keys(hiscores).map(game => html`
+            ${games.map(game => html`
                 <div class="tbl"><table><caption>${game} · High Scores</caption>
                 <tr><th>Name</th><th>Score</th><th></th></tr>
                     ${hiscores[game].map(s => html`<tr><td>${s.name}</td><td>${s.score}</td><td><a href="${SCOREBOARD_URL}/api/rank/${s.id}?ruletype=${game}">replay</a></td></tr>`)}
                 </table></div>
+            `)}
+            ${games.map(game => html`
                 <div class="tbl"><table><caption>${game} · Top Players</caption>
                 <tr><th>Name</th><th>Rating</th><th>W</th><th>L</th></tr>
                     ${topPlayers[game].map(p => html`<tr>
