@@ -168,7 +168,7 @@ export const SOLO_PANEL_STYLES = css`
 
 export const INFO_PANEL_STYLES = css`
     :host { display: block; overflow-y: auto; font-size: 0.75rem; color: var(--text); }
-    .tbl { display: inline-block; border: 1px solid var(--border); border-radius: 4px; margin: 0.25rem; overflow: hidden; }
+    .tbl { display: inline-block; vertical-align: top; border: 1px solid var(--border); border-radius: 4px; margin: 0.25rem; overflow: hidden; }
     table { border-collapse: collapse; width: auto; }
     th, td { border: 1px solid var(--border); padding: 0.15rem 0.3rem; text-align: left; }
     th { background: var(--table-head); font-weight: 600; }
