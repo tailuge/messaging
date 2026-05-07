@@ -68,7 +68,7 @@ export const SOLO_PANEL_STYLES = css`
 
 export const INFO_PANEL_STYLES = css`
     :host { display: block; overflow-y: auto; font-size: 0.75rem; }
-    table { border-collapse: collapse; width: 100%; margin-bottom: 0.5rem; }
+    table { border-collapse: collapse; width: auto; margin-bottom: 0.5rem; }
     th, td { border: 1px solid #ddd; padding: 0.15rem 0.3rem; text-align: left; }
     th { background: #f5f5f5; font-weight: 600; }
     h2 { font-size: 0.85rem; margin: 0.5rem 0 0.2rem; }
