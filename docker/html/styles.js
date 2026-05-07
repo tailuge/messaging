@@ -86,13 +86,14 @@ export const PLAYER_PANEL_STYLES = css`
 `;
 
 export const LOBBY_APP_STYLES = css`
-    :host { display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; font-size: 0.85rem; box-sizing: border-box; padding: 0.5rem; gap: 0.4rem; background: #f5f5f5; overflow: hidden; }
+    :host { display: flex; flex-direction: column; min-height: 100vh; font-family: sans-serif; font-size: 0.85rem; box-sizing: border-box; padding: 0.5rem; gap: 0.4rem; background: #f5f5f5; overflow-y: auto; scrollbar-width: none; }
+    :host::-webkit-scrollbar { display: none; }
     h1 { font-size: 0.6rem; color: #bbb; text-align: center; margin: 0; letter-spacing: 0.1em; text-transform: uppercase; flex-shrink: 0; }
     .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 0.4rem; overflow: hidden; }
     .panel-title { font-weight: bold; margin-bottom: 0.25rem; font-size: 0.8rem; color: #555; text-align: center; }
     .main-row { display: flex; gap: 0.4rem; flex-shrink: 0; }
     .main-row .solo { flex: 0 0 auto; }
     .main-row .players { flex: 1; display: flex; flex-direction: column; }
-    .info-row { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-    .info-row .panel { flex: 1; min-height: 0; overflow: hidden; }
+    .info-row { display: flex; flex-direction: column; }
+    .info-row .panel { overflow: visible; }
 `;
