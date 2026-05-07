@@ -76,11 +76,18 @@ export const INFO_PANEL_STYLES = css`
     a { color: #0d6efd; }
 `;
 
-export const LOBBY_APP_STYLES = css`
-    :host { display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; font-size: 0.85rem; box-sizing: border-box; padding: 0.5rem; gap: 0.4rem; background: #f5f5f5; overflow: hidden; }
-    .status-bar { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+export const PLAYER_PANEL_STYLES = css`
+    :host { display: flex; flex-direction: column; height: 100%; }
+    .panel-header { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.25rem; }
+    .panel-title { font-weight: bold; font-size: 0.8rem; color: #555; text-align: center; flex: 1; }
+    .user-name { font-size: 0.75rem; font-weight: 500; white-space: nowrap; }
     .dot { width: 8px; height: 8px; border-radius: 50%; background: #dc3545; flex-shrink: 0; }
     .dot.on { background: #198754; }
+`;
+
+export const LOBBY_APP_STYLES = css`
+    :host { display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; font-size: 0.85rem; box-sizing: border-box; padding: 0.5rem; gap: 0.4rem; background: #f5f5f5; overflow: hidden; }
+    h1 { font-size: 0.6rem; color: #bbb; text-align: center; margin: 0; letter-spacing: 0.1em; text-transform: uppercase; flex-shrink: 0; }
     .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 0.4rem; overflow: hidden; }
     .panel-title { font-weight: bold; margin-bottom: 0.25rem; font-size: 0.8rem; color: #555; text-align: center; }
     .main-row { display: flex; gap: 0.4rem; flex-shrink: 0; }

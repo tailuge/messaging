@@ -13,13 +13,10 @@
 
     <script type="module">
         import { LitElement, html, css } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
-        import { MessagingClient, canChallenge } from '/messaging.js';
-        import { flag, gameUrl, INITIAL_STATE, reduce, getEmoji } from './utils.js';
+        import { MessagingClient } from '/messaging.js';
+        import { gameUrl, INITIAL_STATE, reduce } from './utils.js';
         import {
             SHARED_STYLES,
-            USER_LIST_STYLES,
-            CHALLENGE_BANNER_STYLES,
-            SENT_CHALLENGE_BANNER_STYLES,
             CHALLENGE_MODAL_STYLES,
             LOBBY_APP_STYLES
         } from './styles.js';
@@ -144,93 +141,14 @@
             }
         }
 
+        import './solo-panel.js';
+        import './info-panel.js';
+        import './player-panel.js';
+
         // ── UI Components ──────────────────────────────────────────────────
 
         const emit = (el, type, detail) =>
             el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
-
-        class UserList extends LitElement {
-            static properties = {
-                users:   { type: Array },
-                myId:    { type: String },
-                tableId: { type: String },
-                isChallengePending: { type: Boolean },
-            };
-            static styles = [SHARED_STYLES, USER_LIST_STYLES];
-
-            render() {
-                const others = (this.users || []).filter(u => u.userId !== this.myId);
-                if (others.length === 0) {
-                    return html`<div style="padding: 1rem; text-align: center; color: #757575; font-style: italic; font-size: 0.8rem;">
-                        No other players online yet. Invite a friend!
-                    </div>`;
-                }
-                return html`<ul>${others.map(u => this._row(u))}</ul>`;
-            }
-
-            _row(u) {
-                const isMe   = u.userId === this.myId;
-                let actions  = html``;
-                if (!isMe) {
-                    if (canChallenge(u, this.myId)) {
-                        actions = html`<button class="btn-challenge" aria-label="Challenge ${u.userName}" ?disabled=${this.isChallengePending} @click=${() => emit(this, 'challenge', u.userId)}>Challenge</button>`;
-                    }
-                }
-                return html`
-                    <li>
-                        <div class="user-info">
-                            <span class="user-name">${flag(u.meta?.country)} ${u.userName}${isMe ? ' (you)' : ''} ${getEmoji(u.meta?.origin ?? '', u.tableId ?? '').emoji}</span>
-                        </div>
-                        <div class="actions">${actions}</div>
-                    </li>`;
-            }
-        }
-
-        class ChallengeBanner extends LitElement {
-            static properties = { challenge: { type: Object }, sent: { type: Object } };
-            static styles = [SHARED_STYLES, CHALLENGE_BANNER_STYLES, SENT_CHALLENGE_BANNER_STYLES];
-
-            render() {
-                if (this.challenge) return this._incoming(this.challenge);
-                if (this.sent) return this._sent(this.sent);
-                return html``;
-            }
-
-            _incoming(c) {
-                const extras = Object.entries(c.options ?? {}).map(([k, v]) => `${k}: ${v}`);
-                return html`
-                    <div class="banner">
-                        <strong>Challenge from ${c.challengerName}</strong>
-                        <div class="details">
-                            <span>📋 ${c.ruleType}</span>
-                            ${extras.map(e => html`<span>${e}</span>`)}
-                        </div>
-                        <div class="row">
-                            <button class="btn-accept" aria-label="Accept challenge" @click=${() => emit(this, 'accept')}>Accept</button>
-                            <button class="btn-decline" aria-label="Decline challenge" @click=${() => emit(this, 'decline')}>Decline</button>
-                        </div>
-                    </div>`;
-            }
-
-            _sent(c) {
-                const isWaiting = c.status === 'pending';
-                const isDecline = c.status === 'declined';
-                return html`
-                    <div class="banner ${c.status}">
-                        <div class="row">
-                            <strong>
-                                ${isWaiting ? `⏳ Waiting for ${c.recipientName}…` : ''}
-                                ${isDecline ? `❌ ${c.recipientName} declined your challenge.` : ''}
-                            </strong>
-                            ${isWaiting
-                                ? html`<button class="btn-leave" @click=${() => emit(this, 'cancel')}>Cancel</button>`
-                                : html`<button @click=${() => emit(this, 'dismiss')} aria-label="Dismiss">✕</button>`
-                            }
-                        </div>
-                        <div class="details">📋 ${c.ruleType}</div>
-                    </div>`;
-            }
-        }
 
         class ChallengeModal extends LitElement {
             static properties = { userId: { type: String }, userName: { type: String } };
@@ -280,41 +198,27 @@
                 this._pendingChallenge = null; // { userId, userName }
             }
 
-            _renderStatusBar() {
+            _renderPlayers() {
                 const c = this._ctrl;
                 return html`
-                    <div class="status-bar">
-                        <span class="dot ${c.connected ? 'on' : ''}"></span>
-                        <strong>${c.myName}</strong>
-                        <span style="color:#757575;font-size:0.75rem">${c.connected ? 'online' : 'connecting…'} · ${c.users.length} online</span>
-                    </div>`;
-            }
-
-            _renderUsers() {
-                const c = this._ctrl;
-                return html`
-                    <challenge-banner
-                        .challenge=${c.activeChallenge}
-                        .sent=${c.sentChallenge}
+                    <player-panel
+                        .users=${c.users}
+                        myId=${c.myId}
+                        myName=${c.myName}
+                        ?connected=${c.connected}
+                        tableId=${c.tableId || ''}
+                        .activeChallenge=${c.activeChallenge}
+                        .sentChallenge=${c.sentChallenge}
                         @accept=${() => c.acceptChallenge()}
                         @decline=${() => c.declineChallenge()}
                         @cancel=${() => c.cancelChallenge()}
-                        @dismiss=${() => c.clearSentChallenge()}>
-                    </challenge-banner>
-                    <div class="panel">
-                        <div class="panel-title">Play Online</div>
-                        <user-list
-                            .users=${c.users}
-                            myId=${c.myId}
-                            tableId=${c.tableId || ''}
-                            .isChallengePending=${c.sentChallenge?.status === 'pending'}
-                            @challenge=${e => {
-                                const u = c.users.find(u => u.userId === e.detail);
-                                this._pendingChallenge = { userId: e.detail, userName: u?.userName ?? e.detail };
-                                this.requestUpdate();
-                            }}>
-                        </user-list>
-                    </div>`;
+                        @dismiss=${() => c.clearSentChallenge()}
+                        @challenge=${e => {
+                            const u = c.users.find(u => u.userId === e.detail);
+                            this._pendingChallenge = { userId: e.detail, userName: u?.userName ?? e.detail };
+                            this.requestUpdate();
+                        }}>
+                    </player-panel>`;
             }
 
             _renderSolo() {
@@ -345,10 +249,10 @@
             render() {
                 const p = this._pendingChallenge;
                 return html`
-                    ${this._renderStatusBar()}
+                    <h1>Billiards</h1>
                     <div class="main-row">
                         <div class="solo">${this._renderSolo()}</div>
-                        <div class="players">${this._renderUsers()}</div>
+                        <div class="players panel">${this._renderPlayers()}</div>
                     </div>
                     <div class="info-row">${this._renderInfo()}</div>
                     ${this._renderGamePanel()}
@@ -362,8 +266,6 @@
             }
         }
 
-        customElements.define('user-list',        UserList);
-        customElements.define('challenge-banner', ChallengeBanner);
         customElements.define('challenge-modal',  ChallengeModal);
         customElements.define('lobby-app',        LobbyApp);
     </script>
