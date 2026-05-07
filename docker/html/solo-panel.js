@@ -2,15 +2,15 @@ import { LitElement, html } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/li
 import { SOLO_PANEL_STYLES } from './styles.js';
 
 const GAMES = [
-    { label: "Eight Ball",    img: "assets/eightball.png",    ruletype: "eightball" },
     { label: "Nine Ball",     img: "assets/nineball.png",     ruletype: "nineball" },
-    { label: "Snooker",       img: "assets/snooker.png",      ruletype: "snooker" },
-    { label: "Snooker 6r",    img: "assets/snooker.png",      ruletype: "snooker",      options: { reds: "6" } },
-    { label: "3-Cushion",     img: "assets/threecushion.png", ruletype: "threecushion" },
+    { label: "Snooker 6r",       img: "assets/snooker.png",      ruletype: "snooker",      options: { reds: "6" } },
+    { label: "Snooker",    img: "assets/snooker.png",      ruletype: "snooker",      options: { reds: "15" } },
+    { label: "3-Cushion",     img: "assets/threecushion.png", ruletype: "threecushion", options: { raceTo: "3" }  },
     { label: "3-Cushion 11",  img: "assets/threecushion.png", ruletype: "threecushion", options: { raceTo: "11" } },
     { label: "3-Cushion 21",  img: "assets/threecushion.png", ruletype: "threecushion", options: { raceTo: "21" } },
     { label: "Trickshot",     img: "assets/practice.png",     url: "https://billiards.tailuge.workers.dev/practice" },
     { label: "Research",      img: "assets/practice.png",     url: "https://billiards.tailuge.workers.dev/diagrams/three" },
+    { label: "Eight Ball",    img: "assets/eightball.png",    ruletype: "eightball" },
 ];
 
 const soloUrl = (g, userId, userName) => {
