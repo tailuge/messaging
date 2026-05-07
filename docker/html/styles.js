@@ -38,7 +38,6 @@ export const SENT_CHALLENGE_BANNER_STYLES = css`
     .banner { border-radius: 6px; padding: 0.4rem 0.6rem; display: flex; flex-direction: column; gap: 0.3rem; border: 1px solid; }
     .pending { background: #fff3cd; border-color: #ffc107; }
     .declined { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
-    .timeout { background: #e2e3e5; border-color: #d6d8db; color: #383d41; }
     .row { display: flex; gap: 0.3rem; align-items: center; justify-content: space-between; }
     .details { font-size: 0.72rem; }
 `;
@@ -58,7 +57,7 @@ export const CHALLENGE_MODAL_STYLES = css`
 `;
 
 export const LOBBY_APP_STYLES = css`
-    :host { display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; font-size: 0.85rem; box-sizing: border-box; padding: 0.5rem; gap: 0.4rem; background: #f5f5f5; }
+    :host { display: flex; flex-direction: column; min-height: 100vh; font-family: sans-serif; font-size: 0.85rem; box-sizing: border-box; padding: 0.5rem; gap: 0.4rem; background: #f5f5f5; }
     .status-bar { display: flex; align-items: center; gap: 0.5rem; }
     .dot { width: 8px; height: 8px; border-radius: 50%; background: #dc3545; flex-shrink: 0; }
     .dot.on { background: #198754; }
