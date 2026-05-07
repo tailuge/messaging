@@ -62,7 +62,7 @@ export const SOLO_PANEL_STYLES = css`
     button { border: none; background: none; cursor: pointer; padding: 0.2rem; opacity: 0.7; border-radius: 4px; }
     button:hover { opacity: 1; background: #f0f0f0; }
     .icon-wrap { position: relative; display: block; }
-    img { display: block; width: 36px; height: 36px; margin: auto; }
+    img { display: block; width: 48px; height: 48px; margin: auto; }
     .badge { position: absolute; bottom: 0; right: 0; background: #dc3545; color: #fff; font-size: 0.5rem; font-weight: bold; border-radius: 3px; padding: 0 2px; line-height: 1.3; }
 `;
 
