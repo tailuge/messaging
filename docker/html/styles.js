@@ -197,3 +197,12 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     .info-row { display: flex; flex-direction: column; }
     .info-row .panel { overflow: visible; }
 `];
+
+export const BURGER_MENU_STYLES = css`
+    .topbar { position: relative; display: flex; align-items: center; flex-shrink: 0; }
+    .topbar h1 { flex: 1; }
+    .burger { background: none; border: none; font-size: 1.1rem; cursor: pointer; padding: 0.1rem 0.3rem; color: var(--text-muted); line-height: 1; }
+    .burger:hover { color: var(--text); background: none; }
+    .menu { position: absolute; top: 100%; right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem 0.6rem; z-index: 50; display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+    .menu label { color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 0.3rem; }
+`;
