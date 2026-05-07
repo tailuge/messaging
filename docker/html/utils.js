@@ -1,4 +1,6 @@
 
+export const SCOREBOARD_URL = 'https://scoreboard-tailuge.vercel.app';
+
 export const INITIAL_STATE = {
     connected: false,
     users: [],

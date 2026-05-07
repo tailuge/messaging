@@ -1,11 +1,12 @@
 import { LitElement, html } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
 import { INFO_PANEL_STYLES } from './styles.js';
+import { SCOREBOARD_URL } from './utils.js';
 
 class InfoPanel extends LitElement {
     static styles = INFO_PANEL_STYLES;
     connectedCallback() {
         super.connectedCallback();
-        fetch('https://scoreboard-tailuge.vercel.app/api/summary', { mode: 'cors' })
+        fetch(`${SCOREBOARD_URL}/api/summary`, { mode: 'cors' })
             .then(r => r.json())
             .then(d => { this._data = d; this.requestUpdate(); })
             .catch(() => { this._err = true; this.requestUpdate(); });
@@ -17,13 +18,13 @@ class InfoPanel extends LitElement {
         return html`
             ${Object.keys(hiscores).map(game => html`
                 <div class="tbl"><table><caption>${game} · High Scores</caption>
-                <tr><th>Name</th><th>Score</th></tr>
-                    ${hiscores[game].map(s => html`<tr><td>${s.name}</td><td>${s.score}</td></tr>`)}
+                <tr><th>Name</th><th>Score</th><th></th></tr>
+                    ${hiscores[game].map(s => html`<tr><td>${s.name}</td><td>${s.score}</td><td><a href="${SCOREBOARD_URL}/api/rank/${s.id}?ruletype=${game}">replay</a></td></tr>`)}
                 </table></div>
                 <div class="tbl"><table><caption>${game} · Top Players</caption>
                 <tr><th>Name</th><th>Rating</th><th>W</th><th>L</th></tr>
                     ${topPlayers[game].map(p => html`<tr>
-                        <td><a href="/player/${encodeURIComponent(p.name)}?ruleType=${game}">${p.name}</a></td>
+                        <td><a href="${SCOREBOARD_URL}/player/${encodeURIComponent(p.name)}?ruleType=${game}">${p.name}</a></td>
                         <td>${Math.round(p.rating)}</td><td>${p.wins}</td><td>${p.losses}</td>
                     </tr>`)}
                 </table></div>
