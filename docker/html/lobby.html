@@ -278,7 +278,7 @@
                 const isDark = this._theme === 'dark';
                 return html`
                     <div class="topbar">
-                        <h1>Billiards</h1>
+                        <h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a></h1>
                         <button class="burger" aria-label="Menu" @click=${e => { e.stopPropagation(); this._toggleMenu(); }}>&#9776;</button>
                         ${this._menuOpen ? html`
                             <div class="menu" @click=${e => e.stopPropagation()}>

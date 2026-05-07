@@ -153,7 +153,7 @@ export const CHALLENGE_MODAL_STYLES = css`
     button.cancel { background: var(--modal-cancel); color: var(--text); border-color: var(--btn-border); }
     .icon-wrap { position: relative; width: 28px; height: 28px; flex-shrink: 0; }
     .icon-wrap img { width: 28px; height: 28px; display: block; }
-    .badge { position: absolute; bottom: 0; right: 0; background: #dc3545; color: #fff; font-size: 0.55rem; font-weight: bold; border-radius: 3px; padding: 0 2px; line-height: 1.3; }
+    .badge { position: absolute; bottom: 0; right: 0; background: #b02030; color: #fff; font-size: 0.55rem; font-weight: bold; border-radius: 3px; padding: 0 2px; line-height: 1.3; }
 `;
 
 export const SOLO_PANEL_STYLES = css`
@@ -163,7 +163,7 @@ export const SOLO_PANEL_STYLES = css`
     button:hover { opacity: 1; background: var(--btn-hover); }
     .icon-wrap { position: relative; display: block; }
     img { display: block; width: 48px; height: 48px; margin: auto; }
-    .badge { position: absolute; bottom: 0; right: 0; background: #dc3545; color: #fff; font-size: 0.5rem; font-weight: bold; border-radius: 3px; padding: 0 2px; line-height: 1.3; }
+    .badge { position: absolute; bottom: 0; right: 0; background: #b02030; color: #fff; font-size: 0.5rem; font-weight: bold; border-radius: 3px; padding: 0 2px; line-height: 1.3; }
 `;
 
 export const INFO_PANEL_STYLES = css`
@@ -173,7 +173,7 @@ export const INFO_PANEL_STYLES = css`
     th, td { border: 1px solid var(--border); padding: 0.15rem 0.3rem; text-align: left; }
     th { background: var(--table-head); font-weight: 600; }
     caption { font-size: 0.8rem; font-weight: 600; text-align: center; padding: 0.2rem 0; color: var(--text-dim); }
-    a { color: #0d6efd; }
+    a { color: #0055cc; }
 `;
 
 export const PLAYER_PANEL_STYLES = css`
@@ -188,7 +188,9 @@ export const PLAYER_PANEL_STYLES = css`
 export const LOBBY_APP_STYLES = [THEME_VARS, css`
     :host { display: flex; flex-direction: column; min-height: 100%; font-family: sans-serif; font-size: 0.85rem; box-sizing: border-box; padding: 0.5rem; gap: 0.2rem; background: var(--bg); color: var(--text); overflow-y: auto; scrollbar-width: none; }
     :host::-webkit-scrollbar { display: none; }
-    h1 { font-size: 0.6rem; color: var(--text-faint); text-align: center; margin: 0; letter-spacing: 0.1em; text-transform: uppercase; flex-shrink: 0; }
+    h1 { font-size: 0.85rem; color: var(--text-dim); text-align: center; margin: 0; letter-spacing: 0.1em; text-transform: uppercase; flex-shrink: 0; }
+    h1 a { color: inherit; text-decoration: none; }
+    h1 a:hover { text-decoration: underline; }
     .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem; overflow: hidden; }
     .panel-title { font-weight: bold; margin-bottom: 0.25rem; font-size: 0.8rem; color: var(--text-dim); text-align: center; }
     .main-row { display: flex; gap: 0.2rem; flex-shrink: 0; }
