@@ -150,7 +150,7 @@ export const SENT_CHALLENGE_BANNER_STYLES = css`
 export const CHALLENGE_MODAL_STYLES = css`
     :host { display: block; }
     .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
-    .modal { background: var(--modal-bg); color: var(--text); border-radius: 8px; padding: 1rem; min-width: 220px; display: flex; flex-direction: column; gap: 0.5rem; box-shadow: 0 4px 24px rgba(0,0,0,0.2); }
+    .modal { background: var(--modal-bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; min-width: 220px; display: flex; flex-direction: column; gap: 0.5rem; box-shadow: 0 4px 24px rgba(0,0,0,0.2); }
     h3 { margin: 0; font-size: 0.95rem; }
     .rules { display: flex; flex-direction: column; gap: 0.3rem; }
     button.rule { text-align: left; padding: 0.35rem 0.6rem; font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem; }
@@ -188,7 +188,7 @@ export const INFO_PANEL_STYLES = css`
     :host { display: block; overflow-y: auto; font-size: 0.75rem; color: var(--text); }
     .tbl { display: inline-block; vertical-align: top; border: 1px solid var(--border); border-radius: 4px; margin: 0.25rem; overflow: hidden; }
     table { border-collapse: collapse; width: auto; }
-    th, td { border: 1px solid var(--border); padding: 0.15rem 0.3rem; text-align: left; }
+    th, td { border-bottom: 1px solid var(--border); padding: 0.15rem 0.3rem; text-align: left; }
     th { display: none; }
     caption { font-size: 0.8rem; font-weight: 600; text-align: center; padding: 0.2rem 0; color: var(--text-dim); }
     a { color: var(--link); text-decoration: none; }
