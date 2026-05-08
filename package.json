@@ -47,7 +47,7 @@
     "@types/jest": "30.0.0",
     "@types/ws": "^8.18.1",
     "esbuild": "^0.28.0",
-    "jest": "^30.4.0",
+    "jest": "^30.4.1",
     "oxlint": "^1.63.0",
     "testcontainers": "^11.14.0",
     "ts-jest": "^29.4.9",
@@ -58,5 +58,8 @@
     "defaults",
     "ios >= 12",
     "safari >= 12"
-  ]
+  ],
+  "dependencies": {
+    "lit": "^3.3.2"
+  }
 }
