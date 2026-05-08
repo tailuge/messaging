@@ -1,4 +1,5 @@
-import { LitElement, html } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
+import { html } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
+import { userStore, StoreElement } from './user-store.js';
 import { SOLO_PANEL_STYLES } from './styles.js';
 
 const GAMES = [
@@ -20,13 +21,13 @@ const soloUrl = (g, userId, userName) => {
     return url;
 };
 
-class SoloPanel extends LitElement {
-    static properties = { userId: { type: String }, userName: { type: String } };
+class SoloPanel extends StoreElement {
     static styles = SOLO_PANEL_STYLES;
     render() {
+        const { clientId, userName } = userStore;
         return html`<div class="grid">${GAMES.map(g => html`
             <button title=${g.label} aria-label="Play ${g.label}"
-                @click=${() => { window.location.href = soloUrl(g, this.userId, this.userName); }}>
+                @click=${() => { window.location.href = soloUrl(g, clientId, userName); }}>
                 <span class="icon-wrap">
                     <img src=${g.img} alt=${g.label} />
                     ${g.options ? html`<span class="badge">${Object.values(g.options)[0]}</span>` : ''}

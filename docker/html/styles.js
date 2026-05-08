@@ -160,6 +160,19 @@ export const CHALLENGE_MODAL_STYLES = css`
     .badge { position: absolute; bottom: 0; right: 0; background: #b02030; color: #fff; font-size: 0.55rem; font-weight: bold; border-radius: 3px; padding: 0 2px; line-height: 1.3; }
 `;
 
+export const USER_BADGE_STYLES = css`
+    :host { display: inline-flex; align-items: center; align-self: center; }
+    .badge {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 2px 10px 2px 7px; border-radius: 4px;
+        background: #2a2a2a; border: 1px solid rgba(255,255,255,0.12);
+        cursor: pointer; font-size: 0.8rem; color: #eee; transition: filter 0.15s;
+    }
+    .badge:hover { filter: brightness(1.3); }
+    .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: var(--dot-color, #888); }
+    input { width: 90px; background: transparent; border: none; border-bottom: 1px solid #aaa; color: inherit; font-size: inherit; outline: none; padding: 0; }
+`;
+
 export const SOLO_PANEL_STYLES = css`
     :host { display: block; }
     .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.25rem; }
@@ -179,6 +192,7 @@ export const INFO_PANEL_STYLES = css`
     caption { font-size: 0.8rem; font-weight: 600; text-align: center; padding: 0.2rem 0; color: var(--text-dim); }
     a { color: var(--link); text-decoration: none; }
     .date { text-align: right; }
+    .loading { color: var(--text-muted); }
 `;
 
 export const PLAYER_PANEL_STYLES = css`

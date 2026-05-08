@@ -13,8 +13,8 @@ class InfoPanel extends LitElement {
             .catch(() => { this._err = true; this.requestUpdate(); });
     }
     render() {
-        if (this._err) return html`<span style="color:#999">Could not load scores.</span>`;
-        if (!this._data) return html`<span style="color:#999">Loading…</span>`;
+        if (this._err) return html`<span class="loading">Could not load scores.</span>`;
+        if (!this._data) return html`<span class="loading">Loading…</span>`;
         const { hiscores, topPlayers, recentMatches } = this._data;
         const games = Object.keys(hiscores);
         return html`
