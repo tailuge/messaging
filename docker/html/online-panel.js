@@ -6,6 +6,11 @@ import {
     SENT_CHALLENGE_BANNER_STYLES, PLAYER_PANEL_STYLES, CHALLENGE_MODAL_STYLES
 } from './styles.js';
 
+const BOTS = [
+    { userId: 'bot-clawbreak', userName: 'ClawBreak', isBot: true, meta: { country: 'BOT' } },
+    { userId: 'bot-thefarjaw', userName: 'TheFarJaw', isBot: true, meta: { country: 'BOT' } },
+];
+
 const emit = (el, type, detail) =>
     el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
 
@@ -27,7 +32,7 @@ class UserList extends LitElement {
     }
 
     _row(u) {
-        const actions = canChallenge(u, this.myId)
+        const actions = (u.isBot || canChallenge(u, this.myId))
             ? html`<button class="btn-challenge" aria-label="Challenge ${u.userName}" ?disabled=${this.isChallengePending} @click=${() => emit(this, 'challenge', u.userId)}>Challenge</button>`
             : html``;
         return html`
@@ -182,6 +187,8 @@ class OnlinePanel extends LitElement {
         return Object.values(this.#state.challenges).find(c => c.challengerId === this.#myId);
     }
 
+    get #visibleUsers() { return [...this.#users, ...BOTS]; }
+
     async _connect() {
         this.#connectTime = Date.now();
         this.#lobby = await this.#client.joinLobby({
@@ -201,7 +208,12 @@ class OnlinePanel extends LitElement {
     }
 
     async #challenge(userId, ruleType, options) {
-        const u = this.#users.find(u => u.userId === userId);
+        const u = this.#visibleUsers.find(u => u.userId === userId);
+        if (u?.isBot) {
+            const tableId = 'bot-' + Math.random().toString(36).slice(2, 8);
+            window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst: true, options, bot: u.userName });
+            return;
+        }
         const tableId = await this.#lobby.challenge(userId, ruleType, undefined, options);
         this.#dispatch({ type: 'CHALLENGE_SENT', payload: { challengerId: this.#myId, challengeeId: userId, recipientName: u?.userName || userId, ruleType, options, tableId } });
     }
@@ -253,12 +265,12 @@ class OnlinePanel extends LitElement {
                 @dismiss=${() => this.#clearSentChallenge()}>
             </challenge-banner>
             <user-list
-                .users=${this.#users}
+                .users=${this.#visibleUsers}
                 myId=${this.#myId}
                 tableId=${this.#tableId || ''}
                 .isChallengePending=${this.#sentChallenge?.status === 'pending'}
                 @challenge=${e => {
-                    const u = this.#users.find(u => u.userId === e.detail);
+                    const u = this.#visibleUsers.find(u => u.userId === e.detail);
                     this.#pendingChallenge = { userId: e.detail, userName: u?.userName ?? e.detail };
                     this.requestUpdate();
                 }}>

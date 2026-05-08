@@ -88,14 +88,17 @@ export function getEmoji(origin = "", ruleType = "") {
   return ruleMap[ruleType] ?? { emoji: "🎮", title: "external" };
 };
 
-export const flag = (code) => code
-    ? [...code.toUpperCase()].map(c => String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0))).join('')
-    : '🌐';
+export const flag = (code) => code === 'BOT'
+    ? '🤖'
+    : code
+        ? [...code.toUpperCase()].map(c => String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0))).join('')
+        : '🌐';
 
-export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options }) => {
+export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options, bot }) => {
     let url = `https://billiards.tailuge.workers.dev/?websocketserver=wss://billiards.onrender.com/ws`
         + `&tableId=${tableId}&userName=${encodeURIComponent(userName)}&clientId=${userId}&ruletype=${ruleType}`;
     if (isFirst) url += '&first=true';
+    if (bot) url += `&bot=${encodeURIComponent(bot)}`;
     if (options) Object.entries(options).forEach(([k, v]) => url += `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
     return url;
 };
