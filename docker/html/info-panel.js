@@ -1,6 +1,7 @@
 import { LitElement, html } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
 import { INFO_PANEL_STYLES } from './styles.js';
 import { SCOREBOARD_URL, timeAgo, flag, ruleIcon } from './utils.js';
+import './replay-button.js';
 
 class InfoPanel extends LitElement {
     static styles = INFO_PANEL_STYLES;
@@ -20,7 +21,7 @@ class InfoPanel extends LitElement {
             ${games.map(game => html`
                 <div class="tbl"><table><caption>${game} · High Scores</caption>
                 <tr><th>Name</th><th>Score</th><th></th></tr>
-                    ${hiscores[game].slice(0, 4).map(s => html`<tr><td>${s.name}</td><td>${s.score}</td><td><a href="${SCOREBOARD_URL}/api/rank/${s.id}?ruletype=${game}">▶️</a></td></tr>`)}
+                    ${hiscores[game].slice(0, 4).map(s => html`<tr><td>${s.name}</td><td>${s.score}</td><td><replay-button url="${SCOREBOARD_URL}/api/rank/${s.id}?ruletype=${game}"></replay-button></td></tr>`)}
                 </table></div>
             `)}
             ${games.map(game => html`
@@ -37,7 +38,7 @@ class InfoPanel extends LitElement {
                 ${recentMatches.map(m => html`<tr>
                     <td>🎖️${m.winner}${m.loser ? ` vs ${m.loser}` : ''}</td><td>${ruleIcon(m.ruleType)}</td>
                     <td>${timeAgo(m.timestamp)}${m.locationCity ? ` ${m.locationCity} ${flag(m.locationCountry)}` : ''}</td>
-                    <td>${m.hasReplay ? html`<a href="${SCOREBOARD_URL}/api/match-replay?id=${m.id}">▶️</a>` : ''}</td>
+                    <td>${m.hasReplay ? html`<replay-button url="${SCOREBOARD_URL}/api/match-replay?id=${m.id}"></replay-button>` : ''}</td>
                 </tr>`)}
             </table></div>`;
     }
