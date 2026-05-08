@@ -18,71 +18,28 @@
 
     <script type="module">
         import { LitElement, html } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
-        import { LOBBY_APP_STYLES, BURGER_MENU_STYLES } from './styles.js';
+        import { LOBBY_APP_STYLES } from './styles.js';
         import './solo-panel.js';
         import './info-panel.js';
         import './online-panel.js';
         import './user-badge.js';
+        import './settings-modal.js';
 
         class LobbyApp extends LitElement {
-            static properties = {
-                _menuOpen: { state: true },
-                _theme: { type: String, reflect: true, attribute: 'theme' },
-            };
-            static styles = [LOBBY_APP_STYLES, BURGER_MENU_STYLES];
+            static properties = { _theme: { type: String, reflect: true, attribute: 'theme' } };
+            static styles = LOBBY_APP_STYLES;
 
             constructor() {
                 super();
-                this._menuOpen = false;
                 this._theme = document.documentElement.getAttribute('theme') || 'light';
             }
 
-            _toggleMenu(e) {
-                e?.stopPropagation();
-                this._menuOpen = !this._menuOpen;
-            }
-
-            _setTheme(theme) {
-                this._theme = theme;
-                document.documentElement.setAttribute('theme', theme);
-                localStorage.setItem('theme', theme);
-                this._menuOpen = false;
-            }
-
-            _closeMenu = (e) => {
-                if (this._menuOpen && !this.renderRoot.contains(e.target)) this._menuOpen = false;
-            };
-
-            connectedCallback() {
-                super.connectedCallback();
-                document.addEventListener('click', this._closeMenu);
-            }
-
-            disconnectedCallback() {
-                super.disconnectedCallback();
-                document.removeEventListener('click', this._closeMenu);
-            }
-
             render() {
-                const isDark = this._theme === 'dark';
                 return html`
-                    <div class="topbar" @click=${e => e.stopPropagation()}>
+                    <div class="topbar">
                         <h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a></h1>
                         <user-badge></user-badge>
-                        <button class="burger"
-                            aria-label="Menu"
-                            aria-expanded="${this._menuOpen}"
-                            @click=${this._toggleMenu}>
-                            &#9776;
-                        </button>
-                        ${this._menuOpen ? html`
-                            <div class="menu">
-                                <label>
-                                    <input type="checkbox" .checked=${isDark}
-                                        @change=${e => this._setTheme(e.target.checked ? 'dark' : 'light')}>
-                                    Dark mode
-                                </label>
-                            </div>` : ''}
+                        <settings-modal @theme-changed=${e => { this._theme = e.detail; }}></settings-modal>
                     </div>
                     <div class="main-row">
                         <div class="solo">

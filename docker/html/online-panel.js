@@ -194,6 +194,9 @@ class OnlinePanel extends LitElement {
             const msgTime = msg.meta?.ts ? new Date(msg.meta.ts).getTime() : Infinity;
             if (msgTime < this.#connectTime) return;
             this.#dispatch({ type: 'CHALLENGE_MSG', payload: msg });
+            if (msg.type === 'challenge' && msg.challengeeId === this.#myId && document.hidden && Notification.permission === 'granted') {
+                new Notification('Challenge received!', { body: `${msg.challengerName} challenged you to ${msg.ruleType}`, icon: 'assets/golden-cup.png' });
+            }
         });
     }
 

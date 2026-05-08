@@ -120,7 +120,8 @@ export const SHARED_STYLES = css`
 
 export const USER_LIST_STYLES = css`
     :host { display: block; }
-    ul { list-style: none; margin: 0; padding: 0; max-height: 160px; overflow-y: auto; }
+    ul { list-style: none; margin: 0; padding: 0; max-height: 160px; overflow-y: auto; scrollbar-width: none; }
+    ul::-webkit-scrollbar { display: none; }
     li { display: flex; justify-content: space-between; align-items: center; padding: 0.15rem 0; border-bottom: 1px solid var(--border-light); gap: 0.25rem; }
     li:last-child { border-bottom: none; }
     .user-info { display: flex; flex-direction: column; }
@@ -210,6 +211,8 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     h1 { font-size: 0.85rem; color: var(--text-dim); text-align: center; margin: 0; letter-spacing: 0.1em; text-transform: uppercase; flex-shrink: 0; }
     h1 a { color: inherit; text-decoration: none; }
     h1 a:hover { text-decoration: underline; }
+    .topbar { display: flex; align-items: center; flex-shrink: 0; gap: 0.3rem; }
+    .topbar h1 { flex: 1; }
     .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem; overflow: hidden; }
     .panel-title { font-weight: bold; margin-bottom: 0.25rem; font-size: 0.8rem; color: var(--text-dim); text-align: center; }
     .main-row { display: flex; gap: 0.2rem; flex-shrink: 0; }
@@ -218,12 +221,3 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     .info-row { display: flex; flex-direction: column; }
     .info-row .panel { overflow: visible; }
 `];
-
-export const BURGER_MENU_STYLES = css`
-    .topbar { position: relative; display: flex; align-items: center; flex-shrink: 0; }
-    .topbar h1 { flex: 1; }
-    .burger { background: none; border: none; font-size: 1.1rem; cursor: pointer; padding: 0.1rem 0.3rem; color: var(--text-muted); line-height: 1; }
-    .burger:hover { color: var(--text); background: none; }
-    .menu { position: absolute; top: 100%; right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem 0.6rem; z-index: 50; display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
-    .menu label { color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 0.3rem; }
-`;
