@@ -9,7 +9,7 @@ const GAMES = [
     { label: "3-Cushion 11",  img: "assets/threecushion.png", ruletype: "threecushion", options: { raceTo: "11" } },
     { label: "3-Cushion 21",  img: "assets/threecushion.png", ruletype: "threecushion", options: { raceTo: "21" } },
     { label: "Trickshot",     img: "assets/practice.png",     url: "https://billiards.tailuge.workers.dev/practice" },
-    { label: "Research",      img: "assets/practice.png",     url: "https://billiards.tailuge.workers.dev/diagrams/three" },
+    { label: "Research",      img: "assets/research.png",     url: "https://billiards.tailuge.workers.dev/diagrams/three" },
     { label: "Eight Ball",    img: "assets/eightball.png",    ruletype: "eightball" },
 ];
 
