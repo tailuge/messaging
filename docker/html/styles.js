@@ -151,7 +151,7 @@ export const CHALLENGE_MODAL_STYLES = css`
     :host { display: block; }
     .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
     .modal { background: var(--modal-bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; min-width: 220px; display: flex; flex-direction: column; gap: 0.5rem; box-shadow: 0 4px 24px rgba(0,0,0,0.2); }
-    h3 { margin: 0; font-size: 0.95rem; }
+    h3 { margin: 0; font-size: 0.95rem; text-align: center; }
     .rules { display: flex; flex-direction: column; gap: 0.3rem; }
     button.rule { text-align: left; padding: 0.35rem 0.6rem; font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem; }
     button.rule img { width: 28px; height: 28px; display: block; }

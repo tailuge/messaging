@@ -9,7 +9,6 @@ class SettingsModal extends StoreElement {
         .burger:hover { color: var(--text); background: none; }
         .row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: var(--text); }
         label { cursor: pointer; display: flex; align-items: center; gap: 0.3rem; }
-        h3 { text-align: center; }
         a { color: var(--link); text-decoration: none; font-size: 0.82rem; }
         a:hover { text-decoration: underline; }
     `];
