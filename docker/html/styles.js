@@ -25,6 +25,7 @@ export const THEME_VARS = css`
         --banner-decline-text: #721c24;
         --modal-bg:     #ffffff;
         --modal-cancel: #f8f9fa;
+        --link:         #0055cc;
     }
     @media (prefers-color-scheme: dark) {
         :host {
@@ -49,6 +50,7 @@ export const THEME_VARS = css`
             --banner-decline-text: #f5c6cb;
             --modal-bg:     #2a2a2a;
             --modal-cancel: #3a3a3a;
+            --link:         #6ba3f5;
         }
     }
     :host([theme="dark"]) {
@@ -73,6 +75,7 @@ export const THEME_VARS = css`
         --banner-decline-text: #f5c6cb;
         --modal-bg:     #2a2a2a;
         --modal-cancel: #3a3a3a;
+        --link:         #6ba3f5;
     }
     :host([theme="light"]) {
         --bg:           #f5f5f5;
@@ -96,6 +99,7 @@ export const THEME_VARS = css`
         --banner-decline-text: #721c24;
         --modal-bg:     #ffffff;
         --modal-cancel: #f8f9fa;
+        --link:         #0055cc;
     }
 `;
 
@@ -173,7 +177,7 @@ export const INFO_PANEL_STYLES = css`
     th, td { border: 1px solid var(--border); padding: 0.15rem 0.3rem; text-align: left; }
     th { display: none; }
     caption { font-size: 0.8rem; font-weight: 600; text-align: center; padding: 0.2rem 0; color: var(--text-dim); }
-    a { color: #0055cc; }
+    a { color: var(--link); text-decoration: none; }
 `;
 
 export const PLAYER_PANEL_STYLES = css`

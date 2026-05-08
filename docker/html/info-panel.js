@@ -1,6 +1,6 @@
 import { LitElement, html } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
 import { INFO_PANEL_STYLES } from './styles.js';
-import { SCOREBOARD_URL } from './utils.js';
+import { SCOREBOARD_URL, timeAgo, flag, ruleIcon } from './utils.js';
 
 class InfoPanel extends LitElement {
     static styles = INFO_PANEL_STYLES;
@@ -33,10 +33,10 @@ class InfoPanel extends LitElement {
                 </table></div>
             `)}
             <div class="tbl"><table><caption>Recent Matches</caption>
-            <tr><th>Winner</th><th>Loser</th><th>Rule</th><th>Date</th><th></th></tr>
+            <tr><th>Match</th><th>Rule</th><th>Date</th><th></th></tr>
                 ${recentMatches.map(m => html`<tr>
-                    <td>${m.winner}</td><td>${m.loser||'-'}</td><td>${m.ruleType||'nineball'}</td>
-                    <td>${new Date(m.timestamp).toLocaleString()}</td>
+                    <td>🎖️${m.winner}${m.loser ? ` vs ${m.loser}` : ''}</td><td>${ruleIcon(m.ruleType)}</td>
+                    <td>${timeAgo(m.timestamp)}${m.locationCity ? ` ${m.locationCity} ${flag(m.locationCountry)}` : ''}</td>
                     <td>${m.hasReplay ? html`<a href="${SCOREBOARD_URL}/api/match-replay?id=${m.id}">▶️</a>` : ''}</td>
                 </tr>`)}
             </table></div>`;

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lobby</title>
+    <link rel="icon" type="image/png" href="assets/golden-cup.png">
     <style>*, html, body { margin: 0; padding: 0; box-sizing: border-box; } html, body { height: 100%; overflow-y: auto; scrollbar-width: none; } body::-webkit-scrollbar { display: none; } main { margin: 0 0.2rem; } html[theme="dark"], html[theme="dark"] body { background: #1a1a1a; } html[theme="light"], html[theme="light"] body { background: #f5f5f5; }</style>
     <script>
         const _t = localStorage.getItem('theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
@@ -16,200 +17,28 @@
     </main>
 
     <script type="module">
-        import { LitElement, html, css } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
-        import { MessagingClient } from '/messaging.js';
-        import { gameUrl, INITIAL_STATE, reduce } from './utils.js';
-        import {
-            SHARED_STYLES,
-            CHALLENGE_MODAL_STYLES,
-            LOBBY_APP_STYLES,
-            BURGER_MENU_STYLES
-        } from './styles.js';
+        import { LitElement, html } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
+        import { LOBBY_APP_STYLES, BURGER_MENU_STYLES } from './styles.js';
         import './solo-panel.js';
         import './info-panel.js';
-        import './player-panel.js';
-
-        // ── Controller (networking + state) ───────────────────────────────
-
-        class LobbyController {
-            // ReactiveController lifecycle
-            host; _lobby = null; _table = null;
-
-            // State derived via getters
-            state = { ...INITIAL_STATE };
-
-            get connected() { return this.state.connected; }
-            get users() { return this.state.users; }
-            get tableId() { return this.state.currentMatch?.tableId; }
-            get ruleType() { return this.state.currentMatch?.ruleType || 'standard'; }
-            get isFirst() { return !!this.state.currentMatch?.isFirst; }
-            get matchOptions() { return this.state.currentMatch?.options; }
-
-            get activeChallenge() {
-                return Object.values(this.state.challenges)
-                    .find(c => c.challengeeId === this.myId && c.status === 'pending');
-            }
-            get sentChallenge() {
-                return Object.values(this.state.challenges)
-                    .find(c => c.challengerId === this.myId);
-            }
-
-            constructor(host) {
-                const p = new URLSearchParams(location.search);
-                this.myId   = p.get('clientId') || 'user-' + Math.random().toString(36).slice(2, 7);
-                this.myName = p.get('userName')  || 'Player';
-
-                let baseUrl = 'https://billiards-network.onrender.com';
-                if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-                    const protocol = location.protocol === 'https:' ? 'https:' : 'http:';
-                    baseUrl = `${protocol}//${location.host}`;
-                }
-
-                this._client = new MessagingClient({ baseUrl });
-                (this.host = host).addController(this);
-            }
-
-            dispatch(action) {
-                this.state = reduce(this.state, { ...action, myId: this.myId });
-                this.host.requestUpdate();
-            }
-
-            // Called by Lit when the host connects to the DOM
-            async hostConnected() {
-                try { await this._connect(); }
-                catch (e) { console.error('Lobby connect failed:', e); }
-            }
-
-            hostDisconnected() {
-                this._lobby?.leave();
-            }
-
-            async _connect() {
-                this._connectTime = Date.now();
-                this._lobby = await this._client.joinLobby({
-                    messageType: 'presence', type: 'join',
-                    userId: this.myId, userName: this.myName,
-                });
-                this.dispatch({ type: 'CONNECTED', payload: true });
-
-                this._lobby.onUsersChange(users => {
-                    this.dispatch({ type: 'USERS_UPDATE', payload: users });
-                });
-
-                this._lobby.onChallenge(msg => {
-                    const msgTime = msg.meta?.ts ? new Date(msg.meta.ts).getTime() : Infinity;
-                    if (msgTime < this._connectTime) return; // ignore buffered messages from previous session
-                    console.log('challenge msg:', JSON.stringify(msg, null, 2));
-                    this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
-                });
-            }
-
-            async challenge(userId, ruleType, options) {
-                const u = this.users.find(u => u.userId === userId);
-                const tableId = await this._lobby.challenge(userId, ruleType, undefined, options);
-                const payload = { challengerId: this.myId, challengeeId: userId, recipientName: u?.userName || userId, ruleType, options, tableId };
-                console.log('challenge sent:', JSON.stringify(payload, null, 2));
-                this.dispatch({ type: 'CHALLENGE_SENT', payload });
-            }
-
-            async cancelChallenge() {
-                const s = this.sentChallenge;
-                if (s?.status === 'pending') {
-                    await this._lobby.cancelChallenge(s.challengeeId, s.ruleType);
-                    this.clearSentChallenge();
-                }
-            }
-
-            clearSentChallenge() {
-                const s = this.sentChallenge;
-                if (s) {
-                    this.dispatch({ type: 'CHALLENGE_DISMISS', payload: s.challengeeId });
-                }
-            }
-
-            async acceptChallenge() {
-                const c = this.activeChallenge;
-                this._table = await this._lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options, c.challengerName);
-                this.dispatch({
-                    type: 'MATCH_SET',
-                    payload: { tableId: c.tableId, ruleType: c.ruleType, options: c.options, isFirst: false }
-                });
-            }
-
-            async declineChallenge() {
-                const c = this.activeChallenge;
-                await this._lobby.declineChallenge(c.challengerId, c.ruleType, c.challengerName);
-                this.dispatch({ type: 'CHALLENGE_DISMISS', payload: c.challengerId });
-            }
-
-            async leaveGame() {
-                if (this._table) { await this._table.leave(); this._table = null; }
-                await this._lobby.updatePresence({ tableId: undefined });
-                this.dispatch({ type: 'MATCH_LEAVE' });
-            }
-        }
-
-        // ── UI Components ──────────────────────────────────────────────────
-
-        const emit = (el, type, detail) =>
-            el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
-
-        class ChallengeModal extends LitElement {
-            static properties = { userId: { type: String }, userName: { type: String } };
-            static styles = [SHARED_STYLES, CHALLENGE_MODAL_STYLES];
-            static RULES = [
-                { id: 'eightball',     label: 'Eight Ball',       img: 'assets/eightball.png' },
-                { id: 'nineball',      label: 'Nine Ball',        img: 'assets/nineball.png' },
-                { id: 'threecushion',  label: 'Three Cushion',       img: 'assets/threecushion.png' },
-                { id: 'threecushion',  label: 'Three Cushion (11)', img: 'assets/threecushion.png', options: { raceTo: '11' } },
-                { id: 'threecushion',  label: 'Three Cushion (21)', img: 'assets/threecushion.png', options: { raceTo: '21' } },
-                { id: 'snooker',       label: 'Snooker',             img: 'assets/snooker.png' },
-                { id: 'snooker',       label: 'Snooker (6 reds)',    img: 'assets/snooker.png', options: { reds: '6' } },
-            ];
-            render() {
-                if (!this.userId) return html``;
-                return html`
-                    <div class="backdrop" @click=${e => e.target === e.currentTarget && emit(this, 'cancel')}>
-                        <div class="modal" role="dialog" aria-modal="true" aria-label="Select game type">
-                            <h3>Challenge ${this.userName}</h3>
-                            <div class="rules">
-                                ${ChallengeModal.RULES.map(r => html`
-                                    <button class="rule btn-challenge" @click=${() => emit(this, 'confirm', { ruleType: r.id, options: r.options })}>
-                                        <span class="icon-wrap">
-                                            <img src=${r.img} alt=${r.label} />
-                                            ${r.options ? html`<span class="badge">${Object.values(r.options)[0]}</span>` : ''}
-                                        </span>
-                                        ${r.label}
-                                    </button>`)}
-                            </div>
-                            <button class="cancel" @click=${() => emit(this, 'cancel')}>Cancel</button>
-                        </div>
-                    </div>`;
-            }
-        }
-
-        // ── Main App ───────────────────────────────────────────────────────
+        import './online-panel.js';
 
         class LobbyApp extends LitElement {
             static properties = {
-                _pendingChallenge: { state: true },
                 _menuOpen: { state: true },
                 _theme: { type: String, reflect: true, attribute: 'theme' }
             };
-
             static styles = [LOBBY_APP_STYLES, BURGER_MENU_STYLES];
 
             constructor() {
                 super();
-                this._ctrl = new LobbyController(this);
-                this._pendingChallenge = null;
                 this._menuOpen = false;
                 this._theme = document.documentElement.getAttribute('theme') || 'light';
             }
 
-            _toggleMenu(e) { 
+            _toggleMenu(e) {
                 e?.stopPropagation();
-                this._menuOpen = !this._menuOpen; 
+                this._menuOpen = !this._menuOpen;
             }
 
             _setTheme(theme) {
@@ -219,10 +48,8 @@
                 this._menuOpen = false;
             }
 
-            _closeMenu = (e) => { 
-                if (this._menuOpen && !this.renderRoot.contains(e.target)) { 
-                    this._menuOpen = false; 
-                } 
+            _closeMenu = (e) => {
+                if (this._menuOpen && !this.renderRoot.contains(e.target)) this._menuOpen = false;
             };
 
             connectedCallback() {
@@ -235,57 +62,16 @@
                 document.removeEventListener('click', this._closeMenu);
             }
 
-            _renderPlayers() {
-                const c = this._ctrl;
-                return html`
-                    <player-panel
-                        .users=${c.users}
-                        myId=${c.myId}
-                        myName=${c.myName}
-                        ?connected=${c.connected}
-                        tableId=${c.tableId || ''}
-                        .activeChallenge=${c.activeChallenge}
-                        .sentChallenge=${c.sentChallenge}
-                        @accept=${() => c.acceptChallenge()}
-                        @decline=${() => c.declineChallenge()}
-                        @cancel=${() => c.cancelChallenge()}
-                        @dismiss=${() => c.clearSentChallenge()}
-                        @challenge=${e => {
-                            const u = c.users.find(u => u.userId === e.detail);
-                            this._pendingChallenge = { userId: e.detail, userName: u?.userName ?? e.detail };
-                        }}>
-                    </player-panel>`;
-            }
-
-            _renderSolo() {
-                const c = this._ctrl;
-                return html`
-                    <div class="panel">
-                        <div class="panel-title">Solo Practice</div>
-                        <solo-panel userId=${c.myId} userName=${c.myName}></solo-panel>
-                    </div>`;
-            }
-
-            _renderInfo() {
-                return html`<div class="panel"><info-panel></info-panel></div>`;
-            }
-
-            _renderGamePanel() {
-                const c = this._ctrl;
-                if (!c.tableId) return html``;
-                const url = gameUrl({ tableId: c.tableId, userId: c.myId, userName: c.myName, ruleType: c.ruleType, isFirst: c.isFirst, options: c.matchOptions });
-                window.location.href = url;
-                return html``;
-            }
-
             render() {
-                const p = this._pendingChallenge;
+                const p = new URLSearchParams(location.search);
+                const userId   = p.get('clientId') || '';
+                const userName = p.get('userName')  || 'Player';
                 const isDark = this._theme === 'dark';
                 return html`
                     <div class="topbar" @click=${e => e.stopPropagation()}>
                         <h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a></h1>
-                        <button class="burger" 
-                            aria-label="Menu" 
+                        <button class="burger"
+                            aria-label="Menu"
                             aria-expanded="${this._menuOpen}"
                             @click=${this._toggleMenu}>
                             &#9776;
@@ -300,23 +86,20 @@
                             </div>` : ''}
                     </div>
                     <div class="main-row">
-                        <div class="solo">${this._renderSolo()}</div>
-                        <div class="players panel">${this._renderPlayers()}</div>
+                        <div class="solo">
+                            <div class="panel">
+                                <div class="panel-title">Solo Practice</div>
+                                <solo-panel userId=${userId} userName=${userName}></solo-panel>
+                            </div>
+                        </div>
+                        <div class="players panel"><online-panel></online-panel></div>
                     </div>
-                    <div class="info-row">${this._renderInfo()}</div>
-                    ${this._renderGamePanel()}
-                    <challenge-modal
-                        .userId=${p?.userId ?? null}
-                        .userName=${p?.userName ?? ''}
-                        @confirm=${e => { this._ctrl.challenge(p.userId, e.detail.ruleType, e.detail.options); this._pendingChallenge = null; }}
-                        @cancel=${() => { this._pendingChallenge = null; }}>
-                    </challenge-modal>
+                    <div class="info-row"><div class="panel"><info-panel></info-panel></div></div>
                 `;
             }
         }
 
-        customElements.define('challenge-modal',  ChallengeModal);
-        customElements.define('lobby-app',        LobbyApp);
+        customElements.define('lobby-app', LobbyApp);
     </script>
 </body>
 </html>
