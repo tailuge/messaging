@@ -1,6 +1,6 @@
 import { html } from 'lit';
 import { userStore, StoreElement } from './user-store.js';
-import { SOLO_PANEL_STYLES } from './styles.js';
+import { SOLO_PANEL_STYLES, BADGE_STYLES } from './styles.js';
 
 const GAMES = [
     { label: "Nine Ball",     img: "assets/nineball.png",     ruletype: "nineball" },
@@ -22,7 +22,7 @@ const soloUrl = (g, userId, userName) => {
 };
 
 class SoloPanel extends StoreElement {
-    static styles = SOLO_PANEL_STYLES;
+    static styles = [SOLO_PANEL_STYLES, BADGE_STYLES];
     render() {
         const { clientId, userName } = userStore;
         return html`<div class="grid">${GAMES.map(g => html`

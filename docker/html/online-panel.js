@@ -3,7 +3,7 @@ import { MessagingClient, canChallenge } from '../../src/index.ts';
 import { gameUrl, INITIAL_STATE, reduce, flag, getEmoji } from './utils.js';
 import {
     SHARED_STYLES, USER_LIST_STYLES, CHALLENGE_BANNER_STYLES,
-    SENT_CHALLENGE_BANNER_STYLES, PLAYER_PANEL_STYLES, CHALLENGE_MODAL_STYLES
+    SENT_CHALLENGE_BANNER_STYLES, PLAYER_PANEL_STYLES, CHALLENGE_MODAL_STYLES, BADGE_STYLES
 } from './styles.js';
 
 const BOTS = [
@@ -89,7 +89,7 @@ class ChallengeBanner extends LitElement {
 
 class ChallengeModal extends LitElement {
     static properties = { userId: { type: String }, userName: { type: String } };
-    static styles = [SHARED_STYLES, CHALLENGE_MODAL_STYLES];
+    static styles = [SHARED_STYLES, CHALLENGE_MODAL_STYLES, BADGE_STYLES];
     static RULES = [
         { id: 'eightball',    label: 'Eight Ball',          img: 'assets/eightball.png' },
         { id: 'nineball',     label: 'Nine Ball',           img: 'assets/nineball.png' },

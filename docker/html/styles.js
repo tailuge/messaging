@@ -163,7 +163,10 @@ export const CHALLENGE_MODAL_STYLES = css`
     button.cancel { background: var(--modal-cancel); color: var(--text); border-color: var(--btn-border); }
     .icon-wrap { position: relative; width: 28px; height: 28px; flex-shrink: 0; }
     .icon-wrap img { width: 28px; height: 28px; display: block; }
-    .badge { position: absolute; bottom: 0; right: 0; background: #b02030; color: #fff; font-size: 0.55rem; font-weight: bold; border-radius: 3px; padding: 0 2px; line-height: 1.3; }
+`;
+
+export const BADGE_STYLES = css`
+    .badge { position: absolute; bottom: -3px; right: -3px; background: #7a0f1a; color: #fff; font-size: 11px; font-weight: normal; border-radius: 3px; padding: 0 2px; line-height: 1.3; border: 1px solid #fff; }
 `;
 
 export const USER_BADGE_STYLES = css`
@@ -186,7 +189,6 @@ export const SOLO_PANEL_STYLES = css`
     button:hover { opacity: 1; background: var(--btn-hover); }
     .icon-wrap { position: relative; display: block; }
     img { display: block; width: 48px; height: 48px; margin: auto; }
-    .badge { position: absolute; bottom: 0; right: 0; background: #b02030; color: #fff; font-size: 0.5rem; font-weight: bold; border-radius: 3px; padding: 0 2px; line-height: 1.3; }
 `;
 
 export const INFO_PANEL_STYLES = css`
