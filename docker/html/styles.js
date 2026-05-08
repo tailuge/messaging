@@ -178,6 +178,7 @@ export const INFO_PANEL_STYLES = css`
     th { display: none; }
     caption { font-size: 0.8rem; font-weight: 600; text-align: center; padding: 0.2rem 0; color: var(--text-dim); }
     a { color: var(--link); text-decoration: none; }
+    .date { text-align: right; }
 `;
 
 export const PLAYER_PANEL_STYLES = css`

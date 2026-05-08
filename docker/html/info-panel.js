@@ -34,10 +34,10 @@ class InfoPanel extends LitElement {
                 </table></div>
             `)}
             <div class="tbl"><table><caption>Recent Matches</caption>
-            <tr><th>Match</th><th>Rule</th><th>Date</th><th></th></tr>
+            <tr><th>Rule</th><th>Match</th><th>Date</th><th></th></tr>
                 ${recentMatches.map(m => html`<tr>
-                    <td>🎖️${m.winner}${m.loser ? ` vs ${m.loser}` : ''}</td><td>${ruleIcon(m.ruleType)}</td>
-                    <td>${timeAgo(m.timestamp)}${m.locationCity ? ` ${m.locationCity} ${flag(m.locationCountry)}` : ''}</td>
+                    <td>${ruleIcon(m.ruleType)}</td><td>🎖️${m.winner}${m.loser ? ` vs ${m.loser}` : ''}</td>
+                    <td class="date">${timeAgo(m.timestamp)}${m.locationCountry ? ` ${m.locationCity ?? ''} ${flag(m.locationCountry)}` : ''}</td>
                     <td>${m.hasReplay ? html`<replay-button url="${SCOREBOARD_URL}/api/match-replay?id=${m.id}"></replay-button>` : ''}</td>
                 </tr>`)}
             </table></div>`;
