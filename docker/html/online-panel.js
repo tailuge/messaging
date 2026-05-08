@@ -134,8 +134,8 @@ class OnlinePanel extends LitElement {
     constructor() {
         super();
         const p = new URLSearchParams(location.search);
-        this.#myId   = p.get('clientId') || 'user-' + Math.random().toString(36).slice(2, 7);
-        this.#myName = p.get('userName')  || 'Player';
+        this.#myId   = p.get('clientId') || localStorage.getItem('clientId') || 'user-' + Math.random().toString(36).slice(2, 7);
+        this.#myName = p.get('userName')  || localStorage.getItem('userName')  || 'Anonymous';
 
         let baseUrl = 'https://billiards-network.onrender.com';
         if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
@@ -147,11 +147,20 @@ class OnlinePanel extends LitElement {
 
     connectedCallback() {
         super.connectedCallback();
+        this._onUserChanged = e => {
+            this.#myId   = e.detail.userId;
+            this.#myName = e.detail.userName;
+            this.#lobby?.leave();
+            this.#lobby = null;
+            this._connect().catch(e => console.error('Lobby reconnect failed:', e));
+        };
+        document.addEventListener('user-name-changed', this._onUserChanged);
         this._connect().catch(e => console.error('Lobby connect failed:', e));
     }
 
     disconnectedCallback() {
         super.disconnectedCallback();
+        document.removeEventListener('user-name-changed', this._onUserChanged);
         this.#lobby?.leave();
     }
 
@@ -230,7 +239,6 @@ class OnlinePanel extends LitElement {
         return html`
             <div class="panel-header">
                 <span class="dot ${this.#connected ? 'on' : ''}"></span>
-                <span class="user-name">${this.#myName}</span>
                 <span class="panel-title">Play Online</span>
             </div>
             <challenge-banner

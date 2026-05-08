@@ -22,11 +22,14 @@
         import './solo-panel.js';
         import './info-panel.js';
         import './online-panel.js';
+        import './user-badge.js';
 
         class LobbyApp extends LitElement {
             static properties = {
                 _menuOpen: { state: true },
-                _theme: { type: String, reflect: true, attribute: 'theme' }
+                _theme: { type: String, reflect: true, attribute: 'theme' },
+                _userId: { state: true },
+                _userName: { state: true }
             };
             static styles = [LOBBY_APP_STYLES, BURGER_MENU_STYLES];
 
@@ -34,6 +37,8 @@
                 super();
                 this._menuOpen = false;
                 this._theme = document.documentElement.getAttribute('theme') || 'light';
+                this._userId = localStorage.getItem('clientId') || '';
+                this._userName = localStorage.getItem('userName') || 'Anonymous';
             }
 
             _toggleMenu(e) {
@@ -63,13 +68,14 @@
             }
 
             render() {
-                const p = new URLSearchParams(location.search);
-                const userId   = p.get('clientId') || '';
-                const userName = p.get('userName')  || 'Player';
+                const userId   = this._userId;
+                const userName = this._userName;
                 const isDark = this._theme === 'dark';
                 return html`
-                    <div class="topbar" @click=${e => e.stopPropagation()}>
+                    <div class="topbar" @click=${e => e.stopPropagation()}
+                         @user-name-changed=${e => { this._userId = e.detail.userId; this._userName = e.detail.userName; }}>
                         <h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a></h1>
+                        <user-badge></user-badge>
                         <button class="burger"
                             aria-label="Menu"
                             aria-expanded="${this._menuOpen}"
