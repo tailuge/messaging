@@ -19,13 +19,13 @@ class InfoPanel extends LitElement {
         const games = Object.keys(hiscores);
         return html`
             ${games.map(game => html`
-                <div class="tbl"><table><caption>${game} · High Scores</caption>
+                <div class="tbl"><table><caption>${ruleIcon(game)} High Scores</caption>
                 <tr><th>Name</th><th>Score</th><th></th></tr>
                     ${hiscores[game].slice(0, 4).map((s, i) => html`<tr><td>${renderTrophy(i)} ${s.name}</td><td>${s.score}</td><td><replay-button url="${SCOREBOARD_URL}/api/rank/${s.id}?ruletype=${game}"></replay-button></td></tr>`)}
                 </table></div>
             `)}
             ${games.map(game => html`
-                <div class="tbl"><table><caption>${game} · Top Players</caption>
+                <div class="tbl"><table><caption>${ruleIcon(game)} Top Players</caption>
                 <tr><th>Name</th><th>Rating</th><th>W</th><th>L</th></tr>
                     ${topPlayers[game].slice(0, 4).map((p, i) => html`<tr>
                         <td><a href="${SCOREBOARD_URL}/player/${encodeURIComponent(p.name)}?ruleType=${game}">${renderTrophy(i)} ${p.name}</a></td>

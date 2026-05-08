@@ -254,7 +254,7 @@ class OnlinePanel extends LitElement {
         return html`
             <div class="panel-header">
                 <span class="dot ${this.#connected ? 'on' : ''}"></span>
-                <span class="panel-title">Play Online</span>
+                <span class="panel-title">Play Online (${this.#visibleUsers.filter(u => u.userId !== this.#myId).length})</span>
             </div>
             <challenge-banner
                 .challenge=${this.#activeChallenge}
