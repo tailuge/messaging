@@ -20,13 +20,13 @@ class InfoPanel extends LitElement {
             ${games.map(game => html`
                 <div class="tbl"><table><caption>${game} · High Scores</caption>
                 <tr><th>Name</th><th>Score</th><th></th></tr>
-                    ${hiscores[game].map(s => html`<tr><td>${s.name}</td><td>${s.score}</td><td><a href="${SCOREBOARD_URL}/api/rank/${s.id}?ruletype=${game}">replay</a></td></tr>`)}
+                    ${hiscores[game].slice(0, 4).map(s => html`<tr><td>${s.name}</td><td>${s.score}</td><td><a href="${SCOREBOARD_URL}/api/rank/${s.id}?ruletype=${game}">▶️</a></td></tr>`)}
                 </table></div>
             `)}
             ${games.map(game => html`
                 <div class="tbl"><table><caption>${game} · Top Players</caption>
                 <tr><th>Name</th><th>Rating</th><th>W</th><th>L</th></tr>
-                    ${topPlayers[game].map(p => html`<tr>
+                    ${topPlayers[game].slice(0, 4).map(p => html`<tr>
                         <td><a href="${SCOREBOARD_URL}/player/${encodeURIComponent(p.name)}?ruleType=${game}">${p.name}</a></td>
                         <td>${Math.round(p.rating)}</td>
                     </tr>`)}
@@ -37,7 +37,7 @@ class InfoPanel extends LitElement {
                 ${recentMatches.map(m => html`<tr>
                     <td>${m.winner}</td><td>${m.loser||'-'}</td><td>${m.ruleType||'nineball'}</td>
                     <td>${new Date(m.timestamp).toLocaleString()}</td>
-                    <td>${m.hasReplay ? html`<a href="${SCOREBOARD_URL}/api/match-replay?id=${m.id}">replay</a>` : ''}</td>
+                    <td>${m.hasReplay ? html`<a href="${SCOREBOARD_URL}/api/match-replay?id=${m.id}">▶️</a>` : ''}</td>
                 </tr>`)}
             </table></div>`;
     }
