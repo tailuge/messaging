@@ -1,4 +1,4 @@
-import { html } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
+import { html } from 'lit';
 import { userStore, StoreElement } from './user-store.js';
 import { SOLO_PANEL_STYLES } from './styles.js';
 

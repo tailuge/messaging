@@ -1,5 +1,5 @@
-import { LitElement, html, css } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
-import { styleMap } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/all/lit-all.min.js';
+import { LitElement, html, css } from 'lit';
+import { styleMap } from 'lit/directives/style-map.js';
 
 class ReplayButton extends LitElement {
     static properties = {

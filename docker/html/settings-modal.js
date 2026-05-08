@@ -1,4 +1,4 @@
-import { html, css } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
+import { html, css } from 'lit';
 import { StoreElement } from './user-store.js';
 import { SHARED_STYLES, CHALLENGE_MODAL_STYLES } from './styles.js';
 

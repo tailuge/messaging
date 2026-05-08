@@ -1,4 +1,4 @@
-import { css } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
+import { css } from 'lit';
 
 // CSS custom property tokens — defined on :host of lobby-app (root),
 // inherited by all child shadow roots since custom props pierce shadow DOM.

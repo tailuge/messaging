@@ -1,4 +1,4 @@
-import { LitElement, html } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
+import { LitElement, html } from 'lit';
 import { INFO_PANEL_STYLES } from './styles.js';
 import { SCOREBOARD_URL, timeAgo, flag, ruleIcon, renderTrophy } from './utils.js';
 import './replay-button.js';

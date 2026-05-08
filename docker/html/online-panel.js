@@ -1,5 +1,5 @@
-import { LitElement, html } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
-import { MessagingClient, canChallenge } from '/messaging.js';
+import { LitElement, html } from 'lit';
+import { MessagingClient, canChallenge } from '../../src/index.ts';
 import { gameUrl, INITIAL_STATE, reduce, flag, getEmoji } from './utils.js';
 import {
     SHARED_STYLES, USER_LIST_STYLES, CHALLENGE_BANNER_STYLES,
@@ -169,7 +169,7 @@ class OnlinePanel extends LitElement {
         this.#lobby?.leave();
     }
 
-    #dispatch(action) {
+    dispatch(action) {
         this.#state = reduce(this.#state, { ...action, myId: this.#myId });
         this.requestUpdate();
     }
@@ -195,12 +195,12 @@ class OnlinePanel extends LitElement {
             messageType: 'presence', type: 'join',
             userId: this.#myId, userName: this.#myName,
         });
-        this.#dispatch({ type: 'CONNECTED', payload: true });
-        this.#lobby.onUsersChange(users => this.#dispatch({ type: 'USERS_UPDATE', payload: users }));
+        this.dispatch({ type: 'CONNECTED', payload: true });
+        this.#lobby.onUsersChange(users => this.dispatch({ type: 'USERS_UPDATE', payload: users }));
         this.#lobby.onChallenge(msg => {
             const msgTime = msg.meta?.ts ? new Date(msg.meta.ts).getTime() : Infinity;
             if (msgTime < this.#connectTime) return;
-            this.#dispatch({ type: 'CHALLENGE_MSG', payload: msg });
+            this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
             if (msg.type === 'challenge' && msg.challengeeId === this.#myId && document.hidden && Notification.permission === 'granted') {
                 new Notification('Challenge received!', { body: `${msg.challengerName} challenged you to ${msg.ruleType}`, icon: 'assets/golden-cup.png' });
             }
@@ -215,32 +215,32 @@ class OnlinePanel extends LitElement {
             return;
         }
         const tableId = await this.#lobby.challenge(userId, ruleType, undefined, options);
-        this.#dispatch({ type: 'CHALLENGE_SENT', payload: { challengerId: this.#myId, challengeeId: userId, recipientName: u?.userName || userId, ruleType, options, tableId } });
+        this.dispatch({ type: 'CHALLENGE_SENT', payload: { challengerId: this.#myId, challengeeId: userId, recipientName: u?.userName || userId, ruleType, options, tableId } });
     }
 
     async #cancelChallenge() {
         const s = this.#sentChallenge;
         if (s?.status === 'pending') {
             await this.#lobby.cancelChallenge(s.challengeeId, s.ruleType);
-            this.#dispatch({ type: 'CHALLENGE_DISMISS', payload: s.challengeeId });
+            this.dispatch({ type: 'CHALLENGE_DISMISS', payload: s.challengeeId });
         }
     }
 
     async #acceptChallenge() {
         const c = this.#activeChallenge;
         this.#table = await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options, c.challengerName);
-        this.#dispatch({ type: 'MATCH_SET', payload: { tableId: c.tableId, ruleType: c.ruleType, options: c.options, isFirst: false } });
+        this.dispatch({ type: 'MATCH_SET', payload: { tableId: c.tableId, ruleType: c.ruleType, options: c.options, isFirst: false } });
     }
 
     async #declineChallenge() {
         const c = this.#activeChallenge;
         await this.#lobby.declineChallenge(c.challengerId, c.ruleType, c.challengerName);
-        this.#dispatch({ type: 'CHALLENGE_DISMISS', payload: c.challengerId });
+        this.dispatch({ type: 'CHALLENGE_DISMISS', payload: c.challengerId });
     }
 
     #clearSentChallenge() {
         const s = this.#sentChallenge;
-        if (s) this.#dispatch({ type: 'CHALLENGE_DISMISS', payload: s.challengeeId });
+        if (s) this.dispatch({ type: 'CHALLENGE_DISMISS', payload: s.challengeeId });
     }
 
     render() {
