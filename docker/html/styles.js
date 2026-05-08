@@ -171,7 +171,7 @@ export const INFO_PANEL_STYLES = css`
     .tbl { display: inline-block; vertical-align: top; border: 1px solid var(--border); border-radius: 4px; margin: 0.25rem; overflow: hidden; }
     table { border-collapse: collapse; width: auto; }
     th, td { border: 1px solid var(--border); padding: 0.15rem 0.3rem; text-align: left; }
-    th { background: var(--table-head); font-weight: 600; }
+    th { display: none; }
     caption { font-size: 0.8rem; font-weight: 600; text-align: center; padding: 0.2rem 0; color: var(--text-dim); }
     a { color: #0055cc; }
 `;

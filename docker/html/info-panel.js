@@ -28,7 +28,7 @@ class InfoPanel extends LitElement {
                 <tr><th>Name</th><th>Rating</th><th>W</th><th>L</th></tr>
                     ${topPlayers[game].map(p => html`<tr>
                         <td><a href="${SCOREBOARD_URL}/player/${encodeURIComponent(p.name)}?ruleType=${game}">${p.name}</a></td>
-                        <td>${Math.round(p.rating)}</td><td>${p.wins}</td><td>${p.losses}</td>
+                        <td>${Math.round(p.rating)}</td>
                     </tr>`)}
                 </table></div>
             `)}
