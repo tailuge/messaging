@@ -1,5 +1,5 @@
 import { LitElement, html } from 'lit';
-import { MessagingClient, canChallenge } from '../../src/index.ts';
+import { MessagingClient, canChallenge } from '../index.ts';
 import { gameUrl, INITIAL_STATE, reduce, flag, getEmoji } from './utils.js';
 import {
     SHARED_STYLES, USER_LIST_STYLES, CHALLENGE_BANNER_STYLES,
