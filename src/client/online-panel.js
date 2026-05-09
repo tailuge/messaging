@@ -94,10 +94,10 @@ class ChallengeModal extends LitElement {
     static RULES = [
         { id: 'eightball',    label: 'Eight Ball',          img: 'assets/eightball.png' },
         { id: 'nineball',     label: 'Nine Ball',           img: 'assets/nineball.png' },
-        { id: 'threecushion', label: 'Three Cushion (3)',       img: 'assets/threecushion.png', options: { raceTo: '3' } },
-        { id: 'threecushion', label: 'Three Cushion (7)',  img: 'assets/threecushion.png', options: { raceTo: '7' } },
+        { id: 'threecushion', label: 'Three Cushion (3)',   img: 'assets/threecushion.png', options: { raceTo: '3' } },
+        { id: 'threecushion', label: 'Three Cushion (7)',   img: 'assets/threecushion.png', options: { raceTo: '7' } },
         { id: 'threecushion', label: 'Three Cushion (15)',  img: 'assets/threecushion.png', options: { raceTo: '15' } },
-        { id: 'snooker',      label: 'Snooker',             img: 'assets/snooker.png' },
+        { id: 'snooker',      label: 'Snooker (15 reds)',   img: 'assets/snooker.png' },
         { id: 'snooker',      label: 'Snooker (6 reds)',    img: 'assets/snooker.png', options: { reds: '6' } },
     ];
 
