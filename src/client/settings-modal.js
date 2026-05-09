@@ -63,15 +63,15 @@ class SettingsModal extends StoreElement {
                             </label>
                         </div>
                         <div class="row">
-                            <label title="Level of Detail">
-                                <input type="range" min="0" max="3" step="1" .value=${userStore.res} @input=${e => userStore.setRes(e.target.value)}>
-                                l.o.d (${userStore.res})
-                            </label>
-                        </div>
-                        <div class="row">
                             <label>
                                 <input type="checkbox" .checked=${this._notifEnabled} @change=${this._toggleNotifications}>
                                 Enable notifications
+                            </label>
+                        </div>
+                        <div class="row">
+                            <label title="Level of Detail">
+                                <input type="range" min="0" max="3" step="1" .value=${userStore.res} @input=${e => userStore.setRes(e.target.value)}>
+                                L.O.D (${userStore.res})
                             </label>
                         </div>
                         <div class="row"><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Support</a></div>
