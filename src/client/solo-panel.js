@@ -1,5 +1,6 @@
 import { html } from 'lit';
 import { userStore, StoreElement } from './user-store.js';
+import { soloUrl } from './utils.js';
 import { SOLO_PANEL_STYLES, BADGE_STYLES } from './styles.js';
 
 const GAMES = [
@@ -14,13 +15,6 @@ const GAMES = [
     { label: "Eight Ball",    img: "assets/eightball.png",    ruletype: "eightball" },
 ];
 
-const soloUrl = (g, userId, userName) => {
-    const res = userStore.res;
-    if (g.url) return `${g.url}?clientId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}&res=${res}`;
-    let url = `https://billiards.tailuge.workers.dev/?ruletype=${g.ruletype}&clientId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}&res=${res}`;
-    if (g.options) Object.entries(g.options).forEach(([k, v]) => url += `&${k}=${encodeURIComponent(v)}`);
-    return url;
-};
 
 class SoloPanel extends StoreElement {
     static styles = [SOLO_PANEL_STYLES, BADGE_STYLES];
@@ -28,7 +22,7 @@ class SoloPanel extends StoreElement {
         const { clientId, userName } = userStore;
         return html`<div class="grid">${GAMES.map(g => html`
             <button title=${g.label} aria-label="Play ${g.label}"
-                @click=${() => { window.location.href = soloUrl(g, clientId, userName); }}>
+                @click=${() => { window.location.href = soloUrl(g, clientId, userName, userStore.lod); }}>
                 <span class="icon-wrap">
                     <img src=${g.img} alt=${g.label} />
                     ${g.options ? html`<span class="badge">${Object.values(g.options)[0]}</span>` : ''}

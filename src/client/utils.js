@@ -94,14 +94,26 @@ export const flag = (code) => code === 'BOT'
         ? [...code.toUpperCase()].map(c => String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0))).join('')
         : '🌐';
 
-export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options, bot, res }) => {
-    let url = `https://billiards.tailuge.workers.dev/?websocketserver=wss://billiards.onrender.com/ws`
+const BASE = 'https://billiards.tailuge.workers.dev/';
+const appendOptions = (url, options) => options
+    ? Object.entries(options).reduce((u, [k, v]) => u + `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`, url)
+    : url;
+
+export const soloUrl = (g, userId, userName, lod) => {
+    if (g.url) return `${g.url}?clientId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}&lod=${lod}`;
+    return appendOptions(
+        `${BASE}?ruletype=${g.ruletype}&clientId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}&lod=${lod}`,
+        g.options
+    );
+};
+
+export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options, bot, lod }) => {
+    let url = `${BASE}?websocketserver=wss://billiards.onrender.com/ws`
         + `&tableId=${tableId}&userName=${encodeURIComponent(userName)}&clientId=${userId}&ruletype=${ruleType}`;
     if (isFirst) url += '&first=true';
     if (bot) url += `&bot=${encodeURIComponent(bot)}`;
-    if (res !== undefined) url += `&res=${res}`;
-    if (options) Object.entries(options).forEach(([k, v]) => url += `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
-    return url;
+    if (lod !== undefined) url += `&lod=${lod}`;
+    return appendOptions(url, options);
 };
 
 export const ruleIcon = rule => ({ eightball: '🎱', snooker: '🔴', threecushion: '➂', nineball: '⓽' }[rule] ?? '🎱');

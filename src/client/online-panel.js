@@ -212,7 +212,7 @@ class OnlinePanel extends LitElement {
         const u = this.#visibleUsers.find(u => u.userId === userId);
         if (u?.isBot) {
             const tableId = 'bot-' + Math.random().toString(36).slice(2, 8);
-            window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst: true, options, bot: u.userName, res: userStore.res });
+            window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst: true, options, bot: u.userName, lod: userStore.lod });
             return;
         }
         const tableId = await this.#lobby.challenge(userId, ruleType, undefined, options);
@@ -246,7 +246,7 @@ class OnlinePanel extends LitElement {
 
     render() {
         if (this.#tableId) {
-            const url = gameUrl({ tableId: this.#tableId, userId: this.#myId, userName: this.#myName, ruleType: this.#ruleType, isFirst: this.#isFirst, options: this.#matchOptions, res: userStore.res });
+            const url = gameUrl({ tableId: this.#tableId, userId: this.#myId, userName: this.#myName, ruleType: this.#ruleType, isFirst: this.#isFirst, options: this.#matchOptions, lod: userStore.lod });
             window.location.href = url;
             return html``;
         }

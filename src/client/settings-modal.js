@@ -70,8 +70,8 @@ class SettingsModal extends StoreElement {
                         </div>
                         <div class="row">
                             <label title="Level of Detail">
-                                <input type="range" min="0" max="3" step="1" .value=${userStore.res} @input=${e => userStore.setRes(e.target.value)}>
-                                L.O.D (${userStore.res})
+                                <input type="range" min="0" max="4" step="1" .value=${userStore.lod} @input=${e => userStore.setLod(e.target.value)}>
+                                L.O.D (${userStore.lod})
                             </label>
                         </div>
                         <div class="row"><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Support</a></div>

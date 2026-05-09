@@ -3,7 +3,7 @@ import { LitElement } from 'lit';
 class UserStore extends EventTarget {
     clientId = localStorage.getItem('clientId') || '';
     userName = localStorage.getItem('userName') || 'Anonymous';
-    res = localStorage.getItem('res') || '1';
+    lod = localStorage.getItem('lod') || '1';
 
     set(clientId, userName) {
         this.clientId = clientId;
@@ -13,9 +13,9 @@ class UserStore extends EventTarget {
         this.dispatchEvent(new Event('change'));
     }
 
-    setRes(val) {
-        this.res = val;
-        localStorage.setItem('res', val);
+    setLod(val) {
+        this.lod = val;
+        localStorage.setItem('lod', val);
         this.dispatchEvent(new Event('change'));
     }
 }
