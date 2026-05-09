@@ -44,14 +44,19 @@ class InfoPanel extends LitElement {
                     `)}
                 </div>
             </div>
-            <div class="tbl"><table><caption>Recent Matches</caption>
-            <tr><th>Rule</th><th>Match</th><th>Date</th><th></th></tr>
-                ${recentMatches.map(m => html`<tr>
-                    <td>${ruleIcon(m.ruleType)}</td><td>${m.loser ? '🎖️' : ''}${m.winner}${m.loser ? ` vs ${m.loser}` : ''}</td>
-                    <td class="date">${timeAgo(m.timestamp)}${m.locationCountry ? ` ${m.locationCity ?? ''} ${flag(m.locationCountry)}` : ''}</td>
-                    <td>${m.hasReplay ? html`<replay-button url="${SCOREBOARD_URL}/api/match-replay?id=${m.id}&lod=${userStore.lod}"></replay-button>` : ''}</td>
-                </tr>`)}
-            </table></div>`;
+            <div class="group">
+                <div class="group-title">Recent Matches</div>
+                <div class="group-body">
+                    <div class="tbl"><table>
+                    <tr><th>Rule</th><th>Match</th><th>Date</th><th></th></tr>
+                        ${recentMatches.map(m => html`<tr>
+                            <td>${ruleIcon(m.ruleType)}</td><td>${m.loser ? '🎖️' : ''}${m.winner}${m.loser ? ` vs ${m.loser}` : ''}</td>
+                            <td class="date">${timeAgo(m.timestamp)}${m.locationCountry ? ` ${m.locationCity ?? ''} ${flag(m.locationCountry)}` : ''}</td>
+                            <td>${m.hasReplay ? html`<replay-button url="${SCOREBOARD_URL}/api/match-replay?id=${m.id}&lod=${userStore.lod}"></replay-button>` : ''}</td>
+                        </tr>`)}
+                    </table></div>
+                </div>
+            </div>`;
     }
 }
 

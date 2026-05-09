@@ -181,8 +181,8 @@
     .date { text-align: right; }
     .loading { color: var(--text-muted); }
     .group { margin-bottom: 0.4rem; }
-    .group-title { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); padding: 0.1rem 0.25rem; }
-    .group-body { display: flex; flex-wrap: wrap; }
+    .group-title { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); padding: 0.1rem 0.25rem; text-align: center; }
+    .group-body { display: flex; flex-wrap: wrap; justify-content: center; }
 `,Ze=u`
     :host { display: flex; flex-direction: column; height: 100%; }
     .panel-header { display: flex; align-items: center; justify-content: center; gap: 0.4rem; margin-bottom: 0.25rem; }

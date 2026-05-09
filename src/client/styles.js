@@ -203,8 +203,8 @@ export const INFO_PANEL_STYLES = css`
     .date { text-align: right; }
     .loading { color: var(--text-muted); }
     .group { margin-bottom: 0.4rem; }
-    .group-title { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); padding: 0.1rem 0.25rem; }
-    .group-body { display: flex; flex-wrap: wrap; }
+    .group-title { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); padding: 0.1rem 0.25rem; text-align: center; }
+    .group-body { display: flex; flex-wrap: wrap; justify-content: center; }
 `;
 
 export const PLAYER_PANEL_STYLES = css`
