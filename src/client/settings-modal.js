@@ -1,5 +1,5 @@
 import { html, css } from 'lit';
-import { StoreElement } from './user-store.js';
+import { userStore, StoreElement } from './user-store.js';
 import { SHARED_STYLES, CHALLENGE_MODAL_STYLES } from './styles.js';
 
 class SettingsModal extends StoreElement {
@@ -60,6 +60,12 @@ class SettingsModal extends StoreElement {
                             <label>
                                 <input type="checkbox" .checked=${this._theme === 'dark'} @change=${this._setTheme}>
                                 Dark mode
+                            </label>
+                        </div>
+                        <div class="row">
+                            <label title="Level of Detail">
+                                <input type="range" min="0" max="3" step="1" .value=${userStore.res} @input=${e => userStore.setRes(e.target.value)}>
+                                l.o.d (${userStore.res})
                             </label>
                         </div>
                         <div class="row">

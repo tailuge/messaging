@@ -1,5 +1,6 @@
 import { LitElement, html } from 'lit';
 import { MessagingClient, canChallenge } from '../index.ts';
+import { userStore } from './user-store.js';
 import { gameUrl, INITIAL_STATE, reduce, flag, getEmoji } from './utils.js';
 import {
     SHARED_STYLES, USER_LIST_STYLES, CHALLENGE_BANNER_STYLES,
@@ -211,7 +212,7 @@ class OnlinePanel extends LitElement {
         const u = this.#visibleUsers.find(u => u.userId === userId);
         if (u?.isBot) {
             const tableId = 'bot-' + Math.random().toString(36).slice(2, 8);
-            window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst: true, options, bot: u.userName });
+            window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst: true, options, bot: u.userName, res: userStore.res });
             return;
         }
         const tableId = await this.#lobby.challenge(userId, ruleType, undefined, options);
@@ -245,7 +246,7 @@ class OnlinePanel extends LitElement {
 
     render() {
         if (this.#tableId) {
-            const url = gameUrl({ tableId: this.#tableId, userId: this.#myId, userName: this.#myName, ruleType: this.#ruleType, isFirst: this.#isFirst, options: this.#matchOptions });
+            const url = gameUrl({ tableId: this.#tableId, userId: this.#myId, userName: this.#myName, ruleType: this.#ruleType, isFirst: this.#isFirst, options: this.#matchOptions, res: userStore.res });
             window.location.href = url;
             return html``;
         }
