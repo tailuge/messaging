@@ -3,12 +3,19 @@ import { LitElement } from 'lit';
 class UserStore extends EventTarget {
     clientId = localStorage.getItem('clientId') || '';
     userName = localStorage.getItem('userName') || 'Anonymous';
+    res = localStorage.getItem('res') || '1';
 
     set(clientId, userName) {
         this.clientId = clientId;
         this.userName = userName;
         localStorage.setItem('clientId', clientId);
         localStorage.setItem('userName', userName);
+        this.dispatchEvent(new Event('change'));
+    }
+
+    setRes(val) {
+        this.res = val;
+        localStorage.setItem('res', val);
         this.dispatchEvent(new Event('change'));
     }
 }

@@ -15,8 +15,9 @@ const GAMES = [
 ];
 
 const soloUrl = (g, userId, userName) => {
-    if (g.url) return `${g.url}?clientId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}`;
-    let url = `https://billiards.tailuge.workers.dev/?ruletype=${g.ruletype}&clientId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}`;
+    const res = userStore.res;
+    if (g.url) return `${g.url}?clientId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}&res=${res}`;
+    let url = `https://billiards.tailuge.workers.dev/?ruletype=${g.ruletype}&clientId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}&res=${res}`;
     if (g.options) Object.entries(g.options).forEach(([k, v]) => url += `&${k}=${encodeURIComponent(v)}`);
     return url;
 };

@@ -94,11 +94,12 @@ export const flag = (code) => code === 'BOT'
         ? [...code.toUpperCase()].map(c => String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0))).join('')
         : '🌐';
 
-export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options, bot }) => {
+export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options, bot, res }) => {
     let url = `https://billiards.tailuge.workers.dev/?websocketserver=wss://billiards.onrender.com/ws`
         + `&tableId=${tableId}&userName=${encodeURIComponent(userName)}&clientId=${userId}&ruletype=${ruleType}`;
     if (isFirst) url += '&first=true';
     if (bot) url += `&bot=${encodeURIComponent(bot)}`;
+    if (res !== undefined) url += `&res=${res}`;
     if (options) Object.entries(options).forEach(([k, v]) => url += `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
     return url;
 };
