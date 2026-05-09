@@ -28,7 +28,7 @@ class ReplayButton extends LitElement {
             transition: all 0.15s ease-in-out;
             border: 1px solid rgba(255, 255, 255, 0.1);
             margin: 0;
-            padding: 0 6px;
+            padding: 0 1px;
             font-size: 0.7rem;
             color: white;
             font-family: inherit;

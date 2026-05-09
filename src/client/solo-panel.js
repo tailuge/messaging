@@ -18,9 +18,10 @@ const GAMES = [
 
 class SoloPanel extends StoreElement {
     static styles = [SOLO_PANEL_STYLES, BADGE_STYLES];
+    #games = [...GAMES].sort(() => Math.random() - 0.5);
     render() {
         const { clientId, userName } = userStore;
-        return html`<div class="grid">${GAMES.map(g => html`
+        return html`<div class="grid">${this.#games.map(g => html`
             <button title=${g.label} aria-label="Play ${g.label}"
                 @click=${() => { window.location.href = soloUrl(g, clientId, userName, userStore.lod); }}>
                 <span class="icon-wrap">

@@ -170,16 +170,17 @@ export const BADGE_STYLES = css`
 `;
 
 export const USER_BADGE_STYLES = css`
-    :host { display: inline-flex; align-items: center; align-self: center; font-family: 'Exo', sans-serif; font-weight: 200; }
+    :host { display: inline-flex; align-items: center; align-self: center; font-family: 'Exo', sans-serif; font-weight: 200; filter: drop-shadow(0 0 4px rgba(100, 255, 130, 0.3)); }
     .badge {
         display: inline-flex; align-items: center; gap: 5px;
         padding: 2px 10px 2px 7px; border-radius: 4px;
-        background: #2a2a2a; border: 1px solid rgba(255,255,255,0.12);
-        cursor: pointer; font-size: 0.8rem; color: #eee; transition: filter 0.15s;
+        background: var(--surface); border: 1px solid var(--border);
+        cursor: pointer; font-size: 0.8rem; color: var(--text); font-weight: 600;
+        transition: filter 0.15s;
     }
     .badge:hover { filter: brightness(1.3); }
     .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: var(--dot-color, #888); }
-    input { width: 90px; background: transparent; border: none; border-bottom: 1px solid #aaa; color: inherit; font-size: inherit; outline: none; padding: 0; }
+    input { width: 90px; background: transparent; border: none; border-bottom: 1px solid var(--border); color: inherit; font-size: inherit; outline: none; padding: 0; font-weight: inherit; }
 `;
 
 export const SOLO_PANEL_STYLES = css`
