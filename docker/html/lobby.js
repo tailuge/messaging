@@ -152,12 +152,12 @@
 `,W=u`
     .badge { position: absolute; bottom: -3px; right: -3px; background: #7a0f1a; color: #fff; font-size: 11px; font-weight: normal; border-radius: 3px; padding: 0 2px; line-height: 1.3; border: 1px solid #fff; }
 `,Ve=u`
-    :host { display: inline-flex; align-items: center; align-self: center; font-family: 'Exo', sans-serif; font-weight: 200; filter: drop-shadow(0 0 4px rgba(100, 255, 130, 0.3)); }
+    :host { display: inline-flex; align-items: center; align-self: center; font-family: 'Exo', sans-serif; font-weight: 200; filter: drop-shadow(0 0 3px rgba(100, 255, 131, 0.45)); }
     .badge {
         display: inline-flex; align-items: center; gap: 5px;
-        padding: 2px 10px 2px 7px; border-radius: 4px;
+        padding: 0px 12px 0px 10px; border-radius: 4px;
         background: var(--surface); border: 1px solid var(--border);
-        cursor: pointer; font-size: 0.8rem; color: var(--text); font-weight: 600;
+        cursor: pointer; font-size: 1.2rem; color: var(--text); font-weight: 600;
         transition: filter 0.15s;
     }
     .badge:hover { filter: brightness(1.3); }
@@ -193,7 +193,7 @@
 `,Qe=[wt,u`
     :host { display: flex; flex-direction: column; min-height: 100%; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.85rem; box-sizing: border-box; padding: 0.5rem; gap: 0.2rem; background: var(--bg); color: var(--text); overflow-y: auto; scrollbar-width: none; }
     :host::-webkit-scrollbar { display: none; }
-    h1 { font-size: 0.85rem; color: var(--text-dim); text-align: center; margin: 0; letter-spacing: 0.1em; text-transform: uppercase; flex-shrink: 0; }
+    h1 { font-size: 1.0rem; color: var(--text-dim); text-align: center; margin: 0; letter-spacing: 0.1em; text-transform: uppercase; flex-shrink: 0; }
     h1 a { color: inherit; text-decoration: none; }
     h1 a:hover { text-decoration: underline; }
     .topbar { display: flex; align-items: center; flex-shrink: 0; gap: 0.3rem; }
@@ -360,7 +360,7 @@
                                 @blur=${this._commit} @keydown=${this._onKey}
                                 @click=${e=>e.stopPropagation()}>`:this._name}
             </div>`}};customElements.define("user-badge",Se);var we=class extends x{static properties={_open:{state:!0},_notifEnabled:{state:!0}};static styles=[T,F,u`
-        .burger { background: none; border: none; font-size: 1.1rem; cursor: pointer; padding: 0.1rem 0.3rem; color: var(--text-muted); line-height: 1; }
+        .burger { background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 0.1rem 0.3rem; color: var(--text-muted); line-height: 1; }
         .burger:hover { color: var(--text); background: none; }
         .row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: var(--text); }
         label { cursor: pointer; display: flex; align-items: center; gap: 0.3rem; }

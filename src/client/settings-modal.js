@@ -5,7 +5,7 @@ import { SHARED_STYLES, CHALLENGE_MODAL_STYLES } from './styles.js';
 class SettingsModal extends StoreElement {
     static properties = { _open: { state: true }, _notifEnabled: { state: true } };
     static styles = [SHARED_STYLES, CHALLENGE_MODAL_STYLES, css`
-        .burger { background: none; border: none; font-size: 1.1rem; cursor: pointer; padding: 0.1rem 0.3rem; color: var(--text-muted); line-height: 1; }
+        .burger { background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 0.1rem 0.3rem; color: var(--text-muted); line-height: 1; }
         .burger:hover { color: var(--text); background: none; }
         .row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: var(--text); }
         label { cursor: pointer; display: flex; align-items: center; gap: 0.3rem; }

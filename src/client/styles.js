@@ -170,12 +170,12 @@ export const BADGE_STYLES = css`
 `;
 
 export const USER_BADGE_STYLES = css`
-    :host { display: inline-flex; align-items: center; align-self: center; font-family: 'Exo', sans-serif; font-weight: 200; filter: drop-shadow(0 0 4px rgba(100, 255, 130, 0.3)); }
+    :host { display: inline-flex; align-items: center; align-self: center; font-family: 'Exo', sans-serif; font-weight: 200; filter: drop-shadow(0 0 3px rgba(100, 255, 131, 0.45)); }
     .badge {
         display: inline-flex; align-items: center; gap: 5px;
-        padding: 2px 10px 2px 7px; border-radius: 4px;
+        padding: 0px 12px 0px 10px; border-radius: 4px;
         background: var(--surface); border: 1px solid var(--border);
-        cursor: pointer; font-size: 0.8rem; color: var(--text); font-weight: 600;
+        cursor: pointer; font-size: 1.2rem; color: var(--text); font-weight: 600;
         transition: filter 0.15s;
     }
     .badge:hover { filter: brightness(1.3); }
@@ -219,7 +219,7 @@ export const PLAYER_PANEL_STYLES = css`
 export const LOBBY_APP_STYLES = [THEME_VARS, css`
     :host { display: flex; flex-direction: column; min-height: 100%; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.85rem; box-sizing: border-box; padding: 0.5rem; gap: 0.2rem; background: var(--bg); color: var(--text); overflow-y: auto; scrollbar-width: none; }
     :host::-webkit-scrollbar { display: none; }
-    h1 { font-size: 0.85rem; color: var(--text-dim); text-align: center; margin: 0; letter-spacing: 0.1em; text-transform: uppercase; flex-shrink: 0; }
+    h1 { font-size: 1.0rem; color: var(--text-dim); text-align: center; margin: 0; letter-spacing: 0.1em; text-transform: uppercase; flex-shrink: 0; }
     h1 a { color: inherit; text-decoration: none; }
     h1 a:hover { text-decoration: underline; }
     .topbar { display: flex; align-items: center; flex-shrink: 0; gap: 0.3rem; }
