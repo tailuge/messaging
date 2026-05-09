@@ -171,7 +171,7 @@
     img { display: block; width: 48px; height: 48px; margin: auto; }
 `,Ke=u`
     :host { display: block; overflow-y: auto; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.75rem; color: var(--text); }
-    .tbl { display: inline-block; vertical-align: top; border: 1px solid var(--border); border-radius: 4px; margin: 0.25rem; overflow: hidden; }
+    .tbl { display: inline-block; vertical-align: top; border: 1px solid var(--border); border-radius: 4px; margin: 0.125rem; overflow: hidden; }
     table { border-collapse: collapse; width: auto; }
     th, td { border-bottom: 1px solid var(--border); padding: 0.15rem 0.3rem; text-align: left; }
     th { display: none; }
@@ -204,7 +204,7 @@
     .main-row .players { flex: 1; display: flex; flex-direction: column; }
     .info-row { display: flex; flex-direction: column; }
     .info-row .panel { overflow: visible; }
-`];var ge=class extends EventTarget{clientId=localStorage.getItem("clientId")||"";userName=localStorage.getItem("userName")||"Anonymous";lod=localStorage.getItem("lod")||"1";set(e,t){this.clientId=e,this.userName=t,localStorage.setItem("clientId",e),localStorage.setItem("userName",t),this.dispatchEvent(new Event("change"))}setLod(e){this.lod=e,localStorage.setItem("lod",e),this.dispatchEvent(new Event("change"))}},f=new ge,x=class extends g{connectedCallback(){super.connectedCallback(),this._storeListener=()=>this.requestUpdate(),f.addEventListener("change",this._storeListener)}disconnectedCallback(){super.disconnectedCallback(),f.removeEventListener("change",this._storeListener)}};var j="https://scoreboard-tailuge.vercel.app",Xe=r=>{let e=Math.floor((Date.now()-r)/1e3);if(e<60)return`${e}s ago`;let t=Math.floor(e/60);if(t<60)return`${t}m ago`;let s=Math.floor(t/60);return s<24?`${s}h ago`:`${Math.floor(s/24)}d ago`},et={connected:!1,users:[],challenges:{},currentMatch:null};function tt(r,e){let t={...r.challenges},s=i=>i.challengerId===e.myId?i.challengeeId:i.challengerId;switch(e.type){case"CONNECTED":return{...r,connected:e.payload};case"USERS_UPDATE":return{...r,users:e.payload};case"CHALLENGE_SENT":return{...r,challenges:{...t,[e.payload.challengeeId]:{...e.payload,status:"pending"}}};case"CHALLENGE_MSG":{let i=e.payload,n=s(i);if(i.type==="offer")(!t[i.challengerId]||t[i.challengerId].tableId!==i.tableId)&&(t[i.challengerId]={...i,status:"pending"});else if(i.type==="accept"&&!r.currentMatch){let a=t[n],c=i.options||(a?.tableId===i.tableId?a.options:void 0);return delete t[n],{...r,challenges:t,currentMatch:{tableId:i.tableId,ruleType:i.ruleType,options:c,isFirst:i.challengerId===e.myId}}}else i.type==="decline"?t[i.challengeeId]&&(t[i.challengeeId]={...t[i.challengeeId],status:"declined"}):i.type==="cancel"&&delete t[s(i)];return{...r,challenges:t}}case"CHALLENGE_DISMISS":return delete t[e.payload],{...r,challenges:t};case"MATCH_SET":return{...r,currentMatch:e.payload};case"MATCH_LEAVE":return{...r,currentMatch:null};default:return r}}function st(r="",e=""){return r.includes("github")?{emoji:"\u{1F419}",title:"github"}:r.includes("vercel")?{emoji:"\u{1F465}",title:"vercel"}:r.includes("render")?{emoji:"\u{1F464}",title:"vercel"}:r.includes("localhost")?{emoji:"\u{1F3E0}",title:"localhost"}:{spectator:{emoji:"\u{1F52D}",title:"spectator"},replay:{emoji:"\u{1F440}",title:"replay"},bot:{emoji:"\u{1F916}",title:"bot"},nineball:{emoji:"\u2468",title:"nineball"},eightball:{emoji:"\u{1F3B1}",title:"eightball"},snooker:{emoji:"\u{1F534}",title:"snooker"},threecushion:{emoji:"\u2462",title:"threecushion"}}[e]??{emoji:"\u{1F3AE}",title:"external"}}var q=r=>r==="BOT"?"\u{1F916}":r?[...r.toUpperCase()].map(e=>String.fromCodePoint(127397+e.charCodeAt(0))).join(""):"\u{1F310}",it="https://billiards.tailuge.workers.dev/",rt=(r,e)=>e?Object.entries(e).reduce((t,[s,i])=>t+`&${encodeURIComponent(s)}=${encodeURIComponent(i)}`,r):r,nt=(r,e,t,s)=>r.url?`${r.url}?clientId=${encodeURIComponent(e)}&userName=${encodeURIComponent(t)}&lod=${s}`:rt(`${it}?ruletype=${r.ruletype}&clientId=${encodeURIComponent(e)}&userName=${encodeURIComponent(t)}&lod=${s}`,r.options),be=({tableId:r,userId:e,userName:t,ruleType:s,isFirst:i,options:n,bot:a,lod:c})=>{let o=`${it}?websocketserver=wss://billiards.onrender.com/ws&tableId=${r}&userName=${encodeURIComponent(t)}&clientId=${e}&ruletype=${s}`;return i&&(o+="&first=true"),a&&(o+=`&bot=${encodeURIComponent(a)}`),c!==void 0&&(o+=`&lod=${c}`),rt(o,n)},V=r=>({eightball:"\u{1F3B1}",snooker:"\u{1F534}",threecushion:"\u2782",nineball:"\u24FD"})[r]??"\u{1F3B1}",me=r=>["\u{1F3C6}","\u{1F948}","\u{1F949}","\u{1F396}\uFE0F"][r]??"";var It=[{label:"Nine Ball",img:"assets/nineball.png",ruletype:"nineball"},{label:"Snooker 6r",img:"assets/snooker.png",ruletype:"snooker",options:{reds:"6"}},{label:"Snooker",img:"assets/snooker.png",ruletype:"snooker",options:{reds:"15"}},{label:"3-Cushion",img:"assets/threecushion.png",ruletype:"threecushion",options:{raceTo:"3"}},{label:"3-Cushion 11",img:"assets/threecushion.png",ruletype:"threecushion",options:{raceTo:"11"}},{label:"3-Cushion 21",img:"assets/threecushion.png",ruletype:"threecushion",options:{raceTo:"21"}},{label:"Trickshot",img:"assets/practice.png",url:"https://billiards.tailuge.workers.dev/practice"},{label:"Research",img:"assets/research.png",url:"https://billiards.tailuge.workers.dev/diagrams/three"},{label:"Eight Ball",img:"assets/eightball.png",ruletype:"eightball"}],fe=class extends x{static styles=[Je,W];render(){let{clientId:e,userName:t}=f;return l`<div class="grid">${It.map(s=>l`
+`];var ge=class extends EventTarget{clientId=localStorage.getItem("clientId")||"";userName=localStorage.getItem("userName")||"Anonymous";lod=localStorage.getItem("lod")||"1";set(e,t){this.clientId=e,this.userName=t,localStorage.setItem("clientId",e),localStorage.setItem("userName",t),this.dispatchEvent(new Event("change"))}setLod(e){this.lod=e,localStorage.setItem("lod",e),this.dispatchEvent(new Event("change"))}},f=new ge,x=class extends g{connectedCallback(){super.connectedCallback(),this._storeListener=()=>this.requestUpdate(),f.addEventListener("change",this._storeListener)}disconnectedCallback(){super.disconnectedCallback(),f.removeEventListener("change",this._storeListener)}};var j="https://scoreboard-tailuge.vercel.app",Xe=r=>{let e=Math.floor((Date.now()-r)/1e3);if(e<60)return`${e}s ago`;let t=Math.floor(e/60);if(t<60)return`${t}m ago`;let s=Math.floor(t/60);return s<24?`${s}h ago`:`${Math.floor(s/24)}d ago`},et={connected:!1,users:[],challenges:{},currentMatch:null};function tt(r,e){let t={...r.challenges},s=i=>i.challengerId===e.myId?i.challengeeId:i.challengerId;switch(e.type){case"CONNECTED":return{...r,connected:e.payload};case"USERS_UPDATE":return{...r,users:e.payload};case"CHALLENGE_SENT":return{...r,challenges:{...t,[e.payload.challengeeId]:{...e.payload,status:"pending"}}};case"CHALLENGE_MSG":{let i=e.payload,n=s(i);if(i.type==="offer")(!t[i.challengerId]||t[i.challengerId].tableId!==i.tableId)&&(t[i.challengerId]={...i,status:"pending"});else if(i.type==="accept"&&!r.currentMatch){let a=t[n],c=i.options||(a?.tableId===i.tableId?a.options:void 0);return delete t[n],{...r,challenges:t,currentMatch:{tableId:i.tableId,ruleType:i.ruleType,options:c,isFirst:i.challengerId===e.myId}}}else i.type==="decline"?t[i.challengeeId]&&(t[i.challengeeId]={...t[i.challengeeId],status:"declined"}):i.type==="cancel"&&delete t[s(i)];return{...r,challenges:t}}case"CHALLENGE_DISMISS":return delete t[e.payload],{...r,challenges:t};case"MATCH_SET":return{...r,currentMatch:e.payload};case"MATCH_LEAVE":return{...r,currentMatch:null};default:return r}}function st(r="",e=""){return r.includes("github")?{emoji:"\u{1F419}",title:"github"}:r.includes("vercel")?{emoji:"\u{1F465}",title:"vercel"}:r.includes("render")?{emoji:"\u{1F464}",title:"vercel"}:r.includes("localhost")?{emoji:"\u{1F3E0}",title:"localhost"}:{spectator:{emoji:"\u{1F52D}",title:"spectator"},replay:{emoji:"\u{1F440}",title:"replay"},bot:{emoji:"\u{1F916}",title:"bot"},nineball:{emoji:"\u2468",title:"nineball"},eightball:{emoji:"\u{1F3B1}",title:"eightball"},snooker:{emoji:"\u{1F534}",title:"snooker"},threecushion:{emoji:"\u2462",title:"threecushion"}}[e]??{emoji:"\u{1F3AE}",title:"external"}}var q=r=>r==="BOT"?"\u{1F916}":r?[...r.toUpperCase()].map(e=>String.fromCodePoint(127397+e.charCodeAt(0))).join(""):"\u{1F310}",it="https://billiards.tailuge.workers.dev/",rt=(r,e)=>e?Object.entries(e).reduce((t,[s,i])=>t+`&${encodeURIComponent(s)}=${encodeURIComponent(i)}`,r):r,nt=(r,e,t,s)=>r.url?`${r.url}?clientId=${encodeURIComponent(e)}&userName=${encodeURIComponent(t)}&lod=${s}`:rt(`${it}?ruletype=${r.ruletype}&clientId=${encodeURIComponent(e)}&userName=${encodeURIComponent(t)}&lod=${s}`,r.options),be=({tableId:r,userId:e,userName:t,ruleType:s,isFirst:i,options:n,bot:a,lod:c})=>{let o=`${it}?websocketserver=wss://billiards.onrender.com/ws&tableId=${r}&userName=${encodeURIComponent(t)}&clientId=${e}&ruletype=${s}`;return i&&(o+="&first=true"),a&&(o+=`&bot=${encodeURIComponent(a)}`),c!==void 0&&(o+=`&lod=${c}`),rt(o,n)},V=r=>({eightball:"\u{1F3B1}",snooker:"\u{1F534}",threecushion:"\u2782",nineball:"\u24FD"})[r]??"\u{1F3B1}",me=r=>["\u{1F3C6}","\u{1F948}","\u{1F949}","\u{1F396}\uFE0F"][r]??"";var It=[{label:"Nine Ball",img:"assets/nineball.png",ruletype:"nineball"},{label:"Snooker 6r",img:"assets/snooker.png",ruletype:"snooker",options:{reds:"6"}},{label:"Snooker",img:"assets/snooker.png",ruletype:"snooker",options:{reds:"15"}},{label:"3-Cushion (3)",img:"assets/threecushion.png",ruletype:"threecushion",options:{raceTo:"3"}},{label:"3-Cushion (7)",img:"assets/threecushion.png",ruletype:"threecushion",options:{raceTo:"7"}},{label:"3-Cushion (15)",img:"assets/threecushion.png",ruletype:"threecushion",options:{raceTo:"15"}},{label:"Trickshot",img:"assets/practice.png",url:"https://billiards.tailuge.workers.dev/practice"},{label:"Research",img:"assets/research.png",url:"https://billiards.tailuge.workers.dev/diagrams/three"},{label:"Eight Ball",img:"assets/eightball.png",ruletype:"eightball"}],fe=class extends x{static styles=[Je,W];render(){let{clientId:e,userName:t}=f;return l`<div class="grid">${It.map(s=>l`
             <button title=${s.label} aria-label="Play ${s.label}"
                 @click=${()=>{window.location.href=nt(s,e,t,f.lod)}}>
                 <span class="icon-wrap">
@@ -212,7 +212,7 @@
                     ${s.options?l`<span class="badge">${Object.values(s.options)[0]}</span>`:""}
                 </span>
             </button>`)}
-        </div>`}};customElements.define("solo-panel",fe);var at={ATTRIBUTE:1,CHILD:2,PROPERTY:3,BOOLEAN_ATTRIBUTE:4,EVENT:5,ELEMENT:6},ot=r=>(...e)=>({_$litDirective$:r,values:e}),J=class{constructor(e){}get _$AU(){return this._$AM._$AU}_$AT(e,t,s){this._$Ct=e,this._$AM=t,this._$Ci=s}_$AS(e,t){return this.update(e,t)}update(e,t){return this.render(...t)}};var lt="important",Tt=" !"+lt,ct=ot(class extends J{constructor(r){if(super(r),r.type!==at.ATTRIBUTE||r.name!=="style"||r.strings?.length>2)throw Error("The `styleMap` directive must be used in the `style` attribute and must be the only part in the attribute.")}render(r){return Object.keys(r).reduce((e,t)=>{let s=r[t];return s==null?e:e+`${t=t.includes("-")?t:t.replace(/(?:^(webkit|moz|ms|o)|)(?=[A-Z])/g,"-$&").toLowerCase()}:${s};`},"")}update(r,[e]){let{style:t}=r.element;if(this.ft===void 0)return this.ft=new Set(Object.keys(e)),this.render(e);for(let s of this.ft)e[s]==null&&(this.ft.delete(s),s.includes("-")?t.removeProperty(s):t[s]=null);for(let s in e){let i=e[s];if(i!=null){this.ft.add(s);let n=typeof i=="string"&&i.endsWith(Tt);s.includes("-")||n?t.setProperty(s,n?i.slice(0,-11):i,n?lt:""):t[s]=i}}return $}});var ve=class extends g{static properties={url:{type:String},color:{type:String}};static styles=u`
+        </div>`}};customElements.define("solo-panel",fe);var at={ATTRIBUTE:1,CHILD:2,PROPERTY:3,BOOLEAN_ATTRIBUTE:4,EVENT:5,ELEMENT:6},ot=r=>(...e)=>({_$litDirective$:r,values:e}),J=class{constructor(e){}get _$AU(){return this._$AM._$AU}_$AT(e,t,s){this._$Ct=e,this._$AM=t,this._$Ci=s}_$AS(e,t){return this.update(e,t)}update(e,t){return this.render(...t)}};var lt="important",Tt=" !"+lt,ct=ot(class extends J{constructor(r){if(super(r),r.type!==at.ATTRIBUTE||r.name!=="style"||r.strings?.length>2)throw Error("The `styleMap` directive must be used in the `style` attribute and must be the only part in the attribute.")}render(r){return Object.keys(r).reduce((e,t)=>{let s=r[t];return s==null?e:e+`${t=t.includes("-")?t:t.replace(/(?:^(webkit|moz|ms|o)|)(?=[A-Z])/g,"-$&").toLowerCase()}:${s};`},"")}update(r,[e]){let{style:t}=r.element;if(this.ft===void 0)return this.ft=new Set(Object.keys(e)),this.render(e);for(let s of this.ft)e[s]==null&&(this.ft.delete(s),s.includes("-")?t.removeProperty(s):t[s]=null);for(let s in e){let i=e[s];if(i!=null){this.ft.add(s);let n=typeof i=="string"&&i.endsWith(Tt);s.includes("-")||n?t.setProperty(s,n?i.slice(0,-11):i,n?lt:""):t[s]=i}}return $}});var ve=class extends g{static properties={url:{type:String},color:{type:String},label:{type:String}};static styles=u`
         :host {
             display: inline-block;
             vertical-align: middle;
@@ -224,23 +224,29 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 36px;
+            gap: 3px;
+            min-width: 36px;
             height: 16px;
             border-radius: 10px;
             cursor: pointer;
             transition: all 0.15s ease-in-out;
             border: 1px solid rgba(255, 255, 255, 0.1);
             margin: 0;
-            padding: 0;
+            padding: 0 6px;
+            font-size: 0.7rem;
+            color: white;
+            font-family: inherit;
+            font-weight: 600;
         }
         .pill:hover {
             filter: brightness(1.25);
             transform: scale(1.08);
         }
         svg {
-            width: 14px;
-            height: 14px;
+            width: 10px;
+            height: 10px;
             fill: white;
+            flex-shrink: 0;
         }
     `;render(){return l`
             <div
@@ -248,6 +254,7 @@
                 style=${ct({backgroundColor:this.color||"#4a90d9"})}
                 @click=${()=>window.open(this.url,"_blank")}
                 role="button">
+                ${this.label?l`<span>${this.label}</span>`:""}
                 <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
             </div>
         `}};customElements.define("replay-button",ve);var ye=class extends g{static styles=Ke;connectedCallback(){super.connectedCallback(),fetch(`${j}/api/summary`,{mode:"cors"}).then(e=>e.json()).then(e=>{this._data=e,this.requestUpdate()}).catch(()=>{this._err=!0,this.requestUpdate()})}render(){if(this._err)return l`<span class="loading">Could not load scores.</span>`;if(!this._data)return l`<span class="loading">Loading…</span>`;let{hiscores:e,topPlayers:t,recentMatches:s}=this._data,i=Object.keys(e);return l`
@@ -256,8 +263,8 @@
                 <div class="group-body">
                     ${i.map(n=>l`
                         <div class="tbl"><table><caption>${V(n)}</caption>
-                        <tr><th>Name</th><th>Score</th><th></th></tr>
-                            ${e[n].slice(0,4).map((a,c)=>l`<tr><td>${me(c)} ${a.name}</td><td>${a.score}</td><td><replay-button url="${j}/api/rank/${a.id}?ruletype=${n}"></replay-button></td></tr>`)}
+                        <tr><th>Name</th><th></th></tr>
+                            ${e[n].slice(0,4).map((a,c)=>l`<tr><td>${me(c)} ${a.name}</td><td><replay-button url="${j}/api/rank/${a.id}?ruletype=${n}" label="${a.score}"></replay-button></td></tr>`)}
                         </table></div>
                     `)}
                 </div>
@@ -304,7 +311,7 @@
                     ${t?l`<button class="btn-leave" @click=${()=>E(this,"cancel")}>Cancel</button>`:l`<button @click=${()=>E(this,"dismiss")}>✕</button>`}
                 </div>
                 <div class="details">📋 ${e.ruleType}</div>
-            </div>`}},xe=class r extends g{static properties={userId:{type:String},userName:{type:String}};static styles=[T,F,W];static RULES=[{id:"eightball",label:"Eight Ball",img:"assets/eightball.png"},{id:"nineball",label:"Nine Ball",img:"assets/nineball.png"},{id:"threecushion",label:"Three Cushion",img:"assets/threecushion.png"},{id:"threecushion",label:"Three Cushion (11)",img:"assets/threecushion.png",options:{raceTo:"11"}},{id:"threecushion",label:"Three Cushion (21)",img:"assets/threecushion.png",options:{raceTo:"21"}},{id:"snooker",label:"Snooker",img:"assets/snooker.png"},{id:"snooker",label:"Snooker (6 reds)",img:"assets/snooker.png",options:{reds:"6"}}];render(){return this.userId?l`
+            </div>`}},xe=class r extends g{static properties={userId:{type:String},userName:{type:String}};static styles=[T,F,W];static RULES=[{id:"eightball",label:"Eight Ball",img:"assets/eightball.png"},{id:"nineball",label:"Nine Ball",img:"assets/nineball.png"},{id:"threecushion",label:"Three Cushion (3)",img:"assets/threecushion.png",options:{raceTo:"3"}},{id:"threecushion",label:"Three Cushion (7)",img:"assets/threecushion.png",options:{raceTo:"7"}},{id:"threecushion",label:"Three Cushion (15)",img:"assets/threecushion.png",options:{raceTo:"15"}},{id:"snooker",label:"Snooker",img:"assets/snooker.png"},{id:"snooker",label:"Snooker (6 reds)",img:"assets/snooker.png",options:{reds:"6"}}];render(){return this.userId?l`
             <div class="backdrop" @click=${e=>e.target===e.currentTarget&&E(this,"cancel")}>
                 <div class="modal" role="dialog" aria-modal="true" aria-label="Select game type">
                     <h3>Challenge ${this.userName}</h3>
