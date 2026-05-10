@@ -186,8 +186,8 @@ export const USER_BADGE_STYLES = css`
 export const SOLO_PANEL_STYLES = css`
     :host { display: block; font-family: 'Exo', sans-serif; font-weight: 200; }
     .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.25rem; }
-    button { border: none; background: none; cursor: pointer; padding: 0.2rem; opacity: 0.7; border-radius: 4px; }
-    button:hover { opacity: 1; background: var(--btn-hover); }
+    button { border: none; background: none; cursor: pointer; padding: 0.2rem; border-radius: 4px; }
+    button:hover { background: var(--btn-hover); }
     .icon-wrap { position: relative; display: block; }
     img { display: block; width: 48px; height: 48px; margin: auto; }
 `;
@@ -205,7 +205,7 @@ export const INFO_PANEL_STYLES = css`
     .loading { color: var(--text-muted); }
     .group { margin-bottom: 0.4rem; }
     .group-title { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); padding: 0.1rem 0.25rem; text-align: center; }
-    .group-body { display: flex; flex-wrap: wrap; justify-content: center; }
+    .group-body { display: flex; flex-wrap: wrap; justify-content: space-evenly; }
     .bottom-row { display: flex; align-items: flex-start; gap: 0.25rem; }
     .bottom-row .recent { flex: 7; min-width: 0; }
     .bottom-row .top-players { flex: 3; min-width: 0; }
@@ -216,6 +216,7 @@ export const INFO_PANEL_STYLES = css`
     .bottom-row .top-players td:last-child { text-align: right; }
     .recent td:nth-child(1) { width: 16px; text-align: center; }
     .recent td:nth-child(2) { max-width: 8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .recent td:nth-child(4) { width: 1%; white-space: nowrap; }
 `;
 
 export const PLAYER_PANEL_STYLES = css`
@@ -242,4 +243,5 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     .main-row .players { flex: 1; display: flex; flex-direction: column; }
     .info-row { display: flex; flex-direction: column; }
     .info-row .panel { overflow: visible; }
+    .container { max-width: 900px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 0.2rem; flex: 1; }
 `];

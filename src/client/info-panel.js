@@ -1,10 +1,10 @@
 import { LitElement, html } from 'lit';
 import { INFO_PANEL_STYLES } from './styles.js';
 import { SCOREBOARD_URL, timeAgo, flag, ruleIcon, renderTrophy } from './utils.js';
-import { userStore } from './user-store.js';
+import { userStore, StoreElement } from './user-store.js';
 import './replay-button.js';
 
-class InfoPanel extends LitElement {
+class InfoPanel extends StoreElement {
     static styles = INFO_PANEL_STYLES;
     connectedCallback() {
         super.connectedCallback();

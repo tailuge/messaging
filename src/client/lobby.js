@@ -21,21 +21,23 @@ class LobbyApp extends LitElement {
 
     render() {
         return html`
-            <div class="topbar">
-                <h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a></h1>
-                <user-badge></user-badge>
-                <settings-modal @theme-changed=${e => { this._theme = e.detail; }}></settings-modal>
-            </div>
-            <div class="main-row">
-                <div class="solo">
-                    <div class="panel">
-                        <div class="panel-title">Solo Practice</div>
-                        <solo-panel></solo-panel>
-                    </div>
+            <div class="container">
+                <div class="topbar">
+                    <h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a></h1>
+                    <user-badge></user-badge>
+                    <settings-modal @theme-changed=${e => { this._theme = e.detail; }}></settings-modal>
                 </div>
-                <div class="players panel"><online-panel></online-panel></div>
+                <div class="main-row">
+                    <div class="solo">
+                        <div class="panel">
+                            <div class="panel-title">Solo Practice</div>
+                            <solo-panel></solo-panel>
+                        </div>
+                    </div>
+                    <div class="players panel"><online-panel></online-panel></div>
+                </div>
+                <div class="info-row"><div class="panel"><info-panel></info-panel></div></div>
             </div>
-            <div class="info-row"><div class="panel"><info-panel></info-panel></div></div>
         `;
     }
 }
