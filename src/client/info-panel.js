@@ -19,7 +19,7 @@ class InfoPanel extends LitElement {
         const { hiscores, topPlayers, recentMatches } = this._data;
         const games = Object.keys(hiscores);
         return html`
-            <div class="group">
+            <div class="group hiscores">
                 <div class="group-title">Hi Scores</div>
                 <div class="group-body">
                     ${games.map(game => html`
@@ -30,31 +30,33 @@ class InfoPanel extends LitElement {
                     `)}
                 </div>
             </div>
-            <div class="group">
-                <div class="group-title">Top Players</div>
-                <div class="group-body">
-                    ${games.map(game => html`
-                        <div class="tbl"><table><caption>${ruleIcon(game)}</caption>
-                        <tr><th>Name</th><th>Rating</th><th>W</th><th>L</th></tr>
-                            ${topPlayers[game].slice(0, 4).map((p, i) => html`<tr>
-                                <td><a href="${SCOREBOARD_URL}/player/${encodeURIComponent(p.name)}?ruleType=${game}">${renderTrophy(i)} ${p.name}</a></td>
-                                <td>${Math.round(p.rating)}</td>
+            <div class="bottom-row">
+                <div class="group recent">
+                    <div class="group-title">Recent Matches</div>
+                    <div class="group-body">
+                        <div class="tbl"><table>
+                        <tr><th>Rule</th><th>Match</th><th>Date</th><th></th></tr>
+                            ${recentMatches.map(m => html`<tr>
+                                <td>${ruleIcon(m.ruleType)}</td><td>${m.loser ? '🎖️' : ''}${m.winner}${m.loser ? ` vs ${m.loser}` : ''}</td>
+                                <td class="date"><span style="font-size:0.65em">${timeAgo(m.timestamp)}${m.locationCountry ? ` ${m.locationCity ?? ''}` : ''}</span>${m.locationCountry ? ` ${flag(m.locationCountry)}` : ''}</td>
+                                <td>${m.hasReplay ? html`<replay-button url="${SCOREBOARD_URL}/api/match-replay?id=${m.id}&lod=${userStore.lod}"></replay-button>` : ''}</td>
                             </tr>`)}
                         </table></div>
-                    `)}
+                    </div>
                 </div>
-            </div>
-            <div class="group">
-                <div class="group-title">Recent Matches</div>
-                <div class="group-body">
-                    <div class="tbl"><table>
-                    <tr><th>Rule</th><th>Match</th><th>Date</th><th></th></tr>
-                        ${recentMatches.map(m => html`<tr>
-                            <td>${ruleIcon(m.ruleType)}</td><td>${m.loser ? '🎖️' : ''}${m.winner}${m.loser ? ` vs ${m.loser}` : ''}</td>
-                            <td class="date"><span style="font-size:0.65em">${timeAgo(m.timestamp)}${m.locationCountry ? ` ${m.locationCity ?? ''}` : ''}</span>${m.locationCountry ? ` ${flag(m.locationCountry)}` : ''}</td>
-                            <td>${m.hasReplay ? html`<replay-button url="${SCOREBOARD_URL}/api/match-replay?id=${m.id}&lod=${userStore.lod}"></replay-button>` : ''}</td>
-                        </tr>`)}
-                    </table></div>
+                <div class="group top-players">
+                    <div class="group-title">Top Players</div>
+                    <div class="group-body">
+                        ${games.map(game => html`
+                            <div class="tbl"><table><caption>${ruleIcon(game)}</caption>
+                            <tr><th>Name</th><th>Rating</th><th>W</th><th>L</th></tr>
+                                ${topPlayers[game].slice(0, 4).map((p, i) => html`<tr>
+                                    <td><a href="${SCOREBOARD_URL}/player/${encodeURIComponent(p.name)}?ruleType=${game}">${renderTrophy(i)} ${p.name}</a></td>
+                                    <td>${Math.round(p.rating)}</td>
+                                </tr>`)}
+                            </table></div>
+                        `)}
+                    </div>
                 </div>
             </div>`;
     }

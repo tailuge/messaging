@@ -116,6 +116,6 @@ export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options,
     return appendOptions(url, options);
 };
 
-export const ruleIcon = rule => ({ eightball: '🎱', snooker: '🔴', threecushion: '➂', nineball: '⓽' }[rule] ?? '🎱');
+export const ruleIcon = rule => ({ eightball: '🎱', snooker: '🔴', threecushion: '➂', nineball: '➈' }[rule] ?? '🎱');
 
 export const renderTrophy = i => ['🏆','🥈','🥉','🎖️'][i] ?? '';
