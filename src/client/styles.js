@@ -214,6 +214,8 @@ export const INFO_PANEL_STYLES = css`
     .bottom-row .top-players .tbl { width: 100%; display: block; box-sizing: border-box; margin: 0.0625rem 0; }
     .bottom-row .top-players .tbl table { width: 100%; }
     .bottom-row .top-players td:last-child { text-align: right; }
+    .recent td:nth-child(1) { width: 16px; text-align: center; }
+    .recent td:nth-child(2) { max-width: 8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 `;
 
 export const PLAYER_PANEL_STYLES = css`

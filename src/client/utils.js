@@ -1,4 +1,6 @@
 
+import { html } from 'lit';
+
 export const SCOREBOARD_URL = 'https://scoreboard-tailuge.vercel.app';
 
 export const timeAgo = ts => {
@@ -116,6 +118,12 @@ export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options,
     return appendOptions(url, options);
 };
 
-export const ruleIcon = rule => ({ eightball: '🎱', snooker: '🔴', threecushion: '➂', nineball: '➈' }[rule] ?? '🎱');
+const RULE_ASSETS = { eightball: 'eightball', snooker: 'snooker', threecushion: 'threecushion', nineball: 'nineball' };
+export const ruleIcon = rule => {
+    const name = RULE_ASSETS[rule];
+    return name
+        ? html`<img src="assets/${name}.png" alt="${rule}" title="${rule}" width="12" height="12" style="vertical-align:middle">`
+        : html`🎱`;
+};
 
 export const renderTrophy = i => ['🏆','🥈','🥉','🎖️'][i] ?? '';
