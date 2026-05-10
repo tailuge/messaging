@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, css } from 'lit';
 import { MessagingClient, canChallenge } from '../index.ts';
 import { userStore } from './user-store.js';
 import { gameUrl, INITIAL_STATE, reduce, flag, getEmoji } from './utils.js';
@@ -6,6 +6,7 @@ import {
     SHARED_STYLES, USER_LIST_STYLES, CHALLENGE_BANNER_STYLES,
     SENT_CHALLENGE_BANNER_STYLES, PLAYER_PANEL_STYLES, CHALLENGE_MODAL_STYLES, BADGE_STYLES
 } from './styles.js';
+import './message-modal.js';
 
 const BOTS = [
     { userId: 'bot-clawbreak', userName: 'ClawBreak', isBot: true, meta: { country: 'BOT' } },
@@ -23,8 +24,12 @@ class UserList extends LitElement {
         myId: { type: String },
         tableId: { type: String },
         isChallengePending: { type: Boolean },
+        pendingChats: { type: Object },
     };
-    static styles = [SHARED_STYLES, USER_LIST_STYLES];
+    static styles = [SHARED_STYLES, USER_LIST_STYLES, css`
+        @keyframes throb { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
+        .btn-chat { animation: throb 2s ease-in-out infinite; font-size: 1rem; border: none; background: none; padding: 0 0.2rem; }
+    `];
 
     render() {
         const others = (this.users || []).filter(u => u.userId !== this.myId);
@@ -33,9 +38,13 @@ class UserList extends LitElement {
     }
 
     _row(u) {
-        const actions = (u.isBot || canChallenge(u, this.myId))
-            ? html`<button class="btn-challenge" aria-label="Challenge ${u.userName}" ?disabled=${this.isChallengePending} @click=${() => emit(this, 'challenge', u.userId)}>Challenge</button>`
-            : html``;
+        const unread = this.pendingChats?.get(u.userId) > 0;
+        const challengeable = u.isBot || canChallenge(u, this.myId);
+        const actions = unread
+            ? html`<button class="btn-chat" aria-label="Unread message from ${u.userName}" @click=${() => emit(this, 'open-chat', u.userId)}>💬</button>`
+            : challengeable
+                ? html`<button class="btn-challenge" aria-label="Challenge ${u.userName}" ?disabled=${this.isChallengePending} @click=${() => emit(this, 'challenge', u.userId)}>Challenge</button>`
+                : html``;
         return html`
             <li>
                 <div class="user-info">
@@ -117,6 +126,7 @@ class ChallengeModal extends LitElement {
                                 ${r.label}
                             </button>`)}
                     </div>
+                    <button @click=${() => emit(this, 'message')}>💬 Send message</button>
                     <button class="cancel" @click=${() => emit(this, 'cancel')}>Cancel</button>
                 </div>
             </div>`;
@@ -136,6 +146,8 @@ class OnlinePanel extends LitElement {
     #connectTime;
     #client;
     #pendingChallenge = null;
+    #pendingMessage = null;
+    #pendingChats = new Map(); // userId → unread count
 
     constructor() {
         super();
@@ -270,9 +282,15 @@ class OnlinePanel extends LitElement {
                 myId=${this.#myId}
                 tableId=${this.#tableId || ''}
                 .isChallengePending=${this.#sentChallenge?.status === 'pending'}
+                .pendingChats=${this.#pendingChats}
                 @challenge=${e => {
                     const u = this.#visibleUsers.find(u => u.userId === e.detail);
                     this.#pendingChallenge = { userId: e.detail, userName: u?.userName ?? e.detail };
+                    this.requestUpdate();
+                }}
+                @open-chat=${e => {
+                    const u = this.#visibleUsers.find(u => u.userId === e.detail);
+                    this.#pendingMessage = { userId: e.detail, userName: u?.userName ?? e.detail };
                     this.requestUpdate();
                 }}>
             </user-list>
@@ -280,8 +298,23 @@ class OnlinePanel extends LitElement {
                 .userId=${p?.userId ?? null}
                 .userName=${p?.userName ?? ''}
                 @confirm=${e => { this.#challenge(p.userId, e.detail.ruleType, e.detail.options); this.#pendingChallenge = null; }}
+                @message=${() => {
+                    this.#pendingMessage = { userId: p.userId, userName: p.userName };
+                    this.#pendingChallenge = null;
+                    this.requestUpdate();
+                }}
                 @cancel=${() => { this.#pendingChallenge = null; this.requestUpdate(); }}>
-            </challenge-modal>`;
+            </challenge-modal>
+            <message-modal
+                .lobby=${this.#lobby}
+                .targetId=${this.#pendingMessage?.userId ?? null}
+                .targetName=${this.#pendingMessage?.userName ?? ''}
+                @close=${() => { this.#pendingMessage = null; this.requestUpdate(); }}
+                @unread-changed=${e => {
+                    this.#pendingChats = new Map(this.#pendingChats).set(e.detail.userId, e.detail.count);
+                    this.requestUpdate();
+                }}>
+            </message-modal>`;
     }
 }
 
