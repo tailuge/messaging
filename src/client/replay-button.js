@@ -51,7 +51,7 @@ class ReplayButton extends LitElement {
             <div
                 class="pill"
                 style=${styleMap({ backgroundColor: this.color || '#4a90d9' })}
-                @click=${() => window.open(this.url, '_blank')}
+                @click=${() => { window.location.href = this.url; }}
                 role="button">
                 ${this.label ? html`<span>${this.label}</span>` : ''}
                 <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
