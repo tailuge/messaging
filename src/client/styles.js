@@ -194,7 +194,7 @@ export const SOLO_PANEL_STYLES = css`
 
 export const INFO_PANEL_STYLES = css`
     :host { display: block; overflow-y: auto; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.75rem; color: var(--text); }
-    .tbl { display: inline-block; vertical-align: top; border: 1px solid var(--border); border-radius: 4px; margin: 0.125rem; overflow: hidden; }
+    .tbl { display: inline-block; vertical-align: top; border: 1px solid var(--border); border-radius: 4px; margin: 0.0625rem; overflow: hidden; }
     table { border-collapse: collapse; width: auto; }
     th, td { border-bottom: 1px solid var(--border); padding: 0.05rem 0.15rem; text-align: left; }
     th { display: none; }
@@ -207,12 +207,13 @@ export const INFO_PANEL_STYLES = css`
     .group-title { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); padding: 0.1rem 0.25rem; text-align: center; }
     .group-body { display: flex; flex-wrap: wrap; justify-content: center; }
     .bottom-row { display: flex; align-items: flex-start; gap: 0.25rem; }
-    .bottom-row .recent { flex: 3; min-width: 0; }
-    .bottom-row .top-players { flex: 2; min-width: 0; }
+    .bottom-row .recent { flex: 7; min-width: 0; }
+    .bottom-row .top-players { flex: 3; min-width: 0; }
     .bottom-row .recent .tbl, .bottom-row .recent table { width: 100%; }
     .bottom-row .top-players .group-body { flex-direction: column; }
-    .bottom-row .top-players .tbl { width: 100%; }
+    .bottom-row .top-players .tbl { width: 100%; display: block; box-sizing: border-box; margin: 0.0625rem 0; }
     .bottom-row .top-players .tbl table { width: 100%; }
+    .bottom-row .top-players td:last-child { text-align: right; }
 `;
 
 export const PLAYER_PANEL_STYLES = css`

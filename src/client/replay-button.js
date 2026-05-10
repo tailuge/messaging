@@ -20,8 +20,8 @@ class ReplayButton extends LitElement {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 3px;
-            min-width: 36px;
+            gap: 1px;
+            min-width: 32px;
             height: 16px;
             border-radius: 10px;
             cursor: pointer;
