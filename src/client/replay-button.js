@@ -33,6 +33,7 @@ class ReplayButton extends LitElement {
             color: white;
             font-family: inherit;
             font-weight: 600;
+            text-decoration: none;
         }
         .pill:hover {
             filter: brightness(1.25);
@@ -48,14 +49,13 @@ class ReplayButton extends LitElement {
 
     render() {
         return html`
-            <div
+            <a
                 class="pill"
-                style=${styleMap({ backgroundColor: this.color || '#4a90d9' })}
-                @click=${() => { window.location.href = this.url; }}
-                role="button">
+                href=${this.url}
+                style=${styleMap({ backgroundColor: this.color || '#4a90d9' })}>
                 ${this.label ? html`<span>${this.label}</span>` : ''}
                 <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-            </div>
+            </a>
         `;
     }
 }

@@ -25,7 +25,7 @@ class InfoPanel extends StoreElement {
                     ${games.map(game => html`
                         <div class="tbl"><table><caption>${ruleIcon(game)}</caption>
                         <tr><th>Name</th><th></th></tr>
-                            ${hiscores[game].slice(0, 4).map((s, i) => html`<tr><td>${renderTrophy(i)} ${s.name}</td><td><replay-button url="${SCOREBOARD_URL}/api/rank/${s.id}?ruletype=${game}" label="${s.score}"></replay-button></td></tr>`)}
+                            ${hiscores[game].slice(0, 4).map((s, i) => html`<tr><td>${renderTrophy(i)} ${s.name}</td><td><replay-button url="${SCOREBOARD_URL}/api/rank/${s.id}?ruletype=${game}&lod=${userStore.lod}" label="${s.score}"></replay-button></td></tr>`)}
                         </table></div>
                     `)}
                 </div>
