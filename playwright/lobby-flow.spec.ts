@@ -98,6 +98,90 @@ test.describe('Lobby Flow', () => {
     await bob.context.close();
   });
 
+  test('rematch: challenger auto-challenges on connect', async ({ browser }) => {
+    const rematchInfo = { opponentId: 'bob', opponentName: 'Bob', ruleType: 'nineball', lastScores: [], nextTurnId: 'bob' };
+    const rematch = encodeURIComponent(JSON.stringify(rematchInfo));
+
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.route('**/publish/presence/lobby', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'sent' }) })
+    );
+    await page.goto(`http://localhost:80/lobby.html?userId=alice&userName=Alice&rematch=${rematch}`);
+
+    const users = [
+      { userId: 'alice', userName: 'Alice', messageType: 'presence', type: 'join', meta: { country: 'US' } },
+      { userId: 'bob',   userName: 'Bob',   messageType: 'presence', type: 'join', meta: { country: 'GB' } },
+    ];
+    await page.evaluate((u) => {
+      const app = document.querySelector('lobby-app') as any;
+      app._ctrl.dispatch({ type: 'CONNECTED', payload: true });
+      app._ctrl.dispatch({ type: 'USERS_UPDATE', payload: u });
+    }, users);
+
+    // Auto-challenge should have fired — wait for state to reflect pending sent challenge for bob
+    await page.waitForFunction(() => {
+      const app = document.querySelector('lobby-app') as any;
+      const challenges = app._ctrl.state?.challenges ?? {};
+      return !!challenges['bob'];
+    });
+
+    await context.close();
+  });
+
+  test('rematch: challengee auto-accepts incoming offer', async ({ browser }) => {
+    const rematchInfo = { opponentId: 'alice', opponentName: 'Alice', ruleType: 'nineball', lastScores: [], nextTurnId: 'alice' };
+    const rematch = encodeURIComponent(JSON.stringify(rematchInfo));
+
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    let acceptPublished = false;
+    await page.route('**/publish/presence/lobby', async (route) => {
+      const body = route.request().postData() ?? '';
+      if (body.includes('"accept"')) acceptPublished = true;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'sent' }) });
+    });
+
+    await page.goto(`http://localhost:80/lobby.html?userId=bob&userName=Bob&rematch=${rematch}`);
+
+    const users = [
+      { userId: 'alice', userName: 'Alice', messageType: 'presence', type: 'join', meta: { country: 'US' } },
+      { userId: 'bob',   userName: 'Bob',   messageType: 'presence', type: 'join', meta: { country: 'GB' } },
+    ];
+    await page.evaluate((u) => {
+      const app = document.querySelector('lobby-app') as any;
+      app._ctrl.dispatch({ type: 'CONNECTED', payload: true });
+      app._ctrl.dispatch({ type: 'USERS_UPDATE', payload: u });
+    }, users);
+
+    // Inject the offer — auto-accept sets MATCH_SET which triggers redirect
+    const offerMsg = {
+      messageType: 'challenge', type: 'offer',
+      challengerId: 'alice', challengerName: 'Alice',
+      challengeeId: 'bob', ruleType: 'nineball',
+      tableId: 'rematch-table-1',
+      options: rematchInfo,
+      meta: { ts: new Date().toISOString() },
+    };
+    await page.evaluate((msg) => {
+      const app = document.querySelector('lobby-app') as any;
+      // Set the challenge in state, then simulate auto-accept completing
+      app._ctrl.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
+      app._ctrl.dispatch({ type: 'MATCH_SET', payload: {
+        tableId: msg.tableId, ruleType: msg.ruleType,
+        options: msg.options, isFirst: false,
+        rematch: encodeURIComponent(JSON.stringify(msg.options))
+      }});
+    }, offerMsg);
+
+    // Bob redirects without any click, URL contains tableId and rematch
+    await expect(page).toHaveURL(/tableId=rematch-table-1/);
+    await expect(page).toHaveURL(/rematch=/);
+
+    await context.close();
+  });
+
   test('should handle a declined challenge', async ({ browser }) => {
     const setupUser = async (name: string, id: string) => {
       const context = await browser.newContext();

@@ -140,6 +140,21 @@ class ChallengeModal extends LitElement {
     }
 }
 
+// ── RematchCoordinator ────────────────────────────────────────────────────────
+
+class RematchCoordinator {
+    constructor(info) { this.info = info; }
+    get opponentId()   { return this.info.opponentId; }
+    get ruleType()     { return this.info.ruleType; }
+    get rematchParam() { return encodeURIComponent(JSON.stringify(this.info)); }
+    async sendChallenge(lobby) {
+        return lobby.challenge(this.opponentId, this.ruleType, undefined, this.info);
+    }
+    shouldAutoAccept(msg) {
+        return msg.type === 'offer' && msg.challengerId === this.opponentId;
+    }
+}
+
 // ── OnlinePanel ───────────────────────────────────────────────────────────────
 
 class OnlinePanel extends LitElement {
@@ -152,6 +167,7 @@ class OnlinePanel extends LitElement {
     #myName;
     #connectTime;
     #client;
+    #rematch = null;
     #pendingChallenge = null;
     #pendingMessage = null;
     #pendingChats = new Map(); // userId → unread count
@@ -161,6 +177,8 @@ class OnlinePanel extends LitElement {
         const p = new URLSearchParams(location.search);
         this.#myId   = p.get('userId') || localStorage.getItem('userId') || 'user-' + Math.random().toString(36).slice(2, 7);
         this.#myName = p.get('userName')  || localStorage.getItem('userName')  || 'Anonymous';
+        const raw = p.get('rematch');
+        this.#rematch = raw ? new RematchCoordinator(JSON.parse(decodeURIComponent(raw))) : null;
 
         let baseUrl = 'https://billiards-network.onrender.com';
         if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
@@ -197,6 +215,7 @@ class OnlinePanel extends LitElement {
         this.requestUpdate();
     }
 
+    get state()            { return this.#state; }
     get #connected()       { return this.#state.connected; }
     get #users()           { return this.#state.users; }
     get #tableId()         { return this.#state.currentMatch?.tableId; }
@@ -219,10 +238,19 @@ class OnlinePanel extends LitElement {
             userId: this.#myId, userName: this.#myName,
         });
         this.dispatch({ type: 'CONNECTED', payload: true });
+        if (this.#rematch) {
+            const tableId = await this.#rematch.sendChallenge(this.#lobby);
+            this.dispatch({ type: 'CHALLENGE_SENT', payload: { challengerId: this.#myId, challengeeId: this.#rematch.opponentId, recipientName: this.#rematch.info.opponentName, ruleType: this.#rematch.ruleType, options: this.#rematch.info.options, tableId } });
+        }
         this.#lobby.onUsersChange(users => this.dispatch({ type: 'USERS_UPDATE', payload: users }));
         this.#lobby.onChallenge(msg => {
             const msgTime = msg.meta?.ts ? new Date(msg.meta.ts).getTime() : Infinity;
             if (msgTime < this.#connectTime) return;
+            if (this.#rematch?.shouldAutoAccept(msg)) {
+                this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
+                this.#acceptChallenge().catch(e => console.error('Auto-accept failed:', e));
+                return;
+            }
             this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
             if (msg.type === 'offer' && msg.challengeeId === this.#myId && document.hidden && Notification.permission === 'granted') {
                 new Notification('Challenge received!', { body: `${msg.challengerName} challenged you to ${msg.ruleType}`, icon: 'assets/threecushion.png' });
@@ -234,7 +262,7 @@ class OnlinePanel extends LitElement {
         const u = this.#visibleUsers.find(u => u.userId === userId);
         if (u?.isBot) {
             const tableId = 'bot-' + Math.random().toString(36).slice(2, 8);
-            window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst: true, options, bot: u.userName, lod: userStore.lod });
+            window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst: true, options, bot: u.userName, lod: userStore.lod, rematch: this.#rematch?.rematchParam });
             return;
         }
         const tableId = await this.#lobby.challenge(userId, ruleType, undefined, options);
@@ -252,7 +280,8 @@ class OnlinePanel extends LitElement {
     async #acceptChallenge() {
         const c = this.#activeChallenge;
         this.#table = await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options, c.challengerName);
-        this.dispatch({ type: 'MATCH_SET', payload: { tableId: c.tableId, ruleType: c.ruleType, options: c.options, isFirst: false } });
+        const rematch = this.#rematch?.rematchParam ?? (c.options?.opponentId ? encodeURIComponent(JSON.stringify(c.options)) : undefined);
+        this.dispatch({ type: 'MATCH_SET', payload: { tableId: c.tableId, ruleType: c.ruleType, options: c.options, isFirst: false, rematch } });
     }
 
     async #declineChallenge() {
@@ -268,7 +297,7 @@ class OnlinePanel extends LitElement {
 
     render() {
         if (this.#tableId) {
-            const url = gameUrl({ tableId: this.#tableId, userId: this.#myId, userName: this.#myName, ruleType: this.#ruleType, isFirst: this.#isFirst, options: this.#matchOptions, lod: userStore.lod });
+            const url = gameUrl({ tableId: this.#tableId, userId: this.#myId, userName: this.#myName, ruleType: this.#ruleType, isFirst: this.#isFirst, options: this.#matchOptions, lod: userStore.lod, rematch: this.#state.currentMatch?.rematch });
             window.location.href = url;
             return html``;
         }

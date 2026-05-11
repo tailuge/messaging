@@ -109,12 +109,13 @@ export const soloUrl = (g, userId, userName, lod) => {
     );
 };
 
-export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options, bot, lod }) => {
+export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options, bot, lod, rematch }) => {
     let url = `${BASE}?websocketserver=wss://billiards.onrender.com/ws`
         + `&tableId=${tableId}&userName=${encodeURIComponent(userName)}&userId=${userId}&ruletype=${ruleType}`;
     if (isFirst) url += '&first=true';
     if (bot) url += `&bot=${encodeURIComponent(bot)}`;
     if (lod !== undefined) url += `&lod=${lod}`;
+    if (rematch) url += `&rematch=${rematch}`;
     return appendOptions(url, options);
 };
 
