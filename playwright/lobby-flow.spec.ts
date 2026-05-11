@@ -387,6 +387,7 @@ test.describe('Lobby Flow', () => {
     await expect(bob.page.locator('button[aria-label="Concede"]')).toBeVisible();
 
     // Bob concedes (confirm panel may appear briefly — click it if present, otherwise concede registers immediately)
+    await bob.page.waitForTimeout(1000);
     await bob.page.locator('button[aria-label="Concede"]').click();
     const concedeConfirm = bob.page.locator('button[data-notification-action="concede-confirm"]');
     try {
@@ -397,12 +398,16 @@ test.describe('Lobby Flow', () => {
     // Both see the rematch button and click it
     await alice.page.locator('button[data-notification-action="rematch"]').waitFor({ timeout: 10000 });
     await bob.page.locator('button[data-notification-action="rematch"]').waitFor({ timeout: 10000 });
+    await alice.page.waitForTimeout(1000);
+    await bob.page.waitForTimeout(1000);
     await alice.page.locator('button[data-notification-action="rematch"]').click();
     await bob.page.locator('button[data-notification-action="rematch"]').click();
 
     // Both are redirected with rematch param
-    await expect(alice.page).toHaveURL(/rematch=/, { timeout: 10000 });
-    // await expect(bob.page).toHaveURL(/rematch=/, { timeout: 10000 }); // TODO: verify game app includes rematch param for conceding player
+    await alice.page.waitForURL('**/lobby**', { timeout: 10000 });
+    await bob.page.waitForURL('**/lobby**', { timeout: 10000 });
+    expect(alice.page.url()).toContain('rematch=');
+    expect(bob.page.url()).toContain('rematch=');
 
     await alice.context.close();
     await bob.context.close();

@@ -22,7 +22,7 @@ describe("MessagingClient - Challenge Deduplication", () => {
 
   const createClient = createTestClient;
 
-  it.skip("should not receive challenge offer again after accepting and reconnecting", async () => {
+  it("should not receive challenge offer again after accepting and reconnecting", async () => {
     const clientA = createClient();
     const clientB = createClient();
 
@@ -75,7 +75,7 @@ describe("MessagingClient - Challenge Deduplication", () => {
     expect(receivedChallengeAfterReconnect).toBeNull();
   });
 
-  it.skip("should not receive challenge offer again after declining and reconnecting", async () => {
+  it("should not receive challenge offer again after declining and reconnecting", async () => {
     const clientA = createClient();
     const clientB = createClient();
 
