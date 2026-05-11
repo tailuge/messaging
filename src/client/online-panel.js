@@ -178,7 +178,14 @@ class OnlinePanel extends LitElement {
         this.#myId   = p.get('userId') || localStorage.getItem('userId') || 'user-' + Math.random().toString(36).slice(2, 7);
         this.#myName = p.get('userName')  || localStorage.getItem('userName')  || 'Anonymous';
         const raw = p.get('rematch');
-        this.#rematch = raw ? new RematchCoordinator(JSON.parse(decodeURIComponent(raw))) : null;
+        if (raw) {
+            this.#rematch = new RematchCoordinator(JSON.parse(decodeURIComponent(raw)));
+            const url = new URL(location);
+            url.searchParams.delete('rematch');
+            history.replaceState(null, '', url);
+        } else {
+            this.#rematch = null;
+        }
 
         let baseUrl = 'https://billiards-network.onrender.com';
         if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
@@ -241,6 +248,7 @@ class OnlinePanel extends LitElement {
         if (this.#rematch) {
             const tableId = await this.#rematch.sendChallenge(this.#lobby);
             this.dispatch({ type: 'CHALLENGE_SENT', payload: { challengerId: this.#myId, challengeeId: this.#rematch.opponentId, recipientName: this.#rematch.info.opponentName, ruleType: this.#rematch.ruleType, options: this.#rematch.info.options, tableId } });
+            this.#rematch = null;
         }
         this.#lobby.onUsersChange(users => this.dispatch({ type: 'USERS_UPDATE', payload: users }));
         this.#lobby.onChallenge(msg => {

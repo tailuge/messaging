@@ -12,6 +12,8 @@ class LobbyApp extends LitElement {
 
     constructor() {
         super();
+        console.log("URL:", window.location.href);
+        console.log("Search params:", Object.fromEntries(new URLSearchParams(window.location.search)));
         this._theme = document.documentElement.getAttribute('theme') || 'light';
     }
 
