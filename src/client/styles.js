@@ -26,6 +26,8 @@ export const THEME_VARS = css`
         --modal-bg:     #ffffff;
         --modal-cancel: #f8f9fa;
         --link:         #0055cc;
+        --btn-replay-bg:     #4a90d9;
+        --btn-replay-border: rgba(255, 255, 255, 0.1);
     }
     @media (prefers-color-scheme: dark) {
         :host {
@@ -51,6 +53,8 @@ export const THEME_VARS = css`
             --modal-bg:     #2a2a2a;
             --modal-cancel: #3a3a3a;
             --link:         #6ba3f5;
+            --btn-replay-bg:     #14304cff;
+            --btn-replay-border: rgba(255, 255, 255, 0.2);
         }
     }
     :host([theme="dark"]) {
@@ -76,6 +80,8 @@ export const THEME_VARS = css`
         --modal-bg:     #2a2a2a;
         --modal-cancel: #3a3a3a;
         --link:         #6ba3f5;
+        --btn-replay-bg:     #3a78b5;
+        --btn-replay-border: rgba(255, 255, 255, 0.2);
     }
     :host([theme="light"]) {
         --bg:           #f5f5f5;
@@ -100,6 +106,8 @@ export const THEME_VARS = css`
         --modal-bg:     #ffffff;
         --modal-cancel: #f8f9fa;
         --link:         #0055cc;
+        --btn-replay-bg:     #4a90d9;
+        --btn-replay-border: rgba(255, 255, 255, 0.1);
     }
 `;
 
@@ -210,7 +218,7 @@ export const INFO_PANEL_STYLES = css`
     .ago { text-align: right; font-size: 0.65em; color: var(--text-muted); white-space: nowrap; width: 1%; }
     .city-col { font-size: 0.65em; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 5rem; }
     .replay-col { text-align: right; width: 1%; white-space: nowrap; font-size: 0.8rem; }
-    @media (max-width: 480px) {
+    @media (max-width: 500px) {
         .city-col { display: none; }
     }
     .loading { color: var(--text-muted); }
@@ -218,8 +226,8 @@ export const INFO_PANEL_STYLES = css`
     .group-title { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); padding: 0.1rem 0.25rem; text-align: center; }
     .group-body { display: flex; flex-wrap: wrap; justify-content: space-evenly; }
     .bottom-row { display: flex; align-items: flex-start; gap: 0.25rem; }
-    .bottom-row .recent { flex: 7; min-width: 0; }
-    .bottom-row .top-players { flex: 3; min-width: 0; }
+    .bottom-row .recent { flex: 6; min-width: 0; }
+    .bottom-row .top-players { flex: 4; min-width: 0; }
     .bottom-row .recent .tbl, .bottom-row .recent table { width: 100%; }
     .bottom-row .top-players .group-body { flex-direction: column; }
     .bottom-row .top-players .tbl { width: 100%; display: block; box-sizing: border-box; margin: 0.0625rem 0; }

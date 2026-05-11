@@ -27,7 +27,8 @@ class ReplayButton extends LitElement {
             border-radius: 10px;
             cursor: pointer;
             transition: all 0.15s ease-in-out;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--btn-replay-border, rgba(255, 255, 255, 0.1));
+            background-color: var(--btn-replay-bg, #4a90d9);
             margin: 0;
             padding: 0 4px;
             font-size: 0.7rem;
@@ -54,11 +55,12 @@ class ReplayButton extends LitElement {
     `;
 
     render() {
+        const style = this.color ? `background-color: ${this.color}` : '';
         return html`
             <a
                 class="pill"
                 href=${this.url}
-                style=${styleMap({ backgroundColor: this.color || '#4a90d9' })}>
+                style=${style}>
                 ${this.prefix ? html`<span class="prefix">${this.prefix}</span>` : ''}
                 ${this.label ? html`<span>${this.label}</span>` : ''}
                 <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
