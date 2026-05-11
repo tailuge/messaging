@@ -1,14 +1,14 @@
 import { LitElement } from 'lit';
 
 class UserStore extends EventTarget {
-    clientId = localStorage.getItem('clientId') || '';
+    clientId = localStorage.getItem('userId') || '';
     userName = localStorage.getItem('userName') || 'Anonymous';
     lod = localStorage.getItem('lod') || '1';
 
     set(clientId, userName) {
         this.clientId = clientId;
         this.userName = userName;
-        localStorage.setItem('clientId', clientId);
+        localStorage.setItem('userId', clientId);
         localStorage.setItem('userName', userName);
         this.dispatchEvent(new Event('change'));
     }

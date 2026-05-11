@@ -153,7 +153,7 @@ class OnlinePanel extends LitElement {
     constructor() {
         super();
         const p = new URLSearchParams(location.search);
-        this.#myId   = p.get('clientId') || localStorage.getItem('clientId') || 'user-' + Math.random().toString(36).slice(2, 7);
+        this.#myId   = p.get('userId') || localStorage.getItem('userId') || 'user-' + Math.random().toString(36).slice(2, 7);
         this.#myName = p.get('userName')  || localStorage.getItem('userName')  || 'Anonymous';
 
         let baseUrl = 'https://billiards-network.onrender.com';

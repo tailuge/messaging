@@ -6,7 +6,7 @@ const setupUser = async (browser: any, name: string, id: string) => {
     await page.route('**/publish/presence/lobby', route =>
         route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'sent' }) })
     );
-    await page.goto(`http://localhost:80/lobby.html?clientId=${id}&userName=${name}`);
+    await page.goto(`http://localhost:80/lobby.html?userId=${id}&userName=${name}`);
     return { context, page };
 };
 

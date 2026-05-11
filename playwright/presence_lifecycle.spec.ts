@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 const lobbyUrl = (id: string, name: string) =>
-    `http://localhost/lobby.html?clientId=${id}&userName=${name}`;
+    `http://localhost/lobby.html?userId=${id}&userName=${name}`;
 
 // Count real (non-bot) users visible in the online list on a given page
 const realUserCount = (page: any) =>

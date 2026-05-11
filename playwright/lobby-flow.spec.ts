@@ -10,7 +10,7 @@ test.describe('Lobby Flow', () => {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'sent' }) });
       });
 
-      await page.goto(`http://localhost:80/lobby.html?clientId=${id}&userName=${name}`);
+      await page.goto(`http://localhost:80/lobby.html?userId=${id}&userName=${name}`);
       return { context, page };
     };
 
@@ -105,7 +105,7 @@ test.describe('Lobby Flow', () => {
       await page.route('**/publish/presence/lobby', async (route) => {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'sent' }) });
       });
-      await page.goto(`http://localhost:80/lobby.html?clientId=${id}&userName=${name}`);
+      await page.goto(`http://localhost:80/lobby.html?userId=${id}&userName=${name}`);
       return { context, page };
     };
 
@@ -176,7 +176,7 @@ test.describe('Lobby Flow', () => {
       await page.route('**/publish/presence/lobby', async (route) => {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'sent' }) });
       });
-      await page.goto(`http://localhost:80/lobby.html?clientId=${id}&userName=${name}`);
+      await page.goto(`http://localhost:80/lobby.html?userId=${id}&userName=${name}`);
       return { context, page };
     };
 
@@ -247,7 +247,7 @@ test.describe('Lobby Flow', () => {
       await page.route('**/publish/presence/lobby', async (route) => {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'sent' }) });
       });
-      await page.goto(`http://localhost:80/lobby.html?clientId=${id}&userName=${name}`);
+      await page.goto(`http://localhost:80/lobby.html?userId=${id}&userName=${name}`);
       return { context, page };
     };
 

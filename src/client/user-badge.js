@@ -6,12 +6,12 @@ const genId = () => 'id' + Math.random().toString(16).slice(2, 8);
 
 function load() {
     const p = new URLSearchParams(location.search);
-    const urlId   = p.get('clientId');
+    const urlId   = p.get('userId');
     const urlName = p.get('userName');
     if (urlId) return { clientId: urlId, userName: urlName || 'Anonymous', dotColor: '#f5c518' };
-    const existing = !!localStorage.getItem('clientId');
-    const clientId = localStorage.getItem('clientId') || (() => { const id = genId(); localStorage.setItem('clientId', id); return id; })();
-    const userName = localStorage.getItem('userName') || 'Anonymous';
+    const existing = !!localStorage.getItem('userId');
+    const clientId = localStorage.getItem('userId') || (() => { const id = genId(); localStorage.setItem('userId', id); return id; })();
+    const userName = urlName || localStorage.getItem('userName') || 'Anonymous';
     return { clientId, userName, dotColor: existing ? '#4caf50' : '#888' };
 }
 
