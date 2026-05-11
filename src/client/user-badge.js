@@ -32,10 +32,23 @@ class UserBadge extends StoreElement {
         this._editing = false;
     }
 
-    _startEdit() { this._editing = true; }
+    _startEdit() {
+        this._editing = true;
+        // Fallback: if focus never lands on the input (e.g. programmatic), close on next outside click
+        this._outsideHandler = (e) => {
+            if (!this.contains(e.target) && !this.shadowRoot.contains(e.target)) {
+                this._commitValue();
+            }
+        };
+        // Use capture so we catch clicks on non-focusable elements too
+        document.addEventListener('click', this._outsideHandler, true);
+    }
 
-    _commit(e) {
-        const val = e.target.value.trim().slice(0, 12) || 'Anonymous';
+    _commitValue() {
+        document.removeEventListener('click', this._outsideHandler, true);
+        this._outsideHandler = null;
+        const input = this.shadowRoot?.querySelector('input');
+        const val = (input?.value ?? this._name).trim().slice(0, 12) || 'Anonymous';
         this._name = val;
         this._editing = false;
         userStore.set(this._clientId, val);
@@ -46,19 +59,32 @@ class UserBadge extends StoreElement {
     }
 
     _onKey(e) {
-        if (e.key === 'Enter') e.target.blur();
-        if (e.key === 'Escape') { this._editing = false; }
+        if (e.key === 'Enter') this._commitValue();
+        if (e.key === 'Escape') {
+            document.removeEventListener('click', this._outsideHandler, true);
+            this._outsideHandler = null;
+            this._cancelling = true;
+            this._editing = false;
+        }
+    }
+
+    _onBlur() {
+        if (this._cancelling) { this._cancelling = false; return; }
+        this._commitValue();
     }
 
     render() {
         return html`
-            <div class="badge" style="--dot-color:${this._dotColor}" @click=${!this._editing ? this._startEdit : null}>
+            <div class="badge" style="--dot-color:${this._dotColor}"
+                 @click=${!this._editing ? this._startEdit : null}>
                 <span class="dot"></span>
                 ${this._editing
                     ? html`<input autofocus maxlength="12" .value=${this._name}
-                                @blur=${this._commit} @keydown=${this._onKey}
+                                aria-label="Edit display name"
+                                @blur=${this._onBlur} @keydown=${this._onKey}
                                 @click=${e => e.stopPropagation()}>`
-                    : this._name}
+                    : html`<span role="button" tabindex="0" aria-label="Display name: ${this._name}. Click to edit."
+                                 @keydown=${e => (e.key === 'Enter' || e.key === ' ') && this._startEdit()}>${this._name}</span>`}
             </div>`;
     }
 }

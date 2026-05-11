@@ -34,21 +34,22 @@ class UserList extends LitElement {
     render() {
         const others = (this.users || []).filter(u => u.userId !== this.myId);
         if (others.length === 0) return html`<div class="empty">No other players online yet. Invite a friend!</div>`;
-        return html`<ul>${others.map(u => this._row(u))}</ul>`;
+        return html`<ul aria-label="Online players">${others.map(u => this._row(u))}</ul>`;
     }
 
     _row(u) {
         const unread = this.pendingChats?.get(u.userId) > 0;
         const challengeable = u.isBot || canChallenge(u, this.myId);
+        const status = getEmoji(u.meta?.origin ?? '', u.tableId ?? '');
         const actions = unread
             ? html`<button class="btn-chat" aria-label="Unread message from ${u.userName}" @click=${() => emit(this, 'open-chat', u.userId)}>💬</button>`
             : challengeable
                 ? html`<button class="btn-challenge" aria-label="Challenge ${u.userName}" ?disabled=${this.isChallengePending} @click=${() => emit(this, 'challenge', u.userId)}>Challenge</button>`
                 : html``;
         return html`
-            <li>
+            <li aria-label="${u.userName}">
                 <div class="user-info">
-                    <span class="user-name">${flag(u.meta?.country)} ${u.userName} ${getEmoji(u.meta?.origin ?? '', u.tableId ?? '').emoji}</span>
+                    <span class="user-name">${flag(u.meta?.country)} ${u.userName} <span aria-label="${status.title}" role="img">${status.emoji}</span></span>
                 </div>
                 <div class="actions">${actions}</div>
             </li>`;
@@ -74,8 +75,8 @@ class ChallengeBanner extends LitElement {
                 <strong>Challenge from ${c.challengerName}</strong>
                 <div class="details"><span>📋 ${c.ruleType}</span>${extras.map(e => html`<span>${e}</span>`)}</div>
                 <div class="row">
-                    <button class="btn-accept" @click=${() => emit(this, 'accept')}>Accept</button>
-                    <button class="btn-decline" @click=${() => emit(this, 'decline')}>Decline</button>
+                    <button class="btn-accept" aria-label="Accept challenge" @click=${() => emit(this, 'accept')}>Accept</button>
+                    <button class="btn-decline" aria-label="Decline challenge" @click=${() => emit(this, 'decline')}>Decline</button>
                 </div>
             </div>`;
     }
@@ -88,7 +89,7 @@ class ChallengeBanner extends LitElement {
                     <strong>${isWaiting ? `⏳ Waiting for ${c.recipientName}…` : `❌ ${c.recipientName} declined.`}</strong>
                     ${isWaiting
                         ? html`<button class="btn-leave" @click=${() => emit(this, 'cancel')}>Cancel</button>`
-                        : html`<button @click=${() => emit(this, 'dismiss')}>✕</button>`}
+                        : html`<button aria-label="Dismiss" @click=${() => emit(this, 'dismiss')}>✕</button>`}
                 </div>
                 <div class="details">📋 ${c.ruleType}</div>
             </div>`;
@@ -266,7 +267,7 @@ class OnlinePanel extends LitElement {
         const p = this.#pendingChallenge;
         return html`
             <div class="panel-header">
-                <span class="dot ${this.#connected ? 'on' : ''}"></span>
+                <span class="dot ${this.#connected ? 'on' : ''}" role="status" aria-label="${this.#connected ? 'Connected' : 'Disconnected'}"></span>
                 <span class="panel-title">Play Online (${this.#visibleUsers.filter(u => u.userId !== this.#myId).length})</span>
             </div>
             <challenge-banner

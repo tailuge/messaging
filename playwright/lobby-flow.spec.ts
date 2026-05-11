@@ -159,15 +159,9 @@ test.describe('Lobby Flow', () => {
       (document.querySelector('lobby-app') as any)._ctrl.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
     }, declineMsg);
 
-    // Alice sees the declined message - check controller state
-    await expect(alice.page.evaluate(() => {
-      const app = document.querySelector('lobby-app') as any;
-      return app._ctrl.sentChallenge?.status;
-    })).resolves.toBe('declined');
-
-    // Wait for Lit to re-render then check banner shadow DOM
+    // Alice sees the declined message - check banner shadow DOM
     await alice.page.waitForFunction(() => {
-      const banner = document.querySelector('lobby-app')?.shadowRoot?.querySelector('challenge-banner');
+      const banner = document.querySelector('lobby-app')?.shadowRoot?.querySelector('online-panel')?.shadowRoot?.querySelector('challenge-banner');
       return banner?.shadowRoot?.textContent?.toLowerCase().includes('declined');
     });
 
