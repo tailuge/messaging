@@ -3,7 +3,7 @@ import { css } from 'lit';
 // CSS custom property tokens — defined on :host of lobby-app (root),
 // inherited by all child shadow roots since custom props pierce shadow DOM.
 export const THEME_VARS = css`
-    :host {
+    :host, :host([theme="light"]) {
         --bg:           #f5f5f5;
         --surface:      #ffffff;
         --border:       #dddddd;
@@ -52,34 +52,8 @@ export const THEME_VARS = css`
         --modal-bg:     #2a2a2a;
         --modal-cancel: #3a3a3a;
         --link:         #6ba3f5;
-        --btn-replay-bg:     #3a78b5;
+        --btn-replay-bg:     #3a3a3a;
         --btn-replay-border: rgba(255, 255, 255, 0.2);
-    }
-    :host([theme="light"]) {
-        --bg:           #f5f5f5;
-        --surface:      #ffffff;
-        --border:       #dddddd;
-        --border-light: #f0f0f0;
-        --text:         #212121;
-        --text-muted:   #757575;
-        --text-dim:     #555555;
-        --text-faint:   #bbbbbb;
-        --btn-bg:       #ffffff;
-        --btn-border:   #cccccc;
-        --btn-hover:    #f0f0f0;
-        --btn-active:   #e0e0e0;
-        --table-head:   #f5f5f5;
-        --banner-warn-bg:      #fff3cd;
-        --banner-warn-border:  #ffc107;
-        --banner-warn-text:    #595959;
-        --banner-decline-bg:   #f8d7da;
-        --banner-decline-border: #f5c6cb;
-        --banner-decline-text: #721c24;
-        --modal-bg:     #ffffff;
-        --modal-cancel: #f8f9fa;
-        --link:         #0055cc;
-        --btn-replay-bg:     #4a90d9;
-        --btn-replay-border: rgba(255, 255, 255, 0.1);
     }
 `;
 
@@ -185,7 +159,7 @@ export const INFO_PANEL_STYLES = css`
     table { border-collapse: collapse; width: auto; }
     th, td { border-bottom: 1px solid var(--border); padding: 0.05rem 0.15rem; text-align: left; }
     th { display: none; }
-    caption { font-size: 1.4rem; font-weight: 600; text-align: center; padding: 0.2rem 0; color: var(--text-dim); }
+    caption { font-size: 1.4rem; font-weight: 600; text-align: center; padding: 0.0rem 0; color: var(--text-dim); }
     a { color: var(--link); text-decoration: none; }
     .ago { text-align: right; font-size: 0.65em; color: var(--text-muted); white-space: nowrap; width: 1%; }
     .city-col { font-size: 0.65em; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 5rem; }
@@ -194,7 +168,7 @@ export const INFO_PANEL_STYLES = css`
         .city-col { display: none; }
     }
     .loading { color: var(--text-muted); }
-    .group { margin-bottom: 0.4rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem; }
+    .group { margin-bottom: 0.4rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.0rem; }
     .group-title { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); padding: 0.1rem 0.25rem; text-align: center; }
     .group-body { display: flex; flex-wrap: wrap; justify-content: space-evenly; }
     .bottom-row { display: flex; align-items: flex-start; gap: 0.25rem; }
