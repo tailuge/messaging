@@ -367,7 +367,7 @@
             </li>`}},we=class extends g{static properties={challenge:{type:Object},sent:{type:Object}};static styles=[w,Ve,Je];render(){return this.challenge?this._incoming(this.challenge):this.sent?this._sent(this.sent):l``}_incoming(e){let t=Object.entries(e.options??{}).map(([s,i])=>`${s}: ${i}`);return l`
             <div class="banner">
                 <strong>Challenge from ${e.challengerName}</strong>
-                <div class="details"><span>📋 ${e.ruleType}</span>${t.map(s=>l`<span>${s}</span>`)}</div>
+                <div class="details"><span>${ruleIcon(e.ruleType)} ${e.ruleType}</span>${t.map(s=>l`<span>${s}</span>`)}</div>
                 <div class="row">
                     <button class="btn-accept" aria-label="Accept challenge" @click=${()=>$(this,"accept")}>Accept</button>
                     <button class="btn-decline" aria-label="Decline challenge" @click=${()=>$(this,"decline")}>Decline</button>
@@ -378,7 +378,7 @@
                     <strong>${t?`\u23F3 Waiting for ${e.recipientName}\u2026`:`\u274C ${e.recipientName} declined.`}</strong>
                     ${t?l`<button class="btn-leave" @click=${()=>$(this,"cancel")}>Cancel</button>`:l`<button aria-label="Dismiss" @click=${()=>$(this,"dismiss")}>✕</button>`}
                 </div>
-                <div class="details">📋 ${e.ruleType}</div>
+                <div class="details">${ruleIcon(e.ruleType)} ${e.ruleType}</div>
             </div>`}},Se=class r extends g{static properties={userId:{type:String},userName:{type:String}};static styles=[w,L,W];static RULES=[{id:"eightball",label:"Eight Ball",img:"assets/eightball.png"},{id:"nineball",label:"Nine Ball",img:"assets/nineball.png"},{id:"threecushion",label:"Three Cushion (3)",img:"assets/threecushion.png",options:{raceTo:"3"}},{id:"threecushion",label:"Three Cushion (7)",img:"assets/threecushion.png",options:{raceTo:"7"}},{id:"threecushion",label:"Three Cushion (15)",img:"assets/threecushion.png",options:{raceTo:"15"}},{id:"snooker",label:"Snooker (15 reds)",img:"assets/snooker.png"},{id:"snooker",label:"Snooker (6 reds)",img:"assets/snooker.png",options:{reds:"6"}}];render(){return this.userId?l`
             <div class="backdrop" @click=${e=>e.target===e.currentTarget&&$(this,"cancel")}>
                 <div class="modal" role="dialog" aria-modal="true" aria-label="Select game type">
