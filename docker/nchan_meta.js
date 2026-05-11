@@ -20,6 +20,8 @@ function obfuscateOrigin(origin) {
 
   var proto = origin.substring(0, protoEnd + 3);
   var rest = origin.substring(protoEnd + 3);
+  var queryStart = rest.search(/[?&]/);
+  if (queryStart !== -1) rest = rest.substring(0, queryStart);
   var pathStart = rest.indexOf("/");
   var hostPart = pathStart === -1 ? rest : rest.substring(0, pathStart);
   var pathPart = pathStart === -1 ? "" : rest.substring(pathStart);
@@ -31,7 +33,7 @@ function createMeta(r, country, city, since) {
   return {
     ts: Date.now(),
     ua: r.headersIn["user-agent"] || "",
-    origin: r.headersIn.origin || "",
+    origin: r.headersIn.referer || r.headersIn.origin || "",
     country: country,
     city: city || "",
     since: since,
