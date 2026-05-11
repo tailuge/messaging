@@ -169,9 +169,12 @@ class OnlinePanel extends LitElement {
         this._onUserChanged = e => {
             this.#myId   = e.detail.userId;
             this.#myName = e.detail.userName;
-            this.#lobby?.leave();
-            this.#lobby = null;
-            this._connect().catch(e => console.error('Lobby reconnect failed:', e));
+            if (this.#lobby) {
+                this.#lobby.updatePresence({ userId: this.#myId, userName: this.#myName })
+                    .catch(err => console.error('Failed to update presence:', err));
+            } else {
+                this._connect().catch(e => console.error('Lobby connect failed:', e));
+            }
         };
         document.addEventListener('user-name-changed', this._onUserChanged);
         this._connect().catch(e => console.error('Lobby connect failed:', e));
@@ -216,7 +219,7 @@ class OnlinePanel extends LitElement {
             if (msgTime < this.#connectTime) return;
             this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
             if (msg.type === 'challenge' && msg.challengeeId === this.#myId && document.hidden && Notification.permission === 'granted') {
-                new Notification('Challenge received!', { body: `${msg.challengerName} challenged you to ${msg.ruleType}`, icon: 'assets/golden-cup.png' });
+                new Notification('Challenge received!', { body: `${msg.challengerName} challenged you to ${msg.ruleType}`, icon: 'assets/threecushion.png' });
             }
         });
     }
