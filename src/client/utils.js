@@ -118,6 +118,10 @@ export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options,
     return appendOptions(url, options);
 };
 
+export const spectateUrl = ({ tableId, userId, userName, ruleType }) =>
+    `${BASE}?websocketserver=wss://billiards.onrender.com/ws`
+    + `&tableId=${tableId}&userName=${encodeURIComponent(userName)}&userId=${userId}&ruletype=${ruleType}&spectator=true`;
+
 const RULE_ASSETS = { eightball: 'eightball', snooker: 'snooker', threecushion: 'threecushion', nineball: 'nineball' };
 export const ruleIcon = rule => {
     const name = RULE_ASSETS[rule];

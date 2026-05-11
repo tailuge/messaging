@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { MessagingClient, canChallenge, canSpectate } from '../index.ts';
 import { userStore } from './user-store.js';
-import { gameUrl, INITIAL_STATE, reduce, flag, getEmoji, ruleIcon } from './utils.js';
+import { gameUrl, spectateUrl, INITIAL_STATE, reduce, flag, getEmoji, ruleIcon } from './utils.js';
 import {
     SHARED_STYLES, USER_LIST_STYLES, CHALLENGE_BANNER_STYLES,
     SENT_CHALLENGE_BANNER_STYLES, PLAYER_PANEL_STYLES, CHALLENGE_MODAL_STYLES, BADGE_STYLES
@@ -22,6 +22,7 @@ class UserList extends LitElement {
     static properties = {
         users: { type: Array },
         myId: { type: String },
+        myName: { type: String },
         tableId: { type: String },
         isChallengePending: { type: Boolean },
         pendingChats: { type: Object },
@@ -29,6 +30,8 @@ class UserList extends LitElement {
     static styles = [SHARED_STYLES, USER_LIST_STYLES, css`
         @keyframes throb { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
         .btn-chat { animation: throb 2s ease-in-out infinite; font-size: 1rem; border: none; background: none; padding: 0 0.2rem; }
+        .btn-spectate { background: #7c3aed; color: #fff; border: none; border-radius: 4px; padding: 0.25rem 0.6rem; cursor: pointer; }
+        .btn-spectate:hover { background: #6d28d9; }
     `];
 
     render() {
@@ -45,7 +48,7 @@ class UserList extends LitElement {
         const actions = unread
             ? html`<button class="btn-chat" aria-label="Unread message from ${u.userName}" @click=${() => emit(this, 'open-chat', u.userId)}>💬</button>`
             : spectatable
-                ? html`<button class="btn-challenge" aria-label="Spectate ${u.userName}'s game">Spectate</button>`
+                ? html`<button class="btn-spectate" aria-label="Spectate ${u.userName}'s game" @click=${() => emit(this, 'spectate', u)}>Spectate</button>`
                 : challengeable
                     ? html`<button class="btn-challenge" aria-label="Challenge ${u.userName}" ?disabled=${this.isChallengePending} @click=${() => emit(this, 'challenge', u.userId)}>Challenge</button>`
                     : html``;
@@ -287,6 +290,7 @@ class OnlinePanel extends LitElement {
             <user-list
                 .users=${this.#visibleUsers}
                 myId=${this.#myId}
+                myName=${this.#myName}
                 tableId=${this.#tableId || ''}
                 .isChallengePending=${this.#sentChallenge?.status === 'pending'}
                 .pendingChats=${this.#pendingChats}
@@ -294,6 +298,10 @@ class OnlinePanel extends LitElement {
                     const u = this.#visibleUsers.find(u => u.userId === e.detail);
                     this.#pendingChallenge = { userId: e.detail, userName: u?.userName ?? e.detail };
                     this.requestUpdate();
+                }}
+                @spectate=${e => {
+                    const u = e.detail;
+                    window.location.href = spectateUrl({ tableId: u.tableId, userId: this.#myId, userName: this.#myName, ruleType: u.ruleType || 'nineball' });
                 }}
                 @open-chat=${e => {
                     const u = this.#visibleUsers.find(u => u.userId === e.detail);
