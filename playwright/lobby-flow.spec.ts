@@ -324,6 +324,86 @@ test.describe('Lobby Flow', () => {
     await bob.context.close();
   });
 
+  test('full e2e: concede triggers rematch flow', async ({ browser }) => {
+    const setupUser = async (name: string, id: string) => {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      await page.route('**/publish/presence/lobby', async (route) => {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'sent' }) });
+      });
+      await page.goto(`http://localhost:80/lobby.html?userId=${id}&userName=${name}`);
+      return { context, page };
+    };
+
+    const alice = await setupUser('Alice', 'alice');
+    const bob = await setupUser('Bob', 'bob');
+
+    const users = [
+      { userId: 'alice', userName: 'Alice', messageType: 'presence', type: 'join', meta: { country: 'US' } },
+      { userId: 'bob',   userName: 'Bob',   messageType: 'presence', type: 'join', meta: { country: 'GB' } },
+    ];
+    for (const { page } of [alice, bob]) {
+      await page.evaluate((u) => {
+        const app = document.querySelector('lobby-app') as any;
+        app._ctrl.dispatch({ type: 'CONNECTED', payload: true });
+        app._ctrl.dispatch({ type: 'USERS_UPDATE', payload: u });
+      }, users);
+    }
+
+    // Alice challenges Bob
+    await alice.page.locator('button[aria-label="Challenge Bob"]').click();
+    await alice.page.locator('challenge-modal button:has-text("Eight Ball")').click();
+
+    const challengeMsg = {
+      messageType: 'challenge', type: 'offer',
+      challengerId: 'alice', challengerName: 'Alice',
+      challengeeId: 'bob', ruleType: 'eightball',
+      tableId: 'e2e-table-rematch', meta: { country: 'US' },
+    };
+    await bob.page.evaluate((msg) => {
+      (document.querySelector('lobby-app') as any)._ctrl.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
+    }, challengeMsg);
+
+    await bob.page.locator('button[aria-label="Accept challenge"]').click();
+
+    const acceptMsg = {
+      messageType: 'challenge', type: 'accept',
+      challengerId: 'alice', challengerName: 'Alice',
+      challengeeId: 'bob', ruleType: 'eightball',
+      tableId: 'e2e-table-rematch', meta: { country: 'GB' },
+    };
+    for (const { page } of [alice, bob]) {
+      await page.evaluate((msg) => {
+        (document.querySelector('lobby-app') as any)._ctrl.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
+      }, acceptMsg);
+    }
+
+    // Both redirect to the game URL
+    await expect(alice.page).toHaveURL(/tableId=e2e-table-rematch/);
+    await expect(bob.page).toHaveURL(/tableId=e2e-table-rematch/);
+
+    // Both land on the game page — concede button should be visible
+    await expect(alice.page.locator('button[aria-label="Concede"]')).toBeVisible();
+    await expect(bob.page.locator('button[aria-label="Concede"]')).toBeVisible();
+
+    // Bob concedes and confirms
+    await bob.page.locator('button[aria-label="Concede"]').click();
+    await bob.page.locator('button[data-notification-action="concede-confirm"]').click();
+
+    // Both see the rematch button and click it
+    await alice.page.locator('button[data-notification-action="rematch"]').waitFor({ timeout: 10000 });
+    await bob.page.locator('button[data-notification-action="rematch"]').waitFor({ timeout: 10000 });
+    await alice.page.locator('button[data-notification-action="rematch"]').click();
+    await bob.page.locator('button[data-notification-action="rematch"]').click();
+
+    // Both are redirected with rematch param
+    await expect(alice.page).toHaveURL(/rematch=/, { timeout: 10000 });
+    await expect(bob.page).toHaveURL(/rematch=/, { timeout: 10000 });
+
+    await alice.context.close();
+    await bob.context.close();
+  });
+
   test('should remove challenge banner when challenger cancels', async ({ browser }) => {
     const setupUser = async (name: string, id: string) => {
       const context = await browser.newContext();
