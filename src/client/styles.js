@@ -213,7 +213,7 @@ export const INFO_PANEL_STYLES = css`
     table { border-collapse: collapse; width: auto; }
     th, td { border-bottom: 1px solid var(--border); padding: 0.05rem 0.15rem; text-align: left; }
     th { display: none; }
-    caption { font-size: 0.8rem; font-weight: 600; text-align: center; padding: 0.2rem 0; color: var(--text-dim); }
+    caption { font-size: 1.4rem; font-weight: 600; text-align: center; padding: 0.2rem 0; color: var(--text-dim); }
     a { color: var(--link); text-decoration: none; }
     .ago { text-align: right; font-size: 0.65em; color: var(--text-muted); white-space: nowrap; width: 1%; }
     .city-col { font-size: 0.65em; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 5rem; }
@@ -222,7 +222,7 @@ export const INFO_PANEL_STYLES = css`
         .city-col { display: none; }
     }
     .loading { color: var(--text-muted); }
-    .group { margin-bottom: 0.4rem; }
+    .group { margin-bottom: 0.4rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem; }
     .group-title { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); padding: 0.1rem 0.25rem; text-align: center; }
     .group-body { display: flex; flex-wrap: wrap; justify-content: space-evenly; }
     .bottom-row { display: flex; align-items: flex-start; gap: 0.25rem; }

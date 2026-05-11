@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
-import { MessagingClient, canChallenge } from '../index.ts';
+import { MessagingClient, canChallenge, canSpectate } from '../index.ts';
 import { userStore } from './user-store.js';
-import { gameUrl, INITIAL_STATE, reduce, flag, getEmoji } from './utils.js';
+import { gameUrl, INITIAL_STATE, reduce, flag, getEmoji, ruleIcon } from './utils.js';
 import {
     SHARED_STYLES, USER_LIST_STYLES, CHALLENGE_BANNER_STYLES,
     SENT_CHALLENGE_BANNER_STYLES, PLAYER_PANEL_STYLES, CHALLENGE_MODAL_STYLES, BADGE_STYLES
@@ -40,12 +40,15 @@ class UserList extends LitElement {
     _row(u) {
         const unread = this.pendingChats?.get(u.userId) > 0;
         const challengeable = u.isBot || canChallenge(u, this.myId);
+        const spectatable = !u.isBot && canSpectate(u, this.tableId);
         const status = getEmoji(u.meta?.origin ?? '', u.tableId ?? '');
         const actions = unread
             ? html`<button class="btn-chat" aria-label="Unread message from ${u.userName}" @click=${() => emit(this, 'open-chat', u.userId)}>💬</button>`
-            : challengeable
-                ? html`<button class="btn-challenge" aria-label="Challenge ${u.userName}" ?disabled=${this.isChallengePending} @click=${() => emit(this, 'challenge', u.userId)}>Challenge</button>`
-                : html``;
+            : spectatable
+                ? html`<button class="btn-challenge" aria-label="Spectate ${u.userName}'s game">Spectate</button>`
+                : challengeable
+                    ? html`<button class="btn-challenge" aria-label="Challenge ${u.userName}" ?disabled=${this.isChallengePending} @click=${() => emit(this, 'challenge', u.userId)}>Challenge</button>`
+                    : html``;
         return html`
             <li aria-label="${u.userName}">
                 <div class="user-info">

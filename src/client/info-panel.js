@@ -20,7 +20,6 @@ class InfoPanel extends StoreElement {
         const games = Object.keys(hiscores);
         return html`
             <div class="group hiscores">
-                <div class="group-title">Hi Scores</div>
                 <div class="group-body">
                     ${games.map(game => html`
                         <div class="tbl"><table><caption>${ruleIcon(game)}</caption>
@@ -32,7 +31,6 @@ class InfoPanel extends StoreElement {
             </div>
             <div class="bottom-row">
                 <div class="group recent">
-                    <div class="group-title">Recent Matches</div>
                     <div class="group-body">
                         <div class="tbl"><table>
                         <tr><th>Rule</th><th>Match</th><th>Ago</th><th class="city-col">City</th><th></th></tr>
@@ -50,12 +48,11 @@ class InfoPanel extends StoreElement {
                     </div>
                 </div>
                 <div class="group top-players">
-                    <div class="group-title">Top Players</div>
                     <div class="group-body">
                         ${games.map(game => html`
-                            <div class="tbl"><table><caption>${ruleIcon(game)}</caption>
+                            <div class="tbl"><table><caption>${ruleIcon(game)} <span style="font-size:0.75rem;font-weight:200">Best</span></caption>
                             <tr><th>Name</th><th>Rating</th><th>W</th><th>L</th></tr>
-                                ${topPlayers[game].slice(0, 4).map((p, i) => html`<tr>
+                                ${[...topPlayers[game]].sort((a, b) => b.rating - a.rating).slice(0, 4).map((p, i) => html`<tr>
                                     <td><a href="${SCOREBOARD_URL}/player/${encodeURIComponent(p.name)}?ruleType=${game}">${renderTrophy(i)} ${p.name}</a></td>
                                     <td>${Math.round(p.rating)}</td>
                                 </tr>`)}

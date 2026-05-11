@@ -37,7 +37,7 @@ class LobbyApp extends LitElement {
                     </div>
                     <div class="players panel"><online-panel></online-panel></div>
                 </div>
-                <div class="info-row"><div class="panel"><info-panel></info-panel></div></div>
+                <div class="info-row"><info-panel></info-panel></div>
             </div>
         `;
     }

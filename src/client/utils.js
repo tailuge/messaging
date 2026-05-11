@@ -122,7 +122,7 @@ const RULE_ASSETS = { eightball: 'eightball', snooker: 'snooker', threecushion: 
 export const ruleIcon = rule => {
     const name = RULE_ASSETS[rule];
     return name
-        ? html`<img src="assets/${name}.png" alt="${rule}" title="${rule}" width="12" height="12" style="vertical-align:middle">`
+        ? html`<img src="assets/${name}.png" alt="${rule}" title="${rule}" width="18" height="18" style="vertical-align:middle">`
         : html`🎱`;
 };
 
