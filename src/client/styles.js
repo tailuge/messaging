@@ -175,12 +175,12 @@ export const USER_BADGE_STYLES = css`
         display: inline-flex; align-items: center; gap: 5px;
         padding: 0px 12px 0px 10px; border-radius: 4px;
         background: var(--surface); border: 1px solid var(--border);
-        cursor: pointer; font-size: 1.2rem; color: var(--text); font-weight: 600;
+        cursor: pointer; font-size: 1.4rem; color: var(--text); font-weight: 600;
         transition: filter 0.15s;
     }
     .badge:hover { filter: brightness(1.3); }
     .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: var(--dot-color, #888); }
-    input { width: 90px; background: transparent; border: none; border-bottom: 1px solid var(--border); color: inherit; font-size: inherit; outline: none; padding: 0; font-weight: inherit; }
+    input { width: 90px; background: transparent; border: none; color: inherit; font-size: inherit; outline: none; padding: 0; font-weight: inherit; }
 `;
 
 export const SOLO_PANEL_STYLES = css`
@@ -194,7 +194,7 @@ export const SOLO_PANEL_STYLES = css`
 
 export const INFO_PANEL_STYLES = css`
     :host { display: block; overflow-y: auto; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.75rem; color: var(--text); }
-    .tbl { display: inline-block; vertical-align: top; border: 1px solid var(--border); border-radius: 4px; margin: 0.0625rem; overflow: hidden; }
+    .tbl { display: inline-block; vertical-align: top; border-radius: 4px; margin: 0.0625rem; overflow: hidden; }
     table { border-collapse: collapse; width: auto; }
     th, td { border-bottom: 1px solid var(--border); padding: 0.05rem 0.15rem; text-align: left; }
     th { display: none; }
