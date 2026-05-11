@@ -152,17 +152,24 @@
 `,F=p`
     .badge { position: absolute; bottom: -3px; right: -3px; background: #7a0f1a; color: #fff; font-size: 11px; font-weight: normal; border-radius: 3px; padding: 0 2px; line-height: 1.3; border: 1px solid #fff; }
 `,Ke=p`
-    :host { display: inline-flex; align-items: center; align-self: center; font-family: 'Exo', sans-serif; font-weight: 200; filter: drop-shadow(0 0 3px rgba(100, 255, 131, 0.45)); }
+    :host { display: inline-flex; align-items: center; align-self: center; font-family: 'Exo', sans-serif; font-weight: 200; }
     .badge {
         display: inline-flex; align-items: center; gap: 5px;
         padding: 0px 12px 0px 10px; border-radius: 4px;
         background: var(--surface); border: 1px solid var(--border);
-        cursor: pointer; font-size: 1.4rem; color: var(--text); font-weight: 600;
-        transition: filter 0.15s;
+        cursor: pointer; font-size: 1.2rem; color: var(--text); font-weight: 600;
+        font-family: inherit;
+        transition: filter 0.15s, box-shadow 0.15s;
+        box-shadow: 0 0 10px rgba(100, 255, 131, 0.2);
     }
     .badge:hover { filter: brightness(1.3); }
     .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: var(--dot-color, #888); }
-    input { width: 90px; background: transparent; border: none; color: inherit; font-size: inherit; outline: none; padding: 0; font-weight: inherit; }
+    input {
+        background: transparent; border: none; color: inherit;
+        font-size: inherit; font-family: inherit; font-weight: inherit;
+        outline: none; padding: 0;
+        width: auto;
+    }
 `,Ze=p`
     :host { display: block; font-family: 'Exo', sans-serif; font-weight: 200; }
     .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.25rem; }
@@ -205,10 +212,11 @@
 `,et=[Ct,p`
     :host { display: flex; flex-direction: column; min-height: 100%; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.85rem; box-sizing: border-box; padding: 0.5rem; gap: 0.2rem; background: var(--bg); color: var(--text); overflow-y: auto; scrollbar-width: none; }
     :host::-webkit-scrollbar { display: none; }
-    h1 { font-size: 1.0rem; color: var(--text-dim); text-align: center; margin: 0; letter-spacing: 0.1em; text-transform: uppercase; flex-shrink: 0; }
+    h1 { font-size: 1.0rem; color: var(--text-dim); text-align: left; margin: 0; letter-spacing: 0.1em; text-transform: uppercase; flex-shrink: 0; }
     h1 a { color: inherit; text-decoration: none; }
     h1 a:hover { text-decoration: underline; }
-    .topbar { display: flex; align-items: center; flex-shrink: 0; gap: 0.3rem; }
+    .topbar { display: flex; align-items: center; flex-shrink: 0; gap: 0.5rem; }
+    .topbar .logo { width: 32px; height: 32px; flex-shrink: 0; filter: grayscale(100%); opacity: 0.7; }
     .topbar h1 { flex: 1; }
     .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem; overflow: hidden; }
     .panel-title { font-weight: bold; margin-bottom: 0.25rem; font-size: 0.8rem; color: var(--text-dim); text-align: center; }
@@ -414,7 +422,9 @@
             <div class="badge" style="--dot-color:${this._dotColor}">
                 <span class="dot"></span>
                 <input maxlength="12" .value=${this._name}
+                    style="width: ${Math.max(this._name.length,1)}ch"
                     aria-label="Display name"
+                    @input=${e=>e.target.style.width=Math.max(e.target.value.length,1)+"ch"}
                     @change=${e=>this._commit(e.target.value)}
                     @keydown=${e=>e.key==="Enter"&&e.target.blur()}>
             </div>`}};customElements.define("user-badge",Ie);var Ce=class extends v{static properties={_open:{state:!0},_notifEnabled:{state:!0}};static styles=[w,L,p`
@@ -457,6 +467,7 @@
         `}};customElements.define("settings-modal",Ce);var Te=class extends g{static properties={_theme:{type:String,reflect:!0,attribute:"theme"}};static styles=et;constructor(){super(),this._theme=document.documentElement.getAttribute("theme")||"light"}get _ctrl(){return this.shadowRoot.querySelector("online-panel")}render(){return l`
             <div class="container">
                 <div class="topbar">
+                    <img src="assets/threecushion.png" class="logo" alt="Logo">
                     <h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a></h1>
                     <user-badge></user-badge>
                     <settings-modal @theme-changed=${e=>{this._theme=e.detail}}></settings-modal>
