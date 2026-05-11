@@ -73,7 +73,7 @@ class ChallengeBanner extends LitElement {
         return html`
             <div class="banner">
                 <strong>Challenge from ${c.challengerName}</strong>
-                <div class="details"><span>📋 ${c.ruleType}</span>${extras.map(e => html`<span>${e}</span>`)}</div>
+                <div class="details"><span>To play ${c.ruleType}</span>${extras.map(e => html`<span>${e}</span>`)}</div>
                 <div class="row">
                     <button class="btn-accept" aria-label="Accept challenge" @click=${() => emit(this, 'accept')}>Accept</button>
                     <button class="btn-decline" aria-label="Decline challenge" @click=${() => emit(this, 'decline')}>Decline</button>

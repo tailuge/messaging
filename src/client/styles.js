@@ -207,8 +207,12 @@ export const INFO_PANEL_STYLES = css`
     th { display: none; }
     caption { font-size: 0.8rem; font-weight: 600; text-align: center; padding: 0.2rem 0; color: var(--text-dim); }
     a { color: var(--link); text-decoration: none; }
-    .date { text-align: right; max-width: 8rem; overflow: hidden; }
-    .date span { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+    .ago { text-align: right; font-size: 0.65em; color: var(--text-muted); white-space: nowrap; width: 1%; }
+    .city-col { font-size: 0.65em; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 5rem; }
+    .replay-col { text-align: right; width: 1%; white-space: nowrap; font-size: 0.8rem; }
+    @media (max-width: 480px) {
+        .city-col { display: none; }
+    }
     .loading { color: var(--text-muted); }
     .group { margin-bottom: 0.4rem; }
     .group-title { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); padding: 0.1rem 0.25rem; text-align: center; }

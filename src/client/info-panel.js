@@ -35,11 +35,16 @@ class InfoPanel extends StoreElement {
                     <div class="group-title">Recent Matches</div>
                     <div class="group-body">
                         <div class="tbl"><table>
-                        <tr><th>Rule</th><th>Match</th><th>Date</th><th></th></tr>
+                        <tr><th>Rule</th><th>Match</th><th>Ago</th><th class="city-col">City</th><th></th></tr>
                             ${recentMatches.map(m => html`<tr>
                                 <td>${ruleIcon(m.ruleType)}</td><td>${m.loser ? '🎖️' : ''}${m.winner}${m.loser ? ` vs ${m.loser}` : ''}</td>
-                                <td class="date"><span style="font-size:0.65em">${timeAgo(m.timestamp)}${m.locationCountry ? ` ${m.locationCity ?? ''}` : ''}</span>${m.locationCountry ? ` ${flag(m.locationCountry)}` : ''}</td>
-                                <td>${m.hasReplay ? html`<replay-button url="${SCOREBOARD_URL}/api/match-replay?id=${m.id}&lod=${userStore.lod}"></replay-button>` : ''}</td>
+                                <td class="ago">${timeAgo(m.timestamp)}</td>
+                                <td class="city-col">${m.locationCity ?? ''}</td>
+                                <td class="replay-col">
+                                    ${m.hasReplay
+                                        ? html`<replay-button prefix="${flag(m.locationCountry)}" url="${SCOREBOARD_URL}/api/match-replay?id=${m.id}&lod=${userStore.lod}"></replay-button>`
+                                        : flag(m.locationCountry)}
+                                </td>
                             </tr>`)}
                         </table></div>
                     </div>
