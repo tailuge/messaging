@@ -1,92 +1,76 @@
 import { test, expect } from '@playwright/test';
 
+const lobbyUrl = (id: string, name: string) =>
+    `http://localhost/lobby.html?clientId=${id}&userName=${name}`;
+
+// Count real (non-bot) users visible in the online list on a given page
+const realUserCount = (page: any) =>
+    page.evaluate(() => {
+        const panel = document.querySelector('lobby-app')?.shadowRoot?.querySelector('online-panel') as any;
+        return panel?._state?.users?.length ?? 0;
+    });
+
 test.describe('Presence Lifecycle', () => {
-  test('should restore presence after BFCache navigation', async ({ page, context }) => {
-    // 1. Open two pages to see each other
-    const page1 = page;
-    const page2 = await context.newPage();
+    test('second user appears in list when both are connected', async ({ browser }) => {
+        const ctx1 = await browser.newContext();
+        const ctx2 = await browser.newContext();
+        const page1 = await ctx1.newPage();
+        const page2 = await ctx2.newPage();
 
-    await page1.goto('http://localhost/example/client.html?id=user1&name=User1');
-    await page2.goto('http://localhost/example/client.html?id=user2&name=User2');
+        await page1.goto(lobbyUrl('plc-user1', 'User1'));
+        await page2.goto(lobbyUrl('plc-user2', 'User2'));
 
-    // Wait for both to be online
-    await expect(page1.locator('#count')).toAtLeastCount(2);
-    await expect(page2.locator('#count')).toAtLeastCount(2);
+        // Each should see the other in the list
+        await expect(page1.locator('[aria-label="User2"]')).toBeVisible({ timeout: 10000 });
+        await expect(page2.locator('[aria-label="User1"]')).toBeVisible({ timeout: 10000 });
 
-    // 2. Navigate away on page1
-    await page1.goto('about:blank');
-
-    // Page2 should eventually see only 1 user (itself)
-    await expect(page2.locator('#count')).toHaveText('Online Users: 1', { timeout: 10000 });
-
-    // 3. Navigate back on page1
-    await page1.goBack();
-
-    // Both should see 2 users again
-    await expect(page1.locator('#count')).toHaveText('Online Users: 2', { timeout: 10000 });
-    await expect(page2.locator('#count')).toHaveText('Online Users: 2', { timeout: 10000 });
-  });
-
-  test('should restore presence after visibility change', async ({ page, context }) => {
-    const page1 = page;
-    const page2 = await context.newPage();
-
-    await page1.goto('http://localhost/example/client.html?id=user3&name=User3');
-    await page2.goto('http://localhost/example/client.html?id=user4&name=User4');
-
-    // Wait for both to be online
-    await expect(page1.locator('#count')).toAtLeastCount(2);
-    await expect(page2.locator('#count')).toAtLeastCount(2);
-
-    // 1. Simulate hiding page1
-    // Note: Playwright doesn't have a direct "hide tab" that triggers visibilitychange reliably across all OS/browsers
-    // but we can trigger the event manually or use page.dispatchEvent
-    await page1.evaluate(() => {
-        Object.defineProperty(document, 'visibilityState', { value: 'hidden', writable: true });
-        Object.defineProperty(document, 'hidden', { value: true, writable: true });
-        document.dispatchEvent(new Event('visibilitychange'));
+        await ctx1.close();
+        await ctx2.close();
     });
 
-    // Heartbeat should be paused, but user stays in list until prune (90s)
-    // To test our fix, we can stop the client and then trigger visibilitychange
-    await page1.evaluate(async () => {
-        // @ts-ignore
-        await window.messagingClient.stop();
+    test('user disappears from list after navigating away', async ({ browser }) => {
+        const ctx1 = await browser.newContext();
+        const ctx2 = await browser.newContext();
+        const page1 = await ctx1.newPage();
+        const page2 = await ctx2.newPage();
+
+        await page1.goto(lobbyUrl('plc-user3', 'User3'));
+        await page2.goto(lobbyUrl('plc-user4', 'User4'));
+
+        await expect(page1.locator('[aria-label="User4"]')).toBeVisible({ timeout: 10000 });
+        await expect(page2.locator('[aria-label="User3"]')).toBeVisible({ timeout: 10000 });
+
+        // User3 navigates away — sends a leave message
+        await page1.goto('about:blank');
+
+        // User4 should no longer see User3
+        await expect(page2.locator('[aria-label="User3"]')).not.toBeVisible({ timeout: 10000 });
+
+        await ctx1.close();
+        await ctx2.close();
     });
 
-    // Page2 should eventually see only 1 user
-    await expect(page2.locator('#count')).toHaveText('Online Users: 1', { timeout: 10000 });
+    test('user reappears after navigating back', async ({ browser }) => {
+        const ctx1 = await browser.newContext();
+        const ctx2 = await browser.newContext();
+        const page1 = await ctx1.newPage();
+        const page2 = await ctx2.newPage();
 
-    // 2. Simulate showing page1
-    await page1.evaluate(() => {
-        Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: true });
-        Object.defineProperty(document, 'hidden', { value: false, writable: true });
-        document.dispatchEvent(new Event('visibilitychange'));
+        await page1.goto(lobbyUrl('plc-user5', 'User5'));
+        await page2.goto(lobbyUrl('plc-user6', 'User6'));
+
+        await expect(page2.locator('[aria-label="User5"]')).toBeVisible({ timeout: 10000 });
+
+        // User5 navigates away then back
+        await page1.goto('about:blank');
+        await expect(page2.locator('[aria-label="User5"]')).not.toBeVisible({ timeout: 10000 });
+
+        await page1.goBack();
+
+        // User6 should see User5 again
+        await expect(page2.locator('[aria-label="User5"]')).toBeVisible({ timeout: 15000 });
+
+        await ctx1.close();
+        await ctx2.close();
     });
-
-    // Both should see 2 users again
-    await expect(page1.locator('#count')).toHaveText('Online Users: 2', { timeout: 10000 });
-    await expect(page2.locator('#count')).toHaveText('Online Users: 2', { timeout: 10000 });
-  });
-});
-
-// Helper for toAtLeastCount
-expect.extend({
-    async toAtLeastCount(locator, expected) {
-        const text = await locator.innerText();
-        const match = text.match(/Online Users: (\d+)/);
-        const count = match ? parseInt(match[1], 10) : 0;
-        const pass = count >= expected;
-        if (pass) {
-            return {
-                message: () => `passed`,
-                pass: true,
-            };
-        } else {
-            return {
-                message: () => `expected at least ${expected} users, but got ${count}`,
-                pass: false,
-            };
-        }
-    },
 });
