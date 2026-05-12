@@ -69,14 +69,7 @@ export function reduce(state, action) {
  * @param {string} origin 
  * @param {string} ruleType 
  */
-export function getEmoji(origin = "", ruleType = "") {
-  // 1. Check origin patterns
-  if (origin.includes("github")) return { emoji: "🐙", title: "github" };
-  if (origin.includes("vercel")) return { emoji: "👥", title: "vercel" };
-  if (origin.includes("render")) return { emoji: "👤", title: "vercel" };
-  if (origin.includes("localhost")) return { emoji: "🏠", title: "localhost" };
-
-  // 2. Lookup for rule types
+export function getEmoji(origin = "", ruleType = "", status = "") {
   const ruleMap = {
     spectator: { emoji: "🔭", title: "spectator" },
     replay: { emoji: "👀", title: "replay" },
@@ -86,6 +79,16 @@ export function getEmoji(origin = "", ruleType = "") {
     snooker: { emoji: "🔴", title: "snooker" },
     threecushion: { emoji: "③", title: "threecushion" },
   };
+
+  // 1. Check user status first
+  if (status === "spectating") return { emoji: "🔭", title: "spectator" };
+  if (status === "playing") return ruleMap[ruleType] ?? { emoji: "🎮", title: "playing" };
+
+  // 2. Check origin patterns
+  if (origin.includes("github")) return { emoji: "🐙", title: "github" };
+  if (origin.includes("vercel")) return { emoji: "👥", title: "vercel" };
+  if (origin.includes("render")) return { emoji: "👤", title: "vercel" };
+  if (origin.includes("localhost")) return { emoji: "🏠", title: "localhost" };
 
   return ruleMap[ruleType] ?? { emoji: "🎮", title: "external" };
 };

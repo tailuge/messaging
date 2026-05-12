@@ -1,4 +1,4 @@
-import { PresenceMessage, ActiveGame, canChallenge, canSpectate, activeGames } from "../src/types";
+import { PresenceMessage, ActiveGame, canChallenge, canSpectate, activeGames, userStatus } from "../src/types";
 import {
   startContainer,
   stopContainer,
@@ -713,6 +713,33 @@ describe("MessagingClient - Phase 1", () => {
         tableId: "table-2",
       };
       expect(canSpectate(user, "table-1")).toBe(true);
+    });
+
+    it("canSpectate: returns false if target is a spectator", () => {
+      const user: PresenceMessage = {
+        messageType: "presence",
+        type: "join",
+        userId: "user-2",
+        userName: "Bob",
+        tableId: "table-2",
+        isSpectator: true,
+      };
+      expect(canSpectate(user, "table-1")).toBe(false);
+    });
+
+    it("userStatus: returns available when no tableId", () => {
+      const user: PresenceMessage = { messageType: "presence", type: "join", userId: "u1", userName: "A" };
+      expect(userStatus(user)).toBe("available");
+    });
+
+    it("userStatus: returns playing when tableId set and not spectator", () => {
+      const user: PresenceMessage = { messageType: "presence", type: "join", userId: "u1", userName: "A", tableId: "t1" };
+      expect(userStatus(user)).toBe("playing");
+    });
+
+    it("userStatus: returns spectating when isSpectator is true", () => {
+      const user: PresenceMessage = { messageType: "presence", type: "join", userId: "u1", userName: "A", tableId: "t1", isSpectator: true };
+      expect(userStatus(user)).toBe("spectating");
     });
 
     it("activeGames: returns empty for no users in games", () => {

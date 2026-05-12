@@ -34,6 +34,7 @@ export interface PresenceMessage {
   seek?: Seek;
   meta?: Meta; // Server-enriched metadata (received messages only)
   tableId?: string; // Current game/spectating table
+  isSpectator?: boolean; // True when user is spectating (not playing) at tableId
 }
 
 /**
@@ -133,10 +134,28 @@ export function canChallenge(target: PresenceMessage, currentUserId: string): bo
 
 /**
  * Predicate: can the current user spectate this target's game?
- * Returns true if target is at a table and it's not the current user's table
+ * Returns true if target is a player (not spectator) at a different table
  */
 export function canSpectate(target: PresenceMessage, currentTableId?: string): boolean {
-  return !!target.tableId && target.tableId !== currentTableId;
+  return !!target.tableId && !target.isSpectator && target.tableId !== currentTableId;
+}
+
+/**
+ * Derived status of a user based on their presence state
+ */
+export type UserStatus = "available" | "playing" | "spectating";
+
+export function userStatus(user: PresenceMessage): UserStatus {
+  if (!user.tableId) return "available";
+  if (user.isSpectator) return "spectating";
+  return "playing";
+}
+
+/**
+ * Predicate: is the user in the lobby (not in a game or spectating)?
+ */
+export function isInLobby(user: PresenceMessage): boolean {
+  return !user.tableId;
 }
 
 /**

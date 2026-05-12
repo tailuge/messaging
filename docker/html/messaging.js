@@ -164,7 +164,15 @@ function canChallenge(target, currentUserId) {
   return target.userId !== currentUserId && !target.tableId && !target.seek;
 }
 function canSpectate(target, currentTableId) {
-  return !!target.tableId && target.tableId !== currentTableId;
+  return !!target.tableId && !target.isSpectator && target.tableId !== currentTableId;
+}
+function userStatus(user) {
+  if (!user.tableId) return "available";
+  if (user.isSpectator) return "spectating";
+  return "playing";
+}
+function isInLobby(user) {
+  return !user.tableId;
 }
 function activeGames(users) {
   const gameMap = /* @__PURE__ */ new Map();
@@ -837,6 +845,8 @@ export {
   canSpectate,
   isChallengeMessage,
   isChatMessage,
+  isInLobby,
   isPresenceMessage,
-  parseMessage
+  parseMessage,
+  userStatus
 };

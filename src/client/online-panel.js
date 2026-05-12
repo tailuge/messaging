@@ -1,5 +1,5 @@
 import { LitElement, html, css } from 'lit';
-import { MessagingClient, canChallenge, canSpectate } from '../index.ts';
+import { MessagingClient, canChallenge, canSpectate, userStatus } from '../index.ts';
 import { userStore } from './user-store.js';
 import { gameUrl, spectateUrl, INITIAL_STATE, reduce, flag, getEmoji, ruleIcon } from './utils.js';
 import {
@@ -43,8 +43,8 @@ class UserList extends LitElement {
     _row(u) {
         const unread = this.pendingChats?.get(u.userId) > 0;
         const challengeable = u.isBot || canChallenge(u, this.myId);
-        const spectatable = !u.isBot && canSpectate(u, this.tableId);
-        const status = getEmoji(u.meta?.origin ?? '', u.tableId ?? '');
+        const spectatable = !u.isBot && userStatus(u) === 'playing' && canSpectate(u, this.tableId);
+        const status = getEmoji(u.meta?.origin ?? '', u.ruleType ?? '', userStatus(u));
         const actions = unread
             ? html`<button class="btn-chat" aria-label="Unread message from ${u.userName}" @click=${() => emit(this, 'open-chat', u.userId)}>💬</button>`
             : spectatable
