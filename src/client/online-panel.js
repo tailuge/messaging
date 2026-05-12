@@ -242,7 +242,7 @@ class OnlinePanel extends LitElement {
     async #acceptChallenge() {
         const c = this.#activeChallenge;
         this.#table = await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options, c.challengerName);
-        const rematch = this.#rematch?.rematchParam ?? (c.options?.opponentId ? encodeURIComponent(JSON.stringify(c.options)) : undefined);
+        const rematch = this.#rematch?.rematchParam ?? (c.rematch ? encodeURIComponent(JSON.stringify(c.rematch)) : undefined);
         this.dispatch({ type: 'MATCH_SET', payload: { tableId: c.tableId, ruleType: c.ruleType, options: c.options, isFirst: false, rematch } });
     }
 
@@ -327,3 +327,4 @@ class OnlinePanel extends LitElement {
 customElements.define('user-list',        UserList);
 customElements.define('challenge-modal',  ChallengeModal);
 customElements.define('online-panel',     OnlinePanel);
+
