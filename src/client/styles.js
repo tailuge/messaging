@@ -172,8 +172,10 @@ export const INFO_PANEL_STYLES = css`
     .group-title { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); padding: 0.1rem 0.25rem; text-align: center; }
     .group-body { display: flex; flex-wrap: wrap; justify-content: space-evenly; }
     .bottom-row { display: flex; align-items: flex-start; gap: 0.25rem; }
-    .bottom-row .recent { flex: 6; min-width: 0; }
-    .bottom-row .top-players { flex: 4; min-width: 0; }
+    .bottom-row .recent { flex: 65; min-width: 0; height: 504px; overflow-y: auto; scrollbar-width: none; }
+    .bottom-row .recent::-webkit-scrollbar { display: none; }
+    .bottom-row .top-players { flex: 35; min-width: 0; height: 504px; overflow-y: auto; scrollbar-width: none; }
+    .bottom-row .top-players::-webkit-scrollbar { display: none; }
     .bottom-row .recent .tbl, .bottom-row .recent table { width: 100%; }
     .bottom-row .top-players .group-body { flex-direction: column; }
     .bottom-row .top-players .tbl { width: 100%; display: block; box-sizing: border-box; margin: 0.0625rem 0; }
