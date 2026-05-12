@@ -10,8 +10,16 @@ class InfoPanel extends StoreElement {
         super.connectedCallback();
         fetch(`${SCOREBOARD_URL}/api/summary`, { mode: 'cors' })
             .then(r => r.json())
-            .then(d => { this._data = d; this.requestUpdate(); })
-            .catch(() => { this._err = true; this.requestUpdate(); });
+            .then(d => {
+                this._data = d;
+                this.classList.add('loaded');
+                this.requestUpdate();
+            })
+            .catch(() => {
+                this._err = true;
+                this.classList.add('loaded');
+                this.requestUpdate();
+            });
     }
     render() {
         if (this._err) return html`<span class="loading">Could not load scores.</span>`;

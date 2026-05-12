@@ -132,7 +132,8 @@
     .icon-wrap { position: relative; display: block; }
     img { display: block; width: 48px; height: 48px; margin: auto; }
 `,it=p`
-    :host { display: block; overflow-y: auto; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.75rem; color: var(--text); }
+    :host { display: block; overflow-y: hidden; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.75rem; color: var(--text); max-height: 40px; opacity: 0.6; transition: max-height 0.6s ease-in-out, opacity 0.4s ease-out; }
+    :host(.loaded) { max-height: 2000px; opacity: 1; }
     .tbl { display: inline-block; vertical-align: top; border-radius: 4px; margin: 0.0625rem; overflow: hidden; }
     table { border-collapse: collapse; width: auto; }
     th, td { border-bottom: 1px solid var(--border); padding: 0.05rem 0.15rem; text-align: left; }
@@ -246,7 +247,7 @@
                 ${this.label?o`<span>${this.label}</span>`:""}
                 <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
             </a>
-        `}};customElements.define("replay-button",xe);var _e=class extends ${static styles=it;connectedCallback(){super.connectedCallback(),fetch(`${C}/api/summary`,{mode:"cors"}).then(e=>e.json()).then(e=>{this._data=e,this.requestUpdate()}).catch(()=>{this._err=!0,this.requestUpdate()})}render(){if(this._err)return o`<span class="loading">Could not load scores.</span>`;if(!this._data)return o`<span class="loading">Loading…</span>`;let{hiscores:e,topPlayers:t,recentMatches:s}=this._data,i=Object.keys(e);return o`
+        `}};customElements.define("replay-button",xe);var _e=class extends ${static styles=it;connectedCallback(){super.connectedCallback(),fetch(`${C}/api/summary`,{mode:"cors"}).then(e=>e.json()).then(e=>{this._data=e,this.classList.add("loaded"),this.requestUpdate()}).catch(()=>{this._err=!0,this.classList.add("loaded"),this.requestUpdate()})}render(){if(this._err)return o`<span class="loading">Could not load scores.</span>`;if(!this._data)return o`<span class="loading">Loading…</span>`;let{hiscores:e,topPlayers:t,recentMatches:s}=this._data,i=Object.keys(e);return o`
             <div class="group hiscores">
                 <div class="group-body">
                     ${i.map(n=>o`

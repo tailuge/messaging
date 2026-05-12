@@ -154,7 +154,8 @@ export const SOLO_PANEL_STYLES = css`
 `;
 
 export const INFO_PANEL_STYLES = css`
-    :host { display: block; overflow-y: auto; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.75rem; color: var(--text); }
+    :host { display: block; overflow-y: hidden; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.75rem; color: var(--text); max-height: 40px; opacity: 0.6; transition: max-height 0.6s ease-in-out, opacity 0.4s ease-out; }
+    :host(.loaded) { max-height: 2000px; opacity: 1; }
     .tbl { display: inline-block; vertical-align: top; border-radius: 4px; margin: 0.0625rem; overflow: hidden; }
     table { border-collapse: collapse; width: auto; }
     th, td { border-bottom: 1px solid var(--border); padding: 0.05rem 0.15rem; text-align: left; }
