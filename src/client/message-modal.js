@@ -84,6 +84,19 @@ class MessageModal extends LitElement {
         this.requestUpdate();
     }
 
+    updated(changedProperties) {
+        if (changedProperties.has('targetId')) {
+            const thread = this.shadowRoot.querySelector('.thread');
+            if (thread) thread.scrollTop = thread.scrollHeight;
+        } else if (changedProperties.has('_messages')) {
+            const oldMessages = changedProperties.get('_messages');
+            if (this._messages.get(this.targetId) !== oldMessages?.get(this.targetId)) {
+                const thread = this.shadowRoot.querySelector('.thread');
+                if (thread) thread.scrollTop = thread.scrollHeight;
+            }
+        }
+    }
+
     render() {
         if (!this.targetId) return html``;
         const myId = this.lobby?.currentUser?.userId;
