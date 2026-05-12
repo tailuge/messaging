@@ -106,7 +106,7 @@ class RematchCoordinator {
     get ruleType()     { return this.info.ruleType; }
     get rematchParam() { return encodeURIComponent(JSON.stringify(this.info)); }
     async sendChallenge(lobby) {
-        return lobby.challenge(this.opponentId, this.ruleType, undefined, this.info);
+        return lobby.challenge(this.opponentId, this.ruleType, this.info, this.info.options);
     }
     shouldAutoAccept(msg) {
         return msg.type === 'offer' && msg.challengerId === this.opponentId;

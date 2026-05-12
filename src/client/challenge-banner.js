@@ -18,7 +18,9 @@ class ChallengeBanner extends LitElement {
     }
 
     _incoming(c) {
-        const extras = Object.entries(c.options ?? {}).map(([k, v]) => `${k}: ${v}`);
+        const extras = Object.entries(c.options ?? {})
+            .filter(([k]) => ['raceTo', 'reds'].includes(k))
+            .map(([k, v]) => `${k}: ${v}`);
         return html`
             <div class="banner">
                 <div class="details">${ruleIcon(c.ruleType)} ${c.ruleType}</div>

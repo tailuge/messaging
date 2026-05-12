@@ -41,9 +41,13 @@ export interface PresenceMessage {
  * Context about a previous game for rematch challenges.
  */
 export interface RematchInfo {
+  readonly opponentId?: string;
+  readonly opponentName?: string;
+  readonly ruleType?: string;
   readonly lastScores: { readonly userId: string; readonly score: number }[];
   readonly isRematch: boolean;
   readonly nextTurnId: string; // The ID of the player who should break/go first
+  readonly options?: Record<string, string>;
 }
 
 /**

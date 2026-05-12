@@ -161,7 +161,8 @@ test.describe('Lobby Flow', () => {
       challengerId: 'alice', challengerName: 'Alice',
       challengeeId: 'bob', ruleType: 'nineball',
       tableId: 'rematch-table-1',
-      options: rematchInfo,
+      rematch: rematchInfo,
+      options: (rematchInfo as any).options,
       meta: { ts: new Date().toISOString() },
     };
     await page.evaluate((msg) => {
@@ -171,7 +172,7 @@ test.describe('Lobby Flow', () => {
       app._ctrl.dispatch({ type: 'MATCH_SET', payload: {
         tableId: msg.tableId, ruleType: msg.ruleType,
         options: msg.options, isFirst: false,
-        rematch: encodeURIComponent(JSON.stringify(msg.options))
+        rematch: encodeURIComponent(JSON.stringify(msg.rematch))
       }});
     }, offerMsg);
 
@@ -439,7 +440,8 @@ test.describe('Lobby Flow', () => {
       return Object.values(challenges).some((c: any) => c.status === 'pending');
     }, { timeout: 15000 });
 
-    await alice.page.screenshot({ path: 'test-results/back-in-lobby.png' });
+    await alice.page.screenshot({ path: 'test-results/alice-back-in-lobby.png' });
+    await bob.page.screenshot({ path: 'test-results/bob-back-in-lobby.png' });
 
     await alice.context.close();
     await bob.context.close();
