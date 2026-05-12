@@ -154,7 +154,7 @@ export const SOLO_PANEL_STYLES = css`
 `;
 
 export const INFO_PANEL_STYLES = css`
-    :host { display: block; overflow-y: hidden; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.75rem; color: var(--text); max-height: 40px; opacity: 0.6; transition: max-height 0.6s ease-in-out, opacity 0.4s ease-out; }
+    :host { display: block; overflow-y: hidden; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.75rem; color: var(--text); max-height: 40px; opacity: 0.6; transition: max-height 1.6s ease-in-out, opacity 1.4s ease-out; }
     :host(.loaded) { max-height: 2000px; opacity: 1; }
     .tbl { display: inline-block; vertical-align: top; border-radius: 4px; margin: 0.0625rem; overflow: hidden; }
     table { border-collapse: collapse; width: auto; }
@@ -168,7 +168,7 @@ export const INFO_PANEL_STYLES = css`
     @media (max-width: 500px) {
         .city-col { display: none; }
     }
-    .loading { color: var(--text-muted); }
+    .loading { color: var(--text-muted); text-align: center; display: block; width: 100%; }
     .group { margin-bottom: 0.2rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.2rem; }
     .group-title { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); padding: 0.1rem 0.25rem; text-align: center; }
     .group-body { display: flex; flex-wrap: wrap; justify-content: space-evenly; }

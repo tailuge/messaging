@@ -23,7 +23,7 @@ class InfoPanel extends StoreElement {
     }
     render() {
         if (this._err) return html`<span class="loading">Could not load scores.</span>`;
-        if (!this._data) return html`<span class="loading">Loading…</span>`;
+        if (!this._data) return html`<span class="loading">Connecting to server…</span>`;
         const { hiscores, topPlayers, recentMatches } = this._data;
         const games = Object.keys(hiscores);
         return html`
