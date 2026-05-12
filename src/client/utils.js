@@ -114,7 +114,8 @@ export const soloUrl = (g, userId, userName, lod) => {
 
 export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options, bot, lod, rematch }) => {
     let url = `${BASE}?websocketserver=wss://billiards.onrender.com/ws`
-        + `&tableId=${tableId}&userName=${encodeURIComponent(userName)}&userId=${userId}&ruletype=${ruleType}`;
+        + `&userName=${encodeURIComponent(userName)}&userId=${userId}&ruletype=${ruleType}`;
+    if (!bot) url += `&tableId=${tableId}`;
     if (isFirst) url += '&first=true';
     if (bot) url += `&bot=${encodeURIComponent(bot)}`;
     if (lod !== undefined) url += `&lod=${lod}`;

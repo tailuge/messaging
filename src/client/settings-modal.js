@@ -1,9 +1,10 @@
 import { html, css } from 'lit';
 import { userStore, StoreElement } from './user-store.js';
 import { SHARED_STYLES, CHALLENGE_MODAL_STYLES } from './styles.js';
+import './stats-panel.js';
 
 class SettingsModal extends StoreElement {
-    static properties = { _open: { state: true }, _notifEnabled: { state: true } };
+    static properties = { _open: { state: true }, _notifEnabled: { state: true }, _showStats: { state: true } };
     static styles = [SHARED_STYLES, CHALLENGE_MODAL_STYLES, css`
         .burger { background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 0.1rem 0.3rem; color: var(--text-muted); line-height: 1; }
         .burger:hover { color: var(--text); background: none; }
@@ -16,6 +17,7 @@ class SettingsModal extends StoreElement {
     constructor() {
         super();
         this._open = false;
+        this._showStats = false;
         this._theme = document.documentElement.getAttribute('theme') || 'light';
         this._notifEnabled = Notification.permission === 'granted';
     }
@@ -77,6 +79,8 @@ class SettingsModal extends StoreElement {
                         <div class="row"><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Support</a></div>
                         <div class="row"><a href="https://scoreboard-tailuge.vercel.app/usage.html" target="_blank" rel="noopener">Usage</a></div>
                         <div class="row"><a href="#" @click=${e => { e.preventDefault(); this._share(); }}>Share</a></div>
+                        <div class="row"><a href="#" @click=${e => { e.preventDefault(); this._showStats = !this._showStats; }}>Stats</a></div>
+                        ${this._showStats ? html`<div><strong style="font-size:0.82rem">Recent visitors</strong><stats-panel></stats-panel></div>` : ''}
                         <button class="cancel" @click=${this._close}>Close</button>
                     </div>
                 </div>` : ''}

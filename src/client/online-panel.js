@@ -1,12 +1,10 @@
 import { LitElement, html, css } from 'lit';
 import { MessagingClient, canChallenge, canSpectate, userStatus } from '../index.ts';
 import { userStore } from './user-store.js';
-import { gameUrl, spectateUrl, INITIAL_STATE, reduce, flag, getEmoji, ruleIcon } from './utils.js';
-import {
-    SHARED_STYLES, USER_LIST_STYLES, CHALLENGE_BANNER_STYLES,
-    SENT_CHALLENGE_BANNER_STYLES, PLAYER_PANEL_STYLES, CHALLENGE_MODAL_STYLES, BADGE_STYLES
-} from './styles.js';
+import { gameUrl, spectateUrl, INITIAL_STATE, reduce, flag, getEmoji } from './utils.js';
+import { SHARED_STYLES, USER_LIST_STYLES, PLAYER_PANEL_STYLES, CHALLENGE_MODAL_STYLES, BADGE_STYLES } from './styles.js';
 import './message-modal.js';
+import './challenge-banner.js';
 
 const BOTS = [
     { userId: 'bot-clawbreak', userName: 'ClawBreak', isBot: true, meta: { country: 'BOT' } },
@@ -59,46 +57,6 @@ class UserList extends LitElement {
                 </div>
                 <div class="actions">${actions}</div>
             </li>`;
-    }
-}
-
-// ── ChallengeBanner ───────────────────────────────────────────────────────────
-
-class ChallengeBanner extends LitElement {
-    static properties = { challenge: { type: Object }, sent: { type: Object } };
-    static styles = [SHARED_STYLES, CHALLENGE_BANNER_STYLES, SENT_CHALLENGE_BANNER_STYLES];
-
-    render() {
-        if (this.challenge) return this._incoming(this.challenge);
-        if (this.sent) return this._sent(this.sent);
-        return html``;
-    }
-
-    _incoming(c) {
-        const extras = Object.entries(c.options ?? {}).map(([k, v]) => `${k}: ${v}`);
-        return html`
-            <div class="banner">
-                <strong>Challenge from ${c.challengerName}</strong>
-                <div class="details"><span>${ruleIcon(c.ruleType)} ${c.ruleType}</span>${extras.map(e => html`<span>${e}</span>`)}</div>
-                <div class="row">
-                    <button class="btn-accept" aria-label="Accept challenge" @click=${() => emit(this, 'accept')}>Accept</button>
-                    <button class="btn-decline" aria-label="Decline challenge" @click=${() => emit(this, 'decline')}>Decline</button>
-                </div>
-            </div>`;
-    }
-
-    _sent(c) {
-        const isWaiting = c.status === 'pending';
-        return html`
-            <div class="banner ${c.status}">
-                <div class="row">
-                    <strong>${isWaiting ? `⏳ Waiting for ${c.recipientName}…` : `❌ ${c.recipientName} declined.`}</strong>
-                    ${isWaiting
-                        ? html`<button class="btn-leave" @click=${() => emit(this, 'cancel')}>Cancel</button>`
-                        : html`<button aria-label="Dismiss" @click=${() => emit(this, 'dismiss')}>✕</button>`}
-                </div>
-                <div class="details">${ruleIcon(c.ruleType)} ${c.ruleType}</div>
-            </div>`;
     }
 }
 
@@ -371,6 +329,5 @@ class OnlinePanel extends LitElement {
 }
 
 customElements.define('user-list',        UserList);
-customElements.define('challenge-banner', ChallengeBanner);
 customElements.define('challenge-modal',  ChallengeModal);
 customElements.define('online-panel',     OnlinePanel);
