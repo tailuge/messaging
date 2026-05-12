@@ -123,7 +123,6 @@ class OnlinePanel extends LitElement {
     #table = null;
     #myId;
     #myName;
-    #connectTime;
     #client;
     #rematch = null;
     #pendingChallenge = null;
@@ -197,7 +196,6 @@ class OnlinePanel extends LitElement {
     get #visibleUsers() { return [...this.#users, ...BOTS]; }
 
     async _connect() {
-        this.#connectTime = Date.now();
         this.#lobby = await this.#client.joinLobby({
             messageType: 'presence', type: 'join',
             userId: this.#myId, userName: this.#myName,
@@ -210,8 +208,6 @@ class OnlinePanel extends LitElement {
         }
         this.#lobby.onUsersChange(users => this.dispatch({ type: 'USERS_UPDATE', payload: users }));
         this.#lobby.onChallenge(msg => {
-            const msgTime = msg.meta?.ts ? new Date(msg.meta.ts).getTime() : Infinity;
-            if (msgTime < this.#connectTime) return;
             if (this.#rematch?.shouldAutoAccept(msg)) {
                 this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
                 this.#acceptChallenge().catch(e => console.error('Auto-accept failed:', e));
@@ -272,7 +268,7 @@ class OnlinePanel extends LitElement {
         return html`
             <div class="panel-header">
                 <span class="dot ${this.#connected ? 'on' : ''}" role="status" aria-label="${this.#connected ? 'Connected' : 'Disconnected'}"></span>
-                <span class="panel-title">Play Online (${this.#visibleUsers.filter(u => u.userId !== this.#myId).length})</span>
+                <span class="panel-title" @dblclick=${() => console.log(JSON.stringify(this.#visibleUsers, null, 2))}>Play Online (${this.#visibleUsers.filter(u => u.userId !== this.#myId).length})</span>
             </div>
             <challenge-banner
                 .challenge=${this.#activeChallenge}
