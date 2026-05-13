@@ -63,7 +63,7 @@ export const FONT_STYLES = css`
 
 export const SHARED_STYLES = css`
     :host { font-family: 'Exo', sans-serif; font-weight: 200; }
-    button { cursor: pointer; padding: 0.15rem 0.4rem; border: 1px solid var(--btn-border); border-radius: 4px; background: var(--btn-bg); color: var(--text); font: inherit; font-size: 0.75rem; transition: background-color 0.2s, opacity 0.2s; }
+    button { cursor: pointer; padding: 0.15rem 0.4rem; border: 1px solid var(--btn-border); border-radius: 4px; background: var(--btn-bg); color: var(--text); font: inherit; font-size: 0.75rem; transition: background-color 0.2s, opacity 0.2s; min-width: 24px; min-height: 24px; }
     button:hover { background-color: var(--btn-hover); }
     button:active { background-color: var(--btn-active); }
     button:focus-visible { outline: 2px solid #007bff; outline-offset: 2px; }

@@ -24,23 +24,25 @@ class LobbyApp extends LitElement {
     render() {
         return html`
             <div class="container">
-                <div class="topbar">
-                    <img src="assets/threecushion.png" class="logo" alt="Logo">
+                <header class="topbar">
+                    <img src="assets/threecushion.png" class="logo" alt="Billiards Logo">
                     <h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a></h1>
                     <user-badge></user-badge>
                     <settings-modal @theme-changed=${e => { this._theme = e.detail; }}></settings-modal>
-                </div>
-                <div class="main-row">
-                    <div class="solo">
-                        <div class="panel">
-                            <div class="panel-title">Solo Practice</div>
-                            <solo-panel></solo-panel>
+                </header>
+                <main>
+                    <div class="main-row">
+                        <div class="solo">
+                            <div class="panel">
+                                <div class="panel-title">Solo Practice</div>
+                                <solo-panel></solo-panel>
+                            </div>
                         </div>
+                        <div class="players panel"><online-panel></online-panel></div>
                     </div>
-                    <div class="players panel"><online-panel></online-panel></div>
-                </div>
-                <div class="info-row"><info-panel></info-panel></div>
-                <footer style="text-align:center;font-size:0.7rem;opacity:0.5;padding:0.5rem 0">
+                    <div class="info-row"><info-panel></info-panel></div>
+                </main>
+                <footer style="text-align:center;font-size:0.7rem;opacity:0.7;padding:0.5rem 0">
                     Thanks for playing at <a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener" style="color:inherit">tailuge/billiards</a>. Stick around and challenge online for a free game or two.
                 </footer>
             </div>
