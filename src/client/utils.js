@@ -136,3 +136,6 @@ export const ruleIcon = rule => {
 };
 
 export const renderTrophy = i => ['🏆','🥈','🥉','🎖️'][i] ?? '';
+
+export const replayUrl = (base, userId, userName) =>
+    `${base}&userId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}`;

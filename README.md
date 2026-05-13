@@ -62,7 +62,7 @@ npm run docker:nchan
 ### Library & Example
 The example is bundled using `esbuild`:
 ```bash
-npm run build:example
+npm run build:all
 ```
 
 ### Lobby (Lit)
