@@ -78,12 +78,37 @@ test.describe('Lobby Rematch', () => {
     return { alice, bob, tableId };
   };
 
-  test('full e2e: game start and basic visibility', async ({ browser }) => {
-    const { alice, bob } = await gameLaunch(browser);
+  test('full e2e: dropped connection in game', async ({ browser }) => {
+    const { alice, bob, tableId } = await gameLaunch(browser);
+    
+    // Both land on the game page
     await expect(alice.page.locator('button[aria-label="Concede"]')).toBeVisible();
     await expect(bob.page.locator('button[aria-label="Concede"]')).toBeVisible();
-    await alice.context.close();
+
+    // Alice closes her browser/connection -- here I want to navigate to google.com, another way to drop game.
+    await alice.page.goto(`https://google.com`);
+
+    // Wait 1 second as requested
+    await new Promise(r => setTimeout(r, 1000));
+    await bob.page.screenshot({ path: 'test-results/bob-after-alice-dropped.png' });
+
+    // Bob presses the back button (browser back)
+    await bob.page.goBack();
+
+    // Check if we are in the lobby
+    await expect(bob.page).toHaveURL(/lobby.html/, { timeout: 5000 });
+    await bob.page.screenshot({ path: 'test-results/bob-back-in-lobby-after-drop.png' });
+
+    // Wait a bit to see if a buggy redirect happens
+    await new Promise(r => setTimeout(r, 2000));
+    
+    // Verify we are STILL in the lobby and not redirected back to the table
+    const currentUrl = bob.page.url();
+    expect(currentUrl).not.toContain('tableId=' + tableId);
+    expect(currentUrl).toContain('lobby.html');
+
     await bob.context.close();
+    await alice.context.close();
   });
 
   test('rematch: challenger auto-challenges on connect', async ({ browser }) => {
@@ -181,7 +206,6 @@ test.describe('Lobby Rematch', () => {
     if (await concedeConfirm.isVisible({ timeout: 1000 }).catch(() => false)) {
       await concedeConfirm.click();
     }
-    await bob.page.screenshot({ path: 'test-results/game-over.png' });
 
     // Capture Alice's rematch challenge
     const aliceChallengePromise = alice.page.waitForRequest(r => {
@@ -193,6 +217,12 @@ test.describe('Lobby Rematch', () => {
     await Promise.all([
       alice.page.waitForURL(url => url.toString().includes('rematch='), { timeout: 5000 }).catch(() => {}),
       bob.page.waitForURL(url => url.toString().includes('rematch='), { timeout: 5000 }).catch(() => {}),
+    ]);
+
+    await bob.page.screenshot({ path: 'test-results/bob-rematch-ready.png' });
+    await alice.page.screenshot({ path: 'test-results/alice-rematch-ready.png' });
+
+    await Promise.all([
       alice.page.locator('button[data-notification-action="rematch"]').click(),
       bob.page.locator('button[data-notification-action="rematch"]').click(),
     ]);
