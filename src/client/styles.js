@@ -204,7 +204,7 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     h1 a:hover { text-decoration: underline; }
     .topbar { display: flex; align-items: center; flex-shrink: 0; gap: 0.5rem; }
     .topbar .logo { width: 32px; height: 32px; flex-shrink: 0; filter: grayscale(100%); opacity: 0.7; }
-    .topbar h1 { flex: 1; }
+    .topbar h1 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem; overflow: hidden; }
     .panel-title { font-weight: bold; margin-bottom: 0.25rem; font-size: 0.8rem; color: var(--text-dim); text-align: center; }
     .main-row { display: flex; gap: 0.2rem; flex-shrink: 0; }
