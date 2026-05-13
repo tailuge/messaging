@@ -12,7 +12,7 @@ class SettingsModal extends StoreElement {
     };
     static LOD_LABELS = ['pixelated', 'polygons', 'high poly', 'shaders', 'antialiased'];
     static styles = [SHARED_STYLES, CHALLENGE_MODAL_STYLES, css`
-        .burger { background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 0.1rem 0.3rem; color: var(--text-muted); line-height: 1; }
+        .burger { background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 0.1rem 0.3rem; color: var(--text-muted); line-height: 1; min-width: 32px; min-height: 32px; }
         .burger:hover { color: var(--text); background: none; }
         .row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: var(--text); }
         .section-title { font-size: 0.75rem; font-weight: bold; color: var(--text-muted); text-transform: uppercase; margin-top: 0.5rem; border-bottom: 1px solid var(--border-light); padding-bottom: 2px; }
@@ -34,6 +34,23 @@ class SettingsModal extends StoreElement {
         this._copied = false;
         this._theme = document.documentElement.getAttribute('theme') || 'light';
         this._notifEnabled = Notification.permission === 'granted';
+        this._onKeydown = this._onKeydown.bind(this);
+    }
+
+    connectedCallback() {
+        super.connectedCallback();
+        window.addEventListener('keydown', this._onKeydown);
+    }
+
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        window.removeEventListener('keydown', this._onKeydown);
+    }
+
+    _onKeydown(e) {
+        if (this._open && e.key === 'Escape') {
+            this._close();
+        }
     }
 
     _toggle(e) { e.stopPropagation(); this._open = !this._open; }
@@ -92,8 +109,8 @@ class SettingsModal extends StoreElement {
 
                         <div class="section-title">🎨 Graphics</div>
                         <div class="row" style="flex-direction: column; align-items: flex-start; gap: 2px;">
-                            <label style="font-size: 0.75rem;">Quality: <span class="lod-label">${SettingsModal.LOD_LABELS[userStore.lod] || userStore.lod}</span></label>
-                            <input type="range" min="0" max="4" step="1" .value=${userStore.lod} @input=${e => userStore.setLod(e.target.value)} style="width: 100%;">
+                            <label for="quality-range" style="font-size: 0.75rem;">Quality: <span class="lod-label">${SettingsModal.LOD_LABELS[userStore.lod] || userStore.lod}</span></label>
+                            <input id="quality-range" type="range" min="0" max="4" step="1" .value=${userStore.lod} @input=${e => userStore.setLod(e.target.value)} style="width: 100%;">
                         </div>
 
                         <div class="section-title">🤝 Community</div>
