@@ -200,8 +200,9 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     :host { display: flex; flex-direction: column; min-height: 100%; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.85rem; box-sizing: border-box; padding: 0.5rem; gap: 0.2rem; background: var(--bg); color: var(--text); overflow-y: auto; scrollbar-width: none; }
     :host::-webkit-scrollbar { display: none; }
     h1 { font-size: 1.0rem; color: var(--text-dim); text-align: left; margin: 0; letter-spacing: 0.1em; text-transform: uppercase; flex-shrink: 0; }
-    h1 a { color: inherit; text-decoration: none; }
-    h1 a:hover { text-decoration: underline; }
+h1 a { color: inherit; text-decoration: none; }
+     h1 a:hover { text-decoration: underline; }
+     h1 .version { font-size: 0.65rem; color: var(--text-faint); margin-left: 0.25rem; vertical-align: super; font-weight: 200; }
     .topbar { display: flex; align-items: center; flex-shrink: 0; gap: 0.5rem; }
     .topbar .logo { width: 32px; height: 32px; flex-shrink: 0; filter: grayscale(100%); opacity: 0.7; }
     .topbar h1 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

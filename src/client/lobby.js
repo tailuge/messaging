@@ -6,6 +6,10 @@ import './online-panel.js';
 import './user-badge.js';
 import './settings-modal.js';
 
+const VERSION = 'dev';
+
+const CLIENTVERSION = 103;
+
 class LobbyApp extends LitElement {
     static properties = { _theme: { type: String, reflect: true, attribute: 'theme' } };
     static styles = LOBBY_APP_STYLES;
@@ -26,7 +30,7 @@ class LobbyApp extends LitElement {
             <div class="container">
                 <header class="topbar">
                     <img src="assets/threecushion.png" class="logo" alt="Billiards Logo">
-                    <h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a></h1>
+                    <h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a><span class="version">v${Math.floor(CLIENTVERSION/100)}.${String(CLIENTVERSION%100).padStart(2,'0')}</span></h1>
                     <user-badge></user-badge>
                     <settings-modal @theme-changed=${e => { this._theme = e.detail; }}></settings-modal>
                 </header>

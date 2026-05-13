@@ -50,8 +50,8 @@ export class NchanClient {
     const url = this.getHttpUrl(path);
     const body = JSON.stringify(message);
 
-    // Use sendBeacon in browser environments for reliability during unloads
-    if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+    // Use sendBeacon only for unload/keepalive scenarios
+    if (options.keepalive && typeof navigator !== "undefined" && navigator.sendBeacon) {
       const blob = new Blob([body], { type: "application/json" });
       if (navigator.sendBeacon(url, blob)) {
         return; // Successfully queued by the browser

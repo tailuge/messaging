@@ -26,7 +26,7 @@ var NchanClient = class {
   async publish(path, message, options = {}) {
     const url = this.getHttpUrl(path);
     const body = JSON.stringify(message);
-    if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+    if (options.keepalive && typeof navigator !== "undefined" && navigator.sendBeacon) {
       const blob = new Blob([body], { type: "application/json" });
       if (navigator.sendBeacon(url, blob)) {
         return;
