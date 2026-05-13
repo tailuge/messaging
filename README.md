@@ -21,7 +21,8 @@ npm run docker:stop
 
 ### 3. Run the Example
 ```bash
-npm run example
+npm run build:all
+
 ```
 Then open [http://localhost:3000](http://localhost:3000) in multiple tabs to test presence and challenges.
 
@@ -89,6 +90,7 @@ To release a new version to npm:
 npm run release  # Builds and bumps version
 npm login        # Login to npm (if needed)
 npm publish      # Publish to npm registry
+npm run crossdeploy
 ```
 
 ## Additional Documentation
