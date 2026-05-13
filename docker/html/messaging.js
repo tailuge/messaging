@@ -25,16 +25,22 @@ var NchanClient = class {
   }
   async publish(path, message, options = {}) {
     const url = this.getHttpUrl(path);
+    const body = JSON.stringify(message);
+    if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+      const blob = new Blob([body], { type: "application/json" });
+      if (navigator.sendBeacon(url, blob)) {
+        return;
+      }
+    }
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(message),
+      body,
       keepalive: options.keepalive
     });
     if (!response.ok) {
       throw new Error(`Publish failed: ${response.status}`);
     }
-    return response;
   }
   // Publishing
   async publishPresence(message, options) {

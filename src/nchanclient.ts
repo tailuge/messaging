@@ -46,18 +46,27 @@ export class NchanClient {
     path: string,
     message: unknown,
     options: { keepalive?: boolean } = {},
-  ): Promise<Response> {
+  ): Promise<void> {
     const url = this.getHttpUrl(path);
+    const body = JSON.stringify(message);
+
+    // Use sendBeacon in browser environments for reliability during unloads
+    if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+      const blob = new Blob([body], { type: "application/json" });
+      if (navigator.sendBeacon(url, blob)) {
+        return; // Successfully queued by the browser
+      }
+    }
+
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(message),
+      body,
       keepalive: options.keepalive,
     });
     if (!response.ok) {
       throw new Error(`Publish failed: ${response.status}`);
     }
-    return response;
   }
 
   // Publishing
@@ -65,7 +74,7 @@ export class NchanClient {
   async publishPresence(
     message: Omit<PresenceMessage, "messageType">,
     options?: { keepalive?: boolean },
-  ): Promise<Response> {
+  ): Promise<void> {
     return this.publish(
       PATHS.PRESENCE_PUBLISH,
       {
@@ -79,7 +88,7 @@ export class NchanClient {
   async publishChallenge(
     message: Omit<ChallengeMessage, "messageType">,
     options?: { keepalive?: boolean },
-  ): Promise<Response> {
+  ): Promise<void> {
     return this.publish(
       PATHS.PRESENCE_PUBLISH,
       {
@@ -93,7 +102,7 @@ export class NchanClient {
   async publishChat(
     message: Omit<ChatMessage, "messageType" | "meta">,
     options?: { keepalive?: boolean },
-  ): Promise<Response> {
+  ): Promise<void> {
     return this.publish(
       PATHS.PRESENCE_PUBLISH,
       {
@@ -109,7 +118,7 @@ export class NchanClient {
     message: Omit<TableMessage<T>, "senderId">,
     senderId: string,
     options?: { keepalive?: boolean },
-  ): Promise<Response> {
+  ): Promise<void> {
     return this.publish(
       PATHS.TABLE_PUBLISH(tableId),
       {
