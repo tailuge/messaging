@@ -42,7 +42,7 @@ export function reduce(state, action) {
                 // Only honour an accept if this session has a matching pending challenge for
                 // this exact tableId. This prevents stale Nchan-buffered accepts from
                 // redirecting a freshly-loaded lobby back into a finished game.
-                if (!pending || pending.tableId !== m.tableId) break;
+                if (!pending || pending.tableId !== m.tableId) return state;
                 const options = m.options || pending.options;
                 delete C[id];
                 return {
