@@ -414,19 +414,28 @@
                 ${s.map(([i,n])=>o`
                     <li>${C(i)} <span>${i}</span> <span class="count">${n}</span></li>
                 `)}
-            </ul>`}};customElements.define("stats-panel",ke);var Me=class extends ${static properties={_open:{state:!0},_notifEnabled:{state:!0},_showStats:{state:!0}};static styles=[v,M,p`
+            </ul>`}};customElements.define("stats-panel",ke);var Me=class r extends ${static properties={_open:{state:!0},_notifEnabled:{state:!0},_showStats:{state:!0},_copied:{state:!0}};static LOD_LABELS=["pixelated","polygons","high poly","shaders","antialiased"];static styles=[v,M,p`
         .burger { background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 0.1rem 0.3rem; color: var(--text-muted); line-height: 1; }
         .burger:hover { color: var(--text); background: none; }
         .row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: var(--text); }
+        .section-title { font-size: 0.75rem; font-weight: bold; color: var(--text-muted); text-transform: uppercase; margin-top: 0.5rem; border-bottom: 1px solid var(--border-light); padding-bottom: 2px; }
         label { cursor: pointer; display: flex; align-items: center; gap: 0.3rem; }
-        a { color: var(--link); text-decoration: none; font-size: 0.82rem; }
+        a { color: var(--link); text-decoration: none; font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem; }
         a:hover { text-decoration: underline; }
-    `];constructor(){super(),this._open=!1,this._showStats=!1,this._theme=document.documentElement.getAttribute("theme")||"light",this._notifEnabled=Notification.permission==="granted"}_toggle(e){e.stopPropagation(),this._open=!this._open}_close(){this._open=!1}_setTheme(e){let t=e.target.checked?"dark":"light";this._theme=t,document.documentElement.setAttribute("theme",t),localStorage.setItem("theme",t),this.dispatchEvent(new CustomEvent("theme-changed",{detail:t,bubbles:!0,composed:!0}))}_share(){navigator.share?navigator.share({title:document.title,url:location.href}):navigator.clipboard.writeText(location.href)}async _toggleNotifications(e){if(e.target.checked){let t=await Notification.requestPermission();this._notifEnabled=t==="granted"}else this._notifEnabled=!1;this.requestUpdate()}render(){return o`
+        .copied-badge {
+            background: #198754; color: white; font-size: 0.65rem; padding: 1px 4px;
+            border-radius: 4px; margin-left: 4px; animation: fadein 0.2s;
+        }
+        @keyframes fadein { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .lod-label { font-weight: bold; color: var(--link); }
+    `];constructor(){super(),this._open=!1,this._showStats=!1,this._copied=!1,this._theme=document.documentElement.getAttribute("theme")||"light",this._notifEnabled=Notification.permission==="granted"}_toggle(e){e.stopPropagation(),this._open=!this._open}_close(){this._open=!1}_setTheme(e){let t=e.target.checked?"dark":"light";this._theme=t,document.documentElement.setAttribute("theme",t),localStorage.setItem("theme",t),this.dispatchEvent(new CustomEvent("theme-changed",{detail:t,bubbles:!0,composed:!0}))}_share(){navigator.share&&/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)?navigator.share({title:document.title,url:location.href}):navigator.clipboard.writeText(location.href).then(()=>{this._copied=!0,setTimeout(()=>{this._copied=!1},2e3)})}async _toggleNotifications(e){if(e.target.checked){let t=await Notification.requestPermission();this._notifEnabled=t==="granted"}else this._notifEnabled=!1;this.requestUpdate()}render(){return o`
             <button class="burger" aria-label="Settings" aria-expanded="${this._open}" @click=${this._toggle}>&#9776;</button>
             ${this._open?o`
                 <div class="backdrop" @click=${e=>e.target===e.currentTarget&&this._close()}>
                     <div class="modal" role="dialog" aria-modal="true" aria-label="Settings">
                         <h3>Settings</h3>
+
+                        <div class="section-title">⚙️ Preferences</div>
                         <div class="row">
                             <label>
                                 <input type="checkbox" .checked=${this._theme==="dark"} @change=${this._setTheme}>
@@ -439,18 +448,26 @@
                                 Enable notifications
                             </label>
                         </div>
-                        <div class="row">
-                            <label title="Level of Detail">
-                                <input type="range" min="0" max="4" step="1" .value=${b.lod} @input=${e=>b.setLod(e.target.value)}>
-                                L.O.D (${b.lod})
-                            </label>
+
+                        <div class="section-title">🎨 Graphics</div>
+                        <div class="row" style="flex-direction: column; align-items: flex-start; gap: 2px;">
+                            <label style="font-size: 0.75rem;">Quality: <span class="lod-label">${r.LOD_LABELS[b.lod]||b.lod}</span></label>
+                            <input type="range" min="0" max="4" step="1" .value=${b.lod} @input=${e=>b.setLod(e.target.value)} style="width: 100%;">
                         </div>
-                        <div class="row"><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Support</a></div>
-                        <div class="row"><a href="https://scoreboard-tailuge.vercel.app/usage.html" target="_blank" rel="noopener">Usage</a></div>
-                        <div class="row"><a href="#" @click=${e=>{e.preventDefault(),this._share()}}>Share</a></div>
-                        <div class="row"><a href="#" @click=${e=>{e.preventDefault(),this._showStats=!this._showStats}}>Stats</a></div>
+
+                        <div class="section-title">🤝 Community</div>
+                        <div class="row"><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener"><span>🛠️</span> Support</a></div>
+                        <div class="row"><a href="https://scoreboard-tailuge.vercel.app/usage.html" target="_blank" rel="noopener"><span>📊</span> Usage</a></div>
+                        <div class="row">
+                            <a href="#" @click=${e=>{e.preventDefault(),this._share()}}>
+                                <span>🔗</span> Share
+                                ${this._copied?o`<span class="copied-badge">Copied!</span>`:""}
+                            </a>
+                        </div>
+                        <div class="row"><a href="#" @click=${e=>{e.preventDefault(),this._showStats=!this._showStats}}><span>📈</span> Stats</a></div>
+
                         ${this._showStats?o`<div><strong style="font-size:0.82rem">Recent visitors</strong><stats-panel></stats-panel></div>`:""}
-                        <button class="cancel" @click=${this._close}>Close</button>
+                        <button class="cancel" @click=${this._close} style="margin-top: 0.5rem;">Close</button>
                     </div>
                 </div>`:""}
         `}};customElements.define("settings-modal",Me);var Ne=class extends u{static properties={_theme:{type:String,reflect:!0,attribute:"theme"}};static styles=at;constructor(){super(),console.log("URL:",window.location.href),console.log("Search params:",Object.fromEntries(new URLSearchParams(window.location.search))),this._theme=document.documentElement.getAttribute("theme")||"light"}get _ctrl(){return this.shadowRoot.querySelector("online-panel")}render(){return o`
