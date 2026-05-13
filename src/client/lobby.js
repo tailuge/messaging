@@ -8,7 +8,7 @@ import './settings-modal.js';
 
 const VERSION = 'dev';
 
-const CLIENTVERSION = 103;
+const CLIENTVERSION = 106;
 
 class LobbyApp extends LitElement {
     static properties = { _theme: { type: String, reflect: true, attribute: 'theme' } };

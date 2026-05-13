@@ -263,6 +263,10 @@ class OnlinePanel extends LitElement {
     render() {
         if (this.#tableId) {
             const url = gameUrl({ tableId: this.#tableId, userId: this.#myId, userName: this.#myName, ruleType: this.#ruleType, isFirst: this.#isFirst, options: this.#matchOptions, lod: userStore.lod, rematch: this.#state.currentMatch?.rematch });
+
+            // Clear the match state asynchronously so that if the user navigates back
+            // via bfcache, they aren't immediately redirected again.
+            setTimeout(() => this.dispatch({ type: 'MATCH_LEAVE' }), 100);
             window.location.href = url;
             return html``;
         }
