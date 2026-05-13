@@ -39,7 +39,11 @@ export function reduce(state, action) {
                     C[m.challengerId] = { ...m, status: 'pending' };
             } else if (m.type === 'accept' && !state.currentMatch) {
                 const pending = C[id];
-                const options = m.options || (pending?.tableId === m.tableId ? pending.options : undefined);
+                // Only honour an accept if this session has a matching pending challenge for
+                // this exact tableId. This prevents stale Nchan-buffered accepts from
+                // redirecting a freshly-loaded lobby back into a finished game.
+                if (!pending || pending.tableId !== m.tableId) break;
+                const options = m.options || pending.options;
                 delete C[id];
                 return {
                     ...state, challenges: C,

@@ -44,6 +44,14 @@ test.describe('Lobby Flow', () => {
     await expect(eightBallBtn).toBeVisible();
     await eightBallBtn.click();
 
+    // Capture the actual tableId Alice's session generated (random UID from getUID())
+    const tableIdHandle = await alice.page.waitForFunction(() => {
+      const state = (document.querySelector('lobby-app') as any)?._ctrl?.state;
+      const pending = Object.values(state?.challenges ?? {}).find((c: any) => c.status === 'pending');
+      return (pending as any)?.tableId || null;
+    }, undefined, { timeout: 3000 });
+    const tableId = await tableIdHandle.jsonValue() as string;
+
     // 2. Bob receives the challenge
     const challengeMsg = {
         messageType: 'challenge',
@@ -52,7 +60,7 @@ test.describe('Lobby Flow', () => {
         challengerName: 'Alice',
         challengeeId: 'bob',
         ruleType: 'eightball',
-        tableId: 'test-table-123',
+        tableId,
         meta: { country: 'US' }
     };
 
@@ -72,7 +80,7 @@ test.describe('Lobby Flow', () => {
         challengerName: 'Alice',
         challengeeId: 'bob',
         ruleType: 'eightball',
-        tableId: 'test-table-123',
+        tableId,
         meta: { country: 'GB' }
     };
 
@@ -91,8 +99,8 @@ test.describe('Lobby Flow', () => {
     }, acceptMsg);
 
     // 4. Verify both are redirected to the game
-    await expect(alice.page).toHaveURL(/tableId=test-table-123/);
-    await expect(bob.page).toHaveURL(/tableId=test-table-123/);
+    await expect(alice.page).toHaveURL(new RegExp('tableId=' + tableId));
+    await expect(bob.page).toHaveURL(new RegExp('tableId=' + tableId));
 
     await alice.context.close();
     await bob.context.close();
@@ -200,11 +208,19 @@ test.describe('Lobby Flow', () => {
     await alice.page.locator('button[aria-label="Challenge Bob"]').click();
     await alice.page.locator('challenge-modal button:has-text("Eight Ball")').click();
 
+    // Capture actual tableId Alice generated
+    const tableIdHandle2 = await alice.page.waitForFunction(() => {
+      const state = (document.querySelector('lobby-app') as any)?._ctrl?.state;
+      const pending = Object.values(state?.challenges ?? {}).find((c: any) => c.status === 'pending');
+      return (pending as any)?.tableId || null;
+    }, undefined, { timeout: 3000 });
+    const tableId2 = await tableIdHandle2.jsonValue() as string;
+
     const challengeMsg = {
       messageType: 'challenge', type: 'offer',
       challengerId: 'alice', challengerName: 'Alice',
       challengeeId: 'bob', ruleType: 'eightball',
-      tableId: 'test-table-123', meta: { country: 'US' }
+      tableId: tableId2, meta: { country: 'US' }
     };
 
     await bob.page.evaluate((msg) => {
@@ -220,7 +236,7 @@ test.describe('Lobby Flow', () => {
       challengerName: 'Alice',
       challengeeId: 'bob',
       ruleType: 'eightball',
-      tableId: 'test-table-123',
+      tableId: tableId2,
       meta: { country: 'GB' }
     };
     await alice.page.evaluate((msg) => {
@@ -233,7 +249,7 @@ test.describe('Lobby Flow', () => {
 
     // Alice (challenger) gets first=true, Bob (acceptor) does not
     await expect(alice.page).toHaveURL(/first=true/);
-    await expect(bob.page).toHaveURL(/tableId=test-table-123/);
+    await expect(bob.page).toHaveURL(new RegExp('tableId=' + tableId2));
     await expect(bob.page).not.toHaveURL(/first=true/);
 
     await alice.context.close();

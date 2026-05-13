@@ -118,11 +118,19 @@ test.describe('Lobby Rematch', () => {
     await alice.page.locator('button[aria-label="Challenge Bob"]').click();
     await alice.page.locator('challenge-modal button:has-text("Eight Ball")').click();
 
+    // Capture the actual tableId Alice's session generated
+    const tableIdHandle = await alice.page.waitForFunction(() => {
+      const state = (document.querySelector('lobby-app') as any)?._ctrl?.state;
+      const pending = Object.values(state?.challenges ?? {}).find((c: any) => c.status === 'pending');
+      return (pending as any)?.tableId || null;
+    }, undefined, { timeout: 3000 });
+    const tableId = await tableIdHandle.jsonValue() as string;
+
     const challengeMsg = {
       messageType: 'challenge', type: 'offer',
       challengerId: 'alice', challengerName: 'Alice',
       challengeeId: 'bob', ruleType: 'eightball',
-      tableId: 'e2e-table-rematch', meta: { country: 'US' },
+      tableId, meta: { country: 'US' },
     };
     await bob.page.evaluate((msg) => {
       (document.querySelector('lobby-app') as any)._ctrl.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
@@ -134,7 +142,7 @@ test.describe('Lobby Rematch', () => {
       messageType: 'challenge', type: 'accept',
       challengerId: 'alice', challengerName: 'Alice',
       challengeeId: 'bob', ruleType: 'eightball',
-      tableId: 'e2e-table-rematch', meta: { country: 'GB' },
+      tableId, meta: { country: 'GB' },
     };
     // Both players dispatch the accept message (simulating Nchan broadcast)
     await Promise.all([alice.page, bob.page].map(p =>
@@ -145,8 +153,8 @@ test.describe('Lobby Rematch', () => {
     ));
 
     // Both redirect to the game URL
-    await expect(alice.page).toHaveURL(/tableId=e2e-table-rematch/, { timeout: 5000 });
-    await expect(bob.page).toHaveURL(/tableId=e2e-table-rematch/, { timeout: 5000 });
+    await expect(alice.page).toHaveURL(new RegExp('tableId=' + tableId), { timeout: 5000 });
+    await expect(bob.page).toHaveURL(new RegExp('tableId=' + tableId), { timeout: 5000 });
 
     // Both land on the game page — concede button should be visible
     await expect(alice.page.locator('button[aria-label="Concede"]')).toBeVisible();
