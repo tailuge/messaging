@@ -19,7 +19,8 @@
   "scripts": {
     "test": "jest --config test/jest.config.cjs --verbose",
     "coverage": "jest --config test/jest.config.cjs --coverage",
-    "playwright": "npm run docker:build && npx playwright test playwright/lobby-flow.spec.ts",
+    "playwright": "npm run docker:build && npx playwright test",
+    "playwright:rematch": "npm run docker:build && npx playwright test playwright/lobby-rematch.spec.ts",
     "test:debug": "npm run playwright",
     "lint": "tsc --noEmit && npx oxlint src test",
     "prettify": "npx oxfmt src test",
