@@ -36,6 +36,7 @@ The project includes three levels of testing:
 Comprehensive tests for `MessagingClient`, `Lobby`, and `Table` logic. These use `testcontainers` to automatically spin up an Nchan instance.
 ```bash
 npm run test
+npm run playwright
 ```
 To debug leaks or hanging processes:
 ```bash
