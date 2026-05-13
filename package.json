@@ -45,16 +45,16 @@
   "author": "tailuge",
   "license": "GPL-3.0",
   "devDependencies": {
-    "@playwright/test": "^1.59.1",
+    "@playwright/test": "^1.60.0",
     "@types/jest": "30.0.0",
     "@types/ws": "^8.18.1",
     "esbuild": "^0.28.0",
     "jest": "^30.4.2",
-    "oxlint": "^1.63.0",
+    "oxlint": "^1.64.0",
     "testcontainers": "^11.14.0",
     "ts-jest": "^29.4.9",
     "typescript": "^6.0.3",
-    "ws": "^8.20.0"
+    "ws": "^8.20.1"
   },
   "browserslist": [
     "defaults",

@@ -2,6 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { MessagingClient, canChallenge, canSpectate, userStatus } from '../index.ts';
 import { userStore } from './user-store.js';
 import { gameUrl, spectateUrl, INITIAL_STATE, reduce, flag, getEmoji } from './utils.js';
+import { logUsage } from './logusage.js';
 import { SHARED_STYLES, USER_LIST_STYLES, PLAYER_PANEL_STYLES, CHALLENGE_MODAL_STYLES, BADGE_STYLES } from './styles.js';
 import './message-modal.js';
 import './challenge-banner.js';
@@ -228,6 +229,7 @@ class OnlinePanel extends LitElement {
             return;
         }
         const tableId = await this.#lobby.challenge(userId, ruleType, undefined, options);
+        logUsage("createTable");
         this.dispatch({ type: 'CHALLENGE_SENT', payload: { challengerId: this.#myId, challengeeId: userId, recipientName: u?.userName || userId, ruleType, options, tableId } });
     }
 
@@ -242,6 +244,7 @@ class OnlinePanel extends LitElement {
     async #acceptChallenge() {
         const c = this.#activeChallenge;
         this.#table = await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options, c.challengerName);
+        logUsage("joinTable");
         const rematch = this.#rematch?.rematchParam ?? (c.rematch ? encodeURIComponent(JSON.stringify(c.rematch)) : undefined);
         this.dispatch({ type: 'MATCH_SET', payload: { tableId: c.tableId, ruleType: c.ruleType, options: c.options, isFirst: false, rematch } });
     }
