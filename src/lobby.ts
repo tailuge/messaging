@@ -22,7 +22,7 @@ export interface LobbyOptions {
  * Manages the global lobby state, including real-time presence tracking and challenge flows.
  */
 export class Lobby {
-  private users = new Map<string, { message: PresenceMessage; receivedAt: number }>();
+  private users = new Map<string, PresenceMessage>();
   private listeners: ((users: PresenceMessage[]) => void)[] = [];
   private challengeListeners: ((challenge: ChallengeMessage) => void)[] = [];
   private chatListeners: ((message: ChatMessage) => void)[] = [];
@@ -145,10 +145,11 @@ export class Lobby {
       const now = Date.now();
       let changed = false;
 
-      for (const [userId, entry] of this.users.entries()) {
+      for (const [userId, user] of this.users.entries()) {
         if (userId === this.currentUser.userId) continue;
 
-        if (now - entry.receivedAt > this.staleTtl) {
+        const lastSeen = user.meta!.ts;
+        if (now - lastSeen > this.staleTtl) {
           this.users.delete(userId);
           changed = true;
         }
@@ -304,21 +305,16 @@ export class Lobby {
     this.stopPruning();
     this.subscription?.stop();
 
-    const leaveMsg = {
-      ...this.currentUser,
-      type: "leave" as const,
-    };
-
-    if (options.isTeardown) {
-      // In teardown (e.g. pagehide), fire and forget via sendBeacon/keepalive
-      // to maximize chance of delivery before process termination.
-      this.nchan.publishPresence(leaveMsg, { keepalive: true }).catch(() => {});
-    } else {
-      try {
-        await this.nchan.publishPresence(leaveMsg);
-      } catch (e) {
-        console.error("Error leaving lobby:", e);
-      }
+    try {
+      await this.nchan.publishPresence(
+        {
+          ...this.currentUser,
+          type: "leave",
+        },
+        { keepalive: options.isTeardown },
+      );
+    } catch (e) {
+      console.error("Error leaving lobby:", e);
     }
 
     this.users.clear();
@@ -352,7 +348,7 @@ export class Lobby {
     if (msg.type === "leave") {
       this.users.delete(msg.userId);
     } else {
-      this.users.set(msg.userId, { message: msg, receivedAt: Date.now() });
+      this.users.set(msg.userId, msg);
     }
     this.notifyListeners();
   }
@@ -374,8 +370,6 @@ export class Lobby {
   }
 
   private getUsersList(): PresenceMessage[] {
-    return Array.from(this.users.values())
-      .map((entry) => entry.message)
-      .sort((a, b) => a.userName.localeCompare(b.userName));
+    return Array.from(this.users.values()).sort((a, b) => a.userName.localeCompare(b.userName));
   }
 }
