@@ -4,10 +4,13 @@ import { SCOREBOARD_URL, timeAgo, flag, ruleIcon, renderTrophy, replayUrl } from
 import { userStore, StoreElement } from './user-store.js';
 import './replay-button.js';
 
+const isVercel = window.location.hostname.includes('vercel');
+
 class InfoPanel extends StoreElement {
     static styles = INFO_PANEL_STYLES;
     connectedCallback() {
         super.connectedCallback();
+        if (isVercel) return;
         fetch(`${SCOREBOARD_URL}/api/summary`, { mode: 'cors' })
             .then(r => r.json())
             .then(d => {
@@ -22,6 +25,7 @@ class InfoPanel extends StoreElement {
             });
     }
     render() {
+        if (isVercel) return html`<span class="loading"><a href="https://billiards.tailuge.workers.dev/lobby">Play here</a></span>`;
         if (this._err) return html`<span class="loading">Could not load scores.</span>`;
         if (!this._data) return html`<span class="loading">Connecting to server…</span>`;
         const { hiscores, topPlayers, recentMatches } = this._data;
