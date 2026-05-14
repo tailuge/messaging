@@ -473,7 +473,7 @@ h1 a { color: inherit; text-decoration: none; }
                         <button class="cancel" @click=${this._close} style="margin-top: 0.5rem;">Close</button>
                     </div>
                 </div>`:""}
-        `}};customElements.define("settings-modal",De);var Ut=113,ze=class extends b{static properties={_theme:{type:String,reflect:!0,attribute:"theme"}};static styles=bt;constructor(){super(),console.log("URL:",window.location.href),console.log("Search params:",Object.fromEntries(new URLSearchParams(window.location.search))),this._theme=document.documentElement.getAttribute("theme")||"light"}get _ctrl(){return this.shadowRoot.querySelector("online-panel")}render(){return l`
+        `}};customElements.define("settings-modal",De);var Ut=114,ze=class extends b{static properties={_theme:{type:String,reflect:!0,attribute:"theme"}};static styles=bt;constructor(){super(),console.log("URL:",window.location.href),console.log("Search params:",Object.fromEntries(new URLSearchParams(window.location.search))),this._theme=document.documentElement.getAttribute("theme")||"light"}get _ctrl(){return this.shadowRoot.querySelector("online-panel")}render(){return l`
             <div class="container">
                 <header class="topbar">
                     <img src="assets/threecushion.png" class="logo" alt="Billiards Logo">
