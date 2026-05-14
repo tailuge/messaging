@@ -57,6 +57,7 @@ COPY nchan.conf /etc/nginx/conf.d/default.conf
 COPY cors.conf /etc/nginx/cors.conf
 COPY metadata_headers.conf /etc/nginx/metadata_headers.conf
 COPY nchan_meta.js /etc/nginx/nchan_meta.js
+COPY api.njs /etc/nginx/api.njs
 COPY html/ /usr/share/nginx/html/
 
 RUN chown -R nginx:nginx /etc/nginx /usr/share/nginx/html /var/cache/nginx /var/log/nginx /tmp

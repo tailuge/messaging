@@ -15,7 +15,10 @@ start() {
 
     echo "Starting nchan container..."
     docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
-    docker run -d --user root -p "$PORT":8080 --name "$CONTAINER_NAME" "$DOCKER_IMAGE"
+    docker run -d --user root \
+        -p "$PORT":8080 \
+        --env-file "$PROJECT_ROOT/.env" \
+        --name "$CONTAINER_NAME" "$DOCKER_IMAGE"
 
     echo "Waiting for nchan to be ready..."
     local attempt=1

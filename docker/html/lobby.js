@@ -474,7 +474,7 @@ h1 a { color: inherit; text-decoration: none; }
                         ${this._showStats?l`<div><strong style="font-size:0.82rem">Recent visitors</strong><stats-panel></stats-panel></div>`:""}
                     </div>
                 </div>`:""}
-        `}};customElements.define("settings-modal",ze);var Rt=122,Ye=class extends b{static properties={_theme:{type:String,reflect:!0,attribute:"theme"}};static styles=ft;constructor(){super(),console.log("URL:",window.location.href),console.log("Search params:",Object.fromEntries(new URLSearchParams(window.location.search))),this._theme=document.documentElement.getAttribute("theme")||"light"}get _ctrl(){return this.shadowRoot.querySelector("online-panel")}render(){return l`
+        `}};customElements.define("settings-modal",ze);var Rt=124,Ye=class extends b{static properties={_theme:{type:String,reflect:!0,attribute:"theme"}};static styles=ft;constructor(){super(),console.log("URL:",window.location.href),console.log("Search params:",Object.fromEntries(new URLSearchParams(window.location.search))),this._theme=document.documentElement.getAttribute("theme")||"light"}get _ctrl(){return this.shadowRoot.querySelector("online-panel")}render(){return l`
             <div class="container">
                 <header class="topbar">
                     <img src="assets/threecushion.png" class="logo" alt="Billiards Logo">

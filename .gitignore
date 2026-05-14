@@ -14,3 +14,4 @@ pnpm-lock.yaml
 docker/html/*
 !docker/html/assets/
 docker/html/assets/*
+.env
