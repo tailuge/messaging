@@ -81,7 +81,7 @@ export const USER_LIST_STYLES = css`
     :host { display: block; }
     ul { list-style: none; margin: 0; padding: 0; max-height: 160px; overflow-y: auto; scrollbar-width: none; }
     ul::-webkit-scrollbar { display: none; }
-    li { display: flex; justify-content: space-between; align-items: center; padding: 0.15rem 0; border-bottom: 1px solid var(--border-light); gap: 0.25rem; }
+    li { display: flex; justify-content: space-between; align-items: center; padding: 0.08rem 0; border-bottom: none; gap: 0.25rem; }
     li:last-child { border-bottom: none; }
     .user-info { display: flex; flex-direction: column; }
     .user-name { font-weight: 500; font-size: 0.85rem; color: var(--text); }
@@ -202,7 +202,7 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     h1 { font-size: 1.0rem; color: var(--text-dim); text-align: left; margin: 0; letter-spacing: 0.1em; text-transform: uppercase; flex-shrink: 0; }
 h1 a { color: inherit; text-decoration: none; }
      h1 a:hover { text-decoration: underline; }
-     h1 .version { font-size: 0.65rem; color: var(--text-faint); margin-left: 0.25rem; vertical-align: super; font-weight: 200; }
+     h1 .version { font-size: 0.65rem; color: var(--text-dim); margin-left: 0.25rem; vertical-align: super; font-weight: 200; }
     .topbar { display: flex; align-items: center; flex-shrink: 0; gap: 0.5rem; }
     .topbar .logo { width: 32px; height: 32px; flex-shrink: 0; filter: grayscale(100%); opacity: 0.7; }
     .topbar h1 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
