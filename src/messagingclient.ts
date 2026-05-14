@@ -173,7 +173,8 @@ export class MessagingClient {
 
   private handlePageHide = (): void => {
     // Stop all connections on page hide (prevent ghosting)
-    // Non-blocking call because pagehide might terminate the process
+    // Non-blocking call because pagehide might terminate the process.
+    // Use isTeardown: true to trigger sendBeacon/keepalive publish.
     this.stop({ isTeardown: true });
   };
 
