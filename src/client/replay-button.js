@@ -1,5 +1,4 @@
 import { LitElement, html, css } from 'lit';
-import { styleMap } from 'lit/directives/style-map.js';
 
 class ReplayButton extends LitElement {
     static properties = {

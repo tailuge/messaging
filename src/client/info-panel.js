@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { html } from 'lit';
 import { INFO_PANEL_STYLES } from './styles.js';
 import { SCOREBOARD_URL, timeAgo, flag, ruleIcon, renderTrophy, replayUrl } from './utils.js';
 import { userStore, StoreElement } from './user-store.js';

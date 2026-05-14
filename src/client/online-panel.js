@@ -1,4 +1,5 @@
 import { LitElement, html, css } from 'lit';
+import { repeat } from 'lit/directives/repeat.js';
 import { MessagingClient, canChallenge, canSpectate, userStatus } from '../index.ts';
 import { userStore } from './user-store.js';
 import { gameUrl, spectateUrl, INITIAL_STATE, reduce, flag, getEmoji } from './utils.js';
@@ -28,6 +29,8 @@ class UserList extends LitElement {
     };
     static styles = [SHARED_STYLES, USER_LIST_STYLES, css`
         @keyframes throb { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        li { animation: fadeIn 0.4s ease-out; }
         .btn-chat { animation: throb 2s ease-in-out infinite; font-size: 1rem; border: none; background: none; padding: 0 0.2rem; }
         .btn-spectate { background: #7c3aed; color: #fff; border: none; border-radius: 4px; padding: 0.25rem 0.6rem; cursor: pointer; }
         .btn-spectate:hover { background: #6d28d9; }
@@ -36,7 +39,7 @@ class UserList extends LitElement {
     render() {
         const others = (this.users || []).filter(u => u.userId !== this.myId);
         if (others.length === 0) return html`<div class="empty">No other players online yet. Invite a friend!</div>`;
-        return html`<ul aria-label="Online players">${others.map(u => this._row(u))}</ul>`;
+        return html`<ul aria-label="Online players">${repeat(others, u => u.userId, u => this._row(u))}</ul>`;
     }
 
     _row(u) {
@@ -121,7 +124,6 @@ class OnlinePanel extends LitElement {
 
     #state = { ...INITIAL_STATE };
     #lobby = null;
-    #table = null;
     #myId;
     #myName;
     #client;
@@ -243,9 +245,10 @@ class OnlinePanel extends LitElement {
 
     async #acceptChallenge() {
         const c = this.#activeChallenge;
-        this.#table = await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options, c.challengerName);
+        await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options, c.challengerName);
         logUsage("joinTable");
         const rematch = this.#rematch?.rematchParam ?? (c.rematch ? encodeURIComponent(JSON.stringify(c.rematch)) : undefined);
+        this.dispatch({ type: 'CHALLENGE_DISMISS', payload: c.challengerId });
         this.dispatch({ type: 'MATCH_SET', payload: { tableId: c.tableId, ruleType: c.ruleType, options: c.options, isFirst: false, rematch } });
     }
 

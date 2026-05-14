@@ -6,9 +6,7 @@ import './online-panel.js';
 import './user-badge.js';
 import './settings-modal.js';
 
-const VERSION = 'dev';
-
-const CLIENTVERSION = 108;
+const CLIENTVERSION = 110;
 
 class LobbyApp extends LitElement {
     static properties = { _theme: { type: String, reflect: true, attribute: 'theme' } };

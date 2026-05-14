@@ -87,6 +87,7 @@ export function getEmoji(origin = "", ruleType = "", status = "") {
   // 1. Check user status first
   if (status === "spectating") return { emoji: "🔭", title: "spectator" };
   if (status === "playing") return ruleMap[ruleType] ?? { emoji: "🎮", title: "playing" };
+  if (status === "available" &&ruleType === "replay") return { emoji: "👀", title: "replay" };
 
   // 2. Check origin patterns
   if (origin.includes("github")) return { emoji: "🐙", title: "github" };
