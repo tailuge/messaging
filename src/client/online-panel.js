@@ -2,7 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 import { MessagingClient, canChallenge, canSpectate, userStatus } from '../index.ts';
 import { userStore } from './user-store.js';
-import { gameUrl, spectateUrl, INITIAL_STATE, reduce, flag, getEmoji } from './utils.js';
+import { gameUrl, spectateUrl, INITIAL_STATE, reduce, flag, getEmoji, isVercel } from './utils.js';
 import { logUsage } from './logusage.js';
 import { SHARED_STYLES, USER_LIST_STYLES, PLAYER_PANEL_STYLES, CHALLENGE_MODAL_STYLES, BADGE_STYLES } from './styles.js';
 import './message-modal.js';
@@ -52,7 +52,7 @@ class UserList extends LitElement {
             : spectatable
                 ? html`<button class="btn-spectate" aria-label="Spectate ${u.userName}'s game" @click=${() => emit(this, 'spectate', u)}>Spectate</button>`
                 : challengeable
-                    ? html`<button class="btn-challenge" aria-label="Challenge ${u.userName}" ?disabled=${this.isChallengePending} @click=${() => emit(this, 'challenge', u.userId)}>Challenge</button>`
+                    ? html`<button class="btn-challenge" aria-label="Challenge ${u.userName}" ?disabled=${this.isChallengePending} @click=${() => isVercel ? window.location.href = 'https://billiards.tailuge.workers.dev/lobby' : emit(this, 'challenge', u.userId)}>Challenge</button>`
                     : html``;
         return html`
             <li aria-label="${u.userName}">

@@ -1,6 +1,7 @@
 import { html } from 'lit';
 import { userStore, StoreElement } from './user-store.js';
 import { USER_BADGE_STYLES } from './styles.js';
+import { isVercel } from './utils.js';
 
 const genId = () => 'id' + Math.random().toString(16).slice(2, 8);
 
@@ -38,6 +39,7 @@ class UserBadge extends StoreElement {
     }
 
     render() {
+        if (isVercel) return html``;
         return html`
             <div class="badge" style="--dot-color:${this._dotColor}">
                 <span class="dot"></span>

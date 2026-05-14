@@ -2,6 +2,7 @@
 import { html } from 'lit';
 
 export const SCOREBOARD_URL = 'https://scoreboard-tailuge.vercel.app';
+export const isVercel = window.location.hostname.includes('vercel');
 
 export const timeAgo = ts => {
   const s = Math.floor((Date.now() - ts) / 1000);

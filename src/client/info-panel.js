@@ -1,10 +1,8 @@
 import { html } from 'lit';
 import { INFO_PANEL_STYLES } from './styles.js';
-import { SCOREBOARD_URL, timeAgo, flag, ruleIcon, renderTrophy, replayUrl } from './utils.js';
+import { SCOREBOARD_URL, timeAgo, flag, ruleIcon, renderTrophy, replayUrl, isVercel } from './utils.js';
 import { userStore, StoreElement } from './user-store.js';
 import './replay-button.js';
-
-const isVercel = window.location.hostname.includes('vercel');
 
 class InfoPanel extends StoreElement {
     static styles = INFO_PANEL_STYLES;
