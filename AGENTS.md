@@ -15,6 +15,12 @@ npm run docker:restart # Rebuild and restart the container
 npm run docker:build   # Build the Nchan Docker image
 ```
 
+## Project Overview
+
+This project consists of two parts:
+- **Library**: A stateful messaging library exported as the npm package `tailuge/billiards` (from `src/`)
+- **Client**: A Lit-based web client for the billiards lobby and game interface (from `src/client/`)
+
 ## System Setup & Deployment
 
 The project is a stateful messaging library designed to handle presence and real-time synchronization using Nchan as the transport layer.
@@ -32,6 +38,7 @@ The library interacts with the following Nchan endpoints:
 
 ## Project Structure
 
+**Library (`src/`)** - The npm package `tailuge/billiards`:
 ```
 src/
   messagingclient.ts # Main entry point & lifecycle management
@@ -40,6 +47,17 @@ src/
   nchanclient.ts     # Low-level Nchan pub/sub transport
   types.ts           # Shared TypeScript interfaces
   utils/             # Internal utilities (UID generation, etc.)
+```
+
+**Client (`src/client/`)** - The web interface:
+```
+src/client/
+  lobby.js           # Main lobby component
+  info-panel.js      # Scoreboard and stats panel
+  online-panel.js    # Active users panel
+  user-store.js      # User state management
+  styles.js          # Shared CSS
+  utils.js           # Client utilities (icons, formatting, etc.)
 test/
   messagingclient.spec.ts # Integration tests for the full flow
   nchanclient.spec.ts     # Tests for the transport layer

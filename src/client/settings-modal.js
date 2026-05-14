@@ -93,7 +93,7 @@ class SettingsModal extends StoreElement {
                     <div class="modal" role="dialog" aria-modal="true" aria-label="Settings">
                         <h3>Settings</h3>
 
-                        <div class="section-title">⚙️ Preferences</div>
+                        <div class="section-title">Preferences</div>
                         <div class="row">
                             <label>
                                 <input type="checkbox" .checked=${this._theme === 'dark'} @change=${this._setTheme}>
@@ -107,7 +107,7 @@ class SettingsModal extends StoreElement {
                             </label>
                         </div>
 
-                        <div class="section-title">🎨 Graphics</div>
+                        <div class="section-title">Graphics</div>
                         <div class="row" style="flex-direction: column; align-items: flex-start; gap: 2px;">
                             <label for="quality-range" style="font-size: 0.75rem;">Quality: <span class="lod-label">${SettingsModal.LOD_LABELS[userStore.lod] || userStore.lod}</span></label>
                             <input id="quality-range" type="range" min="0" max="4" step="1" .value=${userStore.lod} @input=${e => userStore.setLod(e.target.value)} style="width: 100%;">
@@ -116,15 +116,15 @@ class SettingsModal extends StoreElement {
                         <button class="cancel" @click=${this._close} style="margin-top: 0.5rem;">Close</button>
 
                         <div class="section-title">Links</div>
-                        <div class="row"><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener"><span>🛠️</span> Support</a></div>
-                        <div class="row"><a href="https://scoreboard-tailuge.vercel.app/usage.html" target="_blank" rel="noopener"><span>📊</span> Usage</a></div>
+                        <div class="row"><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Support</a></div>
+                        <div class="row"><a href="https://scoreboard-tailuge.vercel.app/usage.html" target="_blank" rel="noopener">Usage</a></div>
                         <div class="row">
                             <a href="#" @click=${e => { e.preventDefault(); this._share(); }}>
-                                <span>🔗</span> Share
+                                Share
                                 ${this._copied ? html`<span class="copied-badge">Copied!</span>` : ''}
                             </a>
                         </div>
-                        <div class="row"><a href="#" @click=${e => { e.preventDefault(); this._showStats = !this._showStats; }}><span>📈</span> Stats</a></div>
+                        <div class="row"><a href="#" @click=${e => { e.preventDefault(); this._showStats = !this._showStats; }}>Stats</a></div>
 
                         ${this._showStats ? html`<div><strong style="font-size:0.82rem">Recent visitors</strong><stats-panel></stats-panel></div>` : ''}
                     </div>

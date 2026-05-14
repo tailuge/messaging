@@ -75,8 +75,6 @@ export function reduce(state, action) {
  */
 export function getEmoji(origin = "", ruleType = "", status = "") {
   const ruleMap = {
-    spectator: { emoji: "🔭", title: "spectator" },
-    replay: { emoji: "👀", title: "replay" },
     bot: { emoji: "🤖", title: "bot" },
     nineball: { emoji: "⑨", title: "nineball" },
     eightball: { emoji: "🎱", title: "eightball" },
@@ -84,11 +82,15 @@ export function getEmoji(origin = "", ruleType = "", status = "") {
     threecushion: { emoji: "③", title: "threecushion" },
   };
 
+    const mapped = ruleMap[ruleType]
+    
   // 1. Check user status first
   if (status === "spectating") return { emoji: "🔭", title: "spectator" };
-  if (status === "playing") return ruleMap[ruleType] ?? { emoji: "🎮", title: "playing" };
+  if (status === "playing") return mapped ?? { emoji: "🎮", title: "playing" };
   if (status === "available" &&ruleType === "replay") return { emoji: "👀", title: "replay" };
 
+  if (mapped) return mapped
+    
   // 2. Check origin patterns
   if (origin.includes("github")) return { emoji: "🐙", title: "github" };
   if (origin.includes("vercel")) return { emoji: "👥", title: "vercel" };
