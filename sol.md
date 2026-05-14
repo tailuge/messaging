@@ -1,41 +1,140 @@
-# Ghost User Analysis and Solutions
+# Ghost Users: Concrete Recommendation for `docker/nchan.conf`
 
-## Why it's not reliable
+## Recommendation
 
-Ghost users occur when a player appears to be online even after they have navigated away from the application. This typically happens due to **Unreliable Teardown**:
+For this project, the best Nchan-side improvement is:
 
-The current implementation of `leave` is `async` and involves multiple layers of method calls and promises (`MessagingClient.stop` -> `Lobby.leave` -> `NchanClient.publishPresence`). In many browsers, especially on mobile, when a `pagehide` or `visibilitychange` event fires, the browser may terminate the process before these asynchronous tasks complete. Even if `navigator.sendBeacon` is used at the very end of the chain, the preceding logic (awaiting state updates, stopping timers, etc.) can delay the final network call beyond the browser's termination window.
+1. Keep the existing client heartbeat and `staleTtl` pruning in `src/lobby.ts` as the fallback.
+2. Add an **unsubscribe hook** to `/subscribe/presence/lobby` so Nchan emits a synthetic `leave` when a websocket disconnects.
+3. Add **server websocket pings** so dead sockets are detected faster and the unsubscribe hook fires sooner.
 
-## Suggested Solutions
+This is a better fit than relying only on browser `pagehide` teardown. The browser can drop async work during unload, but Nchan still knows when the websocket disappears. Nchan’s official docs support this with `nchan_unsubscribe_request`, and note that the target location must use `proxy_ignore_client_abort on;` or abrupt disconnects may not trigger reliably. Source: https://nchan.io/
 
-### 1. Synchronous Teardown Path
-Implement a dedicated, non-async teardown path specifically for the `pagehide` event. This path should skip all internal state management and promise awaiting, and immediately call `navigator.sendBeacon` (or `fetch` with `keepalive: true`) with the `leave` message. This increases the probability that the message is successfully queued before the browser kills the page execution context.
+## Why this fits this repo
 
-### 2. Native Nchan Presence Tracking (Recommended)
-The most robust solution is to move the responsibility of "leaving" from the client to the server. Nchan can be configured to automatically broadcast presence updates when a subscriber's connection is closed.
+Today ghost-user cleanup is mostly client-side:
 
-By enabling `nchan_subscriber_presence_updates`, Nchan will publish a message to the channel whenever a WebSocket connection is established or terminated. This handles not only graceful navigation but also browser crashes, tab kills, and network losses.
+- `src/lobby.ts` prunes users after `staleTtl` (default `90000` ms).
+- `docker/nchan.conf` retains presence messages for `90s`.
+- `/subscribe/presence/lobby` has no disconnect hook, so the system must wait for heartbeat expiry when `leave` is missed.
 
-**Configuration Example for `nchan.conf`:**
+That works, but it means a crashed tab or broken mobile connection can leave a user visible for up to ~90 seconds.
+
+An unsubscribe hook shortens that path:
+
+- browser/tab closes or network dies
+- Nchan notices websocket disconnect
+- Nchan calls an internal unsubscribe handler
+- handler publishes `{ messageType: "presence", type: "leave", userId, userName }`
+- all subscribers remove that user immediately
+
+The existing TTL prune remains important as a backup for cases where disconnect detection is delayed.
+
+## Concrete `docker/nchan.conf` changes
+
+### 1. Add websocket pinging and unsubscribe hook to the presence subscriber
+
+Update the existing `/subscribe/presence/lobby` location in `docker/nchan.conf`:
 
 ```nginx
 location = /subscribe/presence/lobby {
+    access_log /var/log/nginx/access.log main;
     nchan_subscriber;
     nchan_channel_id "presence/lobby";
+    nchan_message_buffer_length 2000;
+    nchan_message_timeout 90s;
+    nchan_subscriber_first_message oldest;
+    nchan_subscriber_timeout 7200s;
 
-    # Enable native presence updates
-    nchan_subscriber_presence_updates on;
+    # Detect broken websocket clients sooner.
+    nchan_websocket_ping_interval 20s;
 
-    # Optional: Customize the presence message format if needed
-    # nchan_presence_data_prefix '{"type": "nchan_presence", "action": "';
-    # nchan_presence_data_suffix '"}';
+    # Emit a synthetic leave when the websocket unsubscribes.
+    nchan_unsubscribe_request /internal/presence/unsub;
 
     include /etc/nginx/metadata_headers.conf;
     include /etc/nginx/cors.conf;
 }
 ```
 
-When this is enabled, Nchan will send messages like `connection` and `disconnection` to all other subscribers on that channel. The client-side `Lobby` class can then listen for these native Nchan messages to instantly remove users who have disconnected, without waiting for a manual `leave` message or a timeout.
+### 2. Add an internal unsubscribe handler
 
-### 3. Server-Side Heartbeat Monitoring
-Leverage Nchan's `stub_status` or a dedicated monitoring service to track active connections. If the server detects that a specific user's connection has been dead for a certain period, it can proactively publish a `leave` message on their behalf. This provides a definitive source of truth that doesn't depend on the client's ability to execute code during teardown.
+Add a new internal location in `docker/nchan.conf`:
+
+```nginx
+location = /internal/presence/unsub {
+    internal;
+
+    # Required by Nchan docs for abrupt disconnect reliability.
+    proxy_ignore_client_abort on;
+
+    include /etc/nginx/metadata_headers.conf;
+    include /etc/nginx/cors.conf;
+
+    js_content nchan_meta.presence_unsub;
+}
+```
+
+## What the unsubscribe handler should do
+
+The handler should publish a normal presence `leave` message back into the same lobby channel:
+
+```json
+{
+  "messageType": "presence",
+  "type": "leave",
+  "userId": "...",
+  "userName": "..."
+}
+```
+
+For this repo, the simplest implementation is an NJS handler in `docker/nchan_meta.js` that:
+
+1. reads `userId` and `userName` from the original subscribe request query string
+2. POSTs the synthetic leave to `/internal/publish/presence/lobby`
+3. returns `204`
+
+This keeps the whole solution inside the existing Nginx/Nchan container. No separate backend is required.
+
+## Important required client change
+
+The current websocket subscribe URL is just:
+
+```ts
+/subscribe/presence/lobby
+```
+
+That is not enough for an unsubscribe hook to identify which user left.
+
+So the presence subscriber request must include stable user identity in the query string, for example:
+
+```ts
+/subscribe/presence/lobby?userId=alice&userName=Alice
+```
+
+Without that, Nchan can detect a disconnect but cannot publish a correct `leave` for the right user.
+
+For this project, `userId` is mandatory. `userName` should also be included so the synthetic leave matches the normal message shape. `tableId` is optional and not required for deletion because `Lobby.handlePresenceUpdate()` removes by `userId`.
+
+## Recommended behavior after this change
+
+- Primary cleanup path: Nchan unsubscribe hook publishes `leave` quickly after disconnect.
+- Fallback cleanup path: existing heartbeat + `staleTtl` prune removes users if disconnect detection is slow or missed.
+- Keep `nchan_message_timeout 90s` for buffered presence replay; it solves reconnect/state sync, not ghost-user cleanup.
+
+## What not to rely on
+
+- Do not rely only on `pagehide` / `sendBeacon`. It improves graceful exits but is not reliable enough for crashes, mobile tab kills, or network loss.
+- Do not treat `nchan_subscriber_timeout 7200s` as ghost-user protection. It is far too long for presence correctness.
+- Do not remove client-side pruning after adding the hook. Disconnect hooks improve latency, but TTL pruning is still the safety net.
+
+## Bottom line
+
+If you want the most useful `docker/nchan.conf` change for ghost users in this repo, it is:
+
+- add `nchan_unsubscribe_request /internal/presence/unsub;`
+- add `nchan_websocket_ping_interval 20s;`
+- implement `/internal/presence/unsub` as an NJS handler that republishes a synthetic presence `leave`
+- pass `userId` and `userName` on the presence subscribe URL
+
+That gives this project a fast server-side leave signal while preserving the current TTL-based recovery path.
