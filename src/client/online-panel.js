@@ -2,7 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 import { MessagingClient, canChallenge, canSpectate, userStatus } from '../index.ts';
 import { userStore } from './user-store.js';
-import { gameUrl, spectateUrl, INITIAL_STATE, reduce, flag, getEmoji, isVercel } from './utils.js';
+import { gameUrl, spectateUrl, INITIAL_STATE, reduce, flag, getEmoji, isVercel, genId } from './utils.js';
 import { logUsage } from './logusage.js';
 import { SHARED_STYLES, USER_LIST_STYLES, PLAYER_PANEL_STYLES, CHALLENGE_MODAL_STYLES, BADGE_STYLES } from './styles.js';
 import './message-modal.js';
@@ -135,7 +135,10 @@ class OnlinePanel extends LitElement {
     constructor() {
         super();
         const p = new URLSearchParams(location.search);
-        this.#myId   = p.get('userId') || localStorage.getItem('userId') || 'user-' + Math.random().toString(36).slice(2, 7);
+        let id = (p.get('userId') || '').trim();
+        if (id.length < 2) id = (localStorage.getItem('userId') || '').trim();
+        if (id.length < 2) id = genId();
+        this.#myId   = id;
         this.#myName = p.get('userName')  || localStorage.getItem('userName')  || 'Anonymous';
         const raw = p.get('rematch');
         if (raw) {

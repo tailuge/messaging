@@ -1,17 +1,16 @@
 import { html } from 'lit';
 import { userStore, StoreElement } from './user-store.js';
 import { USER_BADGE_STYLES } from './styles.js';
-import { isVercel } from './utils.js';
-
-const genId = () => 'id' + Math.random().toString(16).slice(2, 8);
+import { isVercel, genId } from './utils.js';
 
 function load() {
     const p = new URLSearchParams(location.search);
-    const urlId   = p.get('userId');
+    const urlId   = (p.get('userId') || '').trim();
     const urlName = p.get('userName');
-    if (urlId) return { clientId: urlId, userName: urlName || 'Anonymous', dotColor: '#f5c518' };
-    const existing = !!localStorage.getItem('userId');
-    const clientId = localStorage.getItem('userId') || (() => { const id = genId(); localStorage.setItem('userId', id); return id; })();
+    if (urlId.length >= 2) return { clientId: urlId, userName: urlName || 'Anonymous', dotColor: '#f5c518' };
+    const storedId = (localStorage.getItem('userId') || '').trim();
+    const existing = storedId.length >= 2;
+    const clientId = existing ? storedId : (() => { const id = genId(); localStorage.setItem('userId', id); return id; })();
     const userName = urlName || localStorage.getItem('userName') || 'Anonymous';
     return { clientId, userName, dotColor: existing ? '#4caf50' : '#888' };
 }

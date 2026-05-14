@@ -1,6 +1,8 @@
 
 import { html } from 'lit';
 
+export const genId = () => 'user-' + Math.random().toString(36).slice(2, 7);
+
 export const SCOREBOARD_URL = 'https://scoreboard-tailuge.vercel.app';
 export const isVercel = window.location.hostname.includes('vercel');
 
