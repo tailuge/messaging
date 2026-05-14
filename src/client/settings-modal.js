@@ -113,7 +113,9 @@ class SettingsModal extends StoreElement {
                             <input id="quality-range" type="range" min="0" max="4" step="1" .value=${userStore.lod} @input=${e => userStore.setLod(e.target.value)} style="width: 100%;">
                         </div>
 
-                        <div class="section-title">🤝 Community</div>
+                        <button class="cancel" @click=${this._close} style="margin-top: 0.5rem;">Close</button>
+
+                        <div class="section-title">Links</div>
                         <div class="row"><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener"><span>🛠️</span> Support</a></div>
                         <div class="row"><a href="https://scoreboard-tailuge.vercel.app/usage.html" target="_blank" rel="noopener"><span>📊</span> Usage</a></div>
                         <div class="row">
@@ -125,7 +127,6 @@ class SettingsModal extends StoreElement {
                         <div class="row"><a href="#" @click=${e => { e.preventDefault(); this._showStats = !this._showStats; }}><span>📈</span> Stats</a></div>
 
                         ${this._showStats ? html`<div><strong style="font-size:0.82rem">Recent visitors</strong><stats-panel></stats-panel></div>` : ''}
-                        <button class="cancel" @click=${this._close} style="margin-top: 0.5rem;">Close</button>
                     </div>
                 </div>` : ''}
         `;
