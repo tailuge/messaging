@@ -1,14 +1,21 @@
 import { LitElement } from 'lit';
+import { genId } from './utils.js';
 
 class UserStore extends EventTarget {
-    clientId = localStorage.getItem('userId') || '';
-    userName = localStorage.getItem('userName') || 'Anonymous';
-    lod = localStorage.getItem('lod') || '1';
+    constructor() {
+        super();
+        const storedId = (localStorage.getItem('userId') || '').trim();
+        this.clientId = storedId.length >= 2 ? storedId : genId();
+        if (this.clientId !== storedId) localStorage.setItem('userId', this.clientId);
+        
+        this.userName = localStorage.getItem('userName') || 'Anonymous';
+        this.lod = localStorage.getItem('lod') || '1';
+    }
 
     set(clientId, userName) {
-        this.clientId = clientId;
+        this.clientId = clientId.trim().length >= 2 ? clientId.trim() : genId();
         this.userName = userName;
-        localStorage.setItem('userId', clientId);
+        localStorage.setItem('userId', this.clientId);
         localStorage.setItem('userName', userName);
         this.dispatchEvent(new Event('change'));
     }
