@@ -4,16 +4,27 @@ import { genId } from './utils.js';
 class UserStore extends EventTarget {
     constructor() {
         super();
+        const p = new URLSearchParams(window.location.search);
+        const urlId = (p.get('userId') || '').trim();
+        const urlName = p.get('userName');
+
         const storedId = (localStorage.getItem('userId') || '').trim();
-        this.clientId = storedId.length >= 2 ? storedId : genId();
-        if (this.clientId !== storedId) localStorage.setItem('userId', this.clientId);
         
-        this.userName = localStorage.getItem('userName') || 'Anonymous';
+        if (urlId.length > 2) {
+            this.clientId = urlId;
+            this.isForcedId = true;
+        } else {
+            this.clientId = storedId.length > 2 ? storedId : genId();
+            this.isForcedId = false;
+            if (this.clientId !== storedId) localStorage.setItem('userId', this.clientId);
+        }
+
+        this.userName = urlName || localStorage.getItem('userName') || 'Anonymous';
         this.lod = localStorage.getItem('lod') || '1';
     }
 
     set(clientId, userName) {
-        this.clientId = clientId.trim().length >= 2 ? clientId.trim() : genId();
+        this.clientId = clientId.trim().length > 2 ? clientId.trim() : genId();
         this.userName = userName;
         localStorage.setItem('userId', this.clientId);
         localStorage.setItem('userName', userName);
