@@ -10,6 +10,7 @@ export interface Meta {
   method: string; // HTTP method (always POST for publish)
   country: string; // Country code from IP (e.g., "US", "GB", "XX")
   since?: number; // Epoch ms when this IP was first seen (from ip_cache)
+  version?: string; // Optional client-side software version
 }
 
 /**

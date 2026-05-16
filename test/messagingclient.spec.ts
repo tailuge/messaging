@@ -317,6 +317,36 @@ describe("MessagingClient - Phase 1", () => {
       // Verify player1 is shown as at table-123
       expect(player1InB?.tableId).toBe("table-123");
     });
+
+    it("should attach version to metadata when setVersion is used", async () => {
+      const clientA = createClient();
+      const clientB = createClient();
+
+      clientA.setVersion("v1.2.3");
+
+      const lobbyA = await clientA.joinLobby({
+        messageType: "presence",
+        type: "join",
+        userId: "alice",
+        userName: "Alice",
+      });
+
+      const lobbyB = await clientB.joinLobby({
+        messageType: "presence",
+        type: "join",
+        userId: "bob",
+        userName: "Bob",
+      });
+
+      let usersB: PresenceMessage[] = [];
+      lobbyB.onUsersChange((u) => (usersB = u));
+
+      // Wait for Alice to appear in Bob's list
+      await waitUntil(() => usersB.some((u) => u.userId === "alice"));
+
+      const aliceInB = usersB.find((u) => u.userId === "alice");
+      expect(aliceInB?.meta?.version).toBe("v1.2.3");
+    });
   });
 
   describe("Challenges & Tables (Phase 2)", () => {

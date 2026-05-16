@@ -93,8 +93,10 @@ async function buildMeta(r) {
 
 function mergeMeta(payload, meta) {
   if (payload && typeof payload === "object" && !Array.isArray(payload)) {
-    delete payload.meta;
-    payload.meta = meta;
+    const clientMeta = payload.meta || {};
+    // Merge: Preserve client 'version' while letting server meta dominate other fields
+    // Use Object.assign for NJS compatibility (spread operator might not be supported)
+    payload.meta = Object.assign({}, meta, { version: clientMeta.version });
     return payload;
   }
   return { data: payload, meta: meta };

@@ -15,6 +15,7 @@ export type Subscription = {
 
 export class NchanClient {
   private server: string;
+  private version?: string;
 
   constructor(server: string) {
     // Ensure server string doesn't end with a slash
@@ -33,6 +34,13 @@ export class NchanClient {
     }
   }
 
+  /**
+   * Sets the global version string to be included in all published messages.
+   */
+  setVersion(version: string): void {
+    this.version = version;
+  }
+
   private getWsUrl(path: string): string {
     // Replace http with ws, and https with wss
     return this.server.replace(/^http/, "ws") + path;
@@ -44,10 +52,16 @@ export class NchanClient {
 
   private async publish(
     path: string,
-    message: unknown,
+    message: any,
     options: { keepalive?: boolean } = {},
   ): Promise<void> {
     const url = this.getHttpUrl(path);
+
+    // Inject version into meta if set
+    if (this.version) {
+      message.meta = { ...message.meta, version: this.version };
+    }
+
     const body = JSON.stringify(message);
 
     // Use sendBeacon only for unload/keepalive scenarios

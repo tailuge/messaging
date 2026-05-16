@@ -26,6 +26,13 @@ export class MessagingClient {
   }
 
   /**
+   * Sets a global software version string that will be attached to all outgoing messages.
+   */
+  setVersion(version: string): void {
+    this.nchan.setVersion(version);
+  }
+
+  /**
    * Initializes the client and ensures connection readiness.
    * In browser environments, attaches lifecycle event listeners.
    */

@@ -17,6 +17,12 @@ var NchanClient = class {
       }
     }
   }
+  /**
+   * Sets the global version string to be included in all published messages.
+   */
+  setVersion(version) {
+    this.version = version;
+  }
   getWsUrl(path) {
     return this.server.replace(/^http/, "ws") + path;
   }
@@ -25,6 +31,9 @@ var NchanClient = class {
   }
   async publish(path, message, options = {}) {
     const url = this.getHttpUrl(path);
+    if (this.version) {
+      message.meta = { ...message.meta, version: this.version };
+    }
     const body = JSON.stringify(message);
     if (options.keepalive && typeof navigator !== "undefined" && navigator.sendBeacon) {
       const blob = new Blob([body], { type: "application/json" });
@@ -685,6 +694,12 @@ var MessagingClient = class {
       }
     };
     this.nchan = new NchanClient(options.baseUrl);
+  }
+  /**
+   * Sets a global software version string that will be attached to all outgoing messages.
+   */
+  setVersion(version) {
+    this.nchan.setVersion(version);
   }
   /**
    * Initializes the client and ensures connection readiness.
