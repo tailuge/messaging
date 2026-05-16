@@ -57,7 +57,7 @@ class UserList extends LitElement {
         return html`
             <li aria-label="${u.userName}">
                 <div class="user-info">
-                    <span class="user-name">${flag(u.meta?.country)} ${u.userName} <span aria-label="${status.title}" role="img">${status.emoji}</span></span>
+                    <span class="user-name" @click=${() => emit(this, 'open-chat', u.userId)} style="cursor: pointer">${flag(u.meta?.country)} ${u.userName} <span aria-label="${status.title}" role="img">${status.emoji}</span></span>
                 </div>
                 <div class="actions">${actions}</div>
             </li>`;

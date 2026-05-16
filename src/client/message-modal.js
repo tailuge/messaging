@@ -26,7 +26,8 @@ class MessageModal extends LitElement {
 
     static styles = [SHARED_STYLES, CHALLENGE_MODAL_STYLES, css`
         .modal { min-width: 280px; max-width: 360px; }
-        .thread { display: flex; flex-direction: column; gap: 0.3rem; max-height: 220px; overflow-y: auto; padding: 0.2rem 0; }
+        .thread { display: flex; flex-direction: column; gap: 0.3rem; max-height: 220px; overflow-y: auto; padding: 0.2rem 0; scrollbar-width: none; -ms-overflow-style: none; }
+        .thread::-webkit-scrollbar { display: none; }
         .msg { font-size: 0.82rem; padding: 0.25rem 0.5rem; border-radius: 6px; max-width: 85%; word-break: break-word; }
         .msg.mine { align-self: flex-end; background: #0d6efd; color: #fff; }
         .msg.theirs { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); color: var(--text); }
@@ -88,6 +89,8 @@ class MessageModal extends LitElement {
         if (changedProperties.has('targetId')) {
             const thread = this.shadowRoot.querySelector('.thread');
             if (thread) thread.scrollTop = thread.scrollHeight;
+            const input = this.shadowRoot.querySelector('input');
+            if (input) input.focus();
         } else if (changedProperties.has('_messages')) {
             const oldMessages = changedProperties.get('_messages');
             if (this._messages.get(this.targetId) !== oldMessages?.get(this.targetId)) {
