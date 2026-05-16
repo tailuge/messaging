@@ -8,7 +8,10 @@ class InfoPanel extends StoreElement {
     static styles = INFO_PANEL_STYLES;
     connectedCallback() {
         super.connectedCallback();
-        if (isVercel) return;
+        if (isVercel) {
+            this.classList.add('loaded');
+            return;
+        }
         fetch(`${SCOREBOARD_URL}/api/summary`, { mode: 'cors' })
             .then(r => r.json())
             .then(d => {
