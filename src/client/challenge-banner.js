@@ -39,7 +39,7 @@ class ChallengeBanner extends LitElement {
             <div class="banner ${c.status}">
                 <div class="details">${ruleIcon(c.ruleType)} ${c.ruleType}</div>
                 <div class="row">
-                    <strong>${isWaiting ? `⏳ Waiting for ${c.recipientName}…` : `❌ ${c.recipientName} declined.`}</strong>
+                    <strong>${isWaiting ? `Waiting for ${c.recipientName} to accept.` : `${c.recipientName} declined.`}</strong>
                     ${isWaiting
                         ? html`<button class="btn-leave" @click=${() => emit(this, 'cancel')}>Cancel</button>`
                         : html`<button aria-label="Dismiss" @click=${() => emit(this, 'dismiss')}>✕</button>`}

@@ -325,7 +325,7 @@ h1 a { color: inherit; text-decoration: none; }
             <div class="banner ${e.status}">
                 <div class="details">${R(e.ruleType)} ${e.ruleType}</div>
                 <div class="row">
-                    <strong>${t?`\u23F3 Waiting for ${e.recipientName}\u2026`:`\u274C ${e.recipientName} declined.`}</strong>
+                    <strong>${t?`Waiting for ${e.recipientName} to accept.`:`${e.recipientName} declined.`}</strong>
                     ${t?l`<button class="btn-leave" @click=${()=>pe(this,"cancel")}>Cancel</button>`:l`<button aria-label="Dismiss" @click=${()=>pe(this,"dismiss")}>✕</button>`}
                 </div>
             </div>`}};customElements.define("challenge-banner",Re);var es=[{userId:"bot-clawbreak",userName:"ClawBreak",isBot:!0,meta:{country:"BOT"}},{userId:"bot-thefarjaw",userName:"TheFarJaw",isBot:!0,meta:{country:"BOT"}}],C=(r,e,t)=>r.dispatchEvent(new CustomEvent(e,{detail:t,bubbles:!0,composed:!0})),Oe=class extends f{static properties={users:{type:Array},myId:{type:String},myName:{type:String},tableId:{type:String},isChallengePending:{type:Boolean},pendingChats:{type:Object}};static styles=[$,dt,m`
@@ -475,7 +475,7 @@ h1 a { color: inherit; text-decoration: none; }
                         ${this._showStats?l`<div><strong style="font-size:0.82rem">Recent visitors</strong><stats-panel></stats-panel></div>`:""}
                     </div>
                 </div>`:""}
-        `}};customElements.define("settings-modal",Ye);var Ot=134,Ge=class extends f{static properties={_theme:{type:String,reflect:!0,attribute:"theme"}};static styles=yt;constructor(){super(),console.log("URL:",window.location.href),console.log("Search params:",Object.fromEntries(new URLSearchParams(window.location.search))),this._theme=document.documentElement.getAttribute("theme")||"light"}get _ctrl(){return this.shadowRoot.querySelector("online-panel")}render(){return l`
+        `}};customElements.define("settings-modal",Ye);var Ot=135,Ge=class extends f{static properties={_theme:{type:String,reflect:!0,attribute:"theme"}};static styles=yt;constructor(){super(),console.log("URL:",window.location.href),console.log("Search params:",Object.fromEntries(new URLSearchParams(window.location.search))),this._theme=document.documentElement.getAttribute("theme")||"light"}get _ctrl(){return this.shadowRoot.querySelector("online-panel")}render(){return l`
             <div class="container">
                 <header class="topbar">
                     <img src="assets/threecushion.png" class="logo" alt="Billiards Logo">
