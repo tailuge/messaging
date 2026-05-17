@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 137;
+export const CLIENTVERSION = 138;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 export const genId = () => 'user-' + Math.random().toString(36).slice(2, 7);
@@ -95,8 +95,19 @@ export function getEmoji(origin = "", ruleType = "", status = "") {
   if (status === "playing") return mapped ?? { emoji: "🎮", title: "playing" };
   if (status === "available" &&ruleType === "replay") return { emoji: "👀", title: "replay" };
 
-  if (mapped) return mapped
+
     
+  if (mapped) {
+      if (origin.includes("github")) return { emoji: mapped.emoji+"🐙", title: "github" };
+      if (origin.includes("localhost")) return { emoji: mapped.emoji+"🏠", title: "localhost" };
+      return mapped;
+  }
+
+  if (ruleType.includes("-bot")) {
+	const botmap = ruleMap[ruleType.replace("-bot","")];
+	return { emoji: botmap.emoji+"🤖", title: "bot" };
+  }
+
   // 2. Check origin patterns
   if (origin.includes("github")) return { emoji: "🐙", title: "github" };
   if (origin.includes("vercel")) return { emoji: "👥", title: "vercel" };
