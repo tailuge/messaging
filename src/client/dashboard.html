@@ -203,6 +203,14 @@ table td {
                 <td>Total Subscribed</td>
                 <td id="nch-subscribed">-</td>
               </tr>
+              <tr>
+                <td>Presence Leaves</td>
+                <td id="nch-presence-leaves">-</td>
+              </tr>
+              <tr>
+                <td>Presence Socket Unsubs</td>
+                <td id="nch-presence-unsubs">-</td>
+              </tr>
             </table>
           </div>
         </div>
@@ -313,6 +321,13 @@ table td {
             data.nchan.total_published_messages || 0;
           document.getElementById("nch-subscribed").textContent =
             data.nchan.total_subscribed_messages || 0;
+        }
+
+        if (data.system_stats) {
+          document.getElementById("nch-presence-leaves").textContent =
+            data.system_stats.presence_leave_total || 0;
+          document.getElementById("nch-presence-unsubs").textContent =
+            data.system_stats.presence_unsubscribe_total || 0;
         }
 
          const ipCacheTableBody = document.querySelector("#ip-cache-table tbody");

@@ -277,7 +277,7 @@ class OnlinePanel extends LitElement {
         return html`
             <div class="panel-header">
                 <span class="dot ${this.#connected ? 'on' : ''}" role="status" aria-label="${this.#connected ? 'Connected' : 'Disconnected'}"></span>
-                <span class="panel-title" @dblclick=${() => console.log(JSON.stringify(this.#visibleUsers, null, 2))}>Play Online (${this.#visibleUsers.filter(u => u.userId !== this.#myId).length})</span>
+                <span class="panel-title" @click=${() => console.log(JSON.stringify(this.#visibleUsers, null, 2))}>Play Online (${this.#visibleUsers.filter(u => u.userId !== this.#myId).length})</span>
             </div>
             <challenge-banner
                 .challenge=${this.#activeChallenge}

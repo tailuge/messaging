@@ -30,7 +30,7 @@ class UserBadge extends StoreElement {
             <div class="badge" style="--dot-color:${this._dotColor}">
                 <span class="dot"></span>
                 <input maxlength="12" .value=${this._name}
-                    name="display-name" autocomplete="nickname"
+                    name="name" autocomplete="nickname"
                     style="width: ${Math.max(this._name.length, 1)}ch"
                     aria-label="Display name"
                     @input=${e => e.target.style.width = Math.max(e.target.value.length, 1) + 'ch'}

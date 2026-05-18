@@ -324,7 +324,7 @@ describe("MessagingClient - Phase 1", () => {
 
       clientA.setVersion("v1.2.3");
 
-      const lobbyA = await clientA.joinLobby({
+      await clientA.joinLobby({
         messageType: "presence",
         type: "join",
         userId: "alice",

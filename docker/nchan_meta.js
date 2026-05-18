@@ -33,7 +33,7 @@ function createMeta(r, country, city, since) {
   return {
     ts: Date.now(),
     ua: r.headersIn["user-agent"] || "",
-    origin: r.headersIn.referer || r.headersIn.origin || "",
+    origin: r.headersIn.origin || "",
     country: country,
     city: city || "",
     since: since,
@@ -102,6 +102,26 @@ function mergeMeta(payload, meta) {
   return { data: payload, meta: meta };
 }
 
+function incrementStat(key, delta) {
+  if (typeof delta === "undefined") {
+    delta = 1;
+  }
+  const stats = ngx.shared.system_stats;
+  const current = parseInt(stats.get(key) || "0", 10) || 0;
+  stats.set(key, String(current + delta));
+}
+
+function getStatsSnapshot(keys) {
+  const stats = ngx.shared.system_stats;
+  const snapshot = {};
+
+  keys.forEach((key) => {
+    snapshot[key] = parseInt(stats.get(key) || "0", 10) || 0;
+  });
+
+  return snapshot;
+}
+
 async function publish(r) {
   let parsed = null;
   let isJson = false;
@@ -128,6 +148,14 @@ async function publish(r) {
   const enriched = mergeMeta(parsed, meta);
   const body = JSON.stringify(enriched);
 
+  incrementStat("publish_requests_total");
+  if (enriched.messageType === "presence") {
+    incrementStat("presence_publish_total");
+    if (enriched.type === "leave") {
+      incrementStat("presence_leave_total");
+    }
+  }
+
   const res = await r.subrequest("/internal" + r.uri, {
     method: r.method,
     body,
@@ -135,6 +163,12 @@ async function publish(r) {
 
   r.headersOut["Content-Type"] = "application/json";
   r.return(res.status, body);
+}
+
+function presence_unsub(r) {
+  incrementStat("presence_unsubscribe_total");
+  incrementStat("presence_unsubscribe_websocket_total");
+  r.return(204);
 }
 
 function parseNginxStatus(text) {
@@ -240,6 +274,13 @@ function getIpCache() {
     const data = {
       nginx,
       nchan,
+      system_stats: getStatsSnapshot([
+        "publish_requests_total",
+        "presence_publish_total",
+        "presence_leave_total",
+        "presence_unsubscribe_total",
+        "presence_unsubscribe_websocket_total",
+      ]),
       ip_cache: getIpCache(),
       uptime: getUptime(),
       njs_logs: getLastLines("/var/log/nginx/njs_error.log", 50),
@@ -251,4 +292,4 @@ function getIpCache() {
     r.return(200, JSON.stringify(data));
   }
 
-export default { publish, stats };
+export default { publish, presence_unsub, stats };

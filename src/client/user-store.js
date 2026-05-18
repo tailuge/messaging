@@ -20,7 +20,7 @@ class UserStore extends EventTarget {
         }
 
         this.userName = urlName || localStorage.getItem('userName') || 'Anonymous';
-        this.lod = localStorage.getItem('lod') || '1';
+        this.lod = localStorage.getItem('lod') || '2';
     }
 
     set(clientId, userName) {

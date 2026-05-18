@@ -143,6 +143,10 @@ run_test "API: Stats endpoint contains ip_cache" bash -c '
 	curl -fsS --max-time 5 "http://localhost/api/stats" | grep -q "\"ip_cache\":"
 '
 
+run_test "API: Stats endpoint contains system_stats" bash -c '
+	curl -fsS --max-time 5 "http://localhost/api/stats" | grep -q "\"system_stats\":"
+'
+
 run_test "API: Stats endpoint contains access_logs" bash -c '
 	curl -fsS --max-time 5 "http://localhost/api/stats" | grep -q "\"access_logs\":"
 '
