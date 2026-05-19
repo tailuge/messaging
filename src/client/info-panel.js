@@ -51,10 +51,10 @@ class InfoPanel extends StoreElement {
                                 <td>${ruleIcon(m.ruleType)}</td><td>${m.loser ? '🎖️' : ''}${m.winner}${m.loser ? ` vs ${m.loser}` : ''}</td>
                                 <td class="ago">${timeAgo(m.timestamp)}</td>
                                 <td class="city-col">${m.locationCity ?? ''}</td>
-                                <td class="replay-col">
+<td class="replay-col">
                                     ${m.hasReplay
-                                        ? html`<replay-button prefix="${flag(m.locationCountry)}" url="${replayUrl(`${SCOREBOARD_URL}/api/match-replay?id=${m.id}&lod=${userStore.lod}`, userStore.clientId, userStore.userName)}"></replay-button>`
-                                        : flag(m.locationCountry)}
+                                        ? html`<replay-button prefix="${flag(m.locationCountry).emoji}" prefixTitle="${flag(m.locationCountry).title}" url="${replayUrl(`${SCOREBOARD_URL}/api/match-replay?id=${m.id}&lod=${userStore.lod}`, userStore.clientId, userStore.userName)}"></replay-button>`
+                                        : flag(m.locationCountry).emoji}
                                 </td>
                             </tr>`)}
                         </table></div>

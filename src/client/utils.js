@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 142;
+export const CLIENTVERSION = 144;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 export const genId = () => 'user-' + Math.random().toString(36).slice(2, 7);
@@ -117,11 +117,13 @@ export function getEmoji(origin = "", ruleType = "", status = "") {
   return ruleMap[ruleType] ?? { emoji: "🎮", title: "external" };
 };
 
-export const flag = (code) => code === 'BOT'
-    ? '🤖'
-    : code
-        ? [...code.toUpperCase()].map(c => String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0))).join('')
-        : '🌐';
+export const flag = (code) => {
+    if (code === 'BOT') return { emoji: '🤖', title: 'BOT' };
+    if (!code) return { emoji: '🌐', title: '' };
+    const upper = code.toUpperCase();
+    const emoji = [...upper].map(c => String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0))).join('');
+    return { emoji, title: upper };
+};
 
 const BASE = 'https://billiards.tailuge.workers.dev/';
 const appendOptions = (url, options) => options

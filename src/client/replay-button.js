@@ -5,7 +5,8 @@ class ReplayButton extends LitElement {
         url: { type: String },
         color: { type: String },
         label: { type: String },
-        prefix: { type: String }
+        prefix: { type: String },
+        prefixTitle: { type: String }
     };
 
     static styles = css`
@@ -42,8 +43,11 @@ class ReplayButton extends LitElement {
             transform: scale(1.08);
         }
         .prefix {
-            font-size: 0.8rem;
+            font-size: 1.0rem;
             line-height: 1;
+        }
+        .prefix:hover {
+            text-decoration: underline dotted;
         }
         svg {
             width: 10px;
@@ -55,12 +59,15 @@ class ReplayButton extends LitElement {
 
     render() {
         const style = this.color ? `background-color: ${this.color}` : '';
+        const prefixSpan = this.prefix
+            ? html`<span class="prefix" title=${this.prefixTitle}>${this.prefix}</span>`
+            : '';
         return html`
             <a
                 class="pill"
                 href=${this.url}
                 style=${style}>
-                ${this.prefix ? html`<span class="prefix">${this.prefix}</span>` : ''}
+                ${prefixSpan}
                 ${this.label ? html`<span>${this.label}</span>` : ''}
                 <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
             </a>

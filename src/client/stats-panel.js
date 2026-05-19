@@ -48,7 +48,7 @@ class StatsPanel extends LitElement {
             ${uptime ? html`<div class="uptime">⏱ ${this._formatUptime(uptime)}</div>` : ''}
             <ul>
                 ${countries.map(([code, n]) => html`
-                    <li>${flag(code)} <span>${code}</span> <span class="count">${n}</span></li>
+                    <li>${flag(code).emoji} <span>${code}</span> <span class="count">${n}</span></li>
                 `)}
             </ul>`;
     }
