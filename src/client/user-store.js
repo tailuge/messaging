@@ -1,5 +1,5 @@
 import { LitElement } from 'lit';
-import { genId } from './utils.js';
+import { genId, isVercel } from './utils.js';
 
 class UserStore extends EventTarget {
     constructor() {
@@ -7,6 +7,11 @@ class UserStore extends EventTarget {
         const p = new URLSearchParams(window.location.search);
         const urlId = (p.get('userId') || '').trim();
         const urlName = p.get('userName');
+
+        if (isVercel) {
+            localStorage.removeItem('userId');
+            localStorage.removeItem('userName');
+        }
 
         const storedId = (localStorage.getItem('userId') || '').trim();
         
