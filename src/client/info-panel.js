@@ -26,7 +26,7 @@ class InfoPanel extends StoreElement {
             });
     }
     render() {
-        if (isVercel) return html`<span class="loading"><a href="https://billiards.tailuge.workers.dev/lobby">Play online here</a></span>`;
+        if (isVercel) return html`<span class="loading">We have moved <a href="https://billiards.tailuge.workers.dev/lobby">Play online here</a></span>`;
         if (this._err) return html`<span class="loading">Could not load scores.</span>`;
         if (!this._data) return html`<span class="loading">Connecting to server…</span>`;
         const { hiscores, topPlayers, recentMatches } = this._data;

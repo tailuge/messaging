@@ -265,6 +265,18 @@ class OnlinePanel extends LitElement {
         if (s) this.dispatch({ type: 'CHALLENGE_DISMISS', payload: s.challengeeId });
     }
 
+    #info() {
+        const data = [...this.#visibleUsers]
+            .filter(u => u.meta?.country !== 'BOT')
+            .map(u => {
+                const { meta = {}, ...user } = u;
+                const { ts: _ts, since: _since, ...restMeta } = meta;
+                return { ...user, meta: restMeta };
+            });
+        console.log(JSON.stringify(data, null, 2));
+	console.log(JSON.stringify({ myId: this.#myId, myName: this.#myName }));
+    }
+
     render() {
         if (this.#tableId) {
             const url = gameUrl({ tableId: this.#tableId, userId: this.#myId, userName: this.#myName, ruleType: this.#ruleType, isFirst: this.#isFirst, options: this.#matchOptions, lod: userStore.lod, rematch: this.#state.currentMatch?.rematch });
@@ -277,7 +289,7 @@ class OnlinePanel extends LitElement {
         return html`
             <div class="panel-header">
                 <span class="dot ${this.#connected ? 'on' : ''}" role="status" aria-label="${this.#connected ? 'Connected' : 'Disconnected'}"></span>
-                <span class="panel-title" @click=${() => console.log(JSON.stringify(this.#visibleUsers, null, 2))}>Play Online (${this.#visibleUsers.filter(u => u.userId !== this.#myId).length})</span>
+                <span class="panel-title" @click=${() => this.#info()}>Play Online (${this.#visibleUsers.filter(u => u.userId !== this.#myId).length})</span>
             </div>
             <challenge-banner
                 .challenge=${this.#activeChallenge}

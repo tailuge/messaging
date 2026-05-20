@@ -10,7 +10,7 @@ import {
 describe("Watchdog Integration", () => {
   beforeAll(async () => {
     await startContainer();
-  });
+  }, 60000);
 
   afterAll(async () => {
     await stopContainer();
