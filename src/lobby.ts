@@ -30,6 +30,7 @@ export class Lobby {
   private deduplicator: ChallengeDeduplicator;
   private subscription: Subscription | null = null;
   private isJoined = false;
+  private cachedUsersList: PresenceMessage[] | null = null;
 
   private heartbeatTimer?: any;
   private pruneTimer?: any;
@@ -148,7 +149,7 @@ export class Lobby {
       for (const [userId, user] of this.users.entries()) {
         if (userId === this.currentUser.userId) continue;
 
-        const lastSeen = user.meta!.ts;
+        const lastSeen = user.meta?.ts || 0;
         if (now - lastSeen > this.staleTtl) {
           this.users.delete(userId);
           changed = true;
@@ -156,6 +157,7 @@ export class Lobby {
       }
 
       if (changed) {
+        this.cachedUsersList = null;
         this.notifyListeners();
       }
     }, this.pruneInterval);
@@ -318,6 +320,7 @@ export class Lobby {
     }
 
     this.users.clear();
+    this.cachedUsersList = null;
     this.pendingChallenges = [];
     this.deduplicator.clear();
     this.presenceMessageCount = 0;
@@ -343,14 +346,32 @@ export class Lobby {
    * Handles incoming presence updates.
    * Note: Nchan guarantees ordered delivery, so we don't need to check meta.ts for ordering.
    * The last message received for each userId will be the current state.
+   *
+   * We deduplicate notifications here because the Lobby has domain knowledge of which
+   * fields are "meaningful" (e.g. userName, tableId) vs "noise" (e.g. meta.ts heartbeats).
    */
   private handlePresenceUpdate(msg: PresenceMessage): void {
+    const existing = this.users.get(msg.userId);
+
     if (msg.type === "leave") {
-      this.users.delete(msg.userId);
-    } else {
+      if (existing) {
+        this.users.delete(msg.userId);
+        this.cachedUsersList = null;
+        this.notifyListeners();
+      }
+    } else if (msg.type === "join") {
       this.users.set(msg.userId, msg);
+      this.cachedUsersList = null;
+      this.notifyListeners();
+    } else {
+      // Heartbeat or other update
+      const changed = !existing || this.hasMeaningfulChange(existing, msg);
+      this.users.set(msg.userId, msg);
+      if (changed) {
+        this.cachedUsersList = null;
+        this.notifyListeners();
+      }
     }
-    this.notifyListeners();
   }
 
   private handleChallenge(msg: ChallengeMessage): void {
@@ -370,6 +391,22 @@ export class Lobby {
   }
 
   private getUsersList(): PresenceMessage[] {
-    return Array.from(this.users.values()).sort((a, b) => a.userName.localeCompare(b.userName));
+    if (this.cachedUsersList) {
+      return this.cachedUsersList;
+    }
+    this.cachedUsersList = Array.from(this.users.values()).sort((a, b) =>
+      a.userName.localeCompare(b.userName),
+    );
+    return this.cachedUsersList;
+  }
+
+  private hasMeaningfulChange(oldMsg: PresenceMessage, nextMsg: PresenceMessage): boolean {
+    return (
+      oldMsg.userName !== nextMsg.userName ||
+      oldMsg.tableId !== nextMsg.tableId ||
+      oldMsg.ruleType !== nextMsg.ruleType ||
+      oldMsg.opponentId !== nextMsg.opponentId ||
+      JSON.stringify(oldMsg.seek) !== JSON.stringify(nextMsg.seek)
+    );
   }
 }
