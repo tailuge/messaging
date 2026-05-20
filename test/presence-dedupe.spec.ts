@@ -77,4 +77,37 @@ describe("Lobby - Presence Deduplication", () => {
     (lobby as any).handleIncomingMessage(JSON.stringify(leaveMsg));
     expect(listener).toHaveBeenCalledTimes(3);
   });
+
+  it("should always have exactly one entry per userId (Real-world duplicate check)", () => {
+    const lobby = new Lobby(mockNchan, currentUser);
+
+    const user_G_cf64 = {
+      "messageType": "presence",
+      "type": "join",
+      "userId": "G_cf64_260520",
+      "userName": "Anon",
+      "ruleType": "replay"
+    };
+
+    const user_G_cf64_heartbeat = {
+      "messageType": "presence",
+      "type": "heartbeat",
+      "userId": "G_cf64_260520",
+      "userName": "Anon",
+      "ruleType": "replay"
+    };
+
+    // Process join
+    (lobby as any).handleIncomingMessage(JSON.stringify(user_G_cf64));
+    // Process heartbeat for same user
+    (lobby as any).handleIncomingMessage(JSON.stringify(user_G_cf64_heartbeat));
+
+    const users = (lobby as any).getUsersList();
+    const matches = users.filter((u: any) => u.userId === "G_cf64_260520");
+
+    // There should only ever be ONE entry for this ID
+    expect(matches.length).toBe(1);
+    // Total users should be 1 (excluding current user who isn't in this.users until broadcast/recv)
+    expect(users.length).toBe(1);
+  });
 });
