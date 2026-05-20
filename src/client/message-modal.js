@@ -31,9 +31,43 @@ class MessageModal extends LitElement {
         .msg { font-size: 0.82rem; padding: 0.25rem 0.5rem; border-radius: 6px; max-width: 85%; word-break: break-word; }
         .msg.mine { align-self: flex-end; background: #0d6efd; color: #fff; }
         .msg.theirs { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); color: var(--text); }
-        .compose { display: flex; gap: 0.3rem; }
-        .compose input { flex: 1; padding: 0.25rem 0.4rem; border: 1px solid var(--btn-border); border-radius: 4px; background: var(--surface); color: var(--text); font: inherit; font-size: 0.82rem; }
-        .compose input:focus { outline: 2px solid #0d6efd; outline-offset: 1px; }
+        .compose {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 3px 3px 3px 10px;
+        }
+        .compose input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            color: var(--text);
+            font: inherit;
+            font-size: 0.82rem;
+            outline: none;
+            padding: 0.2rem 0;
+        }
+        .compose button {
+            background: #0d6efd;
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            min-width: 24px;
+            min-height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: background-color 0.2s;
+        }
+        .compose button:hover { background: #0b5ed7; }
         .empty { font-size: 0.78rem; color: var(--text-muted); text-align: center; padding: 0.5rem 0; }
     `];
 
@@ -115,7 +149,7 @@ class MessageModal extends LitElement {
                     </div>
                     <form class="compose" @submit=${this._send}>
                         <input type="text" placeholder="Message…" autocomplete="off" aria-label="Message text">
-                        <button type="submit" class="btn-challenge">Send</button>
+                        <button type="submit" aria-label="Send message">➤</button>
                     </form>
                     <button class="cancel" @click=${() => emit(this, 'close')}>Close</button>
                 </div>
