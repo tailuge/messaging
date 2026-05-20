@@ -31,7 +31,6 @@ export class Lobby {
   private subscription: Subscription | null = null;
   private isJoined = false;
   private cachedUsersList: PresenceMessage[] | null = null;
-  private receivedAt = new Map<string, number>();
 
   private heartbeatTimer?: any;
   private pruneTimer?: any;
@@ -147,13 +146,12 @@ export class Lobby {
       const now = Date.now();
       let changed = false;
 
-      for (const [userId, _user] of this.users.entries()) {
+      for (const [userId, user] of this.users.entries()) {
         if (userId === this.currentUser.userId) continue;
 
-        const lastSeen = this.receivedAt.get(userId) || 0;
+        const lastSeen = user.meta?.ts || 0;
         if (now - lastSeen > this.staleTtl) {
           this.users.delete(userId);
-          this.receivedAt.delete(userId);
           changed = true;
         }
       }
@@ -322,7 +320,6 @@ export class Lobby {
     }
 
     this.users.clear();
-    this.receivedAt.clear();
     this.cachedUsersList = null;
     this.pendingChallenges = [];
     this.deduplicator.clear();
@@ -349,15 +346,16 @@ export class Lobby {
    * Handles incoming presence updates.
    * Note: Nchan guarantees ordered delivery, so we don't need to check meta.ts for ordering.
    * The last message received for each userId will be the current state.
+   *
+   * We deduplicate notifications here because the Lobby has domain knowledge of which
+   * fields are "meaningful" (e.g. userName, tableId) vs "noise" (e.g. meta.ts heartbeats).
    */
   private handlePresenceUpdate(msg: PresenceMessage): void {
     const existing = this.users.get(msg.userId);
-    this.receivedAt.set(msg.userId, Date.now());
 
     if (msg.type === "leave") {
       if (existing) {
         this.users.delete(msg.userId);
-        this.receivedAt.delete(msg.userId);
         this.cachedUsersList = null;
         this.notifyListeners();
       }
