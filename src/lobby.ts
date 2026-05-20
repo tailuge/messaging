@@ -30,6 +30,8 @@ export class Lobby {
   private deduplicator: ChallengeDeduplicator;
   private subscription: Subscription | null = null;
   private isJoined = false;
+  private cachedUsersList: PresenceMessage[] | null = null;
+  private receivedAt = new Map<string, number>();
 
   private heartbeatTimer?: any;
   private pruneTimer?: any;
@@ -145,17 +147,19 @@ export class Lobby {
       const now = Date.now();
       let changed = false;
 
-      for (const [userId, user] of this.users.entries()) {
+      for (const [userId, _user] of this.users.entries()) {
         if (userId === this.currentUser.userId) continue;
 
-        const lastSeen = user.meta!.ts;
+        const lastSeen = this.receivedAt.get(userId) || 0;
         if (now - lastSeen > this.staleTtl) {
           this.users.delete(userId);
+          this.receivedAt.delete(userId);
           changed = true;
         }
       }
 
       if (changed) {
+        this.cachedUsersList = null;
         this.notifyListeners();
       }
     }, this.pruneInterval);
@@ -318,6 +322,8 @@ export class Lobby {
     }
 
     this.users.clear();
+    this.receivedAt.clear();
+    this.cachedUsersList = null;
     this.pendingChallenges = [];
     this.deduplicator.clear();
     this.presenceMessageCount = 0;
@@ -345,12 +351,29 @@ export class Lobby {
    * The last message received for each userId will be the current state.
    */
   private handlePresenceUpdate(msg: PresenceMessage): void {
+    const existing = this.users.get(msg.userId);
+    this.receivedAt.set(msg.userId, Date.now());
+
     if (msg.type === "leave") {
-      this.users.delete(msg.userId);
-    } else {
+      if (existing) {
+        this.users.delete(msg.userId);
+        this.receivedAt.delete(msg.userId);
+        this.cachedUsersList = null;
+        this.notifyListeners();
+      }
+    } else if (msg.type === "join") {
       this.users.set(msg.userId, msg);
+      this.cachedUsersList = null;
+      this.notifyListeners();
+    } else {
+      // Heartbeat or other update
+      const changed = !existing || this.hasMeaningfulChange(existing, msg);
+      this.users.set(msg.userId, msg);
+      if (changed) {
+        this.cachedUsersList = null;
+        this.notifyListeners();
+      }
     }
-    this.notifyListeners();
   }
 
   private handleChallenge(msg: ChallengeMessage): void {
@@ -370,6 +393,22 @@ export class Lobby {
   }
 
   private getUsersList(): PresenceMessage[] {
-    return Array.from(this.users.values()).sort((a, b) => a.userName.localeCompare(b.userName));
+    if (this.cachedUsersList) {
+      return this.cachedUsersList;
+    }
+    this.cachedUsersList = Array.from(this.users.values()).sort((a, b) =>
+      a.userName.localeCompare(b.userName),
+    );
+    return this.cachedUsersList;
+  }
+
+  private hasMeaningfulChange(oldMsg: PresenceMessage, nextMsg: PresenceMessage): boolean {
+    return (
+      oldMsg.userName !== nextMsg.userName ||
+      oldMsg.tableId !== nextMsg.tableId ||
+      oldMsg.ruleType !== nextMsg.ruleType ||
+      oldMsg.opponentId !== nextMsg.opponentId ||
+      JSON.stringify(oldMsg.seek) !== JSON.stringify(nextMsg.seek)
+    );
   }
 }
