@@ -2,7 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 import { MessagingClient, canChallenge, canSpectate, userStatus } from '../index.ts';
 import { userStore } from './user-store.js';
-import { gameUrl, spectateUrl, INITIAL_STATE, reduce, flag, getEmoji, isVercel, CLIENTVERSION, formatVersion } from './utils.js';
+import { gameUrl, spectateUrl, INITIAL_STATE, reduce, flag, getEmoji, isVercel, CLIENTVERSION, formatVersion, resolveFirstTurn } from './utils.js';
 import { logUsage } from './logusage.js';
 import { SHARED_STYLES, USER_LIST_STYLES, PLAYER_PANEL_STYLES, CHALLENGE_MODAL_STYLES, BADGE_STYLES } from './styles.js';
 import './message-modal.js';
@@ -207,8 +207,9 @@ class OnlinePanel extends LitElement {
         });
         this.dispatch({ type: 'CONNECTED', payload: true });
         if (this.#rematch) {
+            const info = this.#rematch.info;
             const tableId = await this.#rematch.sendChallenge(this.#lobby);
-            this.dispatch({ type: 'CHALLENGE_SENT', payload: { challengerId: this.#myId, challengeeId: this.#rematch.opponentId, recipientName: this.#rematch.info.opponentName, ruleType: this.#rematch.ruleType, options: this.#rematch.info.options, tableId } });
+            this.dispatch({ type: 'CHALLENGE_SENT', payload: { challengerId: this.#myId, challengeeId: this.#rematch.opponentId, recipientName: info.opponentName, ruleType: this.#rematch.ruleType, options: info.options, tableId, rematch: info } });
             this.#rematch = null;
         }
         this.#lobby.onUsersChange(users => this.dispatch({ type: 'USERS_UPDATE', payload: users }));
@@ -229,7 +230,8 @@ class OnlinePanel extends LitElement {
         const u = this.#visibleUsers.find(u => u.userId === userId);
         if (u?.isBot) {
             const tableId = 'bot-' + Math.random().toString(36).slice(2, 8);
-            window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst: true, options, bot: u.userName, lod: userStore.lod, rematch: this.#rematch?.rematchParam });
+            const isFirst = resolveFirstTurn(this.#myId, this.#myId, this.#rematch?.info);
+            window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst, options, bot: u.userName, lod: userStore.lod, rematch: this.#rematch?.rematchParam });
             return;
         }
         const tableId = await this.#lobby.challenge(userId, ruleType, undefined, options);
@@ -251,7 +253,13 @@ class OnlinePanel extends LitElement {
         logUsage("joinTable");
         const rematch = this.#rematch?.rematchParam ?? (c.rematch ? encodeURIComponent(JSON.stringify(c.rematch)) : undefined);
         this.dispatch({ type: 'CHALLENGE_DISMISS', payload: c.challengerId });
-        this.dispatch({ type: 'MATCH_SET', payload: { tableId: c.tableId, ruleType: c.ruleType, options: c.options, isFirst: false, rematch } });
+        this.dispatch({ type: 'MATCH_SET', payload: {
+            tableId: c.tableId,
+            ruleType: c.ruleType,
+            options: c.options,
+            isFirst: resolveFirstTurn(this.#myId, c.challengerId, c.rematch),
+            rematch
+        } });
     }
 
     async #declineChallenge() {

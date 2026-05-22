@@ -203,6 +203,31 @@ test.describe('Lobby Rematch', () => {
       return Object.values(challenges).some((c: any) => c.status === 'pending');
     }, { timeout: IS_LIVE ? 20000 : 10000 });
 
+    if (!IS_LIVE) {
+      // Simulate Bob accepting
+      const tableIdHandle = await page.evaluateHandle(() => {
+        const app = document.querySelector('lobby-app') as any;
+        const pending = Object.values(app._ctrl.state.challenges).find((c: any) => c.status === 'pending');
+        return (pending as any).tableId;
+      });
+      const tableId = await tableIdHandle.jsonValue();
+
+      const acceptMsg = {
+        messageType: 'challenge', type: 'accept',
+        challengerId: 'alice', challengerName: 'Alice',
+        challengeeId: 'bob', ruleType: 'nineball',
+        tableId, meta: { ts: new Date().toISOString() },
+      };
+      await page.evaluate((msg) => {
+        const app = document.querySelector('lobby-app') as any;
+        app._ctrl.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
+      }, acceptMsg);
+
+      // Alice is challenger, but Bob is nextTurnId, so Alice should NOT be first
+      await expect(page).toHaveURL(/tableId=/, { timeout: 10000 });
+      expect(page.url()).not.toContain('first=true');
+    }
+
     await context.close();
   });
 
@@ -246,17 +271,58 @@ test.describe('Lobby Rematch', () => {
       await page.evaluate((msg) => {
         const app = document.querySelector('lobby-app') as any;
         app._ctrl.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
-        app._ctrl.dispatch({ type: 'MATCH_SET', payload: {
-          tableId: msg.tableId, ruleType: msg.ruleType,
-          options: msg.options, isFirst: false,
-          rematch: encodeURIComponent(JSON.stringify(msg.rematch))
-        }});
       }, offerMsg);
     }
 
     await expect(page).toHaveURL(/tableId=/, { timeout: 15000 });
     await expect(page).toHaveURL(/rematch=/, { timeout: 15000 });
+    expect(page.url()).not.toContain('first=true');
 
+    await context.close();
+  });
+
+  test('rematch: challengee auto-accepts and goes first if nextTurnId matches', async ({ browser }) => {
+    const rematchInfo = { opponentId: 'alice', opponentName: 'Alice', ruleType: 'nineball', lastScores: [], nextTurnId: 'bob' };
+    const rematch = encodeURIComponent(JSON.stringify(rematchInfo));
+
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    if (!IS_LIVE) {
+      await page.route('**/publish/presence/lobby', async (route) => {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'sent' }) });
+      });
+    }
+
+    const url = `${LOBBY_URL}?userId=bob&userName=Bob&rematch=${rematch}`;
+    await page.goto(url);
+
+    if (!IS_LIVE) {
+      const users = [
+        { userId: 'alice', userName: 'Alice', messageType: 'presence', type: 'join', meta: { country: 'US' } },
+        { userId: 'bob',   userName: 'Bob',   messageType: 'presence', type: 'join', meta: { country: 'GB' } },
+      ];
+      await page.evaluate((u) => {
+        const app = document.querySelector('lobby-app') as any;
+        app._ctrl.dispatch({ type: 'CONNECTED', payload: true });
+        app._ctrl.dispatch({ type: 'USERS_UPDATE', payload: u });
+      }, users);
+
+      const offerMsg = {
+        messageType: 'challenge', type: 'offer',
+        challengerId: 'alice', challengerName: 'Alice',
+        challengeeId: 'bob', ruleType: 'nineball',
+        tableId: 'rematch-table-2',
+        rematch: rematchInfo,
+        meta: { ts: new Date().toISOString() },
+      };
+      await page.evaluate((msg) => {
+        const app = document.querySelector('lobby-app') as any;
+        app._ctrl.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
+      }, offerMsg);
+    }
+
+    await expect(page).toHaveURL(/first=true/, { timeout: 15000 });
     await context.close();
   });
 

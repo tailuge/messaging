@@ -1,13 +1,13 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 155;
+export const CLIENTVERSION = 161;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 export const genId = () => 'user-' + Math.random().toString(36).slice(2, 7);
 
 export const SCOREBOARD_URL = 'https://scoreboard-tailuge.vercel.app';
-export const isVercel = window.location.hostname.includes('vercel');
+export const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel');
 
 export const timeAgo = ts => {
   const s = Math.floor((Date.now() - ts) / 1000);
@@ -26,6 +26,13 @@ export const INITIAL_STATE = {
     challenges: {}, // indexed by other player's ID
     currentMatch: null // { tableId, ruleType, isFirst }
 };
+
+export function resolveFirstTurn(myId, challengerId, rematch) {
+    if (rematch?.nextTurnId) {
+        return rematch.nextTurnId === myId;
+    }
+    return challengerId === myId;
+}
 
 export function reduce(state, action) {
     const C = { ...state.challenges };
@@ -50,10 +57,17 @@ export function reduce(state, action) {
                 // redirecting a freshly-loaded lobby back into a finished game.
                 if (!pending || pending.tableId !== m.tableId) return state;
                 const options = m.options || pending.options;
+                const rematch = m.rematch || pending.rematch;
                 delete C[id];
                 return {
                     ...state, challenges: C,
-                    currentMatch: { tableId: m.tableId, ruleType: m.ruleType, options, isFirst: m.challengerId === action.myId }
+                    currentMatch: {
+                        tableId: m.tableId,
+                        ruleType: m.ruleType,
+                        options,
+                        isFirst: resolveFirstTurn(action.myId, m.challengerId, rematch),
+                        rematch: rematch ? encodeURIComponent(JSON.stringify(rematch)) : undefined
+                    }
                 };
             } else if (m.type === 'decline') {
                 if (C[m.challengeeId]) C[m.challengeeId] = { ...C[m.challengeeId], status: 'declined' };

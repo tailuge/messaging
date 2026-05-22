@@ -148,7 +148,7 @@ class MessageModal extends LitElement {
                             : thread.map(m => html`<div class="msg ${m.senderId === myId ? 'mine' : 'theirs'}">${m.text}</div>`)}
                     </div>
                     <form class="compose" @submit=${this._send}>
-                        <input type="text" placeholder="Message…" autocomplete="off" aria-label="Message text">
+                        <input type="text" name="message" placeholder="Message…" autocomplete="off" aria-label="Message text">
                         <button type="submit" aria-label="Send message">➤</button>
                     </form>
                     <button class="cancel" @click=${() => emit(this, 'close')}>Close</button>
