@@ -63,7 +63,7 @@ export const FONT_STYLES = css`
 
 export const SHARED_STYLES = css`
     :host { font-family: 'Exo', sans-serif; font-weight: 200; }
-    button { cursor: pointer; padding: 0.15rem 0.4rem; border: 1px solid var(--btn-border); border-radius: 4px; background: var(--btn-bg); color: var(--text); font: inherit; font-size: 0.75rem; transition: background-color 0.2s, opacity 0.2s; min-width: 24px; min-height: 24px; }
+    button { cursor: pointer; padding: 0.15rem 0.2rem; border: 1px solid var(--btn-border); border-radius: 4px; background: var(--btn-bg); color: var(--text); font: inherit; font-size: 0.75rem; transition: background-color 0.2s, opacity 0.2s; min-width: 24px; min-height: 24px; }
     button:hover { background-color: var(--btn-hover); }
     button:active { background-color: var(--btn-active); }
     button:focus-visible { outline: 2px solid #007bff; outline-offset: 2px; }
@@ -126,8 +126,8 @@ export const BADGE_STYLES = css`
 export const USER_BADGE_STYLES = css`
     :host { display: inline-flex; align-items: center; align-self: center; font-family: 'Exo', sans-serif; font-weight: 200; }
     .badge {
-        display: inline-flex; align-items: center; gap: 5px;
-        padding: 0px 12px 0px 10px; border-radius: 4px;
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 0px 4px 0px 2px; border-radius: 4px;
         background: var(--surface); border: 1px solid var(--border);
         cursor: pointer; font-size: 1.2rem; color: var(--text); font-weight: 600;
         font-family: inherit;
@@ -203,7 +203,7 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
 h1 a { color: inherit; text-decoration: none; }
      h1 a:hover { text-decoration: underline; }
      h1 .version { font-size: 0.65rem; color: var(--text-dim); margin-left: 0.25rem; vertical-align: super; font-weight: 200; }
-    .topbar { display: flex; align-items: center; flex-shrink: 0; gap: 0.5rem; }
+    .topbar { display: flex; align-items: center; flex-shrink: 0; gap: 0.4rem; }
     .topbar .logo { width: 32px; height: 32px; flex-shrink: 0; filter: grayscale(100%); opacity: 0.7; }
     .topbar h1 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem; overflow: hidden; }

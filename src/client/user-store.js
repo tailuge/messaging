@@ -6,7 +6,7 @@ class UserStore extends EventTarget {
         super();
         const p = new URLSearchParams(window.location.search);
         const urlId = (p.get('userId') || '').trim();
-        const urlName = p.get('userName');
+        const urlName = (p.get('userName') || '').trim();
 
         if (isVercel) {
             localStorage.removeItem('userId');
@@ -14,6 +14,7 @@ class UserStore extends EventTarget {
         }
 
         const storedId = (localStorage.getItem('userId') || '').trim();
+        const storedName = (localStorage.getItem('userName') || '').trim();
         
         if (urlId.length > 2) {
             this.clientId = urlId;
@@ -24,15 +25,15 @@ class UserStore extends EventTarget {
             if (this.clientId !== storedId) localStorage.setItem('userId', this.clientId);
         }
 
-        this.userName = urlName || localStorage.getItem('userName') || 'Anonymous';
+        this.userName = urlName || storedName || 'Anonymous';
         this.lod = localStorage.getItem('lod') || '2';
     }
 
-    set(clientId, userName) {
+set(clientId, userName) {
         this.clientId = clientId.trim().length > 2 ? clientId.trim() : genId();
-        this.userName = userName;
+        this.userName = userName.trim();
         localStorage.setItem('userId', this.clientId);
-        localStorage.setItem('userName', userName);
+        localStorage.setItem('userName', this.userName);
         this.dispatchEvent(new Event('change'));
     }
 

@@ -2,7 +2,7 @@ import { resolveFirstTurn, reduce, INITIAL_STATE } from "../src/client/utils.js"
 
 // Mock lit
 jest.mock('lit', () => ({
-  html: (strings: any, ...values: any[]) => strings[0],
+  html: (strings: any, ..._values: any[]) => strings[0],
 }));
 
 describe("Lobby Logic", () => {

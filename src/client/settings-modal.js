@@ -12,7 +12,7 @@ class SettingsModal extends StoreElement {
     };
     static LOD_LABELS = ['pixelated', 'polygons', 'high poly', 'shaders', 'antialiased'];
     static styles = [SHARED_STYLES, CHALLENGE_MODAL_STYLES, css`
-        .burger { background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 0.1rem 0.3rem; color: var(--text-muted); line-height: 1; min-width: 32px; min-height: 32px; }
+        .burger { background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 0.0rem 0.1rem; color: var(--text-muted); line-height: 1; min-width: 28px; min-height: 32px; }
         .burger:hover { color: var(--text); background: none; }
         .row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: var(--text); }
         .section-title { font-size: 0.75rem; font-weight: bold; color: var(--text-muted); text-transform: uppercase; margin-top: 0.5rem; border-bottom: 1px solid var(--border-light); padding-bottom: 2px; }
