@@ -144,15 +144,14 @@ const appendOptions = (url, options) => options
     ? Object.entries(options).reduce((u, [k, v]) => u + `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`, url)
     : url;
 
-export const soloUrl = (g, userId, userName, lod) => {
-    if (g.url) return `${g.url}?userId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}&lod=${lod}`;
-    return appendOptions(
-        `${BASE}?ruletype=${g.ruletype}&userId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}&lod=${lod}`,
-        g.options
-    );
+export const soloUrl = (g, userId, userName, lod, flip) => {
+    let url = g.url ? `${g.url}?userId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}&lod=${lod}`
+                    : `${BASE}?ruletype=${g.ruletype}&userId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}&lod=${lod}`;
+    if (flip) url += '&flip=true';
+    return g.url ? url : appendOptions(url, g.options);
 };
 
-export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options, bot, lod, rematch }) => {
+export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options, bot, lod, rematch, flip }) => {
     let url = `${BASE}?websocketserver=wss://billiards.onrender.com/ws`
         + `&userName=${encodeURIComponent(userName)}&userId=${userId}&ruletype=${ruleType}`;
     if (!bot) url += `&tableId=${tableId}`;
@@ -160,6 +159,7 @@ export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options,
     if (bot) url += `&bot=${encodeURIComponent(bot)}`;
     if (lod !== undefined) url += `&lod=${lod}`;
     if (rematch) url += `&rematch=${rematch}`;
+    if (flip) url += '&flip=true';
     return appendOptions(url, options);
 };
 

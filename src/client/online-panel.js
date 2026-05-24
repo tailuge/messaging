@@ -231,7 +231,7 @@ class OnlinePanel extends LitElement {
         if (u?.isBot) {
             const tableId = 'bot-' + Math.random().toString(36).slice(2, 8);
             const isFirst = resolveFirstTurn(this.#myId, this.#myId, this.#rematch?.info);
-            window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst, options, bot: u.userName, lod: userStore.lod, rematch: this.#rematch?.rematchParam });
+            window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst, options, bot: u.userName, lod: userStore.lod, flip: userStore.flip, rematch: this.#rematch?.rematchParam });
             return;
         }
         const tableId = await this.#lobby.challenge(userId, ruleType, undefined, options);
@@ -287,7 +287,7 @@ class OnlinePanel extends LitElement {
 
     render() {
         if (this.#tableId) {
-            const url = gameUrl({ tableId: this.#tableId, userId: this.#myId, userName: this.#myName, ruleType: this.#ruleType, isFirst: this.#isFirst, options: this.#matchOptions, lod: userStore.lod, rematch: this.#state.currentMatch?.rematch });
+            const url = gameUrl({ tableId: this.#tableId, userId: this.#myId, userName: this.#myName, ruleType: this.#ruleType, isFirst: this.#isFirst, options: this.#matchOptions, lod: userStore.lod, flip: userStore.flip, rematch: this.#state.currentMatch?.rematch });
             this.#state = { ...this.#state, currentMatch: null };
             window.location.href = url;
             return html``;

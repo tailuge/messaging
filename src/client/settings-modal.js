@@ -178,6 +178,13 @@ class SettingsModal extends StoreElement {
                             <label for="quality-range" style="font-size: 0.75rem;">Quality: <span class="lod-label">${SettingsModal.LOD_LABELS[userStore.lod] || userStore.lod}</span></label>
                             <input id="quality-range" type="range" min="0" max="4" step="1" .value=${userStore.lod} @input=${e => userStore.setLod(e.target.value)}>
                         </div>
+                        <div class="row">
+                            <span>Flip X Axis</span>
+                            <label class="switch">
+                                <input type="checkbox" .checked=${userStore.flip} @change=${e => userStore.setFlip(e.target.checked)}>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
 
                         <div class="section-title">Links</div>
                         <div class="row"><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Support</a></div>
