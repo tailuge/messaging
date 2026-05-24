@@ -181,7 +181,7 @@ class SettingsModal extends StoreElement {
                         <div class="row">
                             <span>Flip X Axis</span>
                             <label class="switch">
-                                <input type="checkbox" .checked=${userStore.flipX} @change=${e => userStore.setFlipX(e.target.checked)}>
+                                <input type="checkbox" .checked=${userStore.flip} @change=${e => userStore.setFlip(e.target.checked)}>
                                 <span class="slider"></span>
                             </label>
                         </div>

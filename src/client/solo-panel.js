@@ -20,10 +20,10 @@ class SoloPanel extends StoreElement {
     static styles = [SOLO_PANEL_STYLES, BADGE_STYLES];
     #games = [...GAMES].sort(() => Math.random() - 0.5);
     render() {
-        const { clientId, userName, lod, flipX } = userStore;
+        const { clientId, userName, lod, flip } = userStore;
         return html`<div class="grid">${this.#games.map(g => html`
             <button title=${g.label} aria-label="Play ${g.label}"
-                @click=${() => { window.location.href = soloUrl(g, clientId, userName, lod, flipX); }}>
+                @click=${() => { window.location.href = soloUrl(g, clientId, userName, lod, flip); }}>
                 <span class="icon-wrap">
                     <img src=${g.img} alt=${g.label} />
                     ${g.options ? html`<span class="badge">${Object.values(g.options)[0]}</span>` : ''}
