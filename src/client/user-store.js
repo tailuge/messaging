@@ -27,6 +27,7 @@ class UserStore extends EventTarget {
 
         this.userName = urlName || storedName || 'Anonymous';
         this.lod = localStorage.getItem('lod') || '2';
+        this.flipX = localStorage.getItem('flipX') === 'true';
     }
 
 set(clientId, userName) {
@@ -40,6 +41,12 @@ set(clientId, userName) {
     setLod(val) {
         this.lod = val;
         localStorage.setItem('lod', val);
+        this.dispatchEvent(new Event('change'));
+    }
+
+    setFlipX(val) {
+        this.flipX = !!val;
+        localStorage.setItem('flipX', this.flipX);
         this.dispatchEvent(new Event('change'));
     }
 }
