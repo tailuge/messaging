@@ -5,6 +5,7 @@ import './info-panel.js';
 import './online-panel.js';
 import './user-badge.js';
 import './settings-modal.js';
+import './motd-panel.js';
 import { CLIENTVERSION, formatVersion } from './utils.js';
 
 class LobbyApp extends LitElement {
@@ -41,6 +42,7 @@ class LobbyApp extends LitElement {
                         </div>
                         <div class="players panel"><online-panel></online-panel></div>
                     </div>
+                    <div class="motd-row panel"><motd-panel></motd-panel></div>
                     <div class="info-row"><info-panel></info-panel></div>
                 </main>
                 <footer style="text-align:center;font-size:0.7rem;opacity:0.7;padding:0.5rem 0">

@@ -211,6 +211,10 @@ h1 a { color: inherit; text-decoration: none; }
     .main-row { display: flex; gap: 0.2rem; flex-shrink: 0; margin-bottom: 3px; }
     .main-row .solo { flex: 0 0 auto; }
     .main-row .players { flex: 1; display: flex; flex-direction: column; }
+    .motd-row { display: flex; flex-direction: column; margin-bottom: 3px; }
+    @media (max-width: 500px) {
+        .motd-row { display: none; }
+    }
     .info-row { display: flex; flex-direction: column; }
     .info-row .panel { overflow: visible; }
     .container { max-width: 900px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 0.2rem; flex: 1; }
