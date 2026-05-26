@@ -28,6 +28,7 @@ RUN wget -qO- https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz | tar zxv
     NJS_LIBXSLT=NO ./configure \
         --with-compat \
         --with-http_ssl_module \
+        --with-http_realip_module \
         --add-dynamic-module=/nchan \
         --add-dynamic-module=/build/njs-${NJS_VERSION}/nginx && \
     make modules && \
@@ -56,6 +57,7 @@ COPY nginx.conf /etc/nginx/nginx.conf
 COPY nchan.conf /etc/nginx/conf.d/default.conf
 COPY cors.conf /etc/nginx/cors.conf
 COPY metadata_headers.conf /etc/nginx/metadata_headers.conf
+COPY blocklist.conf /etc/nginx/conf.d/blocklist.conf
 COPY nchan_meta.js /etc/nginx/nchan_meta.js
 COPY api.njs /etc/nginx/api.njs
 COPY html/ /usr/share/nginx/html/
