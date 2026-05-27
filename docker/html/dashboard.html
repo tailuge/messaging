@@ -137,6 +137,24 @@ table td {
         color: #dc3545;
         background-color: #f8d7da;
       }
+      .card.collapsed .card-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+      }
+      .card .card-content {
+        max-height: 500px;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+      }
+      .toggle-header {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .toggle-header h3 {
+        margin: 0;
+      }
     </style>
   </head>
   <body>
@@ -244,10 +262,13 @@ table td {
          </div>
        </div>
 
-      <div class="card">
-        <h3>Access Logs</h3>
+<div class="card collapsed" id="access-logs-card">
+        <div class="toggle-header" onclick="toggleCard('access-logs-card')" style="cursor: pointer;">
+          <h3 style="margin: 0; display: inline;">Access Logs</h3>
+          <span class="toggle-indicator">▸</span>
+        </div>
         <div id="access-logs-meta" class="refresh-tag"></div>
-        <div id="access-logs-info">
+        <div class="card-content" id="access-logs-info">
           <table id="access-logs-table">
             <thead>
               <tr>
@@ -265,10 +286,13 @@ table td {
         </div>
       </div>
 
-      <div class="card">
-        <h3>NJS Logs</h3>
+      <div class="card collapsed" id="njs-logs-card">
+        <div class="toggle-header" onclick="toggleCard('njs-logs-card')" style="cursor: pointer;">
+          <h3 style="margin: 0; display: inline;">NJS Logs</h3>
+          <span class="toggle-indicator">▸</span>
+        </div>
         <div id="njs-logs-meta" class="refresh-tag"></div>
-        <div id="njs-logs-info">
+        <div class="card-content" id="njs-logs-info">
           <table id="njs-logs-table">
             <thead>
               <tr>
@@ -289,6 +313,13 @@ table td {
     </div>
 
     <script>
+      function toggleCard(cardId) {
+        const card = document.getElementById(cardId);
+        card.classList.toggle('collapsed');
+        const indicator = card.querySelector('.toggle-indicator');
+        indicator.textContent = card.classList.contains('collapsed') ? '▸' : '▾';
+      }
+
       function escapeHtml(text) {
         const div = document.createElement("div");
         div.textContent = text;
