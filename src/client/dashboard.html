@@ -227,13 +227,15 @@ table td {
                  <th>Country Code</th>
                  <th>Location</th>
                  <th>Hits</th>
+                 <th>Protocol</th>
+                 <th>Last URI</th>
                  <th>Origins</th>
                  <th>Since</th>
                </tr>
              </thead>
              <tbody>
                <tr>
-                 <td colspan="6" style="text-align: center; color: var(--secondary-color)">
+                 <td colspan="8" style="text-align: center; color: var(--secondary-color)">
                    No cache data available.
                  </td>
                </tr>
@@ -241,6 +243,27 @@ table td {
            </table>
          </div>
        </div>
+
+      <div class="card">
+        <h3>Access Logs</h3>
+        <div id="access-logs-meta" class="refresh-tag"></div>
+        <div id="access-logs-info">
+          <table id="access-logs-table">
+            <thead>
+              <tr>
+                <th>Log Line</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="text-align: center; color: var(--secondary-color)">
+                  No logs available.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <div class="card">
         <h3>NJS Logs</h3>
@@ -353,18 +376,34 @@ table td {
                 const location = city ? city : "-";
                 const sinceTs = parseInt(parts[4]);
                 const since = sinceTs ? new Date(sinceTs).toLocaleString() : "-";
-                return `<tr><td>${escapeHtml(ip)}</td><td>${country}</td><td>${location}</td><td>${hits}</td><td>${origins}</td><td>${since}</td></tr>`;
+                const protocol = escapeHtml(parts[5] || "-");
+                const lastUrl = escapeHtml(parts[6] || "-");
+                return `<tr><td>${escapeHtml(ip)}</td><td>${country}</td><td>${location}</td><td>${hits}</td><td>${protocol}</td><td>${lastUrl}</td><td>${origins}</td><td>${since}</td></tr>`;
               })
               .join("");
           } else {
             ipCacheTableBody.innerHTML =
-              '<tr><td colspan="6" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
+              '<tr><td colspan="8" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
           }
 
         const njsLogsTableBody = document.querySelector("#njs-logs-table tbody");
         const njsLogsMeta = document.getElementById("njs-logs-meta");
         const njsLogs = Array.isArray(data.njs_logs) ? data.njs_logs : null;
         njsLogsMeta.textContent = "";
+
+        const accessLogsTableBody = document.querySelector("#access-logs-table tbody");
+        const accessLogs = Array.isArray(data.access_logs) ? data.access_logs : null;
+
+        if (accessLogs && accessLogs.length > 0) {
+          accessLogsTableBody.innerHTML = accessLogs
+            .map((logLine) => {
+              return `<tr><td>${escapeHtml(logLine)}</td></tr>`;
+            })
+            .join("");
+        } else {
+          accessLogsTableBody.innerHTML =
+            '<tr><td style="text-align: center; color: var(--secondary-color);">No logs available.</td></tr>';
+        }
 
         if (njsLogs && njsLogs.length > 0) {
           njsLogsTableBody.innerHTML = njsLogs
