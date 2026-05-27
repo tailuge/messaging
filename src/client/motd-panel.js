@@ -2,12 +2,12 @@ import { LitElement, html, css } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 
 const MESSAGES = [
-    'Check out the project on <a href="https://github.com/tailuge/billiards" target="_blank">GitHub</a>!',
-    'Want to see more? Follow the <a href="https://youtu.be/bAeiRQcQuyg" target="_blank">video tutorial</a>.',
-    'Play fair and have fun with other players!',
-    'Did you know? You can change your name by clicking on the user badge.',
-    'Try the <a href="https://scoreboard-tailuge.vercel.app" target="_blank">Scoreboard</a> to see top players.',
-    'Billiards is open source and free to play.',
+    'This game is free to play and open source on <a href="https://github.com/tailuge/billiards" target="_blank">GitHub</a>',
+    'Choose graphics settings in options menu.',
+    'Masse trick shot replay: <a href="https://scoreboard-tailuge.vercel.app/api/replay/534?lod=4">here</a>.',
+    'You can change your name by clicking on the user badge.',
+    'Do you know <a href="https://www.youtube.com/watch?v=ArNBvY1uEUo" target="_blank">Three Cushion</a> billiards rules?',
+    'Thank you for playing.',
 ];
 
 class MotdPanel extends LitElement {
