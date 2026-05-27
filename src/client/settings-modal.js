@@ -172,18 +172,18 @@ class SettingsModal extends StoreElement {
                                 <span class="slider"></span>
                             </label>
                         </div>
-
-                        <div class="section-title">Graphics</div>
-                        <div class="row" style="flex-direction: column; align-items: flex-start; gap: 2px;">
-                            <label for="quality-range" style="font-size: 0.75rem;">Quality: <span class="lod-label">${SettingsModal.LOD_LABELS[userStore.lod] || userStore.lod}</span></label>
-                            <input id="quality-range" type="range" min="0" max="4" step="1" .value=${userStore.lod} @input=${e => userStore.setLod(e.target.value)}>
-                        </div>
                         <div class="row">
                             <span>Flip X Axis</span>
                             <label class="switch">
                                 <input type="checkbox" .checked=${userStore.flip} @change=${e => userStore.setFlip(e.target.checked)}>
                                 <span class="slider"></span>
                             </label>
+                        </div>
+
+                        <div class="section-title">Graphics</div>
+                        <div class="row" style="flex-direction: column; align-items: flex-start; gap: 2px;">
+                            <label for="quality-range" style="font-size: 0.75rem;">Quality: <span class="lod-label">${SettingsModal.LOD_LABELS[userStore.lod] || userStore.lod}</span></label>
+                            <input id="quality-range" type="range" min="0" max="4" step="1" .value=${userStore.lod} @input=${e => userStore.setLod(e.target.value)}>
                         </div>
 
                         <div class="section-title">Links</div>
