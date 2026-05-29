@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 const LOBBY_URL = process.env.LIVE === 'true' 
   ? 'https://billiards.tailuge.workers.dev/lobby.html' 
-  : 'http://localhost:80/lobby.html';
+  : (process.env.LOBBY_URL || 'http://localhost:80/lobby.html');
 
 const IS_LIVE = process.env.LIVE === 'true';
 

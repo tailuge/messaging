@@ -3,6 +3,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { MessagingClient, canChallenge, canSpectate, userStatus } from '../index.ts';
 import { userStore } from './user-store.js';
 import { gameUrl, spectateUrl, INITIAL_STATE, reduce, flag, getEmoji, isVercel, CLIENTVERSION, formatVersion, resolveFirstTurn } from './utils.js';
+import { RematchCoordinator } from './rematch-coordinator.js';
 import { logUsage } from './logusage.js';
 import { SHARED_STYLES, USER_LIST_STYLES, PLAYER_PANEL_STYLES, CHALLENGE_MODAL_STYLES, BADGE_STYLES } from './styles.js';
 import './message-modal.js';
@@ -102,21 +103,6 @@ class ChallengeModal extends LitElement {
     }
 }
 
-// ── RematchCoordinator ────────────────────────────────────────────────────────
-
-class RematchCoordinator {
-    constructor(info) { this.info = info; }
-    get opponentId()   { return this.info.opponentId; }
-    get ruleType()     { return this.info.ruleType; }
-    get rematchParam() { return encodeURIComponent(JSON.stringify(this.info)); }
-    async sendChallenge(lobby) {
-        return lobby.challenge(this.opponentId, this.ruleType, this.info, this.info.options);
-    }
-    shouldAutoAccept(msg) {
-        return msg.type === 'offer' && msg.challengerId === this.opponentId;
-    }
-}
-
 // ── OnlinePanel ───────────────────────────────────────────────────────────────
 
 class OnlinePanel extends LitElement {
@@ -206,7 +192,7 @@ class OnlinePanel extends LitElement {
             userId: this.#myId, userName: this.#myName,
         });
         this.dispatch({ type: 'CONNECTED', payload: true });
-        if (this.#rematch) {
+        if (this.#rematch && this.#rematch.shouldChallenge(this.#myId)) {
             const info = this.#rematch.info;
             const tableId = await this.#rematch.sendChallenge(this.#lobby);
             this.dispatch({ type: 'CHALLENGE_SENT', payload: { challengerId: this.#myId, challengeeId: this.#rematch.opponentId, recipientName: info.opponentName, ruleType: this.#rematch.ruleType, options: info.options, tableId, rematch: info } });
