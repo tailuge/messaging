@@ -8,13 +8,25 @@ const emit = (el, type, detail) =>
     el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
 
 class ChallengeBanner extends LitElement {
-    static properties = { challenge: { type: Object }, sent: { type: Object } };
+    static properties = { challenge: { type: Object }, sent: { type: Object }, waitingRematch: { type: Object } };
     static styles = [SHARED_STYLES, CHALLENGE_BANNER_STYLES, SENT_CHALLENGE_BANNER_STYLES];
 
     render() {
         if (this.challenge) return this._incoming(this.challenge);
         if (this.sent) return this._sent(this.sent);
+        if (this.waitingRematch) return this._waitingRematch(this.waitingRematch);
         return html``;
+    }
+
+    _waitingRematch(c) {
+        return html`
+            <div class="banner pending">
+                <div class="details">${ruleIcon(c.ruleType)} ${c.ruleType}</div>
+                <div class="row">
+                    <strong>Waiting for ${c.opponentName} to accept.</strong>
+                    <button class="btn-leave" @click=${() => emit(this, 'cancel')}>Cancel</button>
+                </div>
+            </div>`;
     }
 
     _incoming(c) {

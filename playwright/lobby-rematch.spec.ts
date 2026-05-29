@@ -375,4 +375,67 @@ test.describe('Lobby Rematch', () => {
     await alice.context.close();
     await bob.context.close();
   });
+
+  test('rematch: non-challenging player sees waiting banner and can cancel', async ({ browser }) => {
+    const rematchInfo = { opponentId: 'alice', opponentName: 'Alice', ruleType: 'nineball', lastScores: [], nextTurnId: 'alice' };
+    const rematch = encodeURIComponent(JSON.stringify(rematchInfo));
+
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    if (!IS_LIVE) {
+      await page.route('**/publish/presence/lobby', async (route) => {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'sent' }) });
+      });
+    }
+
+    const url = `${LOBBY_URL}?userId=bob&userName=Bob&rematch=${rematch}`;
+    await page.goto(url);
+
+    if (!IS_LIVE) {
+      const users = [
+        { userId: 'alice', userName: 'Alice', messageType: 'presence', type: 'join', meta: { country: 'US' } },
+        { userId: 'bob',   userName: 'Bob',   messageType: 'presence', type: 'join', meta: { country: 'GB' } },
+      ];
+      await page.evaluate((u) => {
+        const app = document.querySelector('lobby-app') as any;
+        app._ctrl.dispatch({ type: 'CONNECTED', payload: true });
+        app._ctrl.dispatch({ type: 'USERS_UPDATE', payload: u });
+      }, users);
+    }
+
+    // Wait for the banner to be visible
+    const banner = page.locator('challenge-banner');
+    await expect(banner).toBeVisible({ timeout: 10000 });
+    await expect(banner).toContainText('Waiting for Alice to accept');
+
+    // Click cancel
+    await banner.locator('button.btn-leave').click();
+
+    // The banner should disappear
+    await expect(banner).not.toBeVisible({ timeout: 5000 });
+
+    if (!IS_LIVE) {
+      // Simulate Alice sending an offer now, it should NOT auto-accept because Bob canceled
+      const offerMsg = {
+        messageType: 'challenge', type: 'offer',
+        challengerId: 'alice', challengerName: 'Alice',
+        challengeeId: 'bob', ruleType: 'nineball',
+        tableId: 'rematch-table-canceled',
+        rematch: rematchInfo,
+        meta: { ts: new Date().toISOString() },
+      };
+      await page.evaluate((msg) => {
+        const app = document.querySelector('lobby-app') as any;
+        app._ctrl.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
+      }, offerMsg);
+
+      // Verify that it shows as an incoming challenge banner (with Accept/Decline buttons) instead of redirecting
+      await expect(banner).toBeVisible({ timeout: 5000 });
+      await expect(banner).toContainText('Challenge from Alice');
+      await expect(banner.locator('button.btn-accept')).toBeVisible();
+    }
+
+    await context.close();
+  });
 });

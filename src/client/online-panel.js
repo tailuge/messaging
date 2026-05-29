@@ -265,6 +265,11 @@ class OnlinePanel extends LitElement {
     }
 
     async #cancelChallenge() {
+        if (this.#rematch && !this.#rematch.shouldChallenge(this.#myId)) {
+            this.#rematch = null;
+            this.requestUpdate();
+            return;
+        }
         const s = this.#sentChallenge;
         if (s?.status === 'pending') {
             await this.#lobby.cancelChallenge(s.challengeeId, s.ruleType);
@@ -330,6 +335,7 @@ class OnlinePanel extends LitElement {
             <challenge-banner
                 .challenge=${this.#activeChallenge}
                 .sent=${this.#sentChallenge}
+                .waitingRematch=${this.#rematch && !this.#rematch.shouldChallenge(this.#myId) ? this.#rematch.info : null}
                 @accept=${() => this.#acceptChallenge()}
                 @decline=${() => this.#declineChallenge()}
                 @cancel=${() => this.#cancelChallenge()}
