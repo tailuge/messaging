@@ -8,6 +8,7 @@ const MESSAGES = [
     'You can change your name by clicking on the user badge.',
     'Do you know <a href="https://www.youtube.com/watch?v=ArNBvY1uEUo" target="_blank">Three Cushion</a> billiards rules?',
     'Thank you for playing.',
+    'A great three cushion <a href="https://scoreboard-tailuge.vercel.app/api/rank/24872636?ruletype=threecushion&lod=4">break</a>'
 ];
 
 class MotdPanel extends LitElement {

@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 180;
+export const CLIENTVERSION = 186;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 export const genId = () => 'user-' + Math.random().toString(36).slice(2, 7);
@@ -152,7 +152,7 @@ export const soloUrl = (g, userId, userName, lod, flip) => {
 };
 
 export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options, bot, lod, rematch, flip }) => {
-    let url = `${BASE}?websocketserver=wss://billiards.onrender.com/ws`
+    let url = `${BASE}?websocketserver=wss://billiards-network.onrender.com`
         + `&userName=${encodeURIComponent(userName)}&userId=${userId}&ruletype=${ruleType}`;
     if (!bot) url += `&tableId=${tableId}`;
     if (isFirst) url += '&first=true';
@@ -164,7 +164,7 @@ export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options,
 };
 
 export const spectateUrl = ({ tableId, userId, userName, ruleType }) =>
-    `${BASE}?websocketserver=wss://billiards.onrender.com/ws`
+    `${BASE}?websocketserver=wss://billiards-network.onrender.com`
     + `&tableId=${tableId}&userName=${encodeURIComponent(userName)}&userId=${userId}&ruletype=${ruleType}&spectator=true`;
 
 const RULE_ASSETS = { eightball: 'eightball', snooker: 'snooker', threecushion: 'threecushion', nineball: 'nineball' };

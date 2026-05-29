@@ -11,7 +11,7 @@ class UserBadge extends StoreElement {
         super();
         this._clientId = userStore.clientId;
         this._name = userStore.userName;
-        this._dotColor = userStore.isForcedId ? '#f5c518' : '#4caf50';
+        this._dotColor = userStore.isForcedId ? '#9fca10ff' : '#4caf50';
     }
 
     _commit(value) {

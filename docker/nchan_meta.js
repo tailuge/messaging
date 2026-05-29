@@ -47,8 +47,6 @@ async function buildMeta(r) {
   const origin = r.headersIn.origin || "";
 
   const cached = cache.get(obfuscatedIp);
-  const protocol = r.headersIn["Upgrade"] && r.headersIn["Upgrade"].toLowerCase() === "websocket" ? "wss" : "http";
-  const lastUrl = r.uri;
 
   if (cached) {
     const parts = cached.split("|");
@@ -66,8 +64,7 @@ async function buildMeta(r) {
 
     const since = parseInt(parts[4]) || Date.now();
     const newCount = count + 1;
-    // Format: country|city|count|origins|since|protocol|lastUrl
-    cache.set(obfuscatedIp, `${country}|${city}|${newCount}|${origins}|${since}|${protocol}|${lastUrl}`, 86400000);
+    cache.set(obfuscatedIp, `${country}|${city}|${newCount}|${origins}|${since}`, 86400000);
     return createMeta(r, country, city, since);
   }
 
@@ -90,8 +87,7 @@ async function buildMeta(r) {
   // Cache for 24 hours (86400000 ms) - use obfuscated IP as key
   const obfuscatedOrigin = origin ? obfuscateOrigin(origin) : "";
   const since = Date.now();
-  // Format: country|city|count|origins|since|protocol|lastUrl
-  cache.set(obfuscatedIp, `${country}|${city}|1|${obfuscatedOrigin}|${since}|${protocol}|${lastUrl}`, 86400000);
+  cache.set(obfuscatedIp, `${country}|${city}|1|${obfuscatedOrigin}|${since}`, 86400000);
 
   return createMeta(r, country, city, since);
 }
@@ -290,7 +286,6 @@ function getIpCache() {
       uptime: getUptime(),
       njs_logs: getLastLines("/var/log/nginx/njs_error.log", 50),
       error_logs: getLastLines("/var/log/nginx/error_file.log", 100),
-      access_logs: getLastLines("/var/log/nginx/access_file.log", 100),
       ts: new Date().toISOString(),
     };
 
