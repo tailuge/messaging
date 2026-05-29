@@ -119,6 +119,7 @@ class OnlinePanel extends LitElement {
     #pendingChallenge = null;
     #pendingMessage = null;
     #pendingChats = new Map(); // userId → unread count
+    #joinInfo = null;
 
     constructor() {
         super();
@@ -129,11 +130,27 @@ class OnlinePanel extends LitElement {
         const raw = p.get('rematch');
         if (raw) {
             this.#rematch = new RematchCoordinator(JSON.parse(decodeURIComponent(raw)));
-            const url = new URL(location);
-            url.searchParams.delete('rematch');
-            history.replaceState(null, '', url);
         } else {
             this.#rematch = null;
+        }
+
+        const action = p.get('action');
+        if (action === 'join') {
+            this.#joinInfo = {
+                opponentId: p.get('opponentId'),
+                opponentName: p.get('opponentName'),
+                ruleType: p.get('ruletype')
+            };
+        }
+
+        if (raw || action === 'join') {
+            const url = new URL(location);
+            url.searchParams.delete('rematch');
+            url.searchParams.delete('action');
+            url.searchParams.delete('opponentId');
+            url.searchParams.delete('opponentName');
+            url.searchParams.delete('ruletype');
+            history.replaceState(null, '', url);
         }
 
         let baseUrl = 'https://billiards-network.onrender.com';
@@ -208,7 +225,16 @@ class OnlinePanel extends LitElement {
                     this.#acceptChallenge().catch(e => console.error('Auto-accept failed:', e));
                     return;
                 }
+                if (this.#joinInfo && this.#joinInfo.opponentId === msg.challengerId) {
+                    this.#joinInfo = null;
+                    this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
+                    this.#acceptChallenge(msg.challengerId).catch(e => {
+                        console.error('Auto-join accept failed:', e);
+                    });
+                    return;
+                }
                 const sent = this.#sentChallenge;
+
                 if (sent && sent.challengeeId === msg.challengerId && sent.status === 'pending') {
                     if (this.#myId < msg.challengerId) {
                         this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
@@ -225,6 +251,7 @@ class OnlinePanel extends LitElement {
     }
 
     async #challenge(userId, ruleType, options) {
+        this.#joinInfo = null;
         const u = this.#visibleUsers.find(u => u.userId === userId);
         if (u?.isBot) {
             const tableId = 'bot-' + Math.random().toString(36).slice(2, 8);
@@ -245,8 +272,10 @@ class OnlinePanel extends LitElement {
         }
     }
 
-    async #acceptChallenge() {
-        const c = this.#activeChallenge;
+    async #acceptChallenge(challengerId) {
+        this.#joinInfo = null;
+        const c = challengerId ? this.#state.challenges[challengerId] : this.#activeChallenge;
+        if (!c) return;
         await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options, c.challengerName);
         logUsage("joinTable");
         const rematch = this.#rematch?.rematchParam ?? (c.rematch ? encodeURIComponent(JSON.stringify(c.rematch)) : undefined);
@@ -261,6 +290,7 @@ class OnlinePanel extends LitElement {
     }
 
     async #declineChallenge() {
+        this.#joinInfo = null;
         const c = this.#activeChallenge;
         await this.#lobby.declineChallenge(c.challengerId, c.ruleType, c.challengerName);
         this.dispatch({ type: 'CHALLENGE_DISMISS', payload: c.challengerId });
