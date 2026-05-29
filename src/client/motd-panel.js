@@ -6,9 +6,12 @@ const MESSAGES = [
     'Choose graphics settings in options menu.',
     'Masse trick shot replay: <a href="https://scoreboard-tailuge.vercel.app/api/replay/534?lod=4">here</a>.',
     'You can change your name by clicking on the user badge.',
-    'Do you know <a href="https://www.youtube.com/watch?v=ArNBvY1uEUo" target="_blank">Three Cushion</a> billiards rules?',
-    'Thank you for playing.',
-    'A great three cushion <a href="https://scoreboard-tailuge.vercel.app/api/rank/24872636?ruletype=threecushion&lod=4">break</a>'
+    'You can flip aim direction in options menu.',
+    'Do you know <a href="https://www.youtube.com/watch?v=ArNBvY1uEUo" target="_blank">Three Cushion</a> billiards rules? The ultimate game.',
+    'Thank you for playing snooker, pool and three cushion at <a href="https://github.com/tailuge/billiards" target="_blank">tailuge/billiards</a>.',
+    'A great three cushion <a href="https://scoreboard-tailuge.vercel.app/api/rank/24872636?ruletype=threecushion&lod=4">break</a>',
+    'Snooker half century <a href="https://scoreboard-tailuge.vercel.app/api/rank/eab7be6a?ruletype=snooker&lod=4">break</a>. When 147?'
+    
 ];
 
 class MotdPanel extends LitElement {
