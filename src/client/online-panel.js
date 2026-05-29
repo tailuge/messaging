@@ -26,6 +26,7 @@ class UserList extends LitElement {
         myName: { type: String },
         tableId: { type: String },
         isChallengePending: { type: Boolean },
+        challenges: { type: Object },
         pendingChats: { type: Object },
     };
     static styles = [SHARED_STYLES, USER_LIST_STYLES, css`
@@ -45,7 +46,8 @@ class UserList extends LitElement {
 
     _row(u) {
         const unread = this.pendingChats?.get(u.userId) > 0;
-        const challengeable = u.isBot || canChallenge(u, this.myId);
+        const hasOffer = this.challenges?.[u.userId]?.challengerId === u.userId;
+        const challengeable = !hasOffer && (u.isBot || canChallenge(u, this.myId));
         const spectatable = !u.isBot && userStatus(u) === 'playing' && canSpectate(u, this.tableId);
         const status = getEmoji(u.meta?.origin ?? '', u.ruleType ?? '', userStatus(u));
         const actions = unread
@@ -200,10 +202,20 @@ class OnlinePanel extends LitElement {
         }
         this.#lobby.onUsersChange(users => this.dispatch({ type: 'USERS_UPDATE', payload: users }));
         this.#lobby.onChallenge(msg => {
-            if (this.#rematch?.shouldAutoAccept(msg)) {
-                this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
-                this.#acceptChallenge().catch(e => console.error('Auto-accept failed:', e));
-                return;
+            if (msg.type === 'offer' && msg.challengeeId === this.#myId) {
+                if (this.#rematch?.shouldAutoAccept(msg)) {
+                    this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
+                    this.#acceptChallenge().catch(e => console.error('Auto-accept failed:', e));
+                    return;
+                }
+                const sent = this.#sentChallenge;
+                if (sent && sent.challengeeId === msg.challengerId && sent.status === 'pending') {
+                    if (this.#myId < msg.challengerId) {
+                        this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
+                        this.#acceptChallenge().catch(e => console.error('Simultaneous auto-accept failed:', e));
+                    }
+                    return;
+                }
             }
             this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
             if (msg.type === 'offer' && msg.challengeeId === this.#myId && document.hidden && Notification.permission === 'granted') {
@@ -299,6 +311,7 @@ class OnlinePanel extends LitElement {
                 myName=${this.#myName}
                 tableId=${this.#tableId || ''}
                 .isChallengePending=${this.#sentChallenge?.status === 'pending'}
+                .challenges=${this.#state.challenges}
                 .pendingChats=${this.#pendingChats}
                 @challenge=${e => {
                     const u = this.#visibleUsers.find(u => u.userId === e.detail);
