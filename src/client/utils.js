@@ -48,6 +48,7 @@ export function reduce(state, action) {
         case 'CHALLENGE_MSG': {
             const m = action.payload, id = other(m);
             if (m.type === 'offer') {
+                if (state.currentMatch) return state;
                 if (!C[m.challengerId] || C[m.challengerId].tableId !== m.tableId)
                     C[m.challengerId] = { ...m, status: 'pending' };
             } else if (m.type === 'accept' && !state.currentMatch) {
