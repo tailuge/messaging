@@ -253,7 +253,7 @@ class OnlinePanel extends LitElement {
     async #challenge(userId, ruleType, options) {
         this.#joinInfo = null;
         const u = this.#visibleUsers.find(u => u.userId === userId);
-        if (u?.isBot) {
+        if (u?.isBot || userId.startsWith('bot-')) {
             const tableId = 'bot-' + Math.random().toString(36).slice(2, 8);
             const isFirst = resolveFirstTurn(this.#myId, this.#myId, this.#rematch?.info);
             window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst, options, bot: u.userName, lod: userStore.lod, flip: userStore.flip, rematch: this.#rematch?.rematchParam });
@@ -282,7 +282,7 @@ class OnlinePanel extends LitElement {
         const c = challengerId ? this.#state.challenges[challengerId] : this.#activeChallenge;
         if (!c) return;
         await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options, c.challengerName);
-        logUsage("joinTable");
+        if (!c.challengerId.startsWith('bot-')) logUsage("joinTable");
         const rematch = this.#rematch?.rematchParam ?? (c.rematch ? encodeURIComponent(JSON.stringify(c.rematch)) : undefined);
         this.dispatch({ type: 'CHALLENGE_DISMISS', payload: c.challengerId });
         this.dispatch({ type: 'MATCH_SET', payload: {
