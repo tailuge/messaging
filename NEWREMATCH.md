@@ -25,51 +25,125 @@ Example: `lobby.html?opponentId=user-123&opponentName=Bob&ruletype=nineball&next
 
 ### 3.2 Simplified Auto-Challenge Flow
 In `OnlinePanel.js`, the `#rematch` and `#joinInfo` private fields will be replaced by a single `#autoChallenge` object:
+
 1. **Initialization**: On load, if `opponentId` is present in the URL, populate `#autoChallenge`.
-2. **Connection**: Upon connecting to the lobby:
-   - Check if an incoming offer from `opponentId` already exists in the state.
-   - If yes: **Auto-Accept** it.
-   - If no: **Send Challenge** to `opponentId`.
-3. **Simultaneous Resolution**:
-   - If a challenge is received from `opponentId` *after* we have already sent one to them:
-     - Use a simple tie-breaker: If `myId < opponentId`, auto-accept the incoming challenge.
-     - The other player (with higher ID) will naturally receive the `accept` message for the challenge they sent.
-4. **Turn Resolution**:
-   - `resolveFirstTurn` will now simply check if `nextTurnId === myId`. If `nextTurnId` is missing, it falls back to the standard "challenger goes first" logic.
-5. **Idempotency & Deduplication**: The `OnlinePanel` must ensure the auto-accept/challenge logic only fires once per session. Integration with `ChallengeDeduplicator` ensures that simultaneous transitions to the game are handled safely.
-6. **Parameter Purging**: Once the auto-challenge is successfully initiated (challenge sent or accepted), the URL parameters must be cleared using `window.history.replaceState` to prevent re-triggering the flow on page refresh.
+   ```javascript
+   const opponentId = p.get('opponentId');
+   if (opponentId) {
+       this.#autoChallenge = {
+           opponentId,
+           opponentName: p.get('opponentName') || opponentId,
+           ruleType: p.get('ruletype') || 'nineball',
+           nextTurnId: p.get('nextTurnId')
+       };
+   }
+   ```
+
+2. **Parameter Purging**: Clean up URL params immediately in the constructor to prevent refresh loops:
+   ```javascript
+   if (opponentId || p.has('rematch') || p.has('action')) {
+       const url = new URL(location.href);
+       url.searchParams.delete('rematch');
+       url.searchParams.delete('action');
+       url.searchParams.delete('opponentId');
+       url.searchParams.delete('opponentName');
+       url.searchParams.delete('ruletype');
+       url.searchParams.delete('nextTurnId');
+       history.replaceState(null, '', url);
+   }
+   ```
+
+3. **Connection Hook**: Upon connecting to the lobby, check for an existing incoming offer from the opponent. If none, automatically challenge them:
+   ```javascript
+   if (this.#autoChallenge) {
+       const opponentId = this.#autoChallenge.opponentId;
+       const incoming = Object.values(this.#state.challenges).find(
+           c => c.challengerId === opponentId && c.status === 'pending'
+       );
+       if (incoming) {
+           this.dispatch({ type: 'CHALLENGE_MSG', payload: incoming });
+           this.#acceptChallenge(incoming.challengerId).catch(err => console.error(err));
+       } else {
+           this.#challenge(opponentId, this.#autoChallenge.ruleType, this.#autoChallenge.options);
+       }
+   }
+   ```
+
+4. **Simultaneous Resolution**:
+   If a challenge is received from `opponentId` *after* we have already sent one:
+   - Tie-breaker: If `myId < opponentId`, auto-accept the incoming challenge.
+   - The other player (with higher ID) will naturally receive the `accept` message for the challenge they sent.
+   - Implement in `onChallenge(msg)`:
+     ```javascript
+     if (this.#autoChallenge && msg.challengerId === this.#autoChallenge.opponentId && msg.type === 'offer') {
+         const sent = this.#sentChallenge;
+         if (sent && sent.challengeeId === msg.challengerId && sent.status === 'pending') {
+             if (this.#myId < msg.challengerId) {
+                 this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
+                 this.#acceptChallenge(msg.challengerId).catch(err => console.error(err));
+             }
+         } else {
+             this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
+             this.#acceptChallenge(msg.challengerId).catch(err => console.error(err));
+         }
+         return;
+     }
+     ```
+
+5. **Exiting State on Cancel/Decline/Dismiss**:
+   Clear the `#autoChallenge` memory structure if the challenge is declined, cancelled, or dismissed:
+   - Set `this.#autoChallenge = null` in `#cancelChallenge()`, `#declineChallenge()`, and `#clearSentChallenge()`.
+   - Also clear in `onChallenge(msg)` on receiving a cancel or decline from the opponent:
+     ```javascript
+     if (this.#autoChallenge && (msg.challengerId === this.#autoChallenge.opponentId || msg.challengeeId === this.#autoChallenge.opponentId)) {
+         if (msg.type === 'decline' || msg.type === 'cancel') {
+             this.#autoChallenge = null;
+         }
+     }
+     ```
+
+6. **Turn Resolution**:
+   Override `isFirst` in `OnlinePanel`'s getter when `nextTurnId` is present in the auto-challenge config:
+   ```javascript
+   get #isFirst() {
+       if (this.#autoChallenge?.nextTurnId) {
+           return this.#autoChallenge.nextTurnId === this.#myId;
+       }
+       return !!this.#state.currentMatch?.isFirst;
+   }
+   ```
 
 ### 3.3 UI Updates
 - **ChallengeBanner**: Remove the "Waiting for rematch" state. It will now just show a standard "Waiting for [Opponent] to accept" banner, as the auto-challenge is just a normal challenge.
 
 ## 4. Implementation Plan
 
-1. **Phase 1: Cleanup**
+1. **Phase 1: Cleanup** [DONE]
    - Delete `src/client/rematch-coordinator.js`.
    - Update `src/types.ts` to remove `RematchInfo`.
    - Update `src/lobby.ts` to remove `rematch` from method signatures.
    - Remove `RematchCoordinator` imports and usage from `src/client/online-panel.js`.
 
-2. **Phase 2: Utility Refactoring**
+2. **Phase 2: Utility Refactoring** [DONE]
    - Update `src/client/utils.js` to simplify `reduce` and `resolveFirstTurn`.
    - Ensure `gameUrl` no longer expects or appends a `rematch` JSON string.
 
 3. **Phase 3: OnlinePanel Implementation**
-   - Implement the new `#autoChallenge` logic in `OnlinePanel`.
-   - Ensure URL parameters are cleaned up after processing to prevent loops on refresh.
-   - Implement idempotency checks to ensure auto-challenge logic only runs once.
-   - Implement the lexicographical tie-breaker in `onChallenge`.
+   - Implement the new `#autoChallenge` logic, parameter purging, connection hooks, and getter override in `OnlinePanel`.
+   - Implement tie-breaker and state clearing on cancel/decline/dismiss.
 
 4. **Phase 4: Component & Test Cleanup**
    - Update `src/client/challenge-banner.js` to remove rematch-specific UI.
-   - Delete `test/rematch-simultaneous.spec.ts`.
+   - Update `playwright/lobby-rematch.spec.ts` to use new query parameters instead of `rematch=...` and unskip the tests.
+   - Run linter and type-checker to ensure everything is correct.
 
 5. **Phase 5: Verification**
-   - Run existing tests to ensure no regressions in basic challenge flow.
+   - Run Playwright rematch tests with `npm run test:debug` to ensure the new auto-challenge flow works correctly.
+
 ## 5. 2-Phase Rollout Strategy
 The implementation will be executed in two distinct stages to ensure a clean transition:
 
-- **Stage 1: Legacy Removal**: Complete Phase 1 and 2 of the implementation plan. This removes the `RematchCoordinator`, deletes legacy tests, and cleans up the type system. At the end of this stage, the "Rematch" button in games will lead to the lobby but will not trigger any special logic.
+- **Stage 1: Legacy Removal** [DONE]: Complete Phase 1 and 2 of the implementation plan. This removes the `RematchCoordinator`, deletes legacy tests, and cleans up the type system. At the end of this stage, the "Rematch" button in games will lead to the lobby but will not trigger any special logic.
 - **Stage 2: Auto-Challenge Implementation**: Complete Phase 3, 4, and 5. This introduces the URL-driven `#autoChallenge` logic and verifies the new flow.
 
 This approach ensures that we are not building the new system on top of legacy technical debt.
