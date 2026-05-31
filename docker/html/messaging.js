@@ -535,7 +535,7 @@ var Lobby = class {
    * Challenge another user to a game.
    * Returns the ID of the table created for the challenge.
    */
-  async challenge(userId, ruleType, rematch, options) {
+  async challenge(userId, ruleType, options) {
     const tableId = getUID();
     await this.nchan.publishChallenge({
       type: "offer",
@@ -544,7 +544,6 @@ var Lobby = class {
       challengeeId: userId,
       ruleType,
       tableId,
-      rematch,
       options
     });
     return tableId;

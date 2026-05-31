@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 193;
+export const CLIENTVERSION = 194;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 export const genId = () => 'user-' + Math.random().toString(36).slice(2, 7);
@@ -27,13 +27,6 @@ export const INITIAL_STATE = {
     currentMatch: null // { tableId, ruleType, isFirst }
 };
 
-export function resolveFirstTurn(myId, challengerId, rematch) {
-    if (rematch?.nextTurnId) {
-        return rematch.nextTurnId === myId;
-    }
-    return challengerId === myId;
-}
-
 export function reduce(state, action) {
     const C = { ...state.challenges };
     const other = m => m.challengerId === action.myId ? m.challengeeId : m.challengerId;
@@ -58,7 +51,6 @@ export function reduce(state, action) {
                 // redirecting a freshly-loaded lobby back into a finished game.
                 if (!pending || pending.tableId !== m.tableId) return state;
                 const options = m.options || pending.options;
-                const rematch = m.rematch || pending.rematch;
                 delete C[id];
                 return {
                     ...state, challenges: C,
@@ -66,8 +58,7 @@ export function reduce(state, action) {
                         tableId: m.tableId,
                         ruleType: m.ruleType,
                         options,
-                        isFirst: resolveFirstTurn(action.myId, m.challengerId, rematch),
-                        rematch: rematch ? encodeURIComponent(JSON.stringify(rematch)) : undefined
+                        isFirst: m.challengerId === action.myId
                     }
                 };
             } else if (m.type === 'decline') {
@@ -152,14 +143,13 @@ export const soloUrl = (g, userId, userName, lod, flip) => {
     return g.url ? url : appendOptions(url, g.options);
 };
 
-export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options, bot, lod, rematch, flip }) => {
+export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options, bot, lod, flip }) => {
     let url = `${BASE}?websocketserver=wss://billiards-network.onrender.com`
         + `&userName=${encodeURIComponent(userName)}&userId=${userId}&ruletype=${ruleType}`;
     if (!bot) url += `&tableId=${tableId}`;
     if (isFirst) url += '&first=true';
     if (bot) url += `&bot=${encodeURIComponent(bot)}`;
     if (lod !== undefined) url += `&lod=${lod}`;
-    if (rematch) url += `&rematch=${rematch}`;
     if (flip) url += '&flip=true';
     return appendOptions(url, options);
 };

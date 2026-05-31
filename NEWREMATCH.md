@@ -36,6 +36,8 @@ In `OnlinePanel.js`, the `#rematch` and `#joinInfo` private fields will be repla
      - The other player (with higher ID) will naturally receive the `accept` message for the challenge they sent.
 4. **Turn Resolution**:
    - `resolveFirstTurn` will now simply check if `nextTurnId === myId`. If `nextTurnId` is missing, it falls back to the standard "challenger goes first" logic.
+5. **Idempotency & Deduplication**: The `OnlinePanel` must ensure the auto-accept/challenge logic only fires once per session. Integration with `ChallengeDeduplicator` ensures that simultaneous transitions to the game are handled safely.
+6. **Parameter Purging**: Once the auto-challenge is successfully initiated (challenge sent or accepted), the URL parameters must be cleared using `window.history.replaceState` to prevent re-triggering the flow on page refresh.
 
 ### 3.3 UI Updates
 - **ChallengeBanner**: Remove the "Waiting for rematch" state. It will now just show a standard "Waiting for [Opponent] to accept" banner, as the auto-challenge is just a normal challenge.
@@ -55,6 +57,7 @@ In `OnlinePanel.js`, the `#rematch` and `#joinInfo` private fields will be repla
 3. **Phase 3: OnlinePanel Implementation**
    - Implement the new `#autoChallenge` logic in `OnlinePanel`.
    - Ensure URL parameters are cleaned up after processing to prevent loops on refresh.
+   - Implement idempotency checks to ensure auto-challenge logic only runs once.
    - Implement the lexicographical tie-breaker in `onChallenge`.
 
 4. **Phase 4: Component & Test Cleanup**
@@ -63,4 +66,10 @@ In `OnlinePanel.js`, the `#rematch` and `#joinInfo` private fields will be repla
 
 5. **Phase 5: Verification**
    - Run existing tests to ensure no regressions in basic challenge flow.
-   - (Optional) Create a simplified test for the new auto-challenge pairing logic.
+## 5. 2-Phase Rollout Strategy
+The implementation will be executed in two distinct stages to ensure a clean transition:
+
+- **Stage 1: Legacy Removal**: Complete Phase 1 and 2 of the implementation plan. This removes the `RematchCoordinator`, deletes legacy tests, and cleans up the type system. At the end of this stage, the "Rematch" button in games will lead to the lobby but will not trigger any special logic.
+- **Stage 2: Auto-Challenge Implementation**: Complete Phase 3, 4, and 5. This introduces the URL-driven `#autoChallenge` logic and verifies the new flow.
+
+This approach ensures that we are not building the new system on top of legacy technical debt.

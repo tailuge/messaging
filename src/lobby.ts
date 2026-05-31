@@ -3,7 +3,6 @@ import {
   PresenceMessage,
   ChallengeMessage,
   parseMessage,
-  RematchInfo,
   ChatMessage,
 } from "./types";
 import { Table } from "./table";
@@ -218,7 +217,6 @@ export class Lobby {
   async challenge(
     userId: string,
     ruleType: string,
-    rematch?: RematchInfo,
     options?: Record<string, string>,
   ): Promise<string> {
     const tableId = getUID();
@@ -229,7 +227,6 @@ export class Lobby {
       challengeeId: userId,
       ruleType,
       tableId,
-      rematch,
       options,
     });
     return tableId;

@@ -2,8 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 import { MessagingClient, canChallenge, canSpectate, userStatus } from '../index.ts';
 import { userStore } from './user-store.js';
-import { gameUrl, spectateUrl, INITIAL_STATE, reduce, flag, getEmoji, isVercel, CLIENTVERSION, formatVersion, resolveFirstTurn } from './utils.js';
-import { RematchCoordinator } from './rematch-coordinator.js';
+import { gameUrl, spectateUrl, INITIAL_STATE, reduce, flag, getEmoji, isVercel, CLIENTVERSION, formatVersion } from './utils.js';
 import { logUsage } from './logusage.js';
 import { SHARED_STYLES, USER_LIST_STYLES, PLAYER_PANEL_STYLES, CHALLENGE_MODAL_STYLES, BADGE_STYLES } from './styles.js';
 import './message-modal.js';
@@ -115,7 +114,6 @@ class OnlinePanel extends LitElement {
     #myId;
     #myName;
     #client;
-    #rematch = null;
     #pendingChallenge = null;
     #pendingMessage = null;
     #pendingChats = new Map(); // userId → unread count
@@ -127,13 +125,6 @@ class OnlinePanel extends LitElement {
         this.#myName = userStore.userName;
 
         const p = new URLSearchParams(location.search);
-        const raw = p.get('rematch');
-        if (raw) {
-            this.#rematch = new RematchCoordinator(JSON.parse(decodeURIComponent(raw)));
-        } else {
-            this.#rematch = null;
-        }
-
         const action = p.get('action');
         if (action === 'join') {
             this.#joinInfo = {
@@ -143,7 +134,8 @@ class OnlinePanel extends LitElement {
             };
         }
 
-        if (raw || action === 'join') {
+        const rawRematch = p.get('rematch');
+        if (rawRematch || action === 'join') {
             const url = new URL(location);
             url.searchParams.delete('rematch');
             url.searchParams.delete('action');
@@ -211,20 +203,9 @@ class OnlinePanel extends LitElement {
             userId: this.#myId, userName: this.#myName,
         });
         this.dispatch({ type: 'CONNECTED', payload: true });
-        if (this.#rematch && this.#rematch.shouldChallenge(this.#myId)) {
-            const info = this.#rematch.info;
-            const tableId = await this.#rematch.sendChallenge(this.#lobby);
-            this.dispatch({ type: 'CHALLENGE_SENT', payload: { challengerId: this.#myId, challengeeId: this.#rematch.opponentId, recipientName: info.opponentName, ruleType: this.#rematch.ruleType, options: info.options, tableId, rematch: info } });
-            this.#rematch = null;
-        }
         this.#lobby.onUsersChange(users => this.dispatch({ type: 'USERS_UPDATE', payload: users }));
         this.#lobby.onChallenge(msg => {
             if (msg.type === 'offer' && msg.challengeeId === this.#myId) {
-                if (this.#rematch?.shouldAutoAccept(msg)) {
-                    this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
-                    this.#acceptChallenge().catch(e => console.error('Auto-accept failed:', e));
-                    return;
-                }
                 if (this.#joinInfo && this.#joinInfo.opponentId === msg.challengerId) {
                     this.#joinInfo = null;
                     this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
@@ -255,8 +236,8 @@ class OnlinePanel extends LitElement {
         const u = this.#visibleUsers.find(u => u.userId === userId);
         if (u?.isBot) {
             const tableId = 'bot-' + Math.random().toString(36).slice(2, 8);
-            const isFirst = resolveFirstTurn(this.#myId, this.#myId, this.#rematch?.info);
-            window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst, options, bot: u.userName, lod: userStore.lod, flip: userStore.flip, rematch: this.#rematch?.rematchParam });
+            const isFirst = true; // Bot challenges always make user first or handled by game engine
+            window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst, options, bot: u.userName, lod: userStore.lod, flip: userStore.flip });
             return;
         }
         const tableId = await this.#lobby.challenge(userId, ruleType, undefined, options);
@@ -265,11 +246,6 @@ class OnlinePanel extends LitElement {
     }
 
     async #cancelChallenge() {
-        if (this.#rematch && !this.#rematch.shouldChallenge(this.#myId)) {
-            this.#rematch = null;
-            this.requestUpdate();
-            return;
-        }
         const s = this.#sentChallenge;
         if (s?.status === 'pending') {
             await this.#lobby.cancelChallenge(s.challengeeId, s.ruleType);
@@ -283,14 +259,12 @@ class OnlinePanel extends LitElement {
         if (!c) return;
         await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options, c.challengerName);
         logUsage("joinTable");
-        const rematch = this.#rematch?.rematchParam ?? (c.rematch ? encodeURIComponent(JSON.stringify(c.rematch)) : undefined);
         this.dispatch({ type: 'CHALLENGE_DISMISS', payload: c.challengerId });
         this.dispatch({ type: 'MATCH_SET', payload: {
             tableId: c.tableId,
             ruleType: c.ruleType,
             options: c.options,
-            isFirst: resolveFirstTurn(this.#myId, c.challengerId, c.rematch),
-            rematch
+            isFirst: c.challengerId === this.#myId
         } });
     }
 
@@ -335,7 +309,6 @@ class OnlinePanel extends LitElement {
             <challenge-banner
                 .challenge=${this.#activeChallenge}
                 .sent=${this.#sentChallenge}
-                .waitingRematch=${this.#rematch && !this.#rematch.shouldChallenge(this.#myId) ? this.#rematch.info : null}
                 @accept=${() => this.#acceptChallenge()}
                 @decline=${() => this.#declineChallenge()}
                 @cancel=${() => this.#cancelChallenge()}

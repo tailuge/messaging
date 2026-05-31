@@ -39,19 +39,6 @@ export interface PresenceMessage {
 }
 
 /**
- * Context about a previous game for rematch challenges.
- */
-export interface RematchInfo {
-  readonly opponentId?: string;
-  readonly opponentName?: string;
-  readonly ruleType?: string;
-  readonly lastScores: { readonly userId: string; readonly score: number }[];
-  readonly isRematch: boolean;
-  readonly nextTurnId: string; // The ID of the player who should break/go first
-  readonly options?: Record<string, string>;
-}
-
-/**
  * Peer-to-peer challenge request
  */
 export interface ChallengeMessage {
@@ -62,7 +49,6 @@ export interface ChallengeMessage {
   challengeeId: string;
   ruleType: string;
   tableId?: string; // Optional: table created by challenger
-  readonly rematch?: RematchInfo; // Optional: context about a previous game
   readonly options?: Record<string, string>; // Optional: game-specific configuration
   meta?: Meta; // Server-enriched metadata (received messages only)
 }
