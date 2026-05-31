@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('User ID Validation', () => {
-  test('should fallback to random ID if forced userId is less than 2 chars', async ({ page }) => {
+  test('should fallback to random ID if forced userId is less than 3 chars', async ({ page }) => {
+    test.setTimeout(5000);
     // Attempt to force a 1-char userId
     await page.goto('http://localhost:80/lobby.html?userId=a&userName=Alice');
     
@@ -20,6 +21,7 @@ test.describe('User ID Validation', () => {
   });
 
   test('should fallback to random ID if forced userId is empty', async ({ page }) => {
+    test.setTimeout(5000);
     // Attempt to force an empty userId
     await page.goto('http://localhost:80/lobby.html?userId=&userName=Alice');
     
@@ -37,6 +39,7 @@ test.describe('User ID Validation', () => {
   });
 
   test('should fallback to random ID if forced userId is only whitespace', async ({ page }) => {
+    test.setTimeout(5000);
     // Attempt to force a whitespace-only userId
     await page.goto('http://localhost:80/lobby.html?userId=%20%20&userName=Alice');
     
@@ -53,9 +56,10 @@ test.describe('User ID Validation', () => {
     expect(userId).toMatch(/^user-/);
   });
 
-  test('should accept userId with 2 or more characters', async ({ page }) => {
-    // Use a valid 2-char userId
-    await page.goto('http://localhost:80/lobby.html?userId=ab&userName=Alice');
+  test('should accept userId with 3 or more characters', async ({ page }) => {
+    test.setTimeout(5000);
+    // Use a valid 3-char userId
+    await page.goto('http://localhost:80/lobby.html?userId=abc&userName=Alice');
     
     await page.waitForSelector('lobby-app');
     
@@ -65,6 +69,6 @@ test.describe('User ID Validation', () => {
     });
 
     console.log('Detected userId:', userId);
-    expect(userId).toBe('ab');
+    expect(userId).toBe('abc');
   });
 });

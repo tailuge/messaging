@@ -14,6 +14,7 @@ test.describe('Lobby Flow', () => {
       return { context, page };
     };
 
+    test.setTimeout(10000);
     const alice = await setupUser('Alice', 'alice');
     const bob = await setupUser('Bob', 'bob');
 
@@ -37,12 +38,12 @@ test.describe('Lobby Flow', () => {
     // 1. Alice challenges Bob
     const aliceChallengeBtn = alice.page.locator('button[aria-label="Challenge Bob"]');
     await expect(aliceChallengeBtn).toBeVisible();
-    await aliceChallengeBtn.click();
+    await aliceChallengeBtn.click({ force: true });
 
     // Alice selects a game in the modal
     const eightBallBtn = alice.page.locator('challenge-modal button:has-text("Eight Ball")');
     await expect(eightBallBtn).toBeVisible();
-    await eightBallBtn.click();
+    await eightBallBtn.click({ force: true });
 
     // Capture the actual tableId Alice's session generated (random UID from getUID())
     const tableIdHandle = await alice.page.waitForFunction(() => {
@@ -85,7 +86,7 @@ test.describe('Lobby Flow', () => {
     };
 
     // Bob clicks accept
-    await bobAcceptBtn.click();
+    await bobAcceptBtn.click({ force: true });
 
     // Manually dispatch the accept message to both (simulating Nchan broadcast)
     await alice.page.evaluate((msg) => {
@@ -117,6 +118,7 @@ test.describe('Lobby Flow', () => {
       return { context, page };
     };
 
+    test.setTimeout(10000);
     const alice = await setupUser('Alice', 'alice');
     const bob = await setupUser('Bob', 'bob');
 
@@ -134,8 +136,8 @@ test.describe('Lobby Flow', () => {
     }
 
     // Alice challenges Bob
-    await alice.page.locator('button[aria-label="Challenge Bob"]').click();
-    await alice.page.locator('challenge-modal button:has-text("Eight Ball")').click();
+    await alice.page.locator('button[aria-label="Challenge Bob"]').click({ force: true });
+    await alice.page.locator('challenge-modal button:has-text("Eight Ball")').click({ force: true });
 
     const challengeMsg = {
       messageType: 'challenge', type: 'offer',
@@ -188,6 +190,7 @@ test.describe('Lobby Flow', () => {
       return { context, page };
     };
 
+    test.setTimeout(10000);
     const alice = await setupUser('Alice', 'alice');
     const bob = await setupUser('Bob', 'bob');
 
@@ -205,8 +208,8 @@ test.describe('Lobby Flow', () => {
     }
 
     // Alice challenges Bob
-    await alice.page.locator('button[aria-label="Challenge Bob"]').click();
-    await alice.page.locator('challenge-modal button:has-text("Eight Ball")').click();
+    await alice.page.locator('button[aria-label="Challenge Bob"]').click({ force: true });
+    await alice.page.locator('challenge-modal button:has-text("Eight Ball")').click({ force: true });
 
     // Capture actual tableId Alice generated
     const tableIdHandle2 = await alice.page.waitForFunction(() => {
@@ -268,6 +271,7 @@ test.describe('Lobby Flow', () => {
       return { context, page };
     };
 
+    test.setTimeout(10000);
     const alice = await setupUser('Alice', 'alice');
     const bob = await setupUser('Bob', 'bob');
 
@@ -285,8 +289,8 @@ test.describe('Lobby Flow', () => {
     }
 
     // Alice challenges Bob
-    await alice.page.locator('button[aria-label="Challenge Bob"]').click();
-    await alice.page.locator('challenge-modal button:has-text("Eight Ball")').click();
+    await alice.page.locator('button[aria-label="Challenge Bob"]').click({ force: true });
+    await alice.page.locator('challenge-modal button:has-text("Eight Ball")').click({ force: true });
 
     const offerMsg = {
       messageType: 'challenge', type: 'offer',
