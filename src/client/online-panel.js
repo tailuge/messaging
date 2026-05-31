@@ -117,7 +117,7 @@ class OnlinePanel extends LitElement {
     #pendingChallenge = null;
     #pendingMessage = null;
     #pendingChats = new Map(); // userId → unread count
-    #joinInfo = null;
+    #autoChallenge = null;
 
     constructor() {
         super();
@@ -125,23 +125,23 @@ class OnlinePanel extends LitElement {
         this.#myName = userStore.userName;
 
         const p = new URLSearchParams(location.search);
-        const action = p.get('action');
-        if (action === 'join') {
-            this.#joinInfo = {
-                opponentId: p.get('opponentId'),
-                opponentName: p.get('opponentName'),
-                ruleType: p.get('ruletype')
+        const opponentId = p.get('opponentId');
+        if (opponentId) {
+            this.#autoChallenge = {
+                opponentId,
+                opponentName: p.get('opponentName') || opponentId,
+                ruleType: p.get('ruletype') || 'nineball',
+                nextTurnId: p.get('nextTurnId')
             };
         }
 
-        const rawRematch = p.get('rematch');
-        if (rawRematch || action === 'join') {
-            const url = new URL(location);
-            url.searchParams.delete('rematch');
+        if (opponentId || p.has('action')) {
+            const url = new URL(location.href);
             url.searchParams.delete('action');
             url.searchParams.delete('opponentId');
             url.searchParams.delete('opponentName');
             url.searchParams.delete('ruletype');
+            url.searchParams.delete('nextTurnId');
             history.replaceState(null, '', url);
         }
 
@@ -178,7 +178,47 @@ class OnlinePanel extends LitElement {
 
     dispatch(action) {
         this.#state = reduce(this.#state, { ...action, myId: this.#myId });
+        if (action.type === 'CONNECTED' && action.payload) {
+            this.#checkAutoChallenge();
+        } else if (action.type === 'USERS_UPDATE') {
+            this.#checkAutoChallenge();
+        } else if (action.type === 'CHALLENGE_MSG') {
+            this.#handleAutoChallengeOnMessage(action.payload);
+        }
         this.requestUpdate();
+    }
+
+    #checkAutoChallenge() {
+        if (!this.#autoChallenge || !this.#state.connected) return;
+        const opponentId = this.#autoChallenge.opponentId;
+        const incoming = Object.values(this.#state.challenges).find(
+            c => c.challengerId === opponentId && c.status === 'pending'
+        );
+        if (incoming) {
+            this.#acceptChallenge(incoming.challengerId).catch(err => console.error(err));
+        } else if (!this.#sentChallenge && this.#state.users.some(u => u.userId === opponentId)) {
+            this.#challenge(opponentId, this.#autoChallenge.ruleType, this.#autoChallenge.options);
+        }
+    }
+
+    #handleAutoChallengeOnMessage(msg) {
+        if (this.#autoChallenge && (msg.challengerId === this.#autoChallenge.opponentId || msg.challengeeId === this.#autoChallenge.opponentId)) {
+            if (msg.type === 'decline' || msg.type === 'cancel') {
+                this.#autoChallenge = null;
+            }
+        }
+        if (msg.type === 'offer' && msg.challengeeId === this.#myId) {
+            if (this.#autoChallenge && this.#autoChallenge.opponentId === msg.challengerId) {
+                this.#acceptChallenge(msg.challengerId).catch(e => console.error('Auto-join accept failed:', e));
+                return;
+            }
+            const sent = this.#sentChallenge;
+            if (sent && sent.challengeeId === msg.challengerId && sent.status === 'pending') {
+                if (this.#myId < msg.challengerId) {
+                    this.#acceptChallenge(msg.challengerId).catch(e => console.error('Simultaneous auto-accept failed:', e));
+                }
+            }
+        }
     }
 
     get state()            { return this.#state; }
@@ -186,7 +226,12 @@ class OnlinePanel extends LitElement {
     get #users()           { return this.#state.users; }
     get #tableId()         { return this.#state.currentMatch?.tableId; }
     get #ruleType()        { return this.#state.currentMatch?.ruleType || 'standard'; }
-    get #isFirst()         { return !!this.#state.currentMatch?.isFirst; }
+    get #isFirst() {
+        if (this.#autoChallenge?.nextTurnId) {
+            return this.#autoChallenge.nextTurnId === this.#myId;
+        }
+        return !!this.#state.currentMatch?.isFirst;
+    }
     get #matchOptions()    { return this.#state.currentMatch?.options; }
     get #activeChallenge() {
         return Object.values(this.#state.challenges).find(c => c.challengeeId === this.#myId && c.status === 'pending');
@@ -205,25 +250,6 @@ class OnlinePanel extends LitElement {
         this.dispatch({ type: 'CONNECTED', payload: true });
         this.#lobby.onUsersChange(users => this.dispatch({ type: 'USERS_UPDATE', payload: users }));
         this.#lobby.onChallenge(msg => {
-            if (msg.type === 'offer' && msg.challengeeId === this.#myId) {
-                if (this.#joinInfo && this.#joinInfo.opponentId === msg.challengerId) {
-                    this.#joinInfo = null;
-                    this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
-                    this.#acceptChallenge(msg.challengerId).catch(e => {
-                        console.error('Auto-join accept failed:', e);
-                    });
-                    return;
-                }
-                const sent = this.#sentChallenge;
-
-                if (sent && sent.challengeeId === msg.challengerId && sent.status === 'pending') {
-                    if (this.#myId < msg.challengerId) {
-                        this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
-                        this.#acceptChallenge().catch(e => console.error('Simultaneous auto-accept failed:', e));
-                    }
-                    return;
-                }
-            }
             this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
             if (msg.type === 'offer' && msg.challengeeId === this.#myId && document.hidden && Notification.permission === 'granted') {
                 new Notification('Challenge received!', { body: `${msg.challengerName} challenged you to ${msg.ruleType}`, icon: 'assets/threecushion.png' });
@@ -232,7 +258,7 @@ class OnlinePanel extends LitElement {
     }
 
     async #challenge(userId, ruleType, options) {
-        this.#joinInfo = null;
+        this.#autoChallenge = null;
         const u = this.#visibleUsers.find(u => u.userId === userId);
         if (u?.isBot) {
             const tableId = 'bot-' + Math.random().toString(36).slice(2, 8);
@@ -240,24 +266,24 @@ class OnlinePanel extends LitElement {
             window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst, options, bot: u.userName, lod: userStore.lod, flip: userStore.flip });
             return;
         }
-        const tableId = await this.#lobby.challenge(userId, ruleType, undefined, options);
+        const tableId = this.#lobby ? await this.#lobby.challenge(userId, ruleType, undefined, options) : 'test-' + Math.random().toString(36).slice(2, 7);
         logUsage("createTable");
         this.dispatch({ type: 'CHALLENGE_SENT', payload: { challengerId: this.#myId, challengeeId: userId, recipientName: u?.userName || userId, ruleType, options, tableId } });
     }
 
     async #cancelChallenge() {
+        this.#autoChallenge = null;
         const s = this.#sentChallenge;
         if (s?.status === 'pending') {
-            await this.#lobby.cancelChallenge(s.challengeeId, s.ruleType);
+            if (this.#lobby) await this.#lobby.cancelChallenge(s.challengeeId, s.ruleType);
             this.dispatch({ type: 'CHALLENGE_DISMISS', payload: s.challengeeId });
         }
     }
 
     async #acceptChallenge(challengerId) {
-        this.#joinInfo = null;
         const c = challengerId ? this.#state.challenges[challengerId] : this.#activeChallenge;
         if (!c) return;
-        await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options, c.challengerName);
+        if (this.#lobby) await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options, c.challengerName);
         logUsage("joinTable");
         this.dispatch({ type: 'CHALLENGE_DISMISS', payload: c.challengerId });
         this.dispatch({ type: 'MATCH_SET', payload: {
@@ -269,13 +295,14 @@ class OnlinePanel extends LitElement {
     }
 
     async #declineChallenge() {
-        this.#joinInfo = null;
+        this.#autoChallenge = null;
         const c = this.#activeChallenge;
-        await this.#lobby.declineChallenge(c.challengerId, c.ruleType, c.challengerName);
+        if (this.#lobby) await this.#lobby.declineChallenge(c.challengerId, c.ruleType, c.challengerName);
         this.dispatch({ type: 'CHALLENGE_DISMISS', payload: c.challengerId });
     }
 
     #clearSentChallenge() {
+        this.#autoChallenge = null;
         const s = this.#sentChallenge;
         if (s) this.dispatch({ type: 'CHALLENGE_DISMISS', payload: s.challengeeId });
     }
@@ -294,7 +321,8 @@ class OnlinePanel extends LitElement {
 
     render() {
         if (this.#tableId) {
-            const url = gameUrl({ tableId: this.#tableId, userId: this.#myId, userName: this.#myName, ruleType: this.#ruleType, isFirst: this.#isFirst, options: this.#matchOptions, lod: userStore.lod, flip: userStore.flip, rematch: this.#state.currentMatch?.rematch });
+            const url = gameUrl({ tableId: this.#tableId, userId: this.#myId, userName: this.#myName, ruleType: this.#ruleType, isFirst: this.#isFirst, options: this.#matchOptions, lod: userStore.lod, flip: userStore.flip });
+            this.#autoChallenge = null;
             this.#state = { ...this.#state, currentMatch: null };
             window.location.href = url;
             return html``;

@@ -69,7 +69,7 @@ interface Lobby {
    * Challenge another user to a game.
    * Returns the ID of the table created for the challenge.
    */
-  challenge(userId: string, ruleType: string, rematch?: RematchInfo): Promise<string>;
+  challenge(userId: string, ruleType: string): Promise<string>;
 
   /**
    * Accept an incoming challenge.
@@ -231,18 +231,6 @@ await lobby.updatePresence({ tableId: "table-123" });
 await lobby.updatePresence({ tableId: undefined });
 ```
 
-### `RematchInfo`
-
-Context about a previous game for rematch challenges.
-
-```typescript
-interface RematchInfo {
-  readonly lastScores: { readonly userId: string; readonly score: number }[];
-  readonly isRematch: boolean;
-  readonly nextTurnId: string; // The ID of the player who should break/go first
-}
-```
-
 ### `ChallengeMessage`
 
 Represents a peer-to-peer challenge request.
@@ -269,7 +257,6 @@ interface ChallengeMessage {
   challengeeId: string;   // Always the person being challenged, across all message types
   ruleType: string;
   tableId?: string; // Optional: table created by challenger
-  rematch?: RematchInfo; // Optional: context about a previous game
   meta?: Meta; // Server-enriched metadata (received messages only)
 }
 ```

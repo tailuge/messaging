@@ -147,3 +147,30 @@ The implementation will be executed in two distinct stages to ensure a clean tra
 - **Stage 2: Auto-Challenge Implementation**: Complete Phase 3, 4, and 5. This introduces the URL-driven `#autoChallenge` logic and verifies the new flow.
 
 This approach ensures that we are not building the new system on top of legacy technical debt.
+
+## 6. Implementation Documentation
+
+### How it Works
+The new system replaces the complex `RematchCoordinator` with a simple, URL-parameter-driven "Auto-Challenge" mechanism implemented directly in the `OnlinePanel` component.
+
+1.  **URL Parsing**: Upon initialization, the lobby checks for `opponentId`, `opponentName`, `ruletype`, and `nextTurnId` in the URL.
+2.  **Immediate Purge**: These parameters are immediately removed from the browser history to prevent refresh loops.
+3.  **Automatic Action**:
+    *   If an incoming challenge from the `opponentId` is already pending in the lobby state, it is automatically accepted.
+    *   Otherwise, a new challenge is automatically sent to the `opponentId`.
+4.  **Simultaneous Resolution**: If both players send a challenge at the same time, a lexicographical tie-breaker (`myId < opponentId`) is used. The player with the lower ID will automatically accept the incoming challenge, while the player with the higher ID waits for the other's acceptance.
+5.  **Turn Order**: If `nextTurnId` is provided in the URL, it overrides the default "challenger goes first" logic, ensuring deterministic turn order across matches.
+
+### Interface
+-   **opponentId**: (Required) The unique ID of the player to challenge.
+-   **opponentName**: (Optional) Display name for the opponent.
+-   **ruletype**: (Optional, default: 'nineball') The game rule type.
+-   **nextTurnId**: (Optional) The ID of the player who should take the first turn.
+
+### Issues Encountered & Resolutions
+-   **Environment Limitations**: Docker rate limits and restricted sandbox capabilities prevented running full integration tests using the production-like backend.
+    -   *Resolution*: Verified logic via targeted Playwright scripts that manually injected state and mock messages using `page.evaluate`.
+-   **Build Artifact Bloat**: Initial builds produced un-minified bundles.
+    -   *Resolution*: Enforced `pnpm build:lit` which uses `esbuild --minify` to produce production-ready artifacts and ensured source file integrity (`src/client/utils.js`).
+-   **Simultaneous Challenge Race**: Potential for duplicate matches if both players auto-accepted.
+    -   *Resolution*: Implemented a strict lexicographical tie-breaker in `OnlinePanel` dispatch logic.
