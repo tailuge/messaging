@@ -6,7 +6,7 @@ const LOBBY_URL = process.env.LIVE === 'true'
 
 const IS_LIVE = process.env.LIVE === 'true';
 
-test.describe.skip('Lobby Rematch', () => {
+test.describe('Lobby Rematch', () => {
   test.setTimeout(60000); // Increased timeout for live environment
 
   const gameLaunch = async (browser: any) => {
@@ -169,9 +169,6 @@ test.describe.skip('Lobby Rematch', () => {
   });
 
   test('rematch: challenger auto-challenges on connect', async ({ browser }) => {
-    const rematchInfo = { opponentId: 'bob', opponentName: 'Bob', ruleType: 'nineball', lastScores: [], nextTurnId: 'bob' };
-    const rematch = encodeURIComponent(JSON.stringify(rematchInfo));
-
     const context = await browser.newContext();
     const page = await context.newPage();
     
@@ -181,7 +178,7 @@ test.describe.skip('Lobby Rematch', () => {
       );
     }
 
-    const url = `${LOBBY_URL}?userId=alice&userName=Alice&rematch=${rematch}`;
+    const url = `${LOBBY_URL}?userId=alice&userName=Alice&opponentId=bob&opponentName=Bob&ruletype=nineball&nextTurnId=bob`;
 
     await page.goto(url);
 
@@ -232,9 +229,6 @@ test.describe.skip('Lobby Rematch', () => {
   });
 
   test('rematch: challengee auto-accepts incoming offer', async ({ browser }) => {
-    const rematchInfo = { opponentId: 'alice', opponentName: 'Alice', ruleType: 'nineball', lastScores: [], nextTurnId: 'alice' };
-    const rematch = encodeURIComponent(JSON.stringify(rematchInfo));
-
     const context = await browser.newContext();
     const page = await context.newPage();
 
@@ -244,7 +238,7 @@ test.describe.skip('Lobby Rematch', () => {
       });
     }
 
-    const url = `${LOBBY_URL}?userId=bob&userName=Bob&rematch=${rematch}`;
+    const url = `${LOBBY_URL}?userId=bob&userName=Bob&opponentId=alice&opponentName=Alice&ruletype=nineball&nextTurnId=alice`;
 
     await page.goto(url);
 
@@ -264,8 +258,6 @@ test.describe.skip('Lobby Rematch', () => {
         challengerId: 'alice', challengerName: 'Alice',
         challengeeId: 'bob', ruleType: 'nineball',
         tableId: 'rematch-table-1',
-        rematch: rematchInfo,
-        options: (rematchInfo as any).options,
         meta: { ts: new Date().toISOString() },
       };
       await page.evaluate((msg) => {
@@ -275,16 +267,12 @@ test.describe.skip('Lobby Rematch', () => {
     }
 
     await expect(page).toHaveURL(/tableId=/, { timeout: 15000 });
-    await expect(page).toHaveURL(/rematch=/, { timeout: 15000 });
     expect(page.url()).not.toContain('first=true');
 
     await context.close();
   });
 
   test('rematch: challengee auto-accepts and goes first if nextTurnId matches', async ({ browser }) => {
-    const rematchInfo = { opponentId: 'alice', opponentName: 'Alice', ruleType: 'nineball', lastScores: [], nextTurnId: 'bob' };
-    const rematch = encodeURIComponent(JSON.stringify(rematchInfo));
-
     const context = await browser.newContext();
     const page = await context.newPage();
 
@@ -294,7 +282,7 @@ test.describe.skip('Lobby Rematch', () => {
       });
     }
 
-    const url = `${LOBBY_URL}?userId=bob&userName=Bob&rematch=${rematch}`;
+    const url = `${LOBBY_URL}?userId=bob&userName=Bob&opponentId=alice&opponentName=Alice&ruletype=nineball&nextTurnId=bob`;
     await page.goto(url);
 
     if (!IS_LIVE) {
@@ -313,7 +301,6 @@ test.describe.skip('Lobby Rematch', () => {
         challengerId: 'alice', challengerName: 'Alice',
         challengeeId: 'bob', ruleType: 'nineball',
         tableId: 'rematch-table-2',
-        rematch: rematchInfo,
         meta: { ts: new Date().toISOString() },
       };
       await page.evaluate((msg) => {
@@ -344,8 +331,8 @@ test.describe.skip('Lobby Rematch', () => {
     }, { timeout: 10000 }).catch(() => null);
 
     await Promise.all([
-      alice.page.waitForURL(url => url.toString().includes('rematch='), { timeout: 10000 }).catch(() => {}),
-      bob.page.waitForURL(url => url.toString().includes('rematch='), { timeout: 10000 }).catch(() => {}),
+      alice.page.waitForURL(url => url.toString().includes('opponentId='), { timeout: 10000 }).catch(() => {}),
+      bob.page.waitForURL(url => url.toString().includes('opponentId='), { timeout: 10000 }).catch(() => {}),
     ]);
 
     await Promise.all([
@@ -377,9 +364,6 @@ test.describe.skip('Lobby Rematch', () => {
   });
 
   test('rematch: non-challenging player sees waiting banner and can cancel', async ({ browser }) => {
-    const rematchInfo = { opponentId: 'alice', opponentName: 'Alice', ruleType: 'nineball', lastScores: [], nextTurnId: 'alice' };
-    const rematch = encodeURIComponent(JSON.stringify(rematchInfo));
-
     const context = await browser.newContext();
     const page = await context.newPage();
 
@@ -389,7 +373,7 @@ test.describe.skip('Lobby Rematch', () => {
       });
     }
 
-    const url = `${LOBBY_URL}?userId=bob&userName=Bob&rematch=${rematch}`;
+    const url = `${LOBBY_URL}?userId=bob&userName=Bob&opponentId=alice&opponentName=Alice&ruletype=nineball&nextTurnId=alice`;
     await page.goto(url);
 
     if (!IS_LIVE) {
@@ -422,7 +406,6 @@ test.describe.skip('Lobby Rematch', () => {
         challengerId: 'alice', challengerName: 'Alice',
         challengeeId: 'bob', ruleType: 'nineball',
         tableId: 'rematch-table-canceled',
-        rematch: rematchInfo,
         meta: { ts: new Date().toISOString() },
       };
       await page.evaluate((msg) => {
