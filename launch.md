@@ -4,7 +4,7 @@ The game URL is constructed in `docker/html/lobby.html` using the `gameUrl` help
 
 | Parameter | Description |
 |-----------|-------------|
-| `websocketserver` | The Nchan WebSocket endpoint (e.g., `wss://billiards.onrender.com/ws`). |
+| `websocketserver` | The Nchan WebSocket endpoint (e.g., `wss://billiards.onrender.com/`). |
 | `tableId` | Unique identifier for the game table/room. |
 | `userName` | The user's display name (URL-encoded). |
 | `clientId` | The user's unique ID. |
@@ -17,7 +17,7 @@ The game URL is constructed in `docker/html/lobby.html` using the `gameUrl` help
 
 ```javascript
 const gameUrl = ({ tableId, userId, userName, ruleType, spectating, isFirst, options }) => {
-    let url = `https://billiards.tailuge.workers.dev/?websocketserver=wss://billiards.onrender.com/ws`
+    let url = `https://billiards.tailuge.workers.dev/?websocketserver=wss://billiards.onrender.com/`
         + `&tableId=${tableId}&userName=${encodeURIComponent(userName)}&clientId=${userId}&ruletype=${ruleType}`;
     if (spectating) url += '&spectator=true';
     else if (isFirst) url += '&first=true';
