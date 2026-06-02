@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 208;
+export const CLIENTVERSION = 212;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 export const genId = () => 'user-' + Math.random().toString(36).slice(2, 7);
@@ -42,6 +42,16 @@ export function reduce(state, action) {
             const m = action.payload, id = other(m);
             if (m.type === 'offer') {
                 if (state.currentMatch) return state;
+                const existing = C[m.challengerId];
+                // Tie-breaker for simultaneous offers:
+                // If we already sent an offer to this user, the higher ID 'wins'.
+                if (existing && existing.challengerId === action.myId && existing.status === 'pending') {
+                    if (action.myId > m.challengerId) {
+                        // We have higher ID: ignore their incoming offer, keep our sent one.
+                        return state;
+                    }
+                }
+                // We have lower ID (or no existing offer): yield and accept their offer as the active one.
                 if (!C[m.challengerId] || C[m.challengerId].tableId !== m.tableId)
                     C[m.challengerId] = { ...m, status: 'pending' };
             } else if (m.type === 'accept' && !state.currentMatch) {
@@ -104,6 +114,7 @@ export function getEmoji(origin = "", ruleType = "", status = "") {
 
     
   if (mapped) {
+      if (origin.includes("veli")) return { emoji: "🎓", title: "study" };
       if (origin.includes("github")) return { emoji: mapped.emoji+"🐙", title: "github" };
       if (origin.includes("localhost")) return { emoji: mapped.emoji+"🏠", title: "localhost" };
       return mapped;
@@ -115,10 +126,11 @@ export function getEmoji(origin = "", ruleType = "", status = "") {
   }
 
   // 2. Check origin patterns
-  if (origin.includes("github")) return { emoji: "🐙", title: "github" };
-  if (origin.includes("vercel")) return { emoji: "👥", title: "vercel" };
-  if (origin.includes("workers")) return { emoji: "👤", title: "vercel" };
-  if (origin.includes("localhost")) return { emoji: "🏠", title: "localhost" };
+
+    if (origin.includes("github")) return { emoji: "🐙", title: "github" };
+    if (origin.includes("vercel")) return { emoji: "👥", title: "vercel" };
+    if (origin.includes("workers")) return { emoji: "👤", title: "vercel" };
+    if (origin.includes("localhost")) return { emoji: "🏠", title: "localhost" };
 
   return ruleMap[ruleType] ?? { emoji: "🎮", title: "external" };
 };
