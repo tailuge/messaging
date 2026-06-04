@@ -171,6 +171,8 @@ export class NchanClient {
     const maxReconnectDelay = 60000;
     let reconnectTimer: any = null;
     let firstConnection = true;
+    const CONNECTION_TIMEOUT_MS = 20000;
+    let connectionTimeoutTimer: any = null;
 
     const subscription: Subscription = {
       stop: () => {
@@ -178,6 +180,10 @@ export class NchanClient {
         if (reconnectTimer) {
           clearTimeout(reconnectTimer);
           reconnectTimer = null;
+        }
+        if (connectionTimeoutTimer) {
+          clearTimeout(connectionTimeoutTimer);
+          connectionTimeoutTimer = null;
         }
         if (ws) {
           ws.close();
@@ -192,9 +198,6 @@ export class NchanClient {
       resolveReady = r;
     });
 
-    const INITIAL_TIMEOUT_MS = 20000;
-    let initialTimeoutTimer: any = null;
-
     const connect = () => {
       if (stopped) return;
       if (ws && ws.readyState <= WebSocket.OPEN) {
@@ -205,14 +208,14 @@ export class NchanClient {
       console.log(`[NchanClient ${ts()}] Connecting to ${url} (attempt ${reconnectAttempts + 1})`);
       ws = new globalThis.WebSocket(url);
 
-      // On first connection, set a timeout so ready doesn't hang forever
-      if (firstConnection && initialTimeoutTimer === null) {
-        initialTimeoutTimer = setTimeout(() => {
-          console.warn(`[NchanClient ${ts()}] Initial connection to ${url} timed out after ${INITIAL_TIMEOUT_MS}ms, forcing reconnect`);
-          ws?.close();
-        }, INITIAL_TIMEOUT_MS);
-        initialTimeoutTimer.unref?.();
+      if (connectionTimeoutTimer) {
+        clearTimeout(connectionTimeoutTimer);
       }
+      connectionTimeoutTimer = setTimeout(() => {
+        console.warn(`[NchanClient ${ts()}] Connection to ${url} timed out after ${CONNECTION_TIMEOUT_MS}ms, forcing reconnect`);
+        ws?.close();
+      }, CONNECTION_TIMEOUT_MS);
+      connectionTimeoutTimer.unref?.();
 
       ws.onmessage = (event) => {
         onMessage(event.data as string);
@@ -226,9 +229,9 @@ export class NchanClient {
           clearTimeout(reconnectTimer);
           reconnectTimer = null;
         }
-        if (initialTimeoutTimer) {
-          clearTimeout(initialTimeoutTimer);
-          initialTimeoutTimer = null;
+        if (connectionTimeoutTimer) {
+          clearTimeout(connectionTimeoutTimer);
+          connectionTimeoutTimer = null;
         }
         console.log(`[NchanClient ${ts()}] Connected to ${url}`);
         resolveReady();
@@ -239,6 +242,10 @@ export class NchanClient {
 
       ws.onclose = (event) => {
         console.log(`[NchanClient ${ts()}] Connection closed: ${url} (code=${event.code}, reason="${event.reason}", wasClean=${event.wasClean})`);
+        if (connectionTimeoutTimer) {
+          clearTimeout(connectionTimeoutTimer);
+          connectionTimeoutTimer = null;
+        }
         if (!stopped) {
           if (reconnectAttempts >= 10) {
             console.error(`[NchanClient ${ts()}] Max reconnect attempts reached for ${url}, giving up`);
