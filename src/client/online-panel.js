@@ -265,7 +265,7 @@ class OnlinePanel extends LitElement {
             window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst, options, bot: u.userName, lod: userStore.lod, flip: userStore.flip });
             return;
         }
-        const tableId = this.#lobby ? await this.#lobby.challenge(userId, ruleType, undefined, options) : 'test-' + Math.random().toString(36).slice(2, 7);
+        const tableId = this.#lobby ? await this.#lobby.challenge(userId, ruleType, options) : 'test-' + Math.random().toString(36).slice(2, 7);
         logUsage("createTable");
         this.dispatch({ type: 'CHALLENGE_SENT', payload: { challengerId: this.#myId, challengeeId: userId, recipientName: u?.userName || userId, ruleType, options, tableId } });
     }
