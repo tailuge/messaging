@@ -1,12 +1,13 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 212;
+export const CLIENTVERSION = 222;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 export const genId = () => 'user-' + Math.random().toString(36).slice(2, 7);
 
 export const SCOREBOARD_URL = 'https://scoreboard-tailuge.vercel.app';
+export const NCHANBASE = 'billiards-network.onrender.com';
 export const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel');
 
 export const timeAgo = ts => {
@@ -157,7 +158,7 @@ export const soloUrl = (g, userId, userName, lod, flip) => {
 };
 
 export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options, bot, lod, flip }) => {
-    let url = `${BASE}?websocketserver=wss://billiards-network.onrender.com`
+    let url = `${BASE}?websocketserver=wss://${NCHANBASE}`
         + `&userName=${encodeURIComponent(userName)}&userId=${userId}&ruletype=${ruleType}`;
     if (!bot) url += `&tableId=${tableId}`;
     if (isFirst) url += '&first=true';
@@ -168,7 +169,7 @@ export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options,
 };
 
 export const spectateUrl = ({ tableId, userId, userName, ruleType }) =>
-    `${BASE}?websocketserver=wss://billiards-network.onrender.com`
+    `${BASE}?websocketserver=wss://${NCHANBASE}`
     + `&tableId=${tableId}&userName=${encodeURIComponent(userName)}&userId=${userId}&ruletype=${ruleType}&spectator=true`;
 
 const RULE_ASSETS = { eightball: 'eightball', snooker: 'snooker', threecushion: 'threecushion', nineball: 'nineball' };

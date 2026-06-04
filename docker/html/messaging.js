@@ -41,12 +41,20 @@ var NchanClient = class {
         return;
       }
     }
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body,
-      keepalive: options.keepalive
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2e4);
+    let response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        keepalive: options.keepalive,
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!response.ok) {
       throw new Error(`Publish failed: ${response.status}`);
     }
@@ -101,10 +109,12 @@ var NchanClient = class {
   }
   subscribe(path, onMessage) {
     const url = this.getWsUrl(path);
+    const ts = () => (/* @__PURE__ */ new Date()).toISOString().slice(11, 23);
     let ws = null;
     let stopped = false;
     let reconnectAttempts = 0;
-    const maxReconnectDelay = 3e4;
+    const initialReconnectDelay = 8e3;
+    const maxReconnectDelay = 6e4;
     let reconnectTimer = null;
     let firstConnection = true;
     const subscription = {
@@ -125,13 +135,23 @@ var NchanClient = class {
     subscription.ready = new Promise((r) => {
       resolveReady = r;
     });
+    const INITIAL_TIMEOUT_MS = 2e4;
+    let initialTimeoutTimer = null;
     const connect = () => {
       if (stopped) return;
       if (ws && ws.readyState <= WebSocket.OPEN) {
         resolveReady();
         return;
       }
+      console.log(`[NchanClient ${ts()}] Connecting to ${url} (attempt ${reconnectAttempts + 1})`);
       ws = new globalThis.WebSocket(url);
+      if (firstConnection && initialTimeoutTimer === null) {
+        initialTimeoutTimer = setTimeout(() => {
+          console.warn(`[NchanClient ${ts()}] Initial connection to ${url} timed out after ${INITIAL_TIMEOUT_MS}ms, forcing reconnect`);
+          ws?.close();
+        }, INITIAL_TIMEOUT_MS);
+        initialTimeoutTimer.unref?.();
+      }
       ws.onmessage = (event) => {
         onMessage(event.data);
       };
@@ -143,20 +163,32 @@ var NchanClient = class {
           clearTimeout(reconnectTimer);
           reconnectTimer = null;
         }
+        if (initialTimeoutTimer) {
+          clearTimeout(initialTimeoutTimer);
+          initialTimeoutTimer = null;
+        }
+        console.log(`[NchanClient ${ts()}] Connected to ${url}`);
         resolveReady();
         if (isReconnect && subscription.onReconnect) {
           subscription.onReconnect();
         }
       };
-      ws.onclose = () => {
+      ws.onclose = (event) => {
+        console.log(`[NchanClient ${ts()}] Connection closed: ${url} (code=${event.code}, reason="${event.reason}", wasClean=${event.wasClean})`);
         if (!stopped) {
-          const delay = Math.min(Math.pow(2, reconnectAttempts) * 1e3, maxReconnectDelay);
+          if (reconnectAttempts >= 10) {
+            console.error(`[NchanClient ${ts()}] Max reconnect attempts reached for ${url}, giving up`);
+            return;
+          }
+          const delay = Math.min(Math.pow(2, reconnectAttempts) * initialReconnectDelay, maxReconnectDelay);
           reconnectAttempts++;
+          console.log(`[NchanClient ${ts()}] Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
           reconnectTimer = setTimeout(connect, delay);
           reconnectTimer.unref?.();
         }
       };
-      ws.onerror = () => {
+      ws.onerror = (event) => {
+        console.error(`[NchanClient ${ts()}] WebSocket error on ${url}:`, event);
         ws?.close();
       };
     };
@@ -436,7 +468,16 @@ var Lobby = class {
       }
     };
     await this.subscription.ready;
-    await this.nchan.publishPresence(this.currentUser);
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await this.nchan.publishPresence(this.currentUser);
+        break;
+      } catch (e) {
+        const delay = Math.min(Math.pow(2, attempt) * 4e3, 3e4);
+        console.warn(`[Lobby] Initial presence publish failed (attempt ${attempt}), retrying in ${delay}ms:`, e);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
     this.startHeartbeat();
     this.startPruning();
     this.isJoined = true;

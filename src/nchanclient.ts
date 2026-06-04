@@ -72,12 +72,20 @@ export class NchanClient {
       }
     }
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body,
-      keepalive: options.keepalive,
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        keepalive: options.keepalive,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!response.ok) {
       throw new Error(`Publish failed: ${response.status}`);
     }
@@ -155,10 +163,12 @@ export class NchanClient {
 
   private subscribe(path: string, onMessage: (data: string) => void): Subscription {
     const url = this.getWsUrl(path);
+    const ts = () => new Date().toISOString().slice(11, 23); // HH:MM:SS.mmm
     let ws: WebSocket | null = null;
     let stopped = false;
     let reconnectAttempts = 0;
-    const maxReconnectDelay = 30000;
+    const initialReconnectDelay = 8000;
+    const maxReconnectDelay = 60000;
     let reconnectTimer: any = null;
     let firstConnection = true;
 
@@ -182,6 +192,9 @@ export class NchanClient {
       resolveReady = r;
     });
 
+    const INITIAL_TIMEOUT_MS = 20000;
+    let initialTimeoutTimer: any = null;
+
     const connect = () => {
       if (stopped) return;
       if (ws && ws.readyState <= WebSocket.OPEN) {
@@ -189,7 +202,17 @@ export class NchanClient {
         return;
       }
 
+      console.log(`[NchanClient ${ts()}] Connecting to ${url} (attempt ${reconnectAttempts + 1})`);
       ws = new globalThis.WebSocket(url);
+
+      // On first connection, set a timeout so ready doesn't hang forever
+      if (firstConnection && initialTimeoutTimer === null) {
+        initialTimeoutTimer = setTimeout(() => {
+          console.warn(`[NchanClient ${ts()}] Initial connection to ${url} timed out after ${INITIAL_TIMEOUT_MS}ms, forcing reconnect`);
+          ws?.close();
+        }, INITIAL_TIMEOUT_MS);
+        initialTimeoutTimer.unref?.();
+      }
 
       ws.onmessage = (event) => {
         onMessage(event.data as string);
@@ -199,27 +222,38 @@ export class NchanClient {
         const isReconnect = !firstConnection;
         firstConnection = false;
         reconnectAttempts = 0;
-        // Clear any pending reconnect timer from previous disconnect
         if (reconnectTimer) {
           clearTimeout(reconnectTimer);
           reconnectTimer = null;
         }
+        if (initialTimeoutTimer) {
+          clearTimeout(initialTimeoutTimer);
+          initialTimeoutTimer = null;
+        }
+        console.log(`[NchanClient ${ts()}] Connected to ${url}`);
         resolveReady();
         if (isReconnect && subscription.onReconnect) {
           subscription.onReconnect();
         }
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
+        console.log(`[NchanClient ${ts()}] Connection closed: ${url} (code=${event.code}, reason="${event.reason}", wasClean=${event.wasClean})`);
         if (!stopped) {
-          const delay = Math.min(Math.pow(2, reconnectAttempts) * 1000, maxReconnectDelay);
+          if (reconnectAttempts >= 10) {
+            console.error(`[NchanClient ${ts()}] Max reconnect attempts reached for ${url}, giving up`);
+            return;
+          }
+          const delay = Math.min(Math.pow(2, reconnectAttempts) * initialReconnectDelay, maxReconnectDelay);
           reconnectAttempts++;
+          console.log(`[NchanClient ${ts()}] Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
           reconnectTimer = setTimeout(connect, delay);
           reconnectTimer.unref?.();
         }
       };
 
-      ws.onerror = () => {
+      ws.onerror = (event) => {
+        console.error(`[NchanClient ${ts()}] WebSocket error on ${url}:`, event);
         ws?.close();
       };
     };

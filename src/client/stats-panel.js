@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
-import { flag } from './utils.js';
+import { flag, NCHANBASE } from './utils.js';
 
-const STATS_URL = 'https://billiards-network.onrender.com/api/stats';
+const STATS_URL = `https://${NCHANBASE}/api/stats`;
 
 class StatsPanel extends LitElement {
     static styles = css`

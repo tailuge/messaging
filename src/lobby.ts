@@ -98,8 +98,17 @@ export class Lobby {
 
     await this.subscription.ready;
 
-    // Broadcast our own presence
-    await this.nchan.publishPresence(this.currentUser);
+    // Broadcast our own presence with retry on failure (e.g. slow cold start)
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await this.nchan.publishPresence(this.currentUser);
+        break;
+      } catch (e) {
+        const delay = Math.min(Math.pow(2, attempt) * 4000, 30000);
+        console.warn(`[Lobby] Initial presence publish failed (attempt ${attempt}), retrying in ${delay}ms:`, e);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
 
     this.startHeartbeat();
     this.startPruning();

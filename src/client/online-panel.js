@@ -2,7 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 import { MessagingClient, canChallenge, canSpectate, userStatus } from '../index.ts';
 import { userStore } from './user-store.js';
-import { gameUrl, spectateUrl, INITIAL_STATE, reduce, flag, getEmoji, isVercel, CLIENTVERSION, formatVersion } from './utils.js';
+import { gameUrl, spectateUrl, INITIAL_STATE, reduce, flag, getEmoji, isVercel, CLIENTVERSION, formatVersion, NCHANBASE } from './utils.js';
 import { logUsage } from './logusage.js';
 import { SHARED_STYLES, USER_LIST_STYLES, PLAYER_PANEL_STYLES, CHALLENGE_MODAL_STYLES, BADGE_STYLES } from './styles.js';
 import './message-modal.js';
@@ -144,7 +144,7 @@ class OnlinePanel extends LitElement {
             history.replaceState(null, '', url);
         }
 
-        let baseUrl = 'https://billiards-network.onrender.com';
+        let baseUrl = `https://${NCHANBASE}`;
         if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
             const protocol = location.protocol === 'https:' ? 'https:' : 'http:';
             baseUrl = `${protocol}//${location.host}`;
