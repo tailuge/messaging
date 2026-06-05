@@ -28,6 +28,14 @@ class UserStore extends EventTarget {
         this.userName = urlName || storedName || 'Anonymous';
         this.lod = localStorage.getItem('lod') || '2';
         this.flip = localStorage.getItem('flip') === 'true';
+        this.useProxy = localStorage.getItem('useProxy') === 'true';
+    }
+
+    setUseProxy(val) {
+        this.useProxy = !!val;
+        localStorage.setItem('useProxy', this.useProxy);
+        this.dispatchEvent(new Event('change'));
+        window.location.reload();
     }
 
 set(clientId, userName) {

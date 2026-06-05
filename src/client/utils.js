@@ -7,8 +7,9 @@ export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).p
 export const genId = () => 'user-' + Math.random().toString(36).slice(2, 7);
 
 export const SCOREBOARD_URL = 'https://scoreboard-tailuge.vercel.app';
-//export const NCHANBASE = 'billiards-network.onrender.com';
-export const NCHANBASE = 'nchanproxy.tailuge.workers.dev';
+export const NCHANBASE = (typeof localStorage !== 'undefined' && localStorage.getItem('useProxy') === 'true')
+    ? 'nchanproxy.tailuge.workers.dev'
+    : 'billiards-network.onrender.com';
 export const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel');
 
 export const timeAgo = ts => {
