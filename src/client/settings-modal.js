@@ -179,6 +179,13 @@ class SettingsModal extends StoreElement {
                                 <span class="slider"></span>
                             </label>
                         </div>
+                        <div class="row">
+                            <span>Use proxy to connect</span>
+                            <label class="switch">
+                                <input type="checkbox" .checked=${userStore.useProxy} @change=${e => userStore.setUseProxy(e.target.checked)}>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
 
                         <div class="section-title">Graphics</div>
                         <div class="row" style="flex-direction: column; align-items: flex-start; gap: 2px;">
