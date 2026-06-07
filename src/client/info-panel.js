@@ -64,11 +64,11 @@ class InfoPanel extends StoreElement {
                     <div class="group-body">
                         ${games.map(game => html`
                             <div class="tbl"><table><caption><a href="${SCOREBOARD_URL}/elo" target="_blank" rel="noopener">${ruleIcon(game)} <span style="font-size:0.75rem;font-weight:200">Rankings</span></a></caption>
-                            <tr><th>Name</th><th>Rating</th><th>W</th><th>L</th></tr>
-                                ${[...topPlayers[game]].sort((a, b) => b.rating - a.rating).slice(0, 4).map((p, i) => html`<tr>
-                                    <td><a href="${SCOREBOARD_URL}/player/${encodeURIComponent(p.name)}?ruleType=${game}">${renderTrophy(i)} ${p.name}</a></td>
-                                    <td>${Math.round(p.rating)}</td>
-                                </tr>`)}
+                             <tr><th>Name</th><th>Score</th><th>W</th><th>L</th></tr>
+                                 ${topPlayers[game].slice(0, 4).map((p, i) => html`<tr>
+                                     <td><a href="${SCOREBOARD_URL}/player/${encodeURIComponent(p.name)}?ruleType=${game}">${renderTrophy(i)} ${p.name}</a></td>
+                                     <td>${Math.round(p.conservativeRating)}</td>
+                                 </tr>`)}
                             </table></div>
                         `)}
                     </div>
