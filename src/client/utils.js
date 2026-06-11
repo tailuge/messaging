@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 235;
+export const CLIENTVERSION = 236;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 export const genId = () => 'user-' + Math.random().toString(36).slice(2, 7);
@@ -71,7 +71,7 @@ export function reduce(state, action) {
                         tableId: m.tableId,
                         ruleType: m.ruleType,
                         options,
-                        isFirst: m.challengerId === action.myId
+                        isFirst: m.nextTurnId ? m.nextTurnId === action.myId : m.challengerId === action.myId
                     }
                 };
             } else if (m.type === 'decline') {

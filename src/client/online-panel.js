@@ -257,7 +257,8 @@ class OnlinePanel extends LitElement {
     }
 
     async #challenge(userId, ruleType, options) {
-        this.#autoChallenge = null;
+        const isAutoChallenge = this.#autoChallenge && this.#autoChallenge.opponentId === userId;
+        if (!isAutoChallenge) this.#autoChallenge = null;
         const u = this.#visibleUsers.find(u => u.userId === userId);
         if (u?.isBot) {
             const tableId = 'bot-' + Math.random().toString(36).slice(2, 8);
@@ -285,12 +286,17 @@ class OnlinePanel extends LitElement {
         if (this.#lobby) await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options, c.challengerName);
         logUsage("joinTable");
         this.dispatch({ type: 'CHALLENGE_DISMISS', payload: c.challengerId });
+        const isAutoAccept = this.#autoChallenge && c.challengerId === this.#autoChallenge.opponentId;
+        const isFirst = isAutoAccept && this.#autoChallenge.nextTurnId
+            ? this.#autoChallenge.nextTurnId === this.#myId
+            : c.challengerId === this.#myId;
         this.dispatch({ type: 'MATCH_SET', payload: {
             tableId: c.tableId,
             ruleType: c.ruleType,
             options: c.options,
-            isFirst: c.challengerId === this.#myId
+            isFirst
         } });
+        this.#autoChallenge = null;
     }
 
     async #declineChallenge() {
