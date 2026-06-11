@@ -46,5 +46,35 @@ describe("Lobby Logic", () => {
 
         expect(state.currentMatch?.isFirst).toBe(false);
     });
+
+    it("should respect nextTurnId when challenger but nextTurnId is opponent", () => {
+      // Rematch scenario: Alice (challenger) should NOT be first because nextTurnId is bob
+      let state = reduce(INITIAL_STATE, { type: 'CHALLENGE_SENT', myId, payload: {
+        challengerId: myId, challengeeId: opponentId, tableId, ruleType: 'nineball'
+      }});
+
+      const acceptMsg = {
+        type: 'accept', challengerId: myId, challengeeId: opponentId, tableId, ruleType: 'nineball', nextTurnId: opponentId
+      };
+      
+      state = reduce(state, { type: 'CHALLENGE_MSG', myId, payload: acceptMsg });
+
+      expect(state.currentMatch?.isFirst).toBe(false); // Alice is challenger but nextTurnId is bob
+    });
+
+    it("should respect nextTurnId when challengee and nextTurnId is me", () => {
+      // Rematch scenario: Bob (challengee) SHOULD be first because nextTurnId is bob
+      let state = reduce(INITIAL_STATE, { type: 'CHALLENGE_MSG', myId: opponentId, payload: {
+        type: 'offer', challengerId: myId, challengeeId: opponentId, tableId, ruleType: 'nineball'
+      }});
+
+      const acceptMsg = {
+        type: 'accept', challengerId: myId, challengeeId: opponentId, tableId, ruleType: 'nineball', nextTurnId: opponentId
+      };
+      
+      state = reduce(state, { type: 'CHALLENGE_MSG', myId: opponentId, payload: acceptMsg });
+
+      expect(state.currentMatch?.isFirst).toBe(true); // Bob is challengee but nextTurnId is bob
+    });
   });
 });
