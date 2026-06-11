@@ -335,9 +335,18 @@ test.describe('Lobby Rematch', () => {
       bob.page.waitForURL(url => url.toString().includes('opponentId='), { timeout: 10000 }).catch(() => {}),
     ]);
 
+    await alice.page.screenshot({ path: 'test-results/alice-before-rematch-click.png' });
+    await bob.page.screenshot({ path: 'test-results/bob-before-rematch-click.png' });
+
     await Promise.all([
-      alice.page.locator('button[data-notification-action="rematch"]').click(),
-      bob.page.locator('button[data-notification-action="rematch"]').click(),
+      alice.page.locator('button[data-notification-action="rematch"]').click().catch(async (e) => {
+        await alice.page.screenshot({ path: 'test-results/alice-rematch-click-failed.png' });
+        throw e;
+      }),
+      bob.page.locator('button[data-notification-action="rematch"]').click().catch(async (e) => {
+        await bob.page.screenshot({ path: 'test-results/bob-rematch-click-failed.png' });
+        throw e;
+      }),
     ]);
 
     if (!IS_LIVE) {
