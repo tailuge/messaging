@@ -260,3 +260,125 @@ Browser WebSocket
 - Try using a `map` directive to extract `uid` from `$args` instead of relying on `$arg_uid`
 - Add direct `ngx.log` calls (bypass `logR`) to verify the callback fires
 - Test whether nchan's subscribe_request handles `$is_args$args` correctly by checking access logs at the `/internal/presence/sub` level
+
+
+---------
+
+The issue you are facing stems from how Nchan handles internal authentication/callback subrequests (`nchan_subscribe_request` and `nchan_unsubscribe_request`) combined with strict location matching.
+
+Here is why your setup is breaking and the exact path forward to resolve it.
+
+---
+
+## The Root Causes
+
+### 1. Location Matching Breakage (`location = /internal/presence/sub`)
+
+You configured the internal endpoints using exact match rules:
+
+```nginx
+location = /internal/presence/sub { ... }
+
+```
+
+When a connection has no arguments, Nchan requests `/internal/presence/sub`, which matches exactly.
+When a connection has a query string (e.g., `?uid=acmetest`), Nchan requests `/internal/presence/sub?uid=acmetest`. **Exact match (`=`) strings do not ignore query parameters during Nginx evaluation.** Because the URI has arguments appended directly to the path mapping in this context, the exact match fails, returning an internal 404 that Nchan swallows silently.
+
+### 2. `$arg_uid` Context Stripping in Unsubscribe
+
+`nchan_unsubscribe_request` fires *after* the client has disconnected. At this stage, the original HTTP request context—including the URL arguments (`$args`)—is already destroyed. Appending `$is_args$args` to the unsubscribe directive evaluates to empty variables.
+
+---
+
+## The Solution: A Resilient Path Forward
+
+To fix both issues, you need to use prefix matching for your internal routes, extract the tracking identifier when the connection *first opens*, and leverage Nchan's native header forwarding features to track the ID through the lifecycle.
+
+### Step 1: Update Nginx Configuration
+
+Modify your `docker/nchan.conf` file to change the location match types and utilize `$request_uri` (via a regular expression map) to reliably extract the UID on connection initialization.
+
+```nginx
+# 1. Safely extract UID from the raw request URI (works everywhere)
+map $request_uri $extracted_uid {
+    default                    "unknown";
+    "~[?&]uid=(?<captured_uid>[^&]+)" $captured_uid;
+}
+
+# ── Entry point: WebSocket subscriber ──
+location = /subscribe/presence/lobby {
+    access_log /var/log/nginx/access.log main;
+    nchan_subscriber;
+    nchan_channel_id "presence/lobby";
+    
+    # ... your other nchan settings ...
+
+    # Simplify hooks: Nchan passes variables into these targets automatically
+    nchan_subscribe_request /internal/presence/sub;
+    nchan_unsubscribe_request /internal/presence/unsub;
+
+    include /etc/nginx/metadata_headers.conf;
+    include /etc/nginx/cors.conf;
+}
+
+# ── Subscribe callback (Changed '=' to prefix match '^~') ──
+location ^~ /internal/presence/sub {
+    internal;
+    access_log /var/log/nginx/access_file.log main;
+    
+    proxy_pass http://127.0.0.1:8080/internal/njs/presence_sub;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
+    proxy_set_header X-Nchan-Channel-Id $nchan_channel_id;
+    proxy_set_header X-User-Id $extracted_uid; 
+}
+
+# ── Unsubscribe callback (Changed '=' to prefix match '^~') ──
+location ^~ /internal/presence/unsub {
+    internal;
+    
+    proxy_pass http://127.0.0.1:8080/internal/njs/presence_unsub;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
+    proxy_set_header X-Nchan-Channel-Id $nchan_channel_id;
+    
+    # Nchan natively forwards headers returned from the subscribe hook response
+    # to the unsubscribe hook via X-Nchan-Orig-Header-<name>
+    proxy_set_header X-User-Id $http_x_nchan_orig_header_x_user_id;
+}
+
+# ── NJS Handlers ──
+location ^~ /internal/njs/presence_sub {
+    js_content nchan_meta.presence_sub;
+}
+
+location ^~ /internal/njs/presence_unsub {
+    js_content nchan_meta.presence_unsub;
+}
+
+```
+
+### Step 2: Tie the Lifecycle together in NJS
+
+When `presence_sub` returns a `200 OK`, any custom header you send back in that response is cached by Nchan for the lifetime of that session. When the client disconnects, Nchan attaches those original headers to the unsubscribe request, prefixed with `X-Nchan-Orig-Header-`.
+
+Update your `presence_sub` function in `docker/nchan_meta.js` to echo back the `X-User-Id` header:
+
+```javascript
+function presence_sub(r) {
+  try {
+    const userId = r.headersIn['X-User-Id'] || 'unknown';
+    logR(r, `presence_sub userId=${userId}`);
+    
+    // Explicitly send the header back so Nchan caches it for unsubscribe tracking
+    r.headersOut['X-User-Id'] = userId;
+    r.return(200);
+  } catch (e) {
+    r.error(`presence_sub error: ${e.message}`);
+    r.return(500);
+  }
+}
+
+```
+
+No changes are required for `presence_unsub` or your TypeScript implementation; the `X-User-Id` header will now appear seamlessly in both hooks.
