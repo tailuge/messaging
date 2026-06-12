@@ -234,6 +234,28 @@ table td {
         </div>
       </div>
 
+      <div class="card">
+        <h3>Active Subscribers (shared dict)</h3>
+        <div id="subscribers-info">
+          <table id="subscribers-table">
+            <thead>
+              <tr>
+                <th>Subscriber ID</th>
+                <th>Fingerprint (IP|UA)</th>
+                <th>Mapped Identity</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="3" style="text-align: center; color: var(--secondary-color)">
+                  No subscriber data available.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
        <div class="card">
          <h3>IP Cache (shared dict)</h3>
          <div id="ip-cache-meta" class="refresh-tag"></div>
@@ -388,6 +410,22 @@ table td {
          const ipCacheMeta = document.getElementById("ip-cache-meta");
          const ipCacheEntries = data.ip_cache && typeof data.ip_cache === "object" ? data.ip_cache : null;
          ipCacheMeta.textContent = "";
+
+        const subscribersTableBody = document.querySelector("#subscribers-table tbody");
+        const subInfo = data.sub_info || {};
+        const subToUser = data.sub_to_user || {};
+
+        if (Object.keys(subInfo).length > 0) {
+          subscribersTableBody.innerHTML = Object.entries(subInfo)
+            .map(([subId, fingerprint]) => {
+              const identity = escapeHtml(subToUser[subId] || "Unassigned");
+              return `<tr><td>${escapeHtml(subId)}</td><td>${escapeHtml(fingerprint)}</td><td>${identity}</td></tr>`;
+            })
+            .join("");
+        } else {
+          subscribersTableBody.innerHTML =
+            '<tr><td colspan="3" style="text-align: center; color: var(--secondary-color);">No subscriber data available.</td></tr>';
+        }
 
           if (ipCacheEntries && Object.keys(ipCacheEntries).length > 0) {
             ipCacheTableBody.innerHTML = Object.entries(ipCacheEntries)

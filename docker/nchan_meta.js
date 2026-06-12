@@ -155,6 +155,24 @@ async function publish(r) {
     if (enriched.type === "leave") {
       incrementStat("presence_leave_total");
     }
+    if (enriched.type === "join") {
+      // Map unassigned subscriptions from this IP/UA to this user
+      const ip = getClientIp(r);
+      const ua = r.headersIn["user-agent"] || "";
+      const fingerprint = `${ip}|${ua}`;
+      const subInfo = ngx.shared.sub_info;
+      const subToUser = ngx.shared.sub_to_user;
+      const userCounts = ngx.shared.user_counts;
+      const keys = subInfo.keys() || [];
+
+      keys.forEach((subId) => {
+        if (subInfo.get(subId) === fingerprint && !subToUser.get(subId)) {
+          subToUser.set(subId, `${enriched.userId}|${enriched.userName}`);
+          const count = parseInt(userCounts.get(enriched.userId) || "0");
+          userCounts.set(enriched.userId, String(count + 1));
+        }
+      });
+    }
   }
 
   const res = await r.subrequest("/internal" + r.uri, {
@@ -166,9 +184,63 @@ async function publish(r) {
   r.return(res.status, body);
 }
 
-function presence_unsub(r) {
+function presence_sub(r) {
+  const subId = r.headersIn["X-Nchan-Subscriber-Id"];
+  const ip = getClientIp(r);
+  const ua = r.headersIn["user-agent"] || "";
+
+  if (subId) {
+    ngx.shared.sub_info.set(subId, `${ip}|${ua}`);
+  }
+
+  r.return(200);
+}
+
+async function publish_leave(r, userId, userName) {
+  const body = JSON.stringify({
+    messageType: "presence",
+    type: "leave",
+    userId: userId,
+    userName: userName,
+    meta: {
+      ts: Date.now(),
+      ua: "nchan-auto-leave",
+      origin: "internal",
+    },
+  });
+
+  await r.subrequest("/internal/publish/presence/lobby", {
+    method: "POST",
+    body: body,
+  });
+}
+
+async function presence_unsub(r) {
   incrementStat("presence_unsubscribe_total");
   incrementStat("presence_unsubscribe_websocket_total");
+
+  const subId = r.headersIn["X-Nchan-Subscriber-Id"];
+  if (subId) {
+    const userData = ngx.shared.sub_to_user.get(subId);
+    if (userData) {
+      const parts = userData.split("|");
+      const userId = parts[0];
+      const userName = parts[1];
+      ngx.shared.sub_to_user.delete(subId);
+
+      let count = parseInt(ngx.shared.user_counts.get(userId) || "1");
+      count = Math.max(0, count - 1);
+
+      if (count === 0) {
+        ngx.shared.user_counts.delete(userId);
+        await publish_leave(r, userId, userName);
+      } else {
+        ngx.shared.user_counts.set(userId, String(count));
+      }
+    }
+    ngx.shared.sub_info.delete(subId);
+  }
+
   r.return(204);
 }
 
@@ -209,6 +281,20 @@ function getIpCache() {
     const entries = {};
     keys.forEach((k) => {
       const value = cache.get(k);
+      if (typeof value !== "undefined") {
+        entries[k] = value;
+      }
+    });
+    return entries;
+  }
+
+  function getDictEntries(name) {
+    const dict = ngx.shared[name];
+    if (!dict) return {};
+    const keys = dict.keys() || [];
+    const entries = {};
+    keys.forEach((k) => {
+      const value = dict.get(k);
       if (typeof value !== "undefined") {
         entries[k] = value;
       }
@@ -283,6 +369,9 @@ function getIpCache() {
         "presence_unsubscribe_websocket_total",
       ]),
       ip_cache: getIpCache(),
+      sub_info: getDictEntries("sub_info"),
+      sub_to_user: getDictEntries("sub_to_user"),
+      user_counts: getDictEntries("user_counts"),
       uptime: getUptime(),
       njs_logs: getLastLines("/var/log/nginx/njs_error.log", 50),
       error_logs: getLastLines("/var/log/nginx/error_file.log", 100),
@@ -293,4 +382,4 @@ function getIpCache() {
     r.return(200, JSON.stringify(data));
   }
 
-export default { publish, presence_unsub, stats };
+export default { publish, presence_sub, presence_unsub, stats };
