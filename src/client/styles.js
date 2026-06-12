@@ -109,10 +109,10 @@ export const SENT_CHALLENGE_BANNER_STYLES = css`
 export const CHALLENGE_MODAL_STYLES = css`
     :host { display: block; }
     .backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.3); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 100; }
-    .modal { background: var(--modal-bg); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; min-width: 240px; display: flex; flex-direction: column; gap: 0.6rem; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); }
+    .modal { background: var(--modal-bg); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 0.75rem 1rem; min-width: 240px; display: flex; flex-direction: column; gap: 0.4rem; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); }
     h3 { margin: 0; font-size: 0.95rem; text-align: center; }
-    .rules { display: flex; flex-direction: column; gap: 0.3rem; }
-    button.rule { text-align: left; padding: 0.35rem 0.6rem; font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem; }
+    .rules { display: flex; flex-direction: column; gap: 0.2rem; }
+    button.rule { text-align: left; padding: 0.2rem 0.6rem; font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem; }
     button.rule img { width: 28px; height: 28px; display: block; }
     button.cancel { background: var(--modal-cancel); color: var(--text); border-color: var(--btn-border); }
     .icon-wrap { position: relative; width: 28px; height: 28px; flex-shrink: 0; }
