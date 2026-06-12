@@ -153,8 +153,9 @@ export class NchanClient {
 
   // Subscribing
 
-  subscribePresence(onMessage: (data: string) => void): Subscription {
-    return this.subscribe(PATHS.PRESENCE_SUBSCRIBE, onMessage);
+  subscribePresence(userId: string, onMessage: (data: string) => void): Subscription {
+    const path = `${PATHS.PRESENCE_SUBSCRIBE}?uid=${encodeURIComponent(userId)}`;
+    return this.subscribe(path, onMessage);
   }
 
   subscribeTable(tableId: string, onMessage: (data: string) => void): Subscription {

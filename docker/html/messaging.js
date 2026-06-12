@@ -101,8 +101,9 @@ var NchanClient = class {
     );
   }
   // Subscribing
-  subscribePresence(onMessage) {
-    return this.subscribe(PATHS.PRESENCE_SUBSCRIBE, onMessage);
+  subscribePresence(userId, onMessage) {
+    const path = `${PATHS.PRESENCE_SUBSCRIBE}?uid=${encodeURIComponent(userId)}`;
+    return this.subscribe(path, onMessage);
   }
   subscribeTable(tableId, onMessage) {
     return this.subscribe(PATHS.TABLE_SUBSCRIBE(tableId), onMessage);
@@ -463,7 +464,7 @@ var Lobby = class {
    */
   async join() {
     if (this.isJoined) return;
-    this.subscription = this.nchan.subscribePresence((data) => {
+    this.subscription = this.nchan.subscribePresence(this.currentUser.userId, (data) => {
       this.handleIncomingMessage(data);
     });
     this.subscription.onReconnect = () => {

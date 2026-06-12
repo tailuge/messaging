@@ -125,7 +125,7 @@ describe("MessagingClient Lifecycle Unit Tests", () => {
 
   it("should preserve lobby identity and listeners across session resume", async () => {
     const presenceHandlers: Array<(data: string) => void> = [];
-    mockNchan.subscribePresence.mockImplementation((handler: (data: string) => void) => {
+    mockNchan.subscribePresence.mockImplementation((_userId: string, handler: (data: string) => void) => {
       presenceHandlers.push(handler);
       return {
         ready: Promise.resolve(),

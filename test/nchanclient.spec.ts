@@ -85,7 +85,7 @@ describe("NchanClient", () => {
       const messages: string[] = [];
       const targetUserId = "presence-sub-test-" + Date.now();
 
-      const subscription = client.subscribePresence((data) => {
+      const subscription = client.subscribePresence(targetUserId, (data) => {
         messages.push(data);
       });
 
@@ -119,7 +119,7 @@ describe("NchanClient", () => {
       const messages: string[] = [];
       const challengeeId = "recipient-" + Date.now();
 
-      const subscription = client.subscribePresence((data) => {
+      const subscription = client.subscribePresence(challengeeId, (data) => {
         messages.push(data);
       });
 

@@ -78,7 +78,7 @@ export class Lobby {
   async join(): Promise<void> {
     if (this.isJoined) return;
 
-    this.subscription = this.nchan.subscribePresence((data) => {
+    this.subscription = this.nchan.subscribePresence(this.currentUser.userId, (data) => {
       this.handleIncomingMessage(data);
     });
 
