@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 279;
+export const CLIENTVERSION = 281;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 export const genId = () => 'user-' + Math.random().toString(36).slice(2, 7);
@@ -148,7 +148,7 @@ export const flag = (code) => {
     return { emoji, title: upper };
 };
 
-const BASE = 'https://billiards.tailuge.workers.dev/';
+const BASE = _localhost ? `http://${window.location.hostname}:8080/` : 'https://billiards.tailuge.workers.dev/';
 const appendOptions = (url, options) => options
     ? Object.entries(options).reduce((u, [k, v]) => u + `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`, url)
     : url;

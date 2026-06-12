@@ -234,28 +234,6 @@ table td {
         </div>
       </div>
 
-      <div class="card">
-        <h3>Active Subscribers (shared dict)</h3>
-        <div id="subscribers-info">
-          <table id="subscribers-table">
-            <thead>
-              <tr>
-                <th>Subscriber ID</th>
-                <th>Fingerprint (IP|UA)</th>
-                <th>Mapped Identity</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td colspan="3" style="text-align: center; color: var(--secondary-color)">
-                  No subscriber data available.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
        <div class="card">
          <h3>IP Cache (shared dict)</h3>
          <div id="ip-cache-meta" class="refresh-tag"></div>
@@ -284,31 +262,7 @@ table td {
          </div>
        </div>
 
-<div class="card" id="access-logs-card">
-        <div class="toggle-header" onclick="toggleCard('access-logs-card')" style="cursor: pointer;">
-          <h3 style="margin: 0; display: inline;">Access Logs</h3>
-          <span class="toggle-indicator">▾</span>
-        </div>
-        <div id="access-logs-meta" class="refresh-tag"></div>
-        <div class="card-content" id="access-logs-info">
-          <table id="access-logs-table">
-            <thead>
-              <tr>
-                <th>Log Line</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style="text-align: center; color: var(--secondary-color)">
-                  No logs available.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="card" id="njs-logs-card">
+<div class="card" id="njs-logs-card">
         <div class="toggle-header" onclick="toggleCard('njs-logs-card')" style="cursor: pointer;">
           <h3 style="margin: 0; display: inline;">NJS Logs</h3>
           <span class="toggle-indicator">▾</span>
@@ -411,22 +365,6 @@ table td {
          const ipCacheEntries = data.ip_cache && typeof data.ip_cache === "object" ? data.ip_cache : null;
          ipCacheMeta.textContent = "";
 
-        const subscribersTableBody = document.querySelector("#subscribers-table tbody");
-        const subInfo = data.sub_info || {};
-        const subToUser = data.sub_to_user || {};
-
-        if (Object.keys(subInfo).length > 0) {
-          subscribersTableBody.innerHTML = Object.entries(subInfo)
-            .map(([subId, fingerprint]) => {
-              const identity = escapeHtml(subToUser[subId] || "Unassigned");
-              return `<tr><td>${escapeHtml(subId)}</td><td>${escapeHtml(fingerprint)}</td><td>${identity}</td></tr>`;
-            })
-            .join("");
-        } else {
-          subscribersTableBody.innerHTML =
-            '<tr><td colspan="3" style="text-align: center; color: var(--secondary-color);">No subscriber data available.</td></tr>';
-        }
-
           if (ipCacheEntries && Object.keys(ipCacheEntries).length > 0) {
             ipCacheTableBody.innerHTML = Object.entries(ipCacheEntries)
               .sort((a, b) => {
@@ -460,19 +398,6 @@ table td {
         const njsLogs = Array.isArray(data.njs_logs) ? data.njs_logs : null;
         njsLogsMeta.textContent = "";
 
-        const accessLogsTableBody = document.querySelector("#access-logs-table tbody");
-        const accessLogs = Array.isArray(data.access_logs) ? data.access_logs : null;
-
-        if (accessLogs && accessLogs.length > 0) {
-          accessLogsTableBody.innerHTML = accessLogs
-            .map((logLine) => {
-              return `<tr><td>${escapeHtml(logLine)}</td></tr>`;
-            })
-            .join("");
-        } else {
-          accessLogsTableBody.innerHTML =
-            '<tr><td style="text-align: center; color: var(--secondary-color);">No logs available.</td></tr>';
-        }
 
         if (njsLogs && njsLogs.length > 0) {
           njsLogsTableBody.innerHTML = njsLogs

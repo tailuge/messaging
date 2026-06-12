@@ -156,24 +156,6 @@ async function publish(r) {
     if (enriched.type === "leave") {
       incrementStat("presence_leave_total");
     }
-    if (enriched.type === "join") {
-      // Map unassigned subscriptions from this IP/UA to this user
-      const ip = getClientIp(r);
-      const ua = r.headersIn["user-agent"] || "";
-      const fingerprint = `${ip}|${ua}`;
-      const subInfo = ngx.shared.sub_info;
-      const subToUser = ngx.shared.sub_to_user;
-      const userCounts = ngx.shared.user_counts;
-      const keys = subInfo.keys() || [];
-
-      keys.forEach((subId) => {
-        if (subInfo.get(subId) === fingerprint && !subToUser.get(subId)) {
-          subToUser.set(subId, `${enriched.userId}|${enriched.userName}`);
-          const count = parseInt(userCounts.get(enriched.userId) || "0");
-          userCounts.set(enriched.userId, String(count + 1));
-        }
-      });
-    }
   }
 
   const res = await r.subrequest("/internal" + r.uri, {
@@ -275,20 +257,6 @@ function getIpCache() {
     return entries;
   }
 
-  function getDictEntries(name) {
-    const dict = ngx.shared[name];
-    if (!dict) return {};
-    const keys = dict.keys() || [];
-    const entries = {};
-    keys.forEach((k) => {
-      const value = dict.get(k);
-      if (typeof value !== "undefined") {
-        entries[k] = value;
-      }
-    });
-    return entries;
-  }
-
   function getUptime() {
     try {
       const stats = ngx.shared.system_stats;
@@ -357,9 +325,6 @@ function getIpCache() {
         "presence_unsubscribe_websocket_total",
       ]),
       ip_cache: getIpCache(),
-      sub_info: getDictEntries("sub_info"),
-      sub_to_user: getDictEntries("sub_to_user"),
-      user_counts: getDictEntries("user_counts"),
       uptime: getUptime(),
       njs_logs: getLastLines("/var/log/nginx/njs_error.log", 100),
       error_logs: getLastLines("/var/log/nginx/error_file.log", 100),
