@@ -155,6 +155,24 @@ async function publish(r) {
     if (enriched.type === "leave") {
       incrementStat("presence_leave_total");
     }
+    if (enriched.type === "join") {
+      // Map unassigned subscriptions from this IP/UA to this user
+      const ip = getClientIp(r);
+      const ua = r.headersIn["user-agent"] || "";
+      const fingerprint = `${ip}|${ua}`;
+      const subInfo = ngx.shared.sub_info;
+      const subToUser = ngx.shared.sub_to_user;
+      const userCounts = ngx.shared.user_counts;
+      const keys = subInfo.keys() || [];
+
+      keys.forEach((subId) => {
+        if (subInfo.get(subId) === fingerprint && !subToUser.get(subId)) {
+          subToUser.set(subId, `${enriched.userId}|${enriched.userName}`);
+          const count = parseInt(userCounts.get(enriched.userId) || "0");
+          userCounts.set(enriched.userId, String(count + 1));
+        }
+      });
+    }
   }
 
   const res = await r.subrequest("/internal" + r.uri, {
@@ -168,14 +186,11 @@ async function publish(r) {
 
 function presence_sub(r) {
   const subId = r.headersIn["X-Nchan-Subscriber-Id"];
-  const userId = r.args.userId;
-  const userName = r.args.userName;
+  const ip = getClientIp(r);
+  const ua = r.headersIn["user-agent"] || "";
 
-  if (subId && userId && userName) {
-    ngx.shared.sub_to_user.set(subId, `${userId}|${userName}`);
-
-    const count = parseInt(ngx.shared.user_counts.get(userId) || "0");
-    ngx.shared.user_counts.set(userId, String(count + 1));
+  if (subId) {
+    ngx.shared.sub_info.set(subId, `${ip}|${ua}`);
   }
 
   r.return(200);
@@ -223,6 +238,7 @@ async function presence_unsub(r) {
         ngx.shared.user_counts.set(userId, String(count));
       }
     }
+    ngx.shared.sub_info.delete(subId);
   }
 
   r.return(204);
@@ -265,6 +281,20 @@ function getIpCache() {
     const entries = {};
     keys.forEach((k) => {
       const value = cache.get(k);
+      if (typeof value !== "undefined") {
+        entries[k] = value;
+      }
+    });
+    return entries;
+  }
+
+  function getDictEntries(name) {
+    const dict = ngx.shared[name];
+    if (!dict) return {};
+    const keys = dict.keys() || [];
+    const entries = {};
+    keys.forEach((k) => {
+      const value = dict.get(k);
       if (typeof value !== "undefined") {
         entries[k] = value;
       }
@@ -339,6 +369,9 @@ function getIpCache() {
         "presence_unsubscribe_websocket_total",
       ]),
       ip_cache: getIpCache(),
+      sub_info: getDictEntries("sub_info"),
+      sub_to_user: getDictEntries("sub_to_user"),
+      user_counts: getDictEntries("user_counts"),
       uptime: getUptime(),
       njs_logs: getLastLines("/var/log/nginx/njs_error.log", 50),
       error_logs: getLastLines("/var/log/nginx/error_file.log", 100),
