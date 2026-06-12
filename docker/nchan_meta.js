@@ -123,25 +123,6 @@ function getStatsSnapshot(keys) {
   return snapshot;
 }
 
-function logR(r, tag) {
-  ngx.log(ngx.WARN, `${tag}`);
-}
-
-function logRoriginal(r, tag) {
-  const parts = Object.keys(r).map((k) => {
-    try {
-      return `${k}=${r[k]}`;
-    } catch (e) {
-      return `${k}=<unstringifiable: ${e.message}>`;
-    }
-  });
-  ngx.log(ngx.WARN, `${tag} r: ${parts.join(" ")}`);
-  try {
-    ngx.log(ngx.WARN, `${tag} HEADERS: in=${JSON.stringify(r.headersIn)} out=${JSON.stringify(r.headersOut)}`);
-  } catch (e) {
-    ngx.log(ngx.WARN, `${tag} HEADERS: <unstringifiable: ${e.message}>`);
-  }
-}
 
 async function publish(r) {
   let parsed = null;
@@ -207,7 +188,7 @@ async function publish(r) {
 function presence_sub(r) {
   try {
     const userId = r.headersIn['X-User-Id'] || 'unknown';
-    logR(r, `presence_sub userId=${userId}`);
+    ngx.log(ngx.WARN, `presence_sub userId=${userId}`);
     r.return(200);
   } catch (e) {
     r.error(`presence_sub error: ${e.message}`);
@@ -215,12 +196,11 @@ function presence_sub(r) {
   }
 }
 
-async function publish_leave(r, userId, userName) {
+async function publish_leave(r, userId) {
   const body = JSON.stringify({
     messageType: "presence",
     type: "leave",
     userId: userId,
-    userName: userName,
     meta: {
       ts: Date.now(),
       ua: "nchan-auto-leave",
@@ -239,7 +219,11 @@ async function presence_unsub(r) {
     const userId = r.headersIn['X-User-Id'] || 'unknown';
     incrementStat("presence_unsubscribe_total");
     incrementStat("presence_unsubscribe_websocket_total");
-    logR(r, `presence_unsub userId=${userId}`);
+    ngx.log(ngx.WARN, `presence_unsub userId=${userId}`);
+    if (userId !== "unknown") {
+      ngx.log(ngx.WARN, `presence_unsub publishing leave for userId=${userId}`);
+      await publish_leave(r, userId);
+    }
     r.return(204);
   } catch (e) {
     r.error(`presence_unsub error: ${e.message}`);
