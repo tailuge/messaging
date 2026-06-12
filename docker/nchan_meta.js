@@ -202,7 +202,8 @@ async function publish(r) {
 
 function presence_sub(r) {
   try {
-    logR(r, "presence_sub");
+    const userId = r.headersIn['X-User-Id'] || 'unknown';
+    logR(r, `presence_sub userId=${userId}`);
     r.return(200);
   } catch (e) {
     r.error(`presence_sub error: ${e.message}`);
@@ -231,9 +232,10 @@ async function publish_leave(r, userId, userName) {
 
 async function presence_unsub(r) {
   try {
+    const userId = r.headersIn['X-User-Id'] || 'unknown';
     incrementStat("presence_unsubscribe_total");
     incrementStat("presence_unsubscribe_websocket_total");
-    logR(r, "presence_unsub");
+    logR(r, `presence_unsub userId=${userId}`);
     r.return(204);
   } catch (e) {
     r.error(`presence_unsub error: ${e.message}`);
