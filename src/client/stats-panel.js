@@ -9,7 +9,7 @@ class StatsPanel extends LitElement {
         .loading { color: var(--text-muted, #757575); font-size: 0.85rem; }
         .uptime { font-size: 0.8rem; color: var(--text-muted, #757575); margin-bottom: 0.5rem; }
         ul { list-style: none; margin: 0; padding: 0; }
-        li { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; padding: 0.15rem 0; }
+        li { display: flex; align-items: center; gap: 0.1rem; font-size: 0.9rem; padding: 0.05rem 0; }
         .count { color: var(--text-muted, #757575); font-size: 0.8rem; }
     `;
 

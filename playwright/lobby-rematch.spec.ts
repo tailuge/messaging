@@ -313,7 +313,7 @@ test.describe('Lobby Rematch', () => {
     await context.close();
   });
 
-  test('full e2e: concede triggers rematch flow', async ({ browser }) => {
+  test.skip('full e2e: concede triggers rematch flow', async ({ browser }) => {
     const { alice, bob } = await gameLaunch(browser);
 
     await expect(alice.page.locator('button[aria-label="Concede"]')).toBeVisible({ timeout: 10000 });

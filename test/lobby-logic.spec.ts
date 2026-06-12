@@ -76,5 +76,34 @@ describe("Lobby Logic", () => {
 
       expect(state.currentMatch?.isFirst).toBe(true); // Bob is challengee but nextTurnId is bob
     });
+
+    it("rematch: exactly one player gets isFirst=true for any nextTurnId (mutual exclusivity)", () => {
+      // Simulates both players' reducers processing the same accept message with nextTurnId set.
+      // Asserts the invariant: challenger.isFirst XOR challengee.isFirst === true.
+      const cases = [
+        { nextTurnId: myId,       expectAliceFirst: true,  expectBobFirst: false },
+        { nextTurnId: opponentId, expectAliceFirst: false, expectBobFirst: true  },
+      ];
+
+      for (const { nextTurnId, expectAliceFirst, expectBobFirst } of cases) {
+        // Alice (challenger) receives the accept message
+        let aliceState = reduce(INITIAL_STATE, { type: 'CHALLENGE_SENT', myId, payload: {
+          challengerId: myId, challengeeId: opponentId, tableId, ruleType: 'nineball'
+        }});
+        const acceptMsg = { type: 'accept', challengerId: myId, challengeeId: opponentId, tableId, ruleType: 'nineball', nextTurnId };
+        aliceState = reduce(aliceState, { type: 'CHALLENGE_MSG', myId, payload: acceptMsg });
+
+        // Bob (challengee) receives the accept message
+        let bobState = reduce(INITIAL_STATE, { type: 'CHALLENGE_MSG', myId: opponentId, payload: {
+          type: 'offer', challengerId: myId, challengeeId: opponentId, tableId, ruleType: 'nineball'
+        }});
+        bobState = reduce(bobState, { type: 'CHALLENGE_MSG', myId: opponentId, payload: acceptMsg });
+
+        expect(aliceState.currentMatch?.isFirst).toBe(expectAliceFirst);
+        expect(bobState.currentMatch?.isFirst).toBe(expectBobFirst);
+        // Key invariant: exactly one is first
+        expect(aliceState.currentMatch?.isFirst).not.toBe(bobState.currentMatch?.isFirst);
+      }
+    });
   });
 });
