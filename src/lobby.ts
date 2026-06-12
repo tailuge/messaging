@@ -78,9 +78,13 @@ export class Lobby {
   async join(): Promise<void> {
     if (this.isJoined) return;
 
-    this.subscription = this.nchan.subscribePresence((data) => {
-      this.handleIncomingMessage(data);
-    });
+    this.subscription = this.nchan.subscribePresence(
+      (data) => {
+        this.handleIncomingMessage(data);
+      },
+      this.currentUser.userId,
+      this.currentUser.userName,
+    );
 
     this.subscription.onReconnect = () => {
       // Trigger any external reconnect handlers first (e.g., MessagingClient.resumeSession)

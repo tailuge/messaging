@@ -166,9 +166,65 @@ async function publish(r) {
   r.return(res.status, body);
 }
 
-function presence_unsub(r) {
+function presence_sub(r) {
+  const subId = r.headersIn["X-Nchan-Subscriber-Id"];
+  const userId = r.args.userId;
+  const userName = r.args.userName;
+
+  if (subId && userId && userName) {
+    ngx.shared.sub_to_user.set(subId, `${userId}|${userName}`);
+
+    const count = parseInt(ngx.shared.user_counts.get(userId) || "0");
+    ngx.shared.user_counts.set(userId, String(count + 1));
+  }
+
+  r.return(200);
+}
+
+async function publish_leave(r, userId, userName) {
+  const body = JSON.stringify({
+    messageType: "presence",
+    type: "leave",
+    userId: userId,
+    userName: userName,
+    meta: {
+      ts: Date.now(),
+      ua: "nchan-auto-leave",
+      origin: "internal",
+    },
+  });
+
+  await r.subrequest("/internal/publish/presence/lobby", {
+    method: "POST",
+    body: body,
+  });
+}
+
+async function presence_unsub(r) {
   incrementStat("presence_unsubscribe_total");
   incrementStat("presence_unsubscribe_websocket_total");
+
+  const subId = r.headersIn["X-Nchan-Subscriber-Id"];
+  if (subId) {
+    const userData = ngx.shared.sub_to_user.get(subId);
+    if (userData) {
+      const parts = userData.split("|");
+      const userId = parts[0];
+      const userName = parts[1];
+      ngx.shared.sub_to_user.delete(subId);
+
+      let count = parseInt(ngx.shared.user_counts.get(userId) || "1");
+      count = Math.max(0, count - 1);
+
+      if (count === 0) {
+        ngx.shared.user_counts.delete(userId);
+        await publish_leave(r, userId, userName);
+      } else {
+        ngx.shared.user_counts.set(userId, String(count));
+      }
+    }
+  }
+
   r.return(204);
 }
 
@@ -293,4 +349,4 @@ function getIpCache() {
     r.return(200, JSON.stringify(data));
   }
 
-export default { publish, presence_unsub, stats };
+export default { publish, presence_sub, presence_unsub, stats };

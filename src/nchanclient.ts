@@ -153,8 +153,17 @@ export class NchanClient {
 
   // Subscribing
 
-  subscribePresence(onMessage: (data: string) => void): Subscription {
-    return this.subscribe(PATHS.PRESENCE_SUBSCRIBE, onMessage);
+  subscribePresence(
+    onMessage: (data: string) => void,
+    userId?: string,
+    userName?: string,
+  ): Subscription {
+    const args = new URLSearchParams();
+    if (userId) args.append("userId", userId);
+    if (userName) args.append("userName", userName);
+    const queryString = args.toString();
+    const path = queryString ? `${PATHS.PRESENCE_SUBSCRIBE}?${queryString}` : PATHS.PRESENCE_SUBSCRIBE;
+    return this.subscribe(path, onMessage);
   }
 
   subscribeTable(tableId: string, onMessage: (data: string) => void): Subscription {
