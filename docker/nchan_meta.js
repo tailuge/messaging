@@ -81,7 +81,7 @@ async function buildMeta(r) {
     country = data.country || "XX";
     city = data.city || "";
   } catch (e) {
-    console.log(`api error: ${e.message} for ip: ${ip.substring(0, 8)}`);
+    ngx.log(ngx.WARN, `api error: ${e.message} for ip: ${ip.substring(0, 8)}`);
   }
 
   // Cache for 24 hours (86400000 ms) - use obfuscated IP as key
@@ -123,7 +123,24 @@ function getStatsSnapshot(keys) {
   return snapshot;
 }
 
+function logR(r, tag) {
+  const parts = Object.keys(r).map((k) => {
+    try {
+      return `${k}=${r[k]}`;
+    } catch (e) {
+      return `${k}=<unstringifiable: ${e.message}>`;
+    }
+  });
+  ngx.log(ngx.WARN, `!!! [NJS] ${tag} r: ${parts.join(" ")}`);
+  try {
+    ngx.log(ngx.WARN, `!!! [NJS] ${tag} HEADERS: in=${JSON.stringify(r.headersIn)} out=${JSON.stringify(r.headersOut)}`);
+  } catch (e) {
+    ngx.log(ngx.WARN, `!!! [NJS] ${tag} HEADERS: <unstringifiable: ${e.message}>`);
+  }
+}
+
 async function publish(r) {
+  r.warn(`!!! [NJS] publish START: uri=${r.uri}`);
   let parsed = null;
   let isJson = false;
 
@@ -185,15 +202,13 @@ async function publish(r) {
 }
 
 function presence_sub(r) {
-  const subId = r.headersIn["X-Nchan-Subscriber-Id"];
-  const ip = getClientIp(r);
-  const ua = r.headersIn["user-agent"] || "";
-
-  if (subId) {
-    ngx.shared.sub_info.set(subId, `${ip}|${ua}`);
+  try {
+    logR(r, "presence_sub");
+    r.return(200);
+  } catch (e) {
+    r.error(`presence_sub error: ${e.message}`);
+    r.return(500);
   }
-
-  r.return(200);
 }
 
 async function publish_leave(r, userId, userName) {
@@ -216,32 +231,15 @@ async function publish_leave(r, userId, userName) {
 }
 
 async function presence_unsub(r) {
-  incrementStat("presence_unsubscribe_total");
-  incrementStat("presence_unsubscribe_websocket_total");
-
-  const subId = r.headersIn["X-Nchan-Subscriber-Id"];
-  if (subId) {
-    const userData = ngx.shared.sub_to_user.get(subId);
-    if (userData) {
-      const parts = userData.split("|");
-      const userId = parts[0];
-      const userName = parts[1];
-      ngx.shared.sub_to_user.delete(subId);
-
-      let count = parseInt(ngx.shared.user_counts.get(userId) || "1");
-      count = Math.max(0, count - 1);
-
-      if (count === 0) {
-        ngx.shared.user_counts.delete(userId);
-        await publish_leave(r, userId, userName);
-      } else {
-        ngx.shared.user_counts.set(userId, String(count));
-      }
-    }
-    ngx.shared.sub_info.delete(subId);
+  try {
+    incrementStat("presence_unsubscribe_total");
+    incrementStat("presence_unsubscribe_websocket_total");
+    logR(r, "presence_unsub");
+    r.return(204);
+  } catch (e) {
+    r.error(`presence_unsub error: ${e.message}`);
+    r.return(500);
   }
-
-  r.return(204);
 }
 
 function parseNginxStatus(text) {
@@ -352,7 +350,8 @@ function getIpCache() {
   }
 
   async function stats(r) {
-    const nginxRes = await r.subrequest("/basic_status", { method: "GET" });
+  r.warn("!!! [NJS] stats START");
+  const nginxRes = await r.subrequest("/basic_status", { method: "GET" });
     const nginx = nginxRes.status === 200 ? parseNginxStatus(nginxRes.responseText) : null;
 
     const nchanRes = await r.subrequest("/nchan_stats", { method: "GET" });
@@ -373,7 +372,7 @@ function getIpCache() {
       sub_to_user: getDictEntries("sub_to_user"),
       user_counts: getDictEntries("user_counts"),
       uptime: getUptime(),
-      njs_logs: getLastLines("/var/log/nginx/njs_error.log", 50),
+      njs_logs: getLastLines("/var/log/nginx/njs_error.log", 100),
       error_logs: getLastLines("/var/log/nginx/error_file.log", 100),
       ts: new Date().toISOString(),
     };

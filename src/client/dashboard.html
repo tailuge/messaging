@@ -143,8 +143,8 @@ table td {
         transition: max-height 0.3s ease-out;
       }
       .card .card-content {
-        max-height: 500px;
-        overflow: hidden;
+        max-height: 70vh;
+        overflow-y: auto;
         transition: max-height 0.3s ease-out;
       }
       .toggle-header {
@@ -284,10 +284,10 @@ table td {
          </div>
        </div>
 
-<div class="card collapsed" id="access-logs-card">
+<div class="card" id="access-logs-card">
         <div class="toggle-header" onclick="toggleCard('access-logs-card')" style="cursor: pointer;">
           <h3 style="margin: 0; display: inline;">Access Logs</h3>
-          <span class="toggle-indicator">▸</span>
+          <span class="toggle-indicator">▾</span>
         </div>
         <div id="access-logs-meta" class="refresh-tag"></div>
         <div class="card-content" id="access-logs-info">
@@ -308,10 +308,10 @@ table td {
         </div>
       </div>
 
-      <div class="card collapsed" id="njs-logs-card">
+      <div class="card" id="njs-logs-card">
         <div class="toggle-header" onclick="toggleCard('njs-logs-card')" style="cursor: pointer;">
           <h3 style="margin: 0; display: inline;">NJS Logs</h3>
-          <span class="toggle-indicator">▸</span>
+          <span class="toggle-indicator">▾</span>
         </div>
         <div id="njs-logs-meta" class="refresh-tag"></div>
         <div class="card-content" id="njs-logs-info">
