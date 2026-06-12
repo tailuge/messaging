@@ -12,10 +12,12 @@ class SettingsModal extends StoreElement {
     };
     static LOD_LABELS = ['pixelated', 'polygons', 'high poly', 'shaders', 'antialiased'];
     static styles = [SHARED_STYLES, CHALLENGE_MODAL_STYLES, css`
+        .modal { padding: 0.7rem 1rem; gap: 0.3rem; }
+        h3 { margin: 0 0 0.1rem; font-size: 0.9rem; }
         .burger { background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 0.0rem 0.1rem; color: var(--text-muted); line-height: 1; min-width: 28px; min-height: 32px; }
         .burger:hover { color: var(--text); background: none; }
-        .row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: var(--text); }
-        .section-title { font-size: 0.75rem; font-weight: bold; color: var(--text-muted); text-transform: uppercase; margin-top: 0.5rem; border-bottom: 1px solid var(--border-light); padding-bottom: 2px; }
+        .row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: var(--text); line-height: 1.3; }
+        .section-title { font-size: 0.7rem; font-weight: bold; color: var(--text-muted); text-transform: uppercase; margin-top: 0.3rem; margin-bottom: 0.1rem; border-bottom: 1px solid var(--border-light); padding-bottom: 1px; }
         label { cursor: pointer; display: flex; align-items: center; gap: 0.3rem; }
         a { color: var(--link); text-decoration: none; font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem; }
         a:hover { text-decoration: underline; }
@@ -66,7 +68,7 @@ class SettingsModal extends StoreElement {
             background: var(--border);
             border-radius: 2px;
             outline: none;
-            margin: 0.4rem 0;
+            margin: 0.15rem 0;
         }
         input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
@@ -206,7 +208,7 @@ class SettingsModal extends StoreElement {
 
                         ${this._showStats ? html`<div><strong style="font-size:0.82rem">Recent visitors</strong><stats-panel></stats-panel></div>` : ''}
 
-                        <button class="cancel" @click=${this._close} style="margin-top: 0.8rem;">Close</button>
+                        <button class="cancel" @click=${this._close} style="margin-top: 0.4rem;">Close</button>
                     </div>
                 </div>` : ''}
         `;

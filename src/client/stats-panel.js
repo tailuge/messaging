@@ -7,10 +7,10 @@ class StatsPanel extends LitElement {
     static styles = css`
         :host { display: block; font-family: inherit; }
         .loading { color: var(--text-muted, #757575); font-size: 0.85rem; }
-        .uptime { font-size: 0.8rem; color: var(--text-muted, #757575); margin-bottom: 0.5rem; }
+        .uptime { font-size: 0.78rem; color: var(--text-muted, #757575); margin: 0 0 0.2rem; line-height: 1.3; }
         ul { list-style: none; margin: 0; padding: 0; }
-        li { display: flex; align-items: center; gap: 0.1rem; font-size: 0.9rem; padding: 0.05rem 0; }
-        .count { color: var(--text-muted, #757575); font-size: 0.8rem; }
+        li { display: flex; align-items: center; gap: 0.1rem; font-size: 0.88rem; padding: 0.02rem 0; line-height: 1.25; }
+        .count { color: var(--text-muted, #757575); font-size: 0.78rem; }
     `;
 
     connectedCallback() {
