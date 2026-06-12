@@ -124,6 +124,10 @@ function getStatsSnapshot(keys) {
 }
 
 function logR(r, tag) {
+  ngx.log(ngx.WARN, `${tag}`);
+}
+
+function logRoriginal(r, tag) {
   const parts = Object.keys(r).map((k) => {
     try {
       return `${k}=${r[k]}`;
