@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 268;
+export const CLIENTVERSION = 269;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 export const genId = () => 'user-' + Math.random().toString(36).slice(2, 7);

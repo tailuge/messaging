@@ -131,16 +131,15 @@ function logR(r, tag) {
       return `${k}=<unstringifiable: ${e.message}>`;
     }
   });
-  ngx.log(ngx.WARN, `!!! [NJS] ${tag} r: ${parts.join(" ")}`);
+  ngx.log(ngx.WARN, `${tag} r: ${parts.join(" ")}`);
   try {
-    ngx.log(ngx.WARN, `!!! [NJS] ${tag} HEADERS: in=${JSON.stringify(r.headersIn)} out=${JSON.stringify(r.headersOut)}`);
+    ngx.log(ngx.WARN, `${tag} HEADERS: in=${JSON.stringify(r.headersIn)} out=${JSON.stringify(r.headersOut)}`);
   } catch (e) {
-    ngx.log(ngx.WARN, `!!! [NJS] ${tag} HEADERS: <unstringifiable: ${e.message}>`);
+    ngx.log(ngx.WARN, `${tag} HEADERS: <unstringifiable: ${e.message}>`);
   }
 }
 
 async function publish(r) {
-  r.warn(`!!! [NJS] publish START: uri=${r.uri}`);
   let parsed = null;
   let isJson = false;
 
