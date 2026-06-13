@@ -9,6 +9,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Nchan Dashboard</title>
     <style>
+      * {
+        margin: 1px !important;
+        padding: 1px !important;
+        box-sizing: border-box;
+      }
       :root {
         --bg-color: #8DDCDC;
         --card-bg: #ffffff;
@@ -27,8 +32,7 @@ body {
   padding: 1px;
 }
       .dashboard {
-        max-width: 1000px;
-        margin: 0 auto;
+        width: 100%;
       }
 header {
   display: flex;
@@ -92,7 +96,13 @@ table td {
       }
       th {
         background: #f8f9fa;
-        font-size: 0.9rem;
+        font-size: 0.7rem;
+      }
+      .ip-col {
+        max-width: 16ch;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       pre {
         background: #f8f9fa;
@@ -245,15 +255,13 @@ table td {
                  <th>Country Code</th>
                  <th>Location</th>
                  <th>Hits</th>
-                 <th>Protocol</th>
-                 <th>Last URI</th>
                  <th>Origins</th>
                  <th>Since</th>
                </tr>
              </thead>
              <tbody>
                <tr>
-                 <td colspan="8" style="text-align: center; color: var(--secondary-color)">
+                 <td colspan="6" style="text-align: center; color: var(--secondary-color)">
                    No cache data available.
                  </td>
                </tr>
@@ -383,14 +391,12 @@ table td {
                 const location = city ? city : "-";
                 const sinceTs = parseInt(parts[4]);
                 const since = sinceTs ? new Date(sinceTs).toLocaleString() : "-";
-                const protocol = escapeHtml(parts[5] || "-");
-                const lastUrl = escapeHtml(parts[6] || "-");
-                return `<tr><td>${escapeHtml(ip)}</td><td>${country}</td><td>${location}</td><td>${hits}</td><td>${protocol}</td><td>${lastUrl}</td><td>${origins}</td><td>${since}</td></tr>`;
+                return `<tr><td class="ip-col">${escapeHtml(ip)}</td><td>${country}</td><td>${location}</td><td>${hits}</td><td>${origins}</td><td>${since}</td></tr>`;
               })
               .join("");
           } else {
             ipCacheTableBody.innerHTML =
-              '<tr><td colspan="8" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
+              '<tr><td colspan="6" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
           }
 
         const njsLogsTableBody = document.querySelector("#njs-logs-table tbody");
