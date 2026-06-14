@@ -14,4 +14,7 @@ pnpm-lock.yaml
 docker/html/*
 !docker/html/assets/
 docker/html/assets/*
+!docker/html/robots.txt
+!docker/html/sitemap.xml
+!docker/html/favicon.ico
 .env
