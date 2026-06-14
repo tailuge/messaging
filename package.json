@@ -1,6 +1,6 @@
 {
   "name": "@tailuge/messaging",
-  "version": "1.24.0",
+  "version": "1.25.0",
   "type": "module",
   "description": "A stateful messaging library for Nchan-powered real-time applications.",
   "main": "./dist/index.js",
@@ -20,7 +20,8 @@
     "test": "jest --config test/jest.config.cjs --verbose",
     "coverage": "jest --config test/jest.config.cjs --coverage",
     "playwright": "npm run docker:build && npx playwright test",
-    "playwright:rematch": "npm run docker:build && npx playwright test playwright/lobby-rematch.spec.ts",
+      "playwright:rematch": "npm run docker:build && npx playwright test playwright/lobby-rematch.spec.ts",
+    "playwright:e2e": "npm run docker:build && npx playwright test playwright/fulle2e.spec.ts",      
     "test:debug": "npm run playwright",
     "clientbump": "node scripts/clientbump.mjs",
     "lint": "tsc --noEmit && npx oxlint src test",

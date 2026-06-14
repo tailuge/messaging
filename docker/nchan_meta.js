@@ -170,7 +170,7 @@ async function publish(r) {
 function presence_sub(r) {
   try {
     const userId = r.headersIn['X-User-Id'] || 'unknown';
-    ngx.log(ngx.WARN, `presence_sub userId=${userId}`);
+    ngx.log(ngx.WARN, `presence_sub.. ${userId}`);
     r.return(200);
   } catch (e) {
     r.error(`presence_sub error: ${e.message}`);
@@ -201,9 +201,8 @@ async function presence_unsub(r) {
     const userId = r.headersIn['X-User-Id'] || 'unknown';
     incrementStat("presence_unsubscribe_total");
     incrementStat("presence_unsubscribe_websocket_total");
-    ngx.log(ngx.WARN, `presence_unsub userId=${userId}`);
+    ngx.log(ngx.WARN, `presence_unsub ${userId}`);
     if (userId !== "unknown") {
-      ngx.log(ngx.WARN, `presence_unsub publishing leave for userId=${userId}`);
       await publish_leave(r, userId);
     }
     r.return(204);
@@ -307,7 +306,7 @@ function getIpCache() {
   }
 
   async function stats(r) {
-  r.warn("!!! [NJS] stats START");
+  r.warn("Stats data");
   const nginxRes = await r.subrequest("/basic_status", { method: "GET" });
     const nginx = nginxRes.status === 200 ? parseNginxStatus(nginxRes.responseText) : null;
 
@@ -326,8 +325,7 @@ function getIpCache() {
       ]),
       ip_cache: getIpCache(),
       uptime: getUptime(),
-      njs_logs: getLastLines("/var/log/nginx/njs_error.log", 100),
-      error_logs: getLastLines("/var/log/nginx/error_file.log", 100),
+      njs_logs: getLastLines("/var/log/nginx/njs_error.log", 1000),
       ts: new Date().toISOString(),
     };
 

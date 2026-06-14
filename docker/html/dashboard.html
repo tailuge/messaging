@@ -44,6 +44,15 @@ h1 {
   margin: 0;
   font-size: 1.25rem;
 }
+h3 {
+  margin: 0;
+  font-size: 0.75rem;
+}
+h4 {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--secondary-color);
+}
       .controls {
         display: flex;
         gap: 10px;
@@ -143,9 +152,18 @@ table td {
         opacity: 0.5;
         pointer-events: none;
       }
-      .log-error {
-        color: #dc3545;
-        background-color: #f8d7da;
+      #njs-logs-table {
+        font-family: monospace;
+        font-size: 0.7rem;
+      }
+      #njs-logs-table th,
+      #njs-logs-table td {
+        padding: 1px 1px 0px 1px;
+      }
+      #njs-logs-table th:first-child,
+      #njs-logs-table td:first-child {
+        white-space: nowrap;
+        width: 1%;
       }
       .card.collapsed .card-content {
         max-height: 0;
@@ -165,6 +183,19 @@ table td {
       .toggle-header h3 {
         margin: 0;
       }
+      #sparkline {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 2px 1px;
+        margin-bottom: 1px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        overflow: hidden;
+      }
+      #sparkline div {
+        padding: 0 !important;
+        margin: 0 !important;
+      }
     </style>
   </head>
   <body>
@@ -177,24 +208,7 @@ table td {
         </div>
       </header>
 
-      <div class="grid">
-        <div class="card metric">
-          <div id="stat-active-conns" class="metric-value">-</div>
-          <div class="metric-label">Active Connections</div>
-        </div>
-        <div class="card metric">
-          <div id="stat-total-channels" class="metric-value">-</div>
-          <div class="metric-label">Total Channels</div>
-        </div>
-        <div class="card metric">
-          <div id="stat-stored-messages" class="metric-value">-</div>
-          <div class="metric-label">Stored Messages</div>
-        </div>
-        <div class="card metric">
-          <div id="stat-mem-used" class="metric-value">-</div>
-          <div class="metric-label">Memory Used</div>
-        </div>
-      </div>
+      <div id="sparkline"></div>
 
       <div class="card">
         <h3>System Status</h3>
@@ -294,6 +308,7 @@ table td {
           </table>
         </div>
       </div>
+
     </div>
 
     <script>
@@ -337,7 +352,6 @@ table td {
 
       function updateUI(data) {
         if (data.nginx) {
-          document.getElementById("stat-active-conns").textContent = data.nginx.active;
           document.getElementById("ngx-accepts").textContent = data.nginx.accepts;
           document.getElementById("ngx-handled").textContent = data.nginx.handled;
           document.getElementById("ngx-requests").textContent = data.nginx.requests;
@@ -349,12 +363,6 @@ table td {
         }
 
         if (data.nchan) {
-          document.getElementById("stat-total-channels").textContent =
-            data.nchan.total_channels || 0;
-          document.getElementById("stat-stored-messages").textContent = data.nchan.messages || 0;
-          document.getElementById("stat-mem-used").textContent = formatBytes(
-            data.nchan.shared_memory_used || 0,
-          );
           document.getElementById("nch-published").textContent =
             data.nchan.total_published_messages || 0;
           document.getElementById("nch-subscribed").textContent =
@@ -407,6 +415,7 @@ table td {
 
         if (njsLogs && njsLogs.length > 0) {
           njsLogsTableBody.innerHTML = njsLogs
+            .filter(line => !line.includes('closed keepalive connection') && !line.includes('107: Socket not connected'))
             .map((logLine) => {
               const isError = logLine.toLowerCase().includes("api error");
               const errorClass = isError ? "log-error" : "";
@@ -416,9 +425,13 @@ table td {
               return `<tr class="${errorClass}"><td>${timestamp}</td><td>${message}</td></tr>`;
             })
             .join("");
+
+          // Render sparkline from NJS sub/unsub events
+          generateSparkline('sparkline', njsLogs);
         } else {
           njsLogsTableBody.innerHTML =
             '<tr><td colspan="2" style="text-align: center; color: var(--secondary-color);">No logs available.</td></tr>';
+          document.getElementById('sparkline').innerHTML = '';
         }
       }
 
@@ -428,6 +441,136 @@ table td {
         const sizes = ["B", "KB", "MB", "GB"];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+      }
+
+      function generateSparkline(containerId, lines) {
+        const container = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
+        if (!container) return;
+        container.innerHTML = '';
+
+        // Ultra-compact styles matching dashboard card theme
+        Object.assign(container.style, {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0px',
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+          fontSize: '9px',
+          color: '#a1a1aa',
+          lineHeight: '2',
+          userSelect: 'none'
+        });
+
+        // Accept both string and array input
+        const rawText = Array.isArray(lines) ? lines.join('\n') : lines;
+
+        // Adapted regex for NGINX error log format:
+        // 2024/01/15 10:30:00 [warn] 123#456: *789 js: presence_sub.. user123
+        const regex = /(\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2})\s+\[\w+\]\s+\d+#\d+:\s+\*(\d+)\s+js:\s+presence_(sub\.\.|unsub)\s+([a-zA-Z0-9-_]+)/g;
+        const events = [];
+        let match;
+
+        while ((match = regex.exec(rawText)) !== null) {
+          const connId = parseInt(match[2], 10);
+          events.push({
+            timestamp: new Date(match[1].replace(/\//g, '-')).getTime(),
+            connId: connId,
+            action: match[3] === 'sub..' ? 'sub' : 'unsub',
+            user: match[4]
+          });
+        }
+
+        if (events.length === 0) return;
+
+        // Sort chronologically by connection sequence
+        events.sort((a, b) => a.connId - b.connId || a.timestamp - b.timestamp);
+
+        const minConn = events[0].connId;
+        const maxConn = events[events.length - 1].connId;
+        const connDiff = Math.max(1, maxConn - minConn);
+
+        // Group by user
+        const users = {};
+        events.forEach(evt => {
+          if (!users[evt.user]) users[evt.user] = { name: evt.user, events: [] };
+          users[evt.user].events.push(evt);
+        });
+
+        // Render sorted rows
+        Object.keys(users).sort().forEach(username => {
+          const userObj = users[username];
+
+          const row = document.createElement('div');
+          Object.assign(row.style, {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '2px',
+            height: '6px'
+          });
+
+          const label = document.createElement('div');
+          label.innerText = username;
+          Object.assign(label.style, {
+            width: '75px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            color: '#a1a1aa',
+            fontSize: '9px',
+            paddingLeft: '2px',
+            letterSpacing: '-0.05em'
+          });
+          row.appendChild(label);
+
+          const lineContainer = document.createElement('div');
+          Object.assign(lineContainer.style, {
+            flex: '1',
+            height: '3px',
+            backgroundColor: '#efefef',
+              position: 'relative',
+	      padding: '0px',
+            overflow: 'hidden'
+          });
+
+          let currentSub = null;
+          userObj.events.forEach(evt => {
+            if (evt.action === 'sub') {
+              currentSub = evt.connId;
+            } else if (evt.action === 'unsub' && currentSub !== null) {
+              const startPct = ((currentSub - minConn) / connDiff) * 100;
+              const endPct = ((evt.connId - minConn) / connDiff) * 100;
+              const widthPct = Math.max(0.3, endPct - startPct);
+
+              const activeBar = document.createElement('div');
+              Object.assign(activeBar.style, {
+                position: 'absolute',
+                height: '100%',
+                backgroundColor: '#10d961',
+                left: startPct + '%',
+                width: widthPct + '%'
+              });
+              lineContainer.appendChild(activeBar);
+              currentSub = null;
+            }
+          });
+
+          // Tail segment if still connected
+          if (currentSub !== null) {
+            const startPct = ((currentSub - minConn) / connDiff) * 100;
+            const widthPct = 100 - startPct;
+            const activeBar = document.createElement('div');
+            Object.assign(activeBar.style, {
+              position: 'absolute',
+              height: '100%',
+              backgroundColor: '#10d961',
+              left: startPct + '%',
+              width: widthPct + '%'
+            });
+            lineContainer.appendChild(activeBar);
+          }
+
+          row.appendChild(lineContainer);
+          container.appendChild(row);
+        });
       }
 
       fetchStats();

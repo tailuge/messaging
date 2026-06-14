@@ -45,7 +45,7 @@ class StatsPanel extends LitElement {
         const { uptime, ip_cache } = this._data;
         const countries = this._countryCounts(ip_cache ?? {});
         return html`
-            ${uptime ? html`<div class="uptime">⏱ ${this._formatUptime(uptime)}</div>` : ''}
+            ${uptime ? html`<div class="uptime"><a href="https://billiards-network.onrender.com/" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">⏱</a> ${this._formatUptime(uptime)}</div>` : ''}
             <ul>
                 ${countries.map(([code, n]) => html`
                     <li>${flag(code).emoji} <span>${code}</span> <span class="count">${n}</span></li>
