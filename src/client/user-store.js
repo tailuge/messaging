@@ -20,12 +20,22 @@ class UserStore extends EventTarget {
             this.clientId = urlId;
             this.isForcedId = true;
         } else {
-            this.clientId = storedId.length > 2 ? storedId : genId();
-            this.isForcedId = false;
-            if (this.clientId !== storedId) localStorage.setItem('userId', this.clientId);
+            const isTestHarness = window.self !== window.top && 
+                                (location.hostname === 'localhost' || location.hostname === '127.0.0.1') &&
+                                window.name.includes('-');
+            
+            if (isTestHarness) {
+                this.clientId = window.name;
+                this.isForcedId = true;
+                if (!urlName) this.userName = window.name.split('-')[0];
+            } else {
+                this.clientId = storedId.length > 2 ? storedId : genId();
+                this.isForcedId = false;
+                if (this.clientId !== storedId) localStorage.setItem('userId', this.clientId);
+            }
         }
 
-        this.userName = urlName || storedName || 'Anonymous';
+        this.userName = urlName || this.userName || storedName || 'Anonymous';
         this.lod = localStorage.getItem('lod') || '2';
         this.flip = localStorage.getItem('flip') === 'true';
         this.useProxy = localStorage.getItem('useProxy') === 'true';
