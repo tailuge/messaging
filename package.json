@@ -26,7 +26,7 @@
     "clientbump": "node scripts/clientbump.mjs",
     "lint": "tsc --noEmit && npx oxlint src test",
     "prettify": "npx oxfmt src test",
-    "build:lit": "npx esbuild src/client/lobby.js --bundle --minify --outfile=docker/html/lobby.js && cp src/client/*.html docker/html/ && cp src/client/favicon.ico src/client/robots.txt docker/html/ 2>/dev/null || true && mkdir -p docker/html/assets && cp src/client/assets/*.png docker/html/assets/ 2>/dev/null || true",
+    "build:lit": "npx esbuild src/client/lobby.js --bundle --minify --outfile=docker/html/lobby.js && cp src/client/*.html docker/html/ && cp src/client/favicon.ico src/client/robots.txt src/client/sitemap.xml docker/html/ 2>/dev/null || true && mkdir -p docker/html/assets && cp src/client/assets/*.png docker/html/assets/ 2>/dev/null || true",
     "crossdeploy": "npx esbuild src/client/lobby.js --bundle --minify --outfile=../billiards/dist/lobby.js && cp src/client/lobby.html ../billiards/dist/ && cp src/client/assets/*.png ../billiards/dist/assets/",
     "crossdeployv": "cp docker/html/lobby.js ../scoreboard/public/ && cp src/client/lobby.html ../scoreboard/public/ && cp src/client/assets/*.png ../scoreboard/public/assets/",
     "build": "tsc --declaration && node scripts/add-js-extensions.js && npx esbuild src/index.ts --bundle --format=esm --outfile=docker/html/messaging.js && npm run build:lit",

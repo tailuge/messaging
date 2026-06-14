@@ -1,2 +1,4 @@
 User-agent: *
 Allow: /
+
+Sitemap: https://billiards-network.onrender.com/sitemap.xml
