@@ -89,10 +89,13 @@ export const USER_LIST_STYLES = css`
     ul::-webkit-scrollbar { display: none; }
     li {
         display: flex; justify-content: space-between; align-items: center;
-        padding: 2px 4px; border-bottom: none; gap: 4px;
-        width: 170px; box-sizing: border-box;
+        padding: 1px 1px;
+        width: 200px; box-sizing: border-box;
+        border: 0.25px solid var(--border-light);
+        border-bottom: none; gap: 1px;
+        border-radius: 4px;
     }
-    li:last-child { border-bottom: none; }
+    li:last-child { border-bottom: 0.25px; }
     .user-info { display: flex; flex-direction: column; min-width: 0; }
     .user-name {
         font-weight: 500; font-size: 0.8rem; color: var(--text);
