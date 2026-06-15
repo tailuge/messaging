@@ -73,3 +73,41 @@ Note: On join, `isLeaving` is explicitly set to `false` (not `undefined`). Asser
 4. **Clear orphaned timers in pruner** — When the pruner removes a user, also `clearTimeout` and delete their leave timer.
 5. **Jest needs `--config test/jest.config.cjs`** — Without it, ts-jest won't transform `.ts` test files.
 6. **`jest.useFakeTimers()` goes in `beforeEach`** — Not at module top level, to avoid ts-jest parsing issues.
+
+## Nchan Message Replay Bug (current issue)
+
+### Background: Nchan buffered replay
+
+The presence channel is configured with:
+- `nchan_message_buffer_length 2000` — stores up to 2000 messages
+- `nchan_message_timeout 90s` — messages persist in buffer for 90 seconds
+- `nchan_subscriber_first_message oldest` — new subscribers receive ALL buffered messages oldest-first
+
+When a user refreshes or reconnects, Nchan replays every message from the last 90 seconds.
+
+### Core problems with the `setTimeout` approach
+
+1. **`setTimeout` uses receipt time, not publish time.** During replay, a `leave` message from 80 seconds ago starts a *fresh* 5-second timer as if the user just left. Even though a subsequent `join` in the replay clears it, this is fragile — if the buffer contains a `leave` as the last message for a user (e.g. their heartbeat fell outside the 90s window but the auto-leave is within it), the user gets incorrectly greyed and removed.
+
+2. **Dual leave messages per disconnect.** Every WebSocket disconnect generates TWO `leave` messages:
+   - One from the client's `lobby.leave()` (HTTP POST / sendBeacon)
+   - One from `nchan_meta.js` `presence_unsub` (auto-leave via internal subrequest)
+   Both go into the buffer. While the second is a no-op in `handlePresenceUpdate`, it doubles buffer consumption and adds noise that complicates replay. The auto-leave also lacks `userName` — handled correctly now (it mutates the existing object in-place), but another fragility point.
+
+3. **No timestamp-based deduplication.** The code comment says *"Nchan guarantees ordered delivery, so we don't need to check meta.ts for ordering"* — this is true for live messages, but during replay the client has no way to distinguish a fresh `leave` from a stale one. The `meta.ts` field (server-side publish timestamp) is on every message but unused in leave processing.
+
+4. **`handlePresenceUpdate` mutates `existing` in-place on leave.** When a `leave` arrives, it sets `existing.isLeaving = true` on the object already in the Map. `existing.meta.ts` still reflects the *previous* heartbeat/join timestamp, not the leave's timestamp. So the prune cycle (which checks `meta.ts`) can't use leave timing for staleness decisions.
+
+5. **Heartbeat interval vs buffer window race.** Heartbeats are every 60s, buffer timeout is 90s. There's a 30s window where a user's most recent heartbeat may be evicted from the buffer while an older auto-leave is still present. This creates an edge case where a currently-online user appears as leaving during replay.
+
+### Recommended fix: timestamp-based approach
+
+Replace `setTimeout` with logic driven by `meta.ts` (the server-side publish timestamp):
+
+1. **On `leave`:** Store `msg.meta?.ts` as `lastLeaveTs` on the user record. Mark `isLeaving = true`. No timer.
+
+2. **On non-leave (join/heartbeat):** If `isLeaving`, compare the new message's `meta.ts` to `lastLeaveTs`. Only clear the grey state if the new message is *newer* than the leave. If older, it's a stale replay — ignore it.
+
+3. **Removal via prune cycle:** The existing prune (every 30s) also handles leave expiry: if `isLeaving && Date.now() - lastLeaveTs > leaveGracePeriod`, remove the user.
+
+This is replay-safe because all decisions are based on absolute publish timestamps, not when the client received the message. An 80-second-old leave is recognized as stale immediately on receipt.

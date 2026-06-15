@@ -34,7 +34,7 @@ export class Lobby {
   private heartbeatTimer?: any;
   private pruneTimer?: any;
   private presenceMessageCount = 0;
-  private leaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private leaveTimestamps = new Map<string, number>();
   private readonly leaveGracePeriod = 5000;
 
   private readonly heartbeatInterval: number;
@@ -159,12 +159,19 @@ export class Lobby {
       for (const [userId, user] of this.users.entries()) {
         if (userId === this.currentUser.userId) continue;
 
+        // Check leave grace period expiry first
+        const leaveTs = this.leaveTimestamps.get(userId);
+        if (leaveTs !== undefined && now - leaveTs > this.leaveGracePeriod) {
+          this.leaveTimestamps.delete(userId);
+          this.users.delete(userId);
+          changed = true;
+          continue;
+        }
+
+        // Check general staleness
         const lastSeen = user.meta?.ts || 0;
         if (now - lastSeen > this.staleTtl) {
-          if (this.leaveTimers.has(userId)) {
-            clearTimeout(this.leaveTimers.get(userId)!);
-            this.leaveTimers.delete(userId);
-          }
+          this.leaveTimestamps.delete(userId);
           this.users.delete(userId);
           changed = true;
         }
@@ -331,8 +338,7 @@ export class Lobby {
       console.error("Error leaving lobby:", e);
     }
 
-    for (const timer of this.leaveTimers.values()) clearTimeout(timer);
-    this.leaveTimers.clear();
+    this.leaveTimestamps.clear();
 
     this.users.clear();
     this.cachedUsersList = null;
@@ -359,39 +365,41 @@ export class Lobby {
 
   /**
    * Handles incoming presence updates.
-   * Note: Nchan guarantees ordered delivery, so we don't need to check meta.ts for ordering.
-   * The last message received for each userId will be the current state.
+   *
+   * Uses meta.ts (server-side publish timestamp) for all leave/grey decisions,
+   * making the logic replay-safe: during Nchan buffered message replay, stale
+   * messages are ignored by comparing their timestamps against the stored leave
+   * timestamp. Removal of leaving users is handled by the prune cycle.
    *
    * We deduplicate notifications here because the Lobby has domain knowledge of which
    * fields are "meaningful" (e.g. userName, tableId) vs "noise" (e.g. meta.ts heartbeats).
    */
   private handlePresenceUpdate(msg: PresenceMessage): void {
     const existing = this.users.get(msg.userId);
+    const msgTs = msg.meta?.ts || Date.now();
 
     if (msg.type === "leave") {
       if (existing && !existing.isLeaving) {
         existing.isLeaving = true;
+        this.leaveTimestamps.set(msg.userId, msgTs);
         this.cachedUsersList = null;
         this.notifyListeners();
-        this.leaveTimers.set(
-          msg.userId,
-          setTimeout(() => {
-            this.leaveTimers.delete(msg.userId);
-            if (this.users.has(msg.userId)) {
-              this.users.delete(msg.userId);
-              this.cachedUsersList = null;
-              this.notifyListeners();
-            }
-          }, this.leaveGracePeriod),
-        );
       }
     } else {
-      // Join or heartbeat — cancel any pending leave timer
-      if (this.leaveTimers.has(msg.userId)) {
-        clearTimeout(this.leaveTimers.get(msg.userId)!);
-        this.leaveTimers.delete(msg.userId);
+      // Join or heartbeat — check if user is in leaving state
+      const leaveTs = this.leaveTimestamps.get(msg.userId);
+      if (leaveTs !== undefined) {
+        if (msgTs > leaveTs) {
+          // Newer than the leave — clear grey state
+          this.leaveTimestamps.delete(msg.userId);
+          msg.isLeaving = false;
+        } else {
+          // Stale message from before the leave (replay) — ignore, keep existing state
+          return;
+        }
+      } else {
+        msg.isLeaving = false;
       }
-      msg.isLeaving = false;
 
       if (msg.type === "join") {
         this.users.set(msg.userId, msg);
