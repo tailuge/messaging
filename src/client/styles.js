@@ -104,6 +104,7 @@ export const USER_LIST_STYLES = css`
     .user-status { font-size: 0.7rem; color: var(--text-muted); }
     .actions { display: flex; gap: 0.2rem; flex-shrink: 0; }
     .empty { padding: 1rem; text-align: center; color: var(--text-muted); font-style: italic; font-size: 0.8rem; }
+    .is-leaving { filter: grayscale(1); opacity: 0.6; pointer-events: none; }
 `;
 
 export const CHALLENGE_BANNER_STYLES = css`
