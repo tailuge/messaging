@@ -57,7 +57,7 @@ class UserList extends LitElement {
                     ? html`<button class="btn-challenge" aria-label="Challenge ${u.userName}" ?disabled=${this.isChallengePending} @click=${() => isVercel ? window.location.href = 'https://billiards.tailuge.workers.dev/lobby' : emit(this, 'challenge', u.userId)}>Challenge</button>`
                     : html``;
         return html`
-            <li aria-label="${u.userName}" class="${u.isLeaving ? 'is-leaving' : ''}">
+            <li aria-label="${u.userName}">
                 <div class="user-info">
                     <span class="user-name" @click=${() => emit(this, 'open-chat', u.userId)} style="cursor: pointer"><span title="${flag(u.meta?.country).title}">${flag(u.meta?.country).emoji}</span> ${u.userName} <span aria-label="${status.title}" role="img">${status.emoji}</span></span>
                 </div>

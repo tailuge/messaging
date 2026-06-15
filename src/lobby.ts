@@ -34,8 +34,6 @@ export class Lobby {
   private heartbeatTimer?: any;
   private pruneTimer?: any;
   private presenceMessageCount = 0;
-  private leaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
-  private readonly leaveGracePeriod = 5000;
 
   private readonly heartbeatInterval: number;
   private readonly pruneInterval: number;
@@ -161,10 +159,6 @@ export class Lobby {
 
         const lastSeen = user.meta?.ts || 0;
         if (now - lastSeen > this.staleTtl) {
-          if (this.leaveTimers.has(userId)) {
-            clearTimeout(this.leaveTimers.get(userId)!);
-            this.leaveTimers.delete(userId);
-          }
           this.users.delete(userId);
           changed = true;
         }
@@ -331,9 +325,6 @@ export class Lobby {
       console.error("Error leaving lobby:", e);
     }
 
-    for (const timer of this.leaveTimers.values()) clearTimeout(timer);
-    this.leaveTimers.clear();
-
     this.users.clear();
     this.cachedUsersList = null;
     this.pendingChallenges = [];
@@ -369,42 +360,22 @@ export class Lobby {
     const existing = this.users.get(msg.userId);
 
     if (msg.type === "leave") {
-      if (existing && !existing.isLeaving) {
-        existing.isLeaving = true;
+      if (existing) {
+        this.users.delete(msg.userId);
         this.cachedUsersList = null;
         this.notifyListeners();
-        this.leaveTimers.set(
-          msg.userId,
-          setTimeout(() => {
-            this.leaveTimers.delete(msg.userId);
-            if (this.users.has(msg.userId)) {
-              this.users.delete(msg.userId);
-              this.cachedUsersList = null;
-              this.notifyListeners();
-            }
-          }, this.leaveGracePeriod),
-        );
       }
+    } else if (msg.type === "join") {
+      this.users.set(msg.userId, msg);
+      this.cachedUsersList = null;
+      this.notifyListeners();
     } else {
-      // Join or heartbeat — cancel any pending leave timer
-      if (this.leaveTimers.has(msg.userId)) {
-        clearTimeout(this.leaveTimers.get(msg.userId)!);
-        this.leaveTimers.delete(msg.userId);
-      }
-      msg.isLeaving = false;
-
-      if (msg.type === "join") {
-        this.users.set(msg.userId, msg);
+      // Heartbeat or other update
+      const changed = !existing || this.hasMeaningfulChange(existing, msg);
+      this.users.set(msg.userId, msg);
+      if (changed) {
         this.cachedUsersList = null;
         this.notifyListeners();
-      } else {
-        // Heartbeat or other update
-        const changed = !existing || this.hasMeaningfulChange(existing, msg);
-        this.users.set(msg.userId, msg);
-        if (changed) {
-          this.cachedUsersList = null;
-          this.notifyListeners();
-        }
       }
     }
   }
@@ -441,7 +412,6 @@ export class Lobby {
       oldMsg.tableId !== nextMsg.tableId ||
       oldMsg.ruleType !== nextMsg.ruleType ||
       oldMsg.opponentId !== nextMsg.opponentId ||
-      oldMsg.isLeaving !== nextMsg.isLeaving ||
       JSON.stringify(oldMsg.seek) !== JSON.stringify(nextMsg.seek)
     );
   }
