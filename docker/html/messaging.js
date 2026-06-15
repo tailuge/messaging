@@ -532,10 +532,6 @@ var Lobby = class {
         if (userId === this.currentUser.userId) continue;
         const lastSeen = user.meta?.ts || 0;
         if (now - lastSeen > this.staleTtl) {
-          if (this.leaveTimers.has(userId)) {
-            clearTimeout(this.leaveTimers.get(userId));
-            this.leaveTimers.delete(userId);
-          }
           this.users.delete(userId);
           changed = true;
         }
