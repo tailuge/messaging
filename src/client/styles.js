@@ -79,12 +79,28 @@ export const SHARED_STYLES = css`
 
 export const USER_LIST_STYLES = css`
     :host { display: block; }
-    ul { list-style: none; margin: 0; padding: 0; max-height: 160px; overflow-y: auto; scrollbar-width: none; }
+    ul {
+        list-style: none; margin: 0; padding: 0;
+        height: 160px;
+        display: flex; flex-flow: column wrap; align-content: flex-start;
+        overflow-x: auto; overflow-y: hidden;
+        scrollbar-width: none;
+    }
     ul::-webkit-scrollbar { display: none; }
-    li { display: flex; justify-content: space-between; align-items: center; padding: 0.08rem 0; border-bottom: none; gap: 0.25rem; }
-    li:last-child { border-bottom: none; }
-    .user-info { display: flex; flex-direction: column; }
-    .user-name { font-weight: 500; font-size: 0.85rem; color: var(--text); }
+    li {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 1px 1px;
+        width: 200px; box-sizing: border-box;
+        border: 0.25px solid var(--border-light);
+        border-bottom: none; gap: 1px;
+        border-radius: 4px;
+    }
+    li:last-child { border-bottom: 0.25px; }
+    .user-info { display: flex; flex-direction: column; min-width: 0; }
+    .user-name {
+        font-weight: 500; font-size: 0.8rem; color: var(--text);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
     .user-status { font-size: 0.7rem; color: var(--text-muted); }
     .actions { display: flex; gap: 0.2rem; flex-shrink: 0; }
     .empty { padding: 1rem; text-align: center; color: var(--text-muted); font-style: italic; font-size: 0.8rem; }

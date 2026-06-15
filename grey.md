@@ -1,36 +1,34 @@
-# Delayed Leave Implementation Plan (Grey Mode)
+# Leaving State
 
-This plan outlines the minimal changes required to implement a 5-second "unknown" state when a player leaves the lobby, using only one new state property: `isLeaving`.
+Add a 5-second grace period when a user leaves, so the UI shows them as "leaving" instead of immediately removing them. This prevents flicker when users briefly navigate away and rejoin.
 
-## 1. Data Model Changes (`src/types.ts`)
-- Add `isLeaving?: boolean` to the `PresenceMessage` interface.
+## Changes
 
-## 2. Library Logic (`src/lobby.ts`)
-- Add a private `leaveTimers: Map<string, any>` to the `Lobby` class to track pending removals.
-- Modify `handlePresenceUpdate(msg: PresenceMessage)`:
-  - **On 'leave' message**:
-    - Do not delete the user immediately.
-    - Set `existing.isLeaving = true` on the cached user object.
-    - Schedule a 5-second `setTimeout`:
-      - After 5s: `this.users.delete(userId)` and `this.notifyListeners()`.
-    - Call `this.notifyListeners()` immediately to trigger the UI "grey" state.
-  - **On any other message (join/heartbeat)**:
-    - If a leave timer exists for this `userId`, `clearTimeout` it and remove from `leaveTimers`.
-    - Ensure the incoming/existing user object has `isLeaving` set to `false` or `undefined`.
-    - Call `this.notifyListeners()` as normal.
+### 1. Types (`src/types.ts`)
 
-## 3. UI Styling (`src/client/styles.js`)
-- Add a CSS class `.is-leaving` to `USER_LIST_STYLES`:
-  ```css
-  .is-leaving { filter: grayscale(1); opacity: 0.6; pointer-events: none; }
-  ```
+Add `isLeaving?: boolean` to `PresenceMessage`.
 
-## 4. Component Update (`src/client/online-panel.js`)
-- In `UserList._row(u)`, apply the `is-leaving` class to the `<li>` element if `u.isLeaving` is true.
-  - Example: `class="${u.isLeaving ? 'is-leaving' : ''}"`
-- This ensures the player appears grey and cannot be challenged while in the leaving state.
+### 2. Lobby (`src/lobby.ts`)
 
-## 5. Summary
-- **Single New State**: Only `isLeaving: boolean` is added to the user presence object.
-- **Minimal Logic**: The lobby manages a timer to transition from `isLeaving=true` to deletion.
-- **Cancellation**: Rejoining naturally clears the timer and resets `isLeaving`.
+- Add `leaveTimers: Map<string, ReturnType<typeof setTimeout>>` to `Lobby`.
+- **On `leave` message:** Don't delete the user. Set `isLeaving = true`, start a 5-second timer that deletes the user and notifies listeners when it expires. Notify listeners immediately so the UI can grey them out.
+- **On `join` or `heartbeat`:** If a leave timer exists for this user, cancel it. Clear `isLeaving`. Process normally.
+- **In `leave()` (own user teardown):** Cancel all leave timers.
+
+### 3. Styles (`src/client/styles.js`)
+
+Add to `USER_LIST_STYLES`:
+
+```css
+.is-leaving { filter: grayscale(1); opacity: 0.6; pointer-events: none; }
+```
+
+### 4. Online Panel (`src/client/online-panel.js`)
+
+In `_row(u)`, apply `is-leaving` class to the `<li>` when `u.isLeaving` is true.
+
+## Summary
+
+- **One field**: `isLeaving` on `PresenceMessage` — library-only state, not sent over the wire.
+- **One timer**: Per-user 5s timer in the lobby, cancelled on rejoin.
+- **One CSS class**: `.is-leaving` greys out the row and disables interaction.
