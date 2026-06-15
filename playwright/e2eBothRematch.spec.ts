@@ -4,7 +4,7 @@ import { setupPlayersInGame, VISIBILITY_TIMEOUT } from './setupHelpers';
 test.describe('E2E rematch', () => {
   test.setTimeout(20000);
 
-  test('alice in lobby when rematch', async ({ page }) => {
+  test('concede and both rematch automatically starts new game', async ({ page }) => {
 
     const { aliceFrame, bobFrame } = await setupPlayersInGame(page);
 
@@ -23,17 +23,23 @@ test.describe('E2E rematch', () => {
     await expect(bobFrame.locator('button[data-notification-action="rematch"]')).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
     await expect(aliceFrame.locator('button[data-notification-action="rematch"]')).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
 
-    // Alice returns to lobby then bob clicks rematch
-    await aliceFrame.locator('button[data-notification-action="lobby"]').click();
-    await page.waitForTimeout(1000);
-    await bobFrame.locator('button[data-notification-action="rematch"]').click();
+    // Capture the first tableId to ensure the rematch uses a new one
+    const firstTableId = new URL(aliceFrame.url()).searchParams.get('tableId');
+
+    await Promise.all([
+      aliceFrame.locator('button[data-notification-action="rematch"]').click(),
+      bobFrame.locator('button[data-notification-action="rematch"]').click(),
+    ]);
 
     // Both redirect back to lobby
     await expect.poll(() => aliceFrame.url(), { timeout: VISIBILITY_TIMEOUT }).toMatch(/lobby\.html/);
     await expect.poll(() => bobFrame.url(), { timeout: VISIBILITY_TIMEOUT }).toMatch(/lobby\.html/);
 
-    // Alice sees challenge banner from Bob
-    await expect(aliceFrame.locator('button[aria-label="Accept challenge"]')).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
-    await expect(aliceFrame.locator('challenge-banner strong')).toContainText('Challenge from Bob');
+    // Auto-challenge should fire and take them to a NEW game
+    await expect.poll(() => aliceFrame.url(), { timeout: VISIBILITY_TIMEOUT }).toMatch(/tableId=/);
+    await expect.poll(() => bobFrame.url(), { timeout: VISIBILITY_TIMEOUT }).toMatch(/tableId=/);
+
+    const secondTableId = new URL(aliceFrame.url()).searchParams.get('tableId');
+    expect(secondTableId).not.toBe(firstTableId);
   });
 });
