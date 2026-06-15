@@ -36,6 +36,7 @@ export interface PresenceMessage {
   meta?: Meta; // Server-enriched metadata (received messages only)
   tableId?: string; // Current game/spectating table
   isSpectator?: boolean; // True when user is spectating (not playing) at tableId
+  isLeaving?: boolean; // True when user has sent 'leave' but grace period has not expired
 }
 
 /**
