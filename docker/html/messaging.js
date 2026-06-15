@@ -435,6 +435,8 @@ var Lobby = class {
     this.isJoined = false;
     this.cachedUsersList = null;
     this.presenceMessageCount = 0;
+    this.leaveTimers = /* @__PURE__ */ new Map();
+    this.leaveGracePeriod = 5e3;
     this.heartbeatInterval = options.heartbeatInterval || 6e4;
     this.pruneInterval = options.pruneInterval || 3e4;
     this.staleTtl = options.staleTtl || 9e4;
@@ -668,6 +670,8 @@ var Lobby = class {
     } catch (e) {
       console.error("Error leaving lobby:", e);
     }
+    for (const timer of this.leaveTimers.values()) clearTimeout(timer);
+    this.leaveTimers.clear();
     this.users.clear();
     this.cachedUsersList = null;
     this.pendingChallenges = [];
@@ -699,21 +703,39 @@ var Lobby = class {
   handlePresenceUpdate(msg) {
     const existing = this.users.get(msg.userId);
     if (msg.type === "leave") {
-      if (existing) {
-        this.users.delete(msg.userId);
+      if (existing && !existing.isLeaving) {
+        existing.isLeaving = true;
         this.cachedUsersList = null;
         this.notifyListeners();
+        this.leaveTimers.set(
+          msg.userId,
+          setTimeout(() => {
+            this.leaveTimers.delete(msg.userId);
+            if (this.users.has(msg.userId)) {
+              this.users.delete(msg.userId);
+              this.cachedUsersList = null;
+              this.notifyListeners();
+            }
+          }, this.leaveGracePeriod)
+        );
       }
-    } else if (msg.type === "join") {
-      this.users.set(msg.userId, msg);
-      this.cachedUsersList = null;
-      this.notifyListeners();
     } else {
-      const changed = !existing || this.hasMeaningfulChange(existing, msg);
-      this.users.set(msg.userId, msg);
-      if (changed) {
+      if (this.leaveTimers.has(msg.userId)) {
+        clearTimeout(this.leaveTimers.get(msg.userId));
+        this.leaveTimers.delete(msg.userId);
+      }
+      msg.isLeaving = false;
+      if (msg.type === "join") {
+        this.users.set(msg.userId, msg);
         this.cachedUsersList = null;
         this.notifyListeners();
+      } else {
+        const changed = !existing || this.hasMeaningfulChange(existing, msg);
+        this.users.set(msg.userId, msg);
+        if (changed) {
+          this.cachedUsersList = null;
+          this.notifyListeners();
+        }
       }
     }
   }
@@ -739,7 +761,7 @@ var Lobby = class {
     return this.cachedUsersList;
   }
   hasMeaningfulChange(oldMsg, nextMsg) {
-    return oldMsg.userName !== nextMsg.userName || oldMsg.tableId !== nextMsg.tableId || oldMsg.ruleType !== nextMsg.ruleType || oldMsg.opponentId !== nextMsg.opponentId || JSON.stringify(oldMsg.seek) !== JSON.stringify(nextMsg.seek);
+    return oldMsg.userName !== nextMsg.userName || oldMsg.tableId !== nextMsg.tableId || oldMsg.ruleType !== nextMsg.ruleType || oldMsg.opponentId !== nextMsg.opponentId || oldMsg.isLeaving !== nextMsg.isLeaving || JSON.stringify(oldMsg.seek) !== JSON.stringify(nextMsg.seek);
   }
 };
 
