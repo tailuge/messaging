@@ -30,6 +30,7 @@ export class Lobby {
   private subscription: Subscription | null = null;
   private isJoined = false;
   private cachedUsersList: PresenceMessage[] | null = null;
+  private maxSeenServerTs = 0;
 
   private heartbeatTimer?: any;
   private pruneTimer?: any;
@@ -154,14 +155,14 @@ export class Lobby {
   private startPruning(): void {
     this.stopPruning();
     this.pruneTimer = setInterval(() => {
-      const now = Date.now();
+      const now = this.maxSeenServerTs || Date.now();
       let changed = false;
 
       for (const [userId, user] of this.users.entries()) {
         if (userId === this.currentUser.userId) continue;
 
         const lastSeen = user.meta?.ts || 0;
-        if (now - lastSeen > this.staleTtl) {
+        if (lastSeen > 0 && now - lastSeen > this.staleTtl) {
           this.users.delete(userId);
           changed = true;
         }
@@ -339,6 +340,10 @@ export class Lobby {
   private handleIncomingMessage(data: string): void {
     const rawMsg = parseMessage<any>(data);
     if (!rawMsg) return;
+
+    if (rawMsg.meta?.ts) {
+      this.maxSeenServerTs = Math.max(this.maxSeenServerTs, rawMsg.meta.ts);
+    }
 
     if (rawMsg.messageType === "presence") {
       this.handlePresenceUpdate(rawMsg as PresenceMessage);
