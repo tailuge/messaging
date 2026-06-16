@@ -268,12 +268,11 @@ table td {
             <thead>
               <tr>
                 <th>User ID</th>
-                <th>Connections</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td colspan="2" style="text-align: center; color: var(--secondary-color)">
+                <td style="text-align: center; color: var(--secondary-color)">
                   No online users data available.
                 </td>
               </tr>
@@ -387,15 +386,23 @@ table td {
 
       function updateOnlineUsersUI(onlineUsers) {
         const tableBody = document.querySelector("#online-users-table tbody");
-        if (onlineUsers && Object.keys(onlineUsers).length > 0) {
-          tableBody.innerHTML = Object.entries(onlineUsers)
-            .sort((a, b) => b[1] - a[1])
-            .map(([userId, count]) => {
-              return `<tr><td>${escapeHtml(userId)}</td><td>${count}</td></tr>`;
+        if (Array.isArray(onlineUsers) && onlineUsers.length > 0) {
+          tableBody.innerHTML = onlineUsers
+            .sort()
+            .map((userId) => {
+              return `<tr><td>${escapeHtml(userId)}</td></tr>`;
             })
             .join("");
+        } else if (onlineUsers && typeof onlineUsers === 'object' && !Array.isArray(onlineUsers)) {
+           // Fallback for object format if needed, but we now return an array
+           const keys = Object.keys(onlineUsers);
+           if (keys.length > 0) {
+             tableBody.innerHTML = keys.sort().map(userId => `<tr><td>${escapeHtml(userId)}</td></tr>`).join("");
+           } else {
+             tableBody.innerHTML = '<tr><td style="text-align: center; color: var(--secondary-color);">No online users.</td></tr>';
+           }
         } else {
-          tableBody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--secondary-color);">No online users.</td></tr>';
+          tableBody.innerHTML = '<tr><td style="text-align: center; color: var(--secondary-color);">No online users.</td></tr>';
         }
       }
 

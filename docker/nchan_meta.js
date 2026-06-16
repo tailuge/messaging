@@ -170,12 +170,12 @@ async function publish(r) {
 function presence_sub(r) {
   try {
     const userId = r.headersIn['X-User-Id'] || 'unknown';
-    ngx.log(ngx.WARN, `presence_sub.. ${userId}`);
+    const subId = r.headersIn['X-Subscriber-Id'];
+    ngx.log(ngx.WARN, `presence_sub.. ${userId} (subId: ${subId})`);
 
-    if (userId !== 'unknown') {
+    if (userId !== 'unknown' && subId) {
       const online = ngx.shared.online_users;
-      const count = parseInt(online.get(userId) || "0", 10) || 0;
-      online.set(userId, String(count + 1));
+      online.set(subId, userId);
     }
 
     r.return(200);
@@ -206,19 +206,13 @@ async function publish_leave(r, userId) {
 async function presence_unsub(r) {
   try {
     const userId = r.headersIn['X-User-Id'] || 'unknown';
+    const subId = r.headersIn['X-Subscriber-Id'];
     incrementStat("presence_unsubscribe_total");
     incrementStat("presence_unsubscribe_websocket_total");
-    ngx.log(ngx.WARN, `presence_unsub ${userId}`);
+    ngx.log(ngx.WARN, `presence_unsub ${userId} (subId: ${subId})`);
 
-    if (userId !== "unknown") {
-      const online = ngx.shared.online_users;
-      const count = parseInt(online.get(userId) || "0", 10) || 0;
-      if (count <= 1) {
-        online.delete(userId);
-      } else {
-        online.set(userId, String(count - 1));
-      }
-      //await publish_leave(r, userId);
+    if (subId) {
+      ngx.shared.online_users.delete(subId);
     }
 
     r.return(204);
@@ -275,14 +269,14 @@ function getIpCache() {
   function getOnlineUsers() {
     const online = ngx.shared.online_users;
     const keys = online.keys() || [];
-    const users = {};
+    const userIds = [];
     keys.forEach((k) => {
-      const value = online.get(k);
-      if (typeof value !== "undefined") {
-        users[k] = parseInt(value, 10);
+      const userId = online.get(k);
+      if (userId && userIds.indexOf(userId) === -1) {
+        userIds.push(userId);
       }
     });
-    return users;
+    return userIds;
   }
 
   function getUptime() {
