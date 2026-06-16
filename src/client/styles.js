@@ -90,7 +90,7 @@ export const USER_LIST_STYLES = css`
     li {
         display: flex; justify-content: space-between; align-items: center;
         padding: 1px 1px;
-        width: 200px; box-sizing: border-box;
+        width: 210px; box-sizing: border-box;
         border: 0.25px solid var(--border-light);
         border-bottom: none; gap: 1px;
         border-radius: 4px;

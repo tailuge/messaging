@@ -1,5 +1,10 @@
 import { LitElement } from 'lit';
-import { genId, isVercel } from './utils.js';
+import { isVercel } from './utils.js';
+
+const genId = (userName) => {
+    const prefix = (userName || 'user').slice(0, 4);
+    return prefix + '-' + Math.random().toString(36).slice(2, 7);
+};
 
 class UserStore extends EventTarget {
     constructor() {
@@ -29,7 +34,9 @@ class UserStore extends EventTarget {
                 this.isForcedId = true;
                 if (!urlName) this.userName = window.name.split('-')[0];
             } else {
-                this.clientId = storedId.length > 2 ? storedId : genId();
+                const nameForPrefix = urlName || storedName || '';
+                const prefixMatch = !nameForPrefix || storedId.slice(0, 4) === nameForPrefix.slice(0, 4);
+                this.clientId = storedId.length > 2 && !storedId.startsWith('user-') && prefixMatch ? storedId : genId(nameForPrefix);
                 this.isForcedId = false;
                 if (this.clientId !== storedId) localStorage.setItem('userId', this.clientId);
             }
@@ -49,7 +56,7 @@ class UserStore extends EventTarget {
     }
 
 set(clientId, userName) {
-        this.clientId = clientId.trim().length > 2 ? clientId.trim() : genId();
+        this.clientId = clientId.trim().length > 2 ? clientId.trim() : genId(userName);
         this.userName = userName.trim();
         localStorage.setItem('userId', this.clientId);
         localStorage.setItem('userName', this.userName);

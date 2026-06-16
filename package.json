@@ -19,7 +19,7 @@
   "scripts": {
     "test": "jest --config test/jest.config.cjs --verbose",
     "coverage": "jest --config test/jest.config.cjs --coverage",
-    "playwright": "npm run docker:build && npx playwright test",
+    "playwright": "npm run docker:build && npx playwright test --workers=1",
     "playwright:rematch": "npm run docker:build && npx playwright test playwright/lobby-rematch.spec.ts",
     "playwright:e2e": "npm run docker:build && npx playwright test playwright/e2e*.spec.ts --workers=1",
     "playwright:new": "npm run docker:build && npx playwright test playwright/iframee2e.spec.ts --workers=1",

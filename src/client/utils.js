@@ -1,10 +1,9 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 389;
+export const CLIENTVERSION = 397;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
-export const genId = () => 'user-' + Math.random().toString(36).slice(2, 7);
 
 export const SCOREBOARD_URL = 'https://scoreboard-tailuge.vercel.app';
 export const NCHANBASE = (typeof localStorage !== 'undefined' && localStorage.getItem('useProxy') === 'true')
