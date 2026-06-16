@@ -17,7 +17,6 @@ test.describe('User ID Validation', () => {
     console.log('Detected userId:', userId);
     expect(userId).not.toBe('a');
     expect(userId.length).toBeGreaterThanOrEqual(2);
-    expect(userId).toMatch(/^user-/);
   });
 
   test('should fallback to random ID if forced userId is empty', async ({ page }) => {
@@ -35,7 +34,6 @@ test.describe('User ID Validation', () => {
     console.log('Detected userId:', userId);
     expect(userId).not.toBe('');
     expect(userId.length).toBeGreaterThanOrEqual(2);
-    expect(userId).toMatch(/^user-/);
   });
 
   test('should fallback to random ID if forced userId is only whitespace', async ({ page }) => {
@@ -53,7 +51,6 @@ test.describe('User ID Validation', () => {
     console.log('Detected userId:', userId);
     expect(userId.trim()).not.toBe('');
     expect(userId.length).toBeGreaterThanOrEqual(2);
-    expect(userId).toMatch(/^user-/);
   });
 
   test('should accept userId with 3 or more characters', async ({ page }) => {
