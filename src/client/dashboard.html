@@ -39,10 +39,12 @@ header {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1px;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
 }
 h1 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 0.85rem;
 }
 h3 {
   margin: 0;
@@ -210,82 +212,87 @@ table td {
 
       <div id="sparkline"></div>
 
-      <div class="card">
-        <h3>System Status</h3>
-        <div class="grid">
-          <div>
-            <h4>Nginx</h4>
-            <table id="nginx-table">
-              <tr>
-                <td>Uptime</td>
-                <td id="ngx-uptime">-</td>
-              </tr>
-              <tr>
-                <td>Accepts</td>
-                <td id="ngx-accepts">-</td>
-              </tr>
-              <tr>
-                <td>Handled</td>
-                <td id="ngx-handled">-</td>
-              </tr>
-              <tr>
-                <td>Requests</td>
-                <td id="ngx-requests">-</td>
-              </tr>
-            </table>
+      <div class="grid">
+        <div class="card">
+          <h3>System Status</h3>
+          <div class="grid">
+            <div>
+              <h4>Nginx</h4>
+              <table id="nginx-table">
+                <tr>
+                  <td>Uptime</td>
+                  <td id="ngx-uptime">-</td>
+                </tr>
+                <tr>
+                  <td>Accepts</td>
+                  <td id="ngx-accepts">-</td>
+                </tr>
+                <tr>
+                  <td>Handled</td>
+                  <td id="ngx-handled">-</td>
+                </tr>
+                <tr>
+                  <td>Requests</td>
+                  <td id="ngx-requests">-</td>
+                </tr>
+              </table>
+            </div>
+            <div>
+              <h4>Nchan Global</h4>
+              <table id="nchan-table">
+                <tr>
+                  <td>Total Published</td>
+                  <td id="nch-published">-</td>
+                </tr>
+                <tr>
+                  <td>Total Subscribed</td>
+                  <td id="nch-subscribed">-</td>
+                </tr>
+                <tr>
+                  <td>Presence Leaves</td>
+                  <td id="nch-presence-leaves">-</td>
+                </tr>
+                <tr>
+                  <td>Presence Socket Unsubs</td>
+                  <td id="nch-presence-unsubs">-</td>
+                </tr>
+              </table>
+            </div>
           </div>
-          <div>
-            <h4>Nchan Global</h4>
-            <table id="nchan-table">
-              <tr>
-                <td>Total Published</td>
-                <td id="nch-published">-</td>
-              </tr>
-              <tr>
-                <td>Total Subscribed</td>
-                <td id="nch-subscribed">-</td>
-              </tr>
-              <tr>
-                <td>Presence Leaves</td>
-                <td id="nch-presence-leaves">-</td>
-              </tr>
-              <tr>
-                <td>Presence Socket Unsubs</td>
-                <td id="nch-presence-unsubs">-</td>
-              </tr>
+        </div>
+
+        <div class="card">
+          <header style="margin-bottom: 5px;">
+            <h3 style="margin: 0;">Online Users (via sub/unsub)</h3>
+            <button onclick="fetchOnlineUsers()" style="font-size: 0.7rem; padding: 2px 5px;">Refresh List</button>
+          </header>
+          <div id="online-users-info">
+            <table id="online-users-table">
+              <thead>
+                <tr>
+                  <th>User ID</th>
+                  <th>Connections</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colspan="2" style="text-align: center; color: var(--secondary-color)">
+                    No online users data available.
+                  </td>
+                </tr>
+              </tbody>
             </table>
           </div>
         </div>
       </div>
 
-      <div class="card">
-        <header style="margin-bottom: 5px;">
-          <h3 style="margin: 0;">Online Users (via sub/unsub)</h3>
-          <button onclick="fetchOnlineUsers()" style="font-size: 0.7rem; padding: 2px 5px;">Refresh List</button>
-        </header>
-        <div id="online-users-info">
-          <table id="online-users-table">
-            <thead>
-              <tr>
-                <th>User ID</th>
-                <th>Connections</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td colspan="2" style="text-align: center; color: var(--secondary-color)">
-                  No online users data available.
-                </td>
-              </tr>
-            </tbody>
-          </table>
+       <div class="card collapsed" id="ip-cache-card">
+        <div class="toggle-header" onclick="toggleCard('ip-cache-card')" style="cursor: pointer;">
+          <h3 style="margin: 0; display: inline;">IP Cache (shared dict)</h3>
+          <span class="toggle-indicator">&#9656;</span>
         </div>
-      </div>
-
-       <div class="card">
-         <h3>IP Cache (shared dict)</h3>
          <div id="ip-cache-meta" class="refresh-tag"></div>
-         <div id="ip-cache-info">
+         <div class="card-content" id="ip-cache-info">
            <table id="ip-cache-table">
              <thead>
                <tr>

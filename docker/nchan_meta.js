@@ -210,6 +210,7 @@ async function presence_unsub(r) {
 
     if (userId !== 'unknown') {
       ngx.shared.online_users.delete(userId);
+      await publish_leave(r, userId);
     }
 
     r.return(204);
