@@ -171,6 +171,13 @@ function presence_sub(r) {
   try {
     const userId = r.headersIn['X-User-Id'] || 'unknown';
     ngx.log(ngx.WARN, `presence_sub.. ${userId}`);
+
+    if (userId !== 'unknown') {
+      const online = ngx.shared.online_users;
+      const count = parseInt(online.get(userId) || "0", 10) || 0;
+      online.set(userId, String(count + 1));
+    }
+
     r.return(200);
   } catch (e) {
     r.error(`presence_sub error: ${e.message}`);
@@ -202,9 +209,18 @@ async function presence_unsub(r) {
     incrementStat("presence_unsubscribe_total");
     incrementStat("presence_unsubscribe_websocket_total");
     ngx.log(ngx.WARN, `presence_unsub ${userId}`);
+
     if (userId !== "unknown") {
+      const online = ngx.shared.online_users;
+      const count = parseInt(online.get(userId) || "0", 10) || 0;
+      if (count <= 1) {
+        online.delete(userId);
+      } else {
+        online.set(userId, String(count - 1));
+      }
       //await publish_leave(r, userId);
     }
+
     r.return(204);
   } catch (e) {
     r.error(`presence_unsub error: ${e.message}`);
@@ -254,6 +270,19 @@ function getIpCache() {
       }
     });
     return entries;
+  }
+
+  function getOnlineUsers() {
+    const online = ngx.shared.online_users;
+    const keys = online.keys() || [];
+    const users = {};
+    keys.forEach((k) => {
+      const value = online.get(k);
+      if (typeof value !== "undefined") {
+        users[k] = parseInt(value, 10);
+      }
+    });
+    return users;
   }
 
   function getUptime() {
@@ -324,6 +353,7 @@ function getIpCache() {
         "presence_unsubscribe_websocket_total",
       ]),
       ip_cache: getIpCache(),
+      online_users: getOnlineUsers(),
       uptime: getUptime(),
       njs_logs: getLastLines("/var/log/nginx/njs_error.log", 1000),
       ts: new Date().toISOString(),
@@ -333,4 +363,10 @@ function getIpCache() {
     r.return(200, JSON.stringify(data));
   }
 
-export default { publish, presence_sub, presence_unsub, stats };
+async function online_users_api(r) {
+  const users = getOnlineUsers();
+  r.headersOut["Content-Type"] = "application/json";
+  r.return(200, JSON.stringify(users));
+}
+
+export default { publish, presence_sub, presence_unsub, stats, online_users_api };
