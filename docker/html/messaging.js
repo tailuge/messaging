@@ -472,7 +472,7 @@ var Lobby = class {
       if (this.options.onReconnect) {
         this.options.onReconnect();
       } else {
-        this.nchan.publishPresence(this.currentUser).catch((_e) => {
+        this.nchan.publishPresence({ ...this.currentUser, clientTs: Date.now() }).catch((_e) => {
           console.error("Failed to re-broadcast presence on reconnect:", _e);
         });
       }
@@ -480,7 +480,10 @@ var Lobby = class {
     await this.subscription.ready;
     for (let attempt = 1; ; attempt++) {
       try {
-        await this.nchan.publishPresence(this.currentUser);
+        await this.nchan.publishPresence({
+          ...this.currentUser,
+          clientTs: Date.now()
+        });
         break;
       } catch (e) {
         const delay = Math.min(Math.pow(2, attempt) * 4e3, 3e4);
@@ -579,7 +582,8 @@ var Lobby = class {
     }
     await this.nchan.publishPresence({
       ...this.currentUser,
-      ...update
+      ...update,
+      clientTs: Date.now()
     });
   }
   /**
@@ -659,10 +663,7 @@ var Lobby = class {
     this.subscription?.stop();
     try {
       await this.nchan.publishPresence(
-        {
-          ...this.currentUser,
-          type: "leave"
-        },
+        { ...this.currentUser, type: "leave", clientTs: Date.now() },
         { keepalive: options.isTeardown }
       );
     } catch (e) {

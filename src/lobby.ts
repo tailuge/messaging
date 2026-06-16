@@ -90,7 +90,7 @@ export class Lobby {
         this.options.onReconnect();
       } else {
         // Fallback: Re-broadcast presence state if no external orchestrator is handling it
-        this.nchan.publishPresence(this.currentUser).catch((_e) => {
+        this.nchan.publishPresence({ ...this.currentUser, clientTs: Date.now() }).catch((_e) => {
           console.error("Failed to re-broadcast presence on reconnect:", _e);
         });
       }
@@ -101,7 +101,10 @@ export class Lobby {
     // Broadcast our own presence with retry on failure (e.g. slow cold start)
     for (let attempt = 1; ; attempt++) {
       try {
-        await this.nchan.publishPresence(this.currentUser);
+        await this.nchan.publishPresence({
+          ...this.currentUser,
+          clientTs: Date.now(),
+        });
         break;
       } catch (e) {
         const delay = Math.min(Math.pow(2, attempt) * 4000, 30000);
@@ -216,6 +219,7 @@ export class Lobby {
     await this.nchan.publishPresence({
       ...this.currentUser,
       ...update,
+      clientTs: Date.now(),
     });
   }
 
@@ -315,10 +319,7 @@ export class Lobby {
 
     try {
       await this.nchan.publishPresence(
-        {
-          ...this.currentUser,
-          type: "leave",
-        },
+        { ...this.currentUser, type: "leave", clientTs: Date.now() },
         { keepalive: options.isTeardown },
       );
     } catch (e) {

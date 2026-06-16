@@ -203,7 +203,7 @@ async function presence_unsub(r) {
     incrementStat("presence_unsubscribe_websocket_total");
     ngx.log(ngx.WARN, `presence_unsub ${userId}`);
     if (userId !== "unknown") {
-      await publish_leave(r, userId);
+      //await publish_leave(r, userId);
     }
     r.return(204);
   } catch (e) {
