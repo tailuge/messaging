@@ -258,6 +258,29 @@ table td {
         </div>
       </div>
 
+      <div class="card">
+        <header style="margin-bottom: 5px;">
+          <h3 style="margin: 0;">Online Users (via sub/unsub)</h3>
+          <button onclick="fetchOnlineUsers()" style="font-size: 0.7rem; padding: 2px 5px;">Refresh List</button>
+        </header>
+        <div id="online-users-info">
+          <table id="online-users-table">
+            <thead>
+              <tr>
+                <th>User ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="text-align: center; color: var(--secondary-color)">
+                  No online users data available.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
        <div class="card">
          <h3>IP Cache (shared dict)</h3>
          <div id="ip-cache-meta" class="refresh-tag"></div>
@@ -325,6 +348,17 @@ table td {
         return div.innerHTML;
       }
 
+      async function fetchOnlineUsers() {
+        try {
+          const response = await fetch("/api/online");
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          const data = await response.json();
+          updateOnlineUsersUI(data);
+        } catch (error) {
+          console.error("Error fetching online users:", error);
+        }
+      }
+
       async function fetchStats() {
         const dashboard = document.querySelector(".dashboard");
         // dashboard.classList.add('loading'); // Optional: show loading state
@@ -347,6 +381,28 @@ table td {
           document.getElementById("last-update").textContent = "Error fetching stats";
         } finally {
           // dashboard.classList.remove('loading');
+        }
+      }
+
+      function updateOnlineUsersUI(onlineUsers) {
+        const tableBody = document.querySelector("#online-users-table tbody");
+        if (Array.isArray(onlineUsers) && onlineUsers.length > 0) {
+          tableBody.innerHTML = onlineUsers
+            .sort()
+            .map((userId) => {
+              return `<tr><td>${escapeHtml(userId)}</td></tr>`;
+            })
+            .join("");
+        } else if (onlineUsers && typeof onlineUsers === 'object' && !Array.isArray(onlineUsers)) {
+           // Fallback for object format if needed, but we now return an array
+           const keys = Object.keys(onlineUsers);
+           if (keys.length > 0) {
+             tableBody.innerHTML = keys.sort().map(userId => `<tr><td>${escapeHtml(userId)}</td></tr>`).join("");
+           } else {
+             tableBody.innerHTML = '<tr><td style="text-align: center; color: var(--secondary-color);">No online users.</td></tr>';
+           }
+        } else {
+          tableBody.innerHTML = '<tr><td style="text-align: center; color: var(--secondary-color);">No online users.</td></tr>';
         }
       }
 
@@ -374,6 +430,10 @@ table td {
             data.system_stats.presence_leave_total || 0;
           document.getElementById("nch-presence-unsubs").textContent =
             data.system_stats.presence_unsubscribe_total || 0;
+        }
+
+        if (data.online_users) {
+          updateOnlineUsersUI(data.online_users);
         }
 
          const ipCacheTableBody = document.querySelector("#ip-cache-table tbody");
