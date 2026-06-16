@@ -170,12 +170,10 @@ async function publish(r) {
 function presence_sub(r) {
   try {
     const userId = r.headersIn['X-User-Id'] || 'unknown';
-    const subId = r.headersIn['X-Subscriber-Id'];
-    ngx.log(ngx.WARN, `presence_sub.. ${userId} (subId: ${subId})`);
+    ngx.log(ngx.WARN, `presence_sub.. ${userId}`);
 
-    if (userId !== 'unknown' && subId) {
-      const online = ngx.shared.online_users;
-      online.set(subId, userId);
+    if (userId !== 'unknown') {
+      ngx.shared.online_users.set(userId, "1");
     }
 
     r.return(200);
@@ -206,13 +204,12 @@ async function publish_leave(r, userId) {
 async function presence_unsub(r) {
   try {
     const userId = r.headersIn['X-User-Id'] || 'unknown';
-    const subId = r.headersIn['X-Subscriber-Id'];
     incrementStat("presence_unsubscribe_total");
     incrementStat("presence_unsubscribe_websocket_total");
-    ngx.log(ngx.WARN, `presence_unsub ${userId} (subId: ${subId})`);
+    ngx.log(ngx.WARN, `presence_unsub ${userId}`);
 
-    if (subId) {
-      ngx.shared.online_users.delete(subId);
+    if (userId !== 'unknown') {
+      ngx.shared.online_users.delete(userId);
     }
 
     r.return(204);
@@ -268,15 +265,7 @@ function getIpCache() {
 
   function getOnlineUsers() {
     const online = ngx.shared.online_users;
-    const keys = online.keys() || [];
-    const userIds = [];
-    keys.forEach((k) => {
-      const userId = online.get(k);
-      if (userId && userIds.indexOf(userId) === -1) {
-        userIds.push(userId);
-      }
-    });
-    return userIds;
+    return online.keys() || [];
   }
 
   function getUptime() {
