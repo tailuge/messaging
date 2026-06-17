@@ -35,7 +35,7 @@ class UserStore extends EventTarget {
                 if (!urlName) this.userName = window.name.split('-')[0];
             } else {
                 const nameForPrefix = urlName || storedName || '';
-                const prefixMatch = !nameForPrefix || storedId.slice(0, 4) === nameForPrefix.slice(0, 4);
+                const prefixMatch = !nameForPrefix || storedId.split('-')[0].slice(0, 4) === nameForPrefix.slice(0, 4);
                 this.clientId = storedId.length > 2 && !storedId.startsWith('user-') && prefixMatch ? storedId : genId(nameForPrefix);
                 this.isForcedId = false;
                 if (this.clientId !== storedId) localStorage.setItem('userId', this.clientId);
