@@ -46,6 +46,8 @@ class UserStore extends EventTarget {
         this.lod = localStorage.getItem('lod') || '2';
         this.flip = localStorage.getItem('flip') === 'true';
         this.useProxy = localStorage.getItem('useProxy') === 'true';
+
+        console.log('UserStore identity:', this.userName, this.clientId);
     }
 
     setUseProxy(val) {

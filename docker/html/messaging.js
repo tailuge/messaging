@@ -158,7 +158,12 @@ var NchanClient = class {
         ws?.close();
       }, CONNECTION_TIMEOUT_MS);
       connectionTimeoutTimer.unref?.();
+      const fixtureMessages = [];
       ws.onmessage = (event) => {
+        try {
+          fixtureMessages.push(JSON.parse(event.data));
+        } catch (_e) {
+        }
         onMessage(event.data);
       };
       ws.onopen = () => {
@@ -175,6 +180,13 @@ var NchanClient = class {
         }
         console.log(`[NchanClient ${ts()}] Connected to ${url}`);
         resolveReady();
+        if (!isReconnect) {
+          setTimeout(() => {
+            console.log("=== NCHAN REPLAY FIXTURE ===");
+            console.log(JSON.stringify(fixtureMessages, null, 2));
+            fixtureMessages.length = 0;
+          }, 3e3);
+        }
         if (isReconnect && subscription.onReconnect) {
           subscription.onReconnect();
         }

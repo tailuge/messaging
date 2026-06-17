@@ -218,7 +218,10 @@ export class NchanClient {
       }, CONNECTION_TIMEOUT_MS);
       connectionTimeoutTimer.unref?.();
 
+      const fixtureMessages: any[] = [];
+
       ws.onmessage = (event) => {
+        try { fixtureMessages.push(JSON.parse(event.data as string)); } catch (_e) { /* ignore parse failures */ }
         onMessage(event.data as string);
       };
 
@@ -236,6 +239,13 @@ export class NchanClient {
         }
         console.log(`[NchanClient ${ts()}] Connected to ${url}`);
         resolveReady();
+        if (!isReconnect) {
+          setTimeout(() => {
+            console.log('=== NCHAN REPLAY FIXTURE ===');
+            console.log(JSON.stringify(fixtureMessages, null, 2));
+            fixtureMessages.length = 0;
+          }, 3000);
+        }
         if (isReconnect && subscription.onReconnect) {
           subscription.onReconnect();
         }
