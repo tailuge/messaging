@@ -133,7 +133,7 @@ export class Lobby {
         } catch (_e) {
           console.error("Failed to send heartbeat:", _e);
         }
-        schedule();
+        if (this.heartbeatTimer !== undefined) schedule();
       }, firstTick ? 3000 : this.heartbeatInterval);
       this.heartbeatTimer.unref?.();
       firstTick = false;
