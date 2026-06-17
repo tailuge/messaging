@@ -239,6 +239,7 @@ export class NchanClient {
         }
         console.log(`[NchanClient ${ts()}] Connected to ${url}`);
         resolveReady();
+        /* 
         if (!isReconnect) {
           setTimeout(() => {
             console.log('=== NCHAN REPLAY FIXTURE ===');
@@ -246,6 +247,7 @@ export class NchanClient {
             fixtureMessages.length = 0;
           }, 3000);
         }
+        */
         if (isReconnect && subscription.onReconnect) {
           subscription.onReconnect();
         }
