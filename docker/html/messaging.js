@@ -434,6 +434,7 @@ var Lobby = class {
     this.subscription = null;
     this.isJoined = false;
     this.cachedUsersList = null;
+    this.maxSeenServerTs = 0;
     this.presenceMessageCount = 0;
     this.heartbeatInterval = options.heartbeatInterval || 6e4;
     this.pruneInterval = options.pruneInterval || 3e4;
@@ -527,12 +528,12 @@ var Lobby = class {
   startPruning() {
     this.stopPruning();
     this.pruneTimer = setInterval(() => {
-      const now = Date.now();
+      const now = this.maxSeenServerTs || Date.now();
       let changed = false;
       for (const [userId, user] of this.users.entries()) {
         if (userId === this.currentUser.userId) continue;
         const lastSeen = user.meta?.ts || 0;
-        if (now - lastSeen > this.staleTtl) {
+        if (lastSeen > 0 && now - lastSeen > this.staleTtl) {
           this.users.delete(userId);
           changed = true;
         }
@@ -681,6 +682,9 @@ var Lobby = class {
   handleIncomingMessage(data) {
     const rawMsg = parseMessage(data);
     if (!rawMsg) return;
+    if (rawMsg.meta?.ts) {
+      this.maxSeenServerTs = Math.max(this.maxSeenServerTs, rawMsg.meta.ts);
+    }
     if (rawMsg.messageType === "presence") {
       this.handlePresenceUpdate(rawMsg);
     } else if (rawMsg.messageType === "challenge") {
