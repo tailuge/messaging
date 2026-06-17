@@ -125,14 +125,20 @@ export class Lobby {
 
   private startHeartbeat(): void {
     this.stopHeartbeat();
-    this.heartbeatTimer = setInterval(async () => {
-      try {
-        await this.syncPresence({ type: "heartbeat" });
-      } catch (_e) {
-        console.error("Failed to send heartbeat:", _e);
-      }
-    }, this.heartbeatInterval);
-    this.heartbeatTimer.unref?.();
+    let firstTick = true;
+    const schedule = () => {
+      this.heartbeatTimer = setTimeout(async () => {
+        try {
+          await this.syncPresence({ type: "heartbeat" });
+        } catch (_e) {
+          console.error("Failed to send heartbeat:", _e);
+        }
+        schedule();
+      }, firstTick ? 3000 : this.heartbeatInterval);
+      this.heartbeatTimer.unref?.();
+      firstTick = false;
+    };
+    schedule();
   }
 
   private stopHeartbeat(): void {
