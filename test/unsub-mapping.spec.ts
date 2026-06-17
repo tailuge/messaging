@@ -6,7 +6,7 @@ import { MessagingClient } from "../src/messagingclient";
 describe("Unsub Mapping Diagnostic", () => {
   beforeAll(async () => {
     await startContainer();
-  }, 60000);
+  }, 20000);
 
   afterAll(async () => {
     await stopContainer();

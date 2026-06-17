@@ -10,7 +10,7 @@ import {
 describe("MessagingClient - Challenge Deduplication", () => {
   beforeAll(async () => {
     await startContainer();
-  }, 60000);
+  }, 20000);
 
   afterAll(async () => {
     await stopContainer();

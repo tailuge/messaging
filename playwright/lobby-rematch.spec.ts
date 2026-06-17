@@ -7,7 +7,7 @@ const LOBBY_URL = process.env.LIVE === 'true'
 const IS_LIVE = process.env.LIVE === 'true';
 
 test.describe('Lobby Rematch', () => {
-  test.setTimeout(60000); // Increased timeout for live environment
+  test.setTimeout(20000); // Increased timeout for live environment
 
   const gameLaunch = async (browser: any) => {
     const setupUser = async (name: string, id: string) => {

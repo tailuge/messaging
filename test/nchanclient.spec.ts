@@ -22,7 +22,7 @@ describe("NchanClient", () => {
   beforeAll(async () => {
     server = await startContainer();
     port = parseInt(server.split(":")[1], 10);
-  }, 60000);
+  }, 20000);
 
   afterAll(async () => {
     await stopContainer();
