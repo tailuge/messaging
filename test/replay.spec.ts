@@ -365,4 +365,84 @@ describe("Replay", () => {
 
     expect(userIds).toEqual(["Luke-2oo0v", "u1alicu"]);
   });
+
+  it("should keep AnOniMouse2 online despite out-of-order leave-after-join", async () => {
+    // This test demonstrates a bug: when a stale leave message arrives
+    // just after a fresh join (due to network latency), the lobby incorrectly
+    // removes the user. The user should remain online.
+    let onMessage: ((data: string) => void) | undefined;
+
+    const mockNchan = {
+      subscribePresence: jest.fn((_userId: string, callback: (data: string) => void) => {
+        onMessage = callback;
+        return { stop: jest.fn(), ready: Promise.resolve() };
+      }),
+      publishPresence: jest.fn().mockResolvedValue(undefined),
+      publishChallenge: jest.fn().mockResolvedValue(undefined),
+      publishChat: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const lobby = new Lobby(
+      mockNchan as unknown as NchanClient,
+      {
+        messageType: "presence" as const,
+        type: "join" as const,
+        userId: "u1alicu",
+        userName: "Alice",
+      },
+      { heartbeatInterval: 999999 },
+    );
+
+    await lobby.join();
+    expect(onMessage).toBeDefined();
+    if (!onMessage) throw new Error("onMessage not set");
+
+    // Feed the bug dataset: join followed immediately by stale leave
+    for (const msg of bug) {
+      onMessage(JSON.stringify(msg));
+    }
+
+    // Collect the final user list
+    const users: any[] = [];
+    lobby.onUsersChange((u) => {
+      users.length = 0;
+      users.push(...u);
+    });
+
+    const userIds = users.map((u: any) => u.userId).sort();
+    console.log("=== BUG REPLAY RESULT ===");
+    console.log("userIds:", userIds);
+    console.log("users:", JSON.stringify(users.map(({ meta, ...rest }: any) => rest), null, 2));
+
+    // AnOniMouse2 should be online — but the stale leave erroneously removes them
+    expect(userIds).toContain("AnOn-cr36t");
+  });
 });
+
+
+const bug = [  {
+    "messageType": "presence",
+    "type": "join",
+    "userId": "AnOn-cr36t",
+    "userName": "AnOniMouse2",
+    "clientTs": 1781717348840,
+    "meta": {
+      "ts": 1781717349142,
+      "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0",
+      "origin": "https://billiards.tailuge.workers.dev",
+      "country": "RO",
+      "city": "Iași",
+      "since": 1781716114597,
+      "version": "v4.37"
+    }
+  },
+  {
+    "messageType": "presence",
+    "type": "leave",
+    "userId": "AnOn-cr36t",
+    "meta": {
+      "ts": 1781717349143,
+      "ua": "nchan-auto-leave",
+      "origin": "internal"
+    }
+  }];
