@@ -141,8 +141,6 @@ describe("MessagingClient - Phase 1", () => {
       // 1. Client A joins lobby with long heartbeat (no heartbeats during test)
       const lobbyA = await clientA.joinLobby(userA, {
         heartbeatInterval: 10000,
-        pruneInterval: 10000,
-        staleTtl: 30000,
       });
 
       let usersA: PresenceMessage[] = [];
@@ -157,8 +155,6 @@ describe("MessagingClient - Phase 1", () => {
       // 3. Client B joins lobby AFTER A's initial join (but no heartbeat yet)
       const lobbyB = await clientB.joinLobby(userB, {
         heartbeatInterval: 10000,
-        pruneInterval: 10000,
-        staleTtl: 30000,
       });
 
       let usersB: PresenceMessage[] = [];
@@ -195,8 +191,6 @@ describe("MessagingClient - Phase 1", () => {
       // 1. Client A joins lobby
       const lobbyA = await clientA.joinLobby(userA, {
         heartbeatInterval: 100,
-        pruneInterval: 100,
-        staleTtl: 300,
       });
 
       let usersA: PresenceMessage[] = [];
@@ -208,8 +202,6 @@ describe("MessagingClient - Phase 1", () => {
       // 2. Client B joins lobby
       const lobbyB = await clientB.joinLobby(userB, {
         heartbeatInterval: 100,
-        pruneInterval: 100,
-        staleTtl: 300,
       });
 
       let usersB: PresenceMessage[] = [];
@@ -231,8 +223,6 @@ describe("MessagingClient - Phase 1", () => {
       await clientA.start();
       const lobbyA2 = await clientA.joinLobby(userA, {
         heartbeatInterval: 100,
-        pruneInterval: 100,
-        staleTtl: 300,
       });
 
       let usersA2: PresenceMessage[] = [];
@@ -585,51 +575,6 @@ describe("MessagingClient - Phase 1", () => {
         "Cannot join table: No active lobby found for user nonexistent-user",
       );
     });
-  });
-
-  describe("Reliability (Phase 3)", () => {
-    it("should prune a client who stops heartbeating", async () => {
-      const clientA = createClient();
-      const clientB = createClient();
-
-      // Client A tracks with very aggressive pruning for the test
-      const lobbyA = await clientA.joinLobby(
-        {
-          messageType: "presence",
-          type: "join",
-          userId: "alice",
-          userName: "Alice",
-        },
-        {
-          pruneInterval: 500,
-          staleTtl: 1000,
-        },
-      );
-
-      const lobbyB = await clientB.joinLobby({
-        messageType: "presence",
-        type: "join",
-        userId: "bob",
-        userName: "Bob",
-      });
-
-      let usersA: PresenceMessage[] = [];
-      lobbyA.onUsersChange((u) => (usersA = u));
-
-      // 1. Both see each other
-      await waitUntil(() => usersA.some((u) => u.userId === "bob"));
-      expect(usersA.find((u) => u.userId === "bob")).toBeDefined();
-
-      // 2. Bob "crashes"
-      (lobbyB as any).stopHeartbeat();
-      (lobbyB as any).stopPruning();
-
-      // 3. Wait for A to prune Bob (staleTtl = 1000ms)
-      await waitUntil(() => !usersA.some((u) => u.userId === "bob"), 2000, 100);
-
-      expect(usersA.find((u) => u.userId === "bob")).toBeUndefined();
-      expect(usersA.length).toBe(1); // Only Alice remains
-    }, 5000);
   });
 
   describe("Helper Functions", () => {

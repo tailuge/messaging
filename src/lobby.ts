@@ -11,8 +11,6 @@ import { ChallengeDeduplicator } from "./ChallengeDeduplicator";
 
 export interface LobbyOptions {
   heartbeatInterval?: number;
-  pruneInterval?: number;
-  staleTtl?: number;
   onReconnect?: () => void;
   onLeave?: () => void;
 }
@@ -29,15 +27,11 @@ export class Lobby {
   private deduplicator: ChallengeDeduplicator;
   private subscription: Subscription | null = null;
   private isJoined = false;
-  private maxSeenServerTs = 0;
 
   private heartbeatTimer?: any;
-  private pruneTimer?: any;
   private presenceMessageCount = 0;
 
   private readonly heartbeatInterval: number;
-  private readonly pruneInterval: number;
-  private readonly staleTtl: number;
 
   constructor(
     private nchan: NchanClient,
@@ -45,8 +39,6 @@ export class Lobby {
     private options: LobbyOptions = {},
   ) {
     this.heartbeatInterval = options.heartbeatInterval || 60000;
-    this.pruneInterval = options.pruneInterval || 30000;
-    this.staleTtl = options.staleTtl || 90000;
 
     this.deduplicator = new ChallengeDeduplicator((msg) => {
       this.pendingChallenges.push(msg);
@@ -114,7 +106,6 @@ export class Lobby {
     }
 
     this.startHeartbeat();
-    this.startPruning();
     this.isJoined = true;
   }
 
@@ -148,38 +139,6 @@ export class Lobby {
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = undefined;
-    }
-  }
-
-  private startPruning(): void {
-    // eslint-disable-next-line no-constant-binary-expression
-    if (false as boolean) return;
-    this.stopPruning();
-    this.pruneTimer = setInterval(() => {
-      const now = this.maxSeenServerTs || Date.now();
-      let changed = false;
-
-      for (const [userId, user] of this.users.entries()) {
-        if (userId === this.currentUser.userId) continue;
-
-        const lastSeen = user.meta?.ts || 0;
-        if (lastSeen > 0 && now - lastSeen > this.staleTtl) {
-          this.users.delete(userId);
-          changed = true;
-        }
-      }
-
-      if (changed) {
-        this.notifyListeners();
-      }
-    }, this.pruneInterval);
-    this.pruneTimer.unref?.();
-  }
-
-  private stopPruning(): void {
-    if (this.pruneTimer) {
-      clearInterval(this.pruneTimer);
-      this.pruneTimer = undefined;
     }
   }
 
@@ -315,7 +274,6 @@ export class Lobby {
    */
   async leave(options: { isTeardown?: boolean } = {}): Promise<void> {
     this.stopHeartbeat();
-    this.stopPruning();
     this.subscription?.stop();
 
     try {
@@ -339,10 +297,6 @@ export class Lobby {
   private handleIncomingMessage(data: string): void {
     const rawMsg = parseMessage<any>(data);
     if (!rawMsg) return;
-
-    if (rawMsg.meta?.ts) {
-      this.maxSeenServerTs = Math.max(this.maxSeenServerTs, rawMsg.meta.ts);
-    }
 
     if (rawMsg.messageType === "presence") {
       this.handlePresenceUpdate(rawMsg as PresenceMessage);

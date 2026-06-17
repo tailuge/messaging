@@ -433,12 +433,8 @@ var Lobby = class {
     this.pendingChallenges = [];
     this.subscription = null;
     this.isJoined = false;
-    this.cachedUsersList = null;
-    this.maxSeenServerTs = 0;
     this.presenceMessageCount = 0;
     this.heartbeatInterval = options.heartbeatInterval || 6e4;
-    this.pruneInterval = options.pruneInterval || 3e4;
-    this.staleTtl = options.staleTtl || 9e4;
     this.deduplicator = new ChallengeDeduplicator((msg) => {
       this.pendingChallenges.push(msg);
       this.challengeListeners.forEach((cb) => cb(msg));
@@ -493,7 +489,6 @@ var Lobby = class {
       }
     }
     this.startHeartbeat();
-    this.startPruning();
     this.isJoined = true;
   }
   /**
@@ -523,32 +518,6 @@ var Lobby = class {
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = void 0;
-    }
-  }
-  startPruning() {
-    this.stopPruning();
-    this.pruneTimer = setInterval(() => {
-      const now = this.maxSeenServerTs || Date.now();
-      let changed = false;
-      for (const [userId, user] of this.users.entries()) {
-        if (userId === this.currentUser.userId) continue;
-        const lastSeen = user.meta?.ts || 0;
-        if (lastSeen > 0 && now - lastSeen > this.staleTtl) {
-          this.users.delete(userId);
-          changed = true;
-        }
-      }
-      if (changed) {
-        this.cachedUsersList = null;
-        this.notifyListeners();
-      }
-    }, this.pruneInterval);
-    this.pruneTimer.unref?.();
-  }
-  stopPruning() {
-    if (this.pruneTimer) {
-      clearInterval(this.pruneTimer);
-      this.pruneTimer = void 0;
     }
   }
   /**
@@ -660,7 +629,6 @@ var Lobby = class {
    */
   async leave(options = {}) {
     this.stopHeartbeat();
-    this.stopPruning();
     this.subscription?.stop();
     try {
       await this.nchan.publishPresence(
@@ -671,7 +639,6 @@ var Lobby = class {
       console.error("Error leaving lobby:", e);
     }
     this.users.clear();
-    this.cachedUsersList = null;
     this.pendingChallenges = [];
     this.deduplicator.clear();
     this.presenceMessageCount = 0;
@@ -682,9 +649,6 @@ var Lobby = class {
   handleIncomingMessage(data) {
     const rawMsg = parseMessage(data);
     if (!rawMsg) return;
-    if (rawMsg.meta?.ts) {
-      this.maxSeenServerTs = Math.max(this.maxSeenServerTs, rawMsg.meta.ts);
-    }
     if (rawMsg.messageType === "presence") {
       this.handlePresenceUpdate(rawMsg);
     } else if (rawMsg.messageType === "challenge") {
@@ -706,18 +670,15 @@ var Lobby = class {
     if (msg.type === "leave") {
       if (existing) {
         this.users.delete(msg.userId);
-        this.cachedUsersList = null;
         this.notifyListeners();
       }
     } else if (msg.type === "join") {
       this.users.set(msg.userId, msg);
-      this.cachedUsersList = null;
       this.notifyListeners();
     } else {
       const changed = !existing || this.hasMeaningfulChange(existing, msg);
       this.users.set(msg.userId, msg);
       if (changed) {
-        this.cachedUsersList = null;
         this.notifyListeners();
       }
     }
@@ -735,13 +696,9 @@ var Lobby = class {
     this.listeners.forEach((cb) => cb(list));
   }
   getUsersList() {
-    if (this.cachedUsersList) {
-      return this.cachedUsersList;
-    }
-    this.cachedUsersList = Array.from(this.users.values()).sort(
+    return Array.from(this.users.values()).sort(
       (a, b) => a.userName.localeCompare(b.userName)
     );
-    return this.cachedUsersList;
   }
   hasMeaningfulChange(oldMsg, nextMsg) {
     return oldMsg.userName !== nextMsg.userName || oldMsg.tableId !== nextMsg.tableId || oldMsg.ruleType !== nextMsg.ruleType || oldMsg.opponentId !== nextMsg.opponentId || JSON.stringify(oldMsg.seek) !== JSON.stringify(nextMsg.seek);

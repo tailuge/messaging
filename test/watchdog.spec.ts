@@ -10,7 +10,7 @@ import {
 describe("Watchdog Integration", () => {
   beforeAll(async () => {
     await startContainer();
-  }, 60000);
+  }, 20000);
 
   afterAll(async () => {
     await stopContainer();
@@ -29,8 +29,6 @@ describe("Watchdog Integration", () => {
 
     const testOptions = {
       heartbeatInterval: 100,
-      pruneInterval: 100,
-      staleTtl: 300,
     };
 
     // 1. Bob joins lobby and table
@@ -59,9 +57,11 @@ describe("Watchdog Integration", () => {
     // Wait until Bob sees Alice
     await waitUntil(() => usersB.some((u) => u.userId === "user-a" && u.tableId === tableId), 3000);
 
-    // 3. Simulate Alice crashing
-    (lobbyA as any).stopHeartbeat();
-    (lobbyA as any).stopPruning();
+    // 3. Simulate Alice disconnecting
+    await clientA.stop();
+
+    // Bob's lobby should remove Alice
+    await waitUntil(() => !usersB.some((u) => u.userId === "user-a"), 3000);
 
     // Bob's watchdog should detect Alice is gone
     await opponentLeftPromise;
