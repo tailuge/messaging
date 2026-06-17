@@ -289,16 +289,19 @@ class OnlinePanel extends LitElement {
         if (!c) return;
         if (this.#lobby) await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options, c.challengerName);
         logUsage("joinTable");
-        this.dispatch({ type: 'CHALLENGE_DISMISS', payload: c.challengerId });
-        const isFirst = this.#autoChallenge?.nextTurnId
-            ? this.#autoChallenge.nextTurnId === this.#myId
-            : c.challengerId === this.#myId;
-        this.dispatch({ type: 'MATCH_SET', payload: {
-            tableId: c.tableId,
-            ruleType: c.ruleType,
-            options: c.options,
-            isFirst
-        } });
+        this.dispatch({
+            type: 'CHALLENGE_MSG',
+            payload: {
+                type: 'accept',
+                challengerId: c.challengerId,
+                challengerName: c.challengerName,
+                challengeeId: this.#myId,
+                ruleType: c.ruleType,
+                tableId: c.tableId,
+                options: c.options,
+                nextTurnId: this.#autoChallenge?.nextTurnId
+            }
+        });
         this.#autoChallenge = null;
     }
 

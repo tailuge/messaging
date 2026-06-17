@@ -105,5 +105,25 @@ describe("Lobby Logic", () => {
         expect(aliceState.currentMatch?.isFirst).not.toBe(bobState.currentMatch?.isFirst);
       }
     });
+
+    it("rematch: nextTurnId matching neither player falls back to challenger first", () => {
+      // If the server sends a nextTurnId that matches neither Alice nor Bob,
+      // the reducer falls back to challenger-first so the game can proceed.
+      let aliceState = reduce(INITIAL_STATE, { type: 'CHALLENGE_SENT', myId, payload: {
+        challengerId: myId, challengeeId: opponentId, tableId, ruleType: 'nineball'
+      }});
+      const acceptMsg = { type: 'accept', challengerId: myId, challengeeId: opponentId, tableId, ruleType: 'nineball', nextTurnId: 'charlie' };
+      aliceState = reduce(aliceState, { type: 'CHALLENGE_MSG', myId, payload: acceptMsg });
+
+      let bobState = reduce(INITIAL_STATE, { type: 'CHALLENGE_MSG', myId: opponentId, payload: {
+        type: 'offer', challengerId: myId, challengeeId: opponentId, tableId, ruleType: 'nineball'
+      }});
+      bobState = reduce(bobState, { type: 'CHALLENGE_MSG', myId: opponentId, payload: acceptMsg });
+
+      // Key invariants: exactly one player is first, and it's the challenger (fallback)
+      expect(aliceState.currentMatch?.isFirst).toBe(true);
+      expect(bobState.currentMatch?.isFirst).toBe(false);
+      expect(aliceState.currentMatch?.isFirst).not.toBe(bobState.currentMatch?.isFirst);
+    });
   });
 });
