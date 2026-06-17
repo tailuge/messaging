@@ -577,7 +577,7 @@ var Lobby = class {
    * Accept an incoming challenge.
    * Returns the Table instance for the accepted game.
    */
-  async acceptChallenge(userId, ruleType, tableId, options, challengerName) {
+  async acceptChallenge(userId, ruleType, tableId, options, challengerName, nextTurnId) {
     await this.nchan.publishChallenge({
       type: "accept",
       challengerId: userId,
@@ -585,7 +585,8 @@ var Lobby = class {
       challengeeId: this.currentUser.userId,
       ruleType,
       tableId,
-      options
+      options,
+      nextTurnId
     });
     await this.updatePresence({ tableId });
     const table = new Table(this.nchan, tableId, this.currentUser.userId, this);

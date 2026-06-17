@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 429;
+export const CLIENTVERSION = 430;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -87,8 +87,6 @@ export function reduce(state, action) {
         case 'CHALLENGE_DISMISS':
             delete C[action.payload];
             return { ...state, challenges: C };
-        case 'MATCH_SET':
-            return { ...state, currentMatch: action.payload };
         case 'MATCH_LEAVE':
             return { ...state, currentMatch: null };
         default:

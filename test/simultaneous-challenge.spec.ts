@@ -146,7 +146,7 @@ describe("Simultaneous Challenge and State Hardening", () => {
     expect(bobState.challenges[aliceId].tableId).toBe('table-b');
 
     // 2. Alice auto-accepts Table B
-    aliceState = reduce(aliceState, { type: 'MATCH_SET', myId: aliceId, payload: { tableId: 'table-b', ruleType: 'nineball', isFirst: false } });
+    aliceState = reduce(aliceState, { type: 'CHALLENGE_MSG', myId: aliceId, payload: { type: 'accept', challengerId: bobId, challengeeId: aliceId, tableId: 'table-b', ruleType: 'nineball' } });
 
     // 3. Alice's accept message for Table B arrives at Bob
     const aliceAcceptB = { type: 'accept', challengerId: bobId, challengeeId: aliceId, tableId: 'table-b', ruleType: 'nineball' };
