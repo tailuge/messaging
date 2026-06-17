@@ -180,13 +180,6 @@ var NchanClient = class {
         }
         console.log(`[NchanClient ${ts()}] Connected to ${url}`);
         resolveReady();
-        if (!isReconnect) {
-          setTimeout(() => {
-            console.log("=== NCHAN REPLAY FIXTURE ===");
-            console.log(JSON.stringify(fixtureMessages, null, 2));
-            fixtureMessages.length = 0;
-          }, 3e3);
-        }
         if (isReconnect && subscription.onReconnect) {
           subscription.onReconnect();
         }
