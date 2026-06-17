@@ -230,9 +230,6 @@ class OnlinePanel extends LitElement {
     get #tableId()         { return this.#state.currentMatch?.tableId; }
     get #ruleType()        { return this.#state.currentMatch?.ruleType || 'standard'; }
     get #isFirst() {
-        if (this.#autoChallenge?.nextTurnId) {
-            return this.#autoChallenge.nextTurnId === this.#myId;
-        }
         return !!this.#state.currentMatch?.isFirst;
     }
     get #matchOptions()    { return this.#state.currentMatch?.options; }
@@ -287,7 +284,7 @@ class OnlinePanel extends LitElement {
     async #acceptChallenge(challengerId) {
         const c = challengerId ? this.#state.challenges[challengerId] : this.#activeChallenge;
         if (!c) return;
-        if (this.#lobby) await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options, c.challengerName);
+        if (this.#lobby) await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options, c.challengerName, this.#autoChallenge?.nextTurnId);
         logUsage("joinTable");
         this.dispatch({
             type: 'CHALLENGE_MSG',

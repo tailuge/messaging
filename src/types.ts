@@ -52,6 +52,7 @@ export interface ChallengeMessage {
   ruleType: string;
   tableId?: string; // Optional: table created by challenger
   readonly options?: Record<string, string>; // Optional: game-specific configuration
+  nextTurnId?: string; // Who goes first on rematch
   meta?: Meta; // Server-enriched metadata (received messages only)
 }
 

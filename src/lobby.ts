@@ -215,6 +215,7 @@ export class Lobby {
     tableId: string,
     options?: Record<string, string>,
     challengerName?: string,
+    nextTurnId?: string,
   ): Promise<Table> {
     await this.nchan.publishChallenge({
       type: "accept",
@@ -224,6 +225,7 @@ export class Lobby {
       ruleType,
       tableId,
       options,
+      nextTurnId,
     });
 
     // Automatically update our presence to show we've joined the table
