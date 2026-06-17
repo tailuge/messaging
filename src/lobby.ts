@@ -29,7 +29,6 @@ export class Lobby {
   private deduplicator: ChallengeDeduplicator;
   private subscription: Subscription | null = null;
   private isJoined = false;
-  private cachedUsersList: PresenceMessage[] | null = null;
   private maxSeenServerTs = 0;
 
   private heartbeatTimer?: any;
@@ -153,6 +152,8 @@ export class Lobby {
   }
 
   private startPruning(): void {
+    // eslint-disable-next-line no-constant-binary-expression
+    if (false as boolean) return;
     this.stopPruning();
     this.pruneTimer = setInterval(() => {
       const now = this.maxSeenServerTs || Date.now();
@@ -169,7 +170,6 @@ export class Lobby {
       }
 
       if (changed) {
-        this.cachedUsersList = null;
         this.notifyListeners();
       }
     }, this.pruneInterval);
@@ -328,7 +328,6 @@ export class Lobby {
     }
 
     this.users.clear();
-    this.cachedUsersList = null;
     this.pendingChallenges = [];
     this.deduplicator.clear();
     this.presenceMessageCount = 0;
@@ -368,19 +367,16 @@ export class Lobby {
     if (msg.type === "leave") {
       if (existing) {
         this.users.delete(msg.userId);
-        this.cachedUsersList = null;
         this.notifyListeners();
       }
     } else if (msg.type === "join") {
       this.users.set(msg.userId, msg);
-      this.cachedUsersList = null;
       this.notifyListeners();
     } else {
       // Heartbeat or other update
       const changed = !existing || this.hasMeaningfulChange(existing, msg);
       this.users.set(msg.userId, msg);
       if (changed) {
-        this.cachedUsersList = null;
         this.notifyListeners();
       }
     }
@@ -403,13 +399,9 @@ export class Lobby {
   }
 
   private getUsersList(): PresenceMessage[] {
-    if (this.cachedUsersList) {
-      return this.cachedUsersList;
-    }
-    this.cachedUsersList = Array.from(this.users.values()).sort((a, b) =>
+    return Array.from(this.users.values()).sort((a, b) =>
       a.userName.localeCompare(b.userName),
     );
-    return this.cachedUsersList;
   }
 
   private hasMeaningfulChange(oldMsg: PresenceMessage, nextMsg: PresenceMessage): boolean {
