@@ -31,7 +31,7 @@ class UserList extends LitElement {
     };
     static styles = [SHARED_STYLES, USER_LIST_STYLES, css`
         @keyframes throb { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         li { animation: fadeIn 0.2s ease-out; }
         .btn-chat { animation: throb 2s ease-in-out infinite; font-size: 1rem; border: none; background: none; padding: 0 0.2rem; }
         .btn-spectate { background: #7c3aed; color: #fff; border: none; border-radius: 4px; padding: 0.25rem 0.6rem; cursor: pointer; }
