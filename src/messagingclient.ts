@@ -33,6 +33,13 @@ export class MessagingClient {
   }
 
   /**
+   * Returns raw messages recorded by the underlying NchanClient for debugging.
+   */
+  get recordedMessages(): string[] {
+    return this.nchan.recordedMessages;
+  }
+
+  /**
    * Initializes the client and ensures connection readiness.
    * In browser environments, attaches lifecycle event listeners.
    */

@@ -16,6 +16,7 @@ export type Subscription = {
 export class NchanClient {
   private server: string;
   private version?: string;
+  private _recordedMessages: string[] = [];
 
   constructor(server: string) {
     // Ensure server string doesn't end with a slash
@@ -89,6 +90,20 @@ export class NchanClient {
     if (!response.ok) {
       throw new Error(`Publish failed: ${response.status}`);
     }
+  }
+
+  /**
+   * Records a raw message string for debugging/inspection.
+   */
+  record(raw: string): void {
+    this._recordedMessages.push(raw);
+  }
+
+  /**
+   * Returns all recorded messages as raw strings.
+   */
+  get recordedMessages(): string[] {
+    return this._recordedMessages;
   }
 
   // Publishing
@@ -218,10 +233,8 @@ export class NchanClient {
       }, CONNECTION_TIMEOUT_MS);
       connectionTimeoutTimer.unref?.();
 
-      const fixtureMessages: any[] = [];
-
       ws.onmessage = (event) => {
-        try { fixtureMessages.push(JSON.parse(event.data as string)); } catch (_e) { /* ignore parse failures */ }
+        this.record(event.data as string);
         onMessage(event.data as string);
       };
 
@@ -239,15 +252,6 @@ export class NchanClient {
         }
         console.log(`[NchanClient ${ts()}] Connected to ${url}`);
         resolveReady();
-        /* 
-        if (!isReconnect) {
-          setTimeout(() => {
-            console.log('=== NCHAN REPLAY FIXTURE ===');
-            console.log(JSON.stringify(fixtureMessages, null, 2));
-            fixtureMessages.length = 0;
-          }, 3000);
-        }
-        */
         if (isReconnect && subscription.onReconnect) {
           subscription.onReconnect();
         }

@@ -323,8 +323,12 @@ class OnlinePanel extends LitElement {
                 const { ts: _ts, since: _since, ...restMeta } = meta;
                 return { ...user, meta: restMeta };
             });
+        console.log('=== USERS ===');
         console.log(JSON.stringify(data, null, 2));
-	console.log(JSON.stringify({ myId: this.#myId, myName: this.#myName }));
+        console.log('=== MY INFO ===');
+        console.log(JSON.stringify({ myId: this.#myId, myName: this.#myName }));
+        console.log('=== NCHAN RECORDED MESSAGES ===');
+        console.log(this.#client.recordedMessages);
     }
 
     render() {
