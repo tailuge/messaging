@@ -1,6 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
-import { MessagingClient, canChallenge, canSpectate, userStatus } from '../index.ts';
+import { MessagingClient, canChallenge, canSpectate, userStatus, activeGames } from '../index.ts';
 import { userStore } from './user-store.js';
 import { gameUrl, spectateUrl, INITIAL_STATE, reduce, flag, getEmoji, isVercel, CLIENTVERSION, formatVersion, NCHANBASE } from './utils.js';
 import { logUsage } from './logusage.js';
@@ -22,6 +22,7 @@ const emit = (el, type, detail) =>
 class UserList extends LitElement {
     static properties = {
         slots: { type: Array },
+        users: { type: Array },
         myId: { type: String },
         myName: { type: String },
         tableId: { type: String },
@@ -42,10 +43,17 @@ class UserList extends LitElement {
         const slots = this.slots || [];
         const onlineSlots = slots.filter(s => s.status === 'online');
         if (onlineSlots.length === 0) return html`<div class="empty">No other players online yet. Invite a friend!</div>`;
-        return html`<ul aria-label="Online players">${repeat(slots, (_, i) => i, (slot, i) => this._rowSlot(slot, i))}</ul>`;
+
+        const activeGameIds = new Set(
+            activeGames(this.users || [])
+                .filter(g => g.players.length > 1)
+                .map(g => g.tableId)
+        );
+
+        return html`<ul aria-label="Online players">${repeat(slots, (_, i) => i, (slot, i) => this._rowSlot(slot, i, activeGameIds))}</ul>`;
     }
 
-    _rowSlot(slot, index) {
+    _rowSlot(slot, index, activeGameIds) {
         if (slot.status === 'offline') {
             const u = slot.user;
             const status = getEmoji(u.meta?.origin ?? '', u.ruleType ?? '', userStatus(u));
@@ -60,14 +68,19 @@ class UserList extends LitElement {
                     </div>
                 </li>`;
         }
-        return this._row(slot.user);
+        return this._row(slot.user, activeGameIds);
     }
 
-    _row(u) {
+    _row(u, activeGameIds) {
         const unread = this.pendingChats?.get(u.userId) > 0;
         const hasOffer = this.challenges?.[u.userId]?.challengerId === u.userId;
         const challengeable = !hasOffer && (u.isBot || canChallenge(u, this.myId));
-        const spectatable = !u.isBot && userStatus(u) === 'playing' && canSpectate(u, this.tableId);
+
+        const spectatable = !u.isBot &&
+            userStatus(u) === 'playing' &&
+            canSpectate(u, this.tableId) &&
+            activeGameIds.has(u.tableId);
+
         const status = getEmoji(u.meta?.origin ?? '', u.ruleType ?? '', userStatus(u));
         const actions = unread
             ? html`<button class="btn-chat" aria-label="Unread message from ${u.userName}" @click=${() => emit(this, 'open-chat', u.userId)}>💬</button>`
@@ -390,6 +403,7 @@ class OnlinePanel extends LitElement {
             </challenge-banner>
             <user-list
                 .slots=${this.#slots}
+                .users=${this.#users}
                 myId=${this.#myId}
                 myName=${this.#myName}
                 tableId=${this.#tableId || ''}
