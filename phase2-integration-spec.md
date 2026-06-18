@@ -148,14 +148,14 @@ render() {
 
 Key: `repeat` uses slot **index** as the key — positions never change.
 
-### 3.3 New method `_rowSlot(slot, index)`
+### 3.3 New method `_rowSlot(slot, index)` — delegates to `_row()` for online
+
+To minimize line growth, the existing `_row(u)` method is **kept unchanged**.
+`_rowSlot()` only adds the offline branch (~10 lines) and delegates to `_row()` for online users:
 
 ```js
 _rowSlot(slot, index) {
-  const isOffline = slot.status === 'offline';
-
-  // Offline — minimal grey row (decision: minimal grey)
-  if (isOffline) {
+  if (slot.status === 'offline') {
     const u = slot.user;  // snapshot from departure
     const status = getEmoji(u.meta?.origin ?? '', u.ruleType ?? '', userStatus(u));
     return html`
@@ -169,36 +169,12 @@ _rowSlot(slot, index) {
         </div>
       </li>`;
   }
-
-  // Online — same as current _row() logic
-  const u = slot.user;
-  const unread = this.pendingChats?.get(u.userId) > 0;
-  const hasOffer = this.challenges?.[u.userId]?.challengerId === u.userId;
-  const challengeable = !hasOffer && (u.isBot || canChallenge(u, this.myId));
-  const spectatable = !u.isBot && userStatus(u) === 'playing' && canSpectate(u, this.tableId);
-  const status = getEmoji(u.meta?.origin ?? '', u.ruleType ?? '', userStatus(u));
-  const actions = unread
-    ? html`<button class="btn-chat" aria-label="Unread message from ${u.userName}" @click=${() => emit(this, 'open-chat', u.userId)}>💬</button>`
-    : spectatable
-      ? html`<button class="btn-spectate" aria-label="Spectate ${u.userName}'s game" @click=${() => emit(this, 'spectate', u)}>Spectate</button>`
-      : challengeable
-        ? html`<button class="btn-challenge" aria-label="Challenge ${u.userName}" ?disabled=${this.isChallengePending} @click=${() => isVercel ? window.location.href = 'https://billiards.tailuge.workers.dev/lobby' : emit(this, 'challenge', u.userId)}>Challenge</button>`
-        : html``;
-  return html`
-    <li aria-label="${u.userName}">
-      <div class="user-info">
-        <span class="user-name" @click=${() => emit(this, 'open-chat', u.userId)} style="cursor: pointer">
-          <span title="${flag(u.meta?.country).title}">${flag(u.meta?.country).emoji}</span>
-          ${u.userName}
-          <span aria-label="${status.title}" role="img">${status.emoji}</span>
-        </span>
-      </div>
-      <div class="actions">${actions}</div>
-    </li>`;
+  // Online — delegate to existing _row()
+  return this._row(slot.user);
 }
 ```
 
-The old `_row(u)` method is **removed** (or kept with a comment if you prefer — but nothing calls it).
+Net growth: ~10 lines. `_row()` stays untouched — zero duplication.
 
 ---
 

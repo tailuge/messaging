@@ -94,6 +94,7 @@ export const USER_LIST_STYLES = css`
         border: 0.25px solid var(--border-light);
         border-bottom: none; gap: 1px;
         border-radius: 4px;
+        min-height: 28px;
     }
     li:last-child { border-bottom: 0.25px; }
     .user-info { display: flex; flex-direction: column; min-width: 0; }
@@ -105,6 +106,7 @@ export const USER_LIST_STYLES = css`
     .actions { display: flex; gap: 0.2rem; flex-shrink: 0; }
     .empty { padding: 1rem; text-align: center; color: var(--text-muted); font-style: italic; font-size: 0.8rem; }
     .is-leaving { filter: grayscale(1); opacity: 0.6; pointer-events: none; }
+    .is-offline { filter: grayscale(1); opacity: 0.35; transition: opacity 0.3s ease-out; animation: none; pointer-events: none; }
 `;
 
 export const CHALLENGE_BANNER_STYLES = css`

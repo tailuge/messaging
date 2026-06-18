@@ -5,6 +5,7 @@ import { userStore } from './user-store.js';
 import { gameUrl, spectateUrl, INITIAL_STATE, reduce, flag, getEmoji, isVercel, CLIENTVERSION, formatVersion, NCHANBASE } from './utils.js';
 import { logUsage } from './logusage.js';
 import { SHARED_STYLES, USER_LIST_STYLES, PLAYER_PANEL_STYLES, CHALLENGE_MODAL_STYLES, BADGE_STYLES } from './styles.js';
+import { UserSlotManager } from './user-slot-manager.js';
 import './message-modal.js';
 import './challenge-banner.js';
 
@@ -20,7 +21,7 @@ const emit = (el, type, detail) =>
 
 class UserList extends LitElement {
     static properties = {
-        users: { type: Array },
+        slots: { type: Array },
         myId: { type: String },
         myName: { type: String },
         tableId: { type: String },
@@ -38,9 +39,28 @@ class UserList extends LitElement {
     `];
 
     render() {
-        const others = (this.users || []).filter(u => u.userId !== this.myId);
-        if (others.length === 0) return html`<div class="empty">No other players online yet. Invite a friend!</div>`;
-        return html`<ul aria-label="Online players">${repeat(others, u => u.userId, u => this._row(u))}</ul>`;
+        const slots = this.slots || [];
+        const onlineSlots = slots.filter(s => s.status === 'online');
+        if (onlineSlots.length === 0) return html`<div class="empty">No other players online yet. Invite a friend!</div>`;
+        return html`<ul aria-label="Online players">${repeat(slots, (_, i) => i, (slot, i) => this._rowSlot(slot, i))}</ul>`;
+    }
+
+    _rowSlot(slot, index) {
+        if (slot.status === 'offline') {
+            const u = slot.user;
+            const status = getEmoji(u.meta?.origin ?? '', u.ruleType ?? '', userStatus(u));
+            return html`
+                <li class="is-offline" aria-label="${u.userName}">
+                    <div class="user-info">
+                        <span class="user-name">
+                            <span title="${flag(u.meta?.country).title}">${flag(u.meta?.country).emoji}</span>
+                            ${u.userName}
+                            <span aria-label="${status.title}" role="img">${status.emoji}</span>
+                        </span>
+                    </div>
+                </li>`;
+        }
+        return this._row(slot.user);
     }
 
     _row(u) {
@@ -120,6 +140,7 @@ class OnlinePanel extends LitElement {
     #pendingChallenge = null;
     #pendingMessage = null;
     #pendingChats = new Map(); // userId → unread count
+    #slotManager = new UserSlotManager();
     #autoChallenge = null;
 
     constructor() {
@@ -242,13 +263,19 @@ class OnlinePanel extends LitElement {
 
     get #visibleUsers() { return [...this.#users, ...BOTS]; }
 
+    get #slots() { return this.#slotManager.getSlots(); }
+
     async _connect() {
         this.#lobby = await this.#client.joinLobby({
             messageType: 'presence', type: 'join',
             userId: this.#myId, userName: this.#myName,
         });
         this.dispatch({ type: 'CONNECTED', payload: true });
-        this.#lobby.onUsersChange(users => this.dispatch({ type: 'USERS_UPDATE', payload: users }));
+        this.#lobby.onUsersChange(users => {
+            const allVisible = [...users, ...BOTS].filter(u => u.userId !== this.#myId);
+            this.#slotManager.update(allVisible);
+            this.dispatch({ type: 'USERS_UPDATE', payload: users });
+        });
         this.#lobby.onChallenge(msg => {
             this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
             if (msg.type === 'offer' && msg.challengeeId === this.#myId && document.hidden && Notification.permission === 'granted') {
@@ -329,6 +356,13 @@ class OnlinePanel extends LitElement {
         console.log(JSON.stringify({ myId: this.#myId, myName: this.#myName }));
         console.log('=== NCHAN RECORDED MESSAGES ===');
         console.log(this.#client.recordedMessages);
+        console.log('=== SLOTS ===');
+        console.table(this.#slots.map(s => ({
+            userId: s.userId,
+            status: s.status,
+            offlineSince: s.offlineSince,
+            online: s.status === 'online' ? '✓' : '✗',
+        })));
     }
 
     render() {
@@ -355,7 +389,7 @@ class OnlinePanel extends LitElement {
                 @dismiss=${() => this.#clearSentChallenge()}>
             </challenge-banner>
             <user-list
-                .users=${this.#visibleUsers}
+                .slots=${this.#slots}
                 myId=${this.#myId}
                 myName=${this.#myName}
                 tableId=${this.#tableId || ''}
