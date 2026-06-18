@@ -127,7 +127,7 @@ export const SENT_CHALLENGE_BANNER_STYLES = css`
 
 export const CHALLENGE_MODAL_STYLES = css`
     :host { display: block; }
-    .backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.3); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 100; }
+    .backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.3); backdrop-filter: blur(1px); display: flex; align-items: center; justify-content: center; z-index: 100; }
     .modal { background: var(--modal-bg); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 0.75rem 1rem; min-width: 240px; display: flex; flex-direction: column; gap: 0.4rem; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); }
     h3 { margin: 0; font-size: 0.95rem; text-align: center; }
     .rules { display: flex; flex-direction: column; gap: 0.2rem; }
