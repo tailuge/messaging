@@ -170,7 +170,8 @@ async function publish(r) {
 function presence_sub(r) {
   try {
     const userId = r.headersIn['X-User-Id'] || 'unknown';
-    ngx.log(ngx.WARN, `presence_sub.. ${userId}`);
+    const version = r.headersIn['X-Version'] || '';
+    ngx.log(ngx.WARN, `presence_sub.. ${userId}${version ? ' version=' + version : ''}`);
 
     if (userId !== 'unknown') {
       ngx.shared.online_users.set(userId, "1");
@@ -204,9 +205,10 @@ async function publish_leave(r, userId) {
 async function presence_unsub(r) {
   try {
     const userId = r.headersIn['X-User-Id'] || 'unknown';
+    const version = r.headersIn['X-Version'] || '';
     incrementStat("presence_unsubscribe_total");
     incrementStat("presence_unsubscribe_websocket_total");
-    ngx.log(ngx.WARN, `presence_unsub ${userId}`);
+    ngx.log(ngx.WARN, `presence_unsub ${userId}${version ? ' version=' + version : ''}`);
 
     if (userId !== 'unknown') {
       ngx.shared.online_users.delete(userId);

@@ -531,8 +531,8 @@ table td {
         const rawText = Array.isArray(lines) ? lines.join('\n') : lines;
 
         // Adapted regex for NGINX error log format:
-        // 2024/01/15 10:30:00 [warn] 123#456: *789 js: presence_sub.. user123
-        const regex = /(\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2})\s+\[\w+\]\s+\d+#\d+:\s+\*(\d+)\s+js:\s+presence_(sub\.\.|unsub)\s+([a-zA-Z0-9-_]+)/g;
+        // 2024/01/15 10:30:00 [warn] 123#456: *789 js: presence_sub.. user123 version=v4.37
+        const regex = /(\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2})\s+\[\w+\]\s+\d+#\d+:\s+\*(\d+)\s+js:\s+presence_(sub\.\.|unsub)\s+([a-zA-Z0-9-_]+)(?:\s+version=([^\s]+))?/g;
         const events = [];
         let match;
 
@@ -542,7 +542,8 @@ table td {
             timestamp: new Date(match[1].replace(/\//g, '-')).getTime(),
             connId: connId,
             action: match[3] === 'sub..' ? 'sub' : 'unsub',
-            user: match[4]
+            user: match[4],
+            version: match[5] || ''
           });
         }
 
@@ -599,19 +600,22 @@ table td {
           });
 
           let currentSub = null;
+          let currentVersion = '';
           userObj.events.forEach(evt => {
             if (evt.action === 'sub') {
               currentSub = evt.connId;
+              currentVersion = evt.version;
             } else if (evt.action === 'unsub' && currentSub !== null) {
               const startPct = ((currentSub - minConn) / connDiff) * 100;
               const endPct = ((evt.connId - minConn) / connDiff) * 100;
               const widthPct = Math.max(0.3, endPct - startPct);
 
               const activeBar = document.createElement('div');
+              const color = currentVersion.startsWith('v') ? '#10d961' : 'blue';
               Object.assign(activeBar.style, {
                 position: 'absolute',
                 height: '100%',
-                backgroundColor: '#10d961',
+                backgroundColor: color,
                 left: startPct + '%',
                 width: widthPct + '%'
               });
@@ -625,10 +629,11 @@ table td {
             const startPct = ((currentSub - minConn) / connDiff) * 100;
             const widthPct = 100 - startPct;
             const activeBar = document.createElement('div');
+            const color = currentVersion.startsWith('v') ? '#10d961' : 'blue';
             Object.assign(activeBar.style, {
               position: 'absolute',
               height: '100%',
-              backgroundColor: '#10d961',
+              backgroundColor: color,
               left: startPct + '%',
               width: widthPct + '%'
             });
