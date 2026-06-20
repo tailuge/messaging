@@ -206,6 +206,7 @@ export const INFO_PANEL_STYLES = css`
     .recent td:nth-child(1) { width: 16px; text-align: center; }
     .recent td:nth-child(2) { max-width: 8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .recent td:nth-child(4) { width: 1%; white-space: nowrap; }
+    .score { color: var(--text-muted); font-size: 0.85em; }
 `;
 
 export const PLAYER_PANEL_STYLES = css`
