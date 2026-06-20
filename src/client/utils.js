@@ -88,8 +88,6 @@ export function reduce(state, action) {
         case 'CHALLENGE_DISMISS':
             delete C[action.payload];
             return { ...state, challenges: C };
-        case 'MATCH_LEAVE':
-            return { ...state, currentMatch: null };
         default:
             return state;
     }
