@@ -32,3 +32,56 @@ Two URL formats bring players from the game site to the lobby:
 - Messaging between parties happens over nchan relay
 - When player arrives at lobby, full nchan message replay might not be available until sockets connect.
 - Existing lobby handles in lobby challenge/accept/decline perfectly via nchan protocol.
+
+
+----
+
+Approach:
+
+I want simplest system where any rematch feeds into existing challenge/accept/decline flow. 
+
+No need for special logic for "rematch" logic. 
+
+The core problem can be stated very simply:
+
+Two players can independently issue overlapping challenges to each other, and the system must deterministically collapse that pair of challenges into a single match with exactly one “accept” outcome, without relying on timing or startup order.  I.e. one party (deterministically mybe by id) must accept.
+
+Or even tighter:
+
+Mutual challenges (A→B and B→A) must resolve into one match, with a deterministic rule selecting who “accepts” and preventing duplicate/competing starts.
+
+And the cleanest resolution constraint you’ve already hinted at:
+
+Use a deterministic tie-break (e.g. ordered playerId) so that when two reciprocal challenges exist, exactly one side becomes the accepter/initiator of the match creation.
+
+
+----
+
+Further simplification:
+
+Remove `action=join` entirely. External game sites can just send:
+
+```
+?ruletype=Z&opponentId=X&opponentName=Y
+```
+
+instead of:
+
+```
+?action=join&ruletype=Z&opponentId=X&opponentName=Y
+```
+
+This eliminates the special `action=join` case and simplifies URL parameter handling to a single unified approach:
+
+- **Rematch params**: `?opponentId=X&opponentName=Y&ruletype=Z&nextTurnId=W` → challenge offer
+- **Cross-site accept params**: `?opponentId=X&opponentName=Y&ruletype=Z` → accept message (when matching challenge exists)
+- **No params**: `lobby.html` → normal lobby behavior
+
+The system becomes even cleaner with:
+- No special `action=join` logic
+- No URL parameter classification
+- Context-based processing (treat as offer or accept based on state)
+- Maximum reuse of existing challenge/accept/decline flow
+
+This approach achieves the goal of "simplest system where any rematch feeds into existing challenge/accept/decline flow" with minimal complexity.
+
