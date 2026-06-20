@@ -65,6 +65,7 @@ export function reduce(state, action) {
                 // redirecting a freshly-loaded lobby back into a finished game.
                 if (!pending || pending.tableId !== m.tableId) return state;
                 const options = m.options || pending.options;
+                const nextTurnId = m.nextTurnId || pending.nextTurnId;
                 delete C[id];
                 return {
                     ...state, challenges: C,
@@ -72,8 +73,8 @@ export function reduce(state, action) {
                         tableId: m.tableId,
                         ruleType: m.ruleType,
                         options,
-                        isFirst: (m.nextTurnId === m.challengerId || m.nextTurnId === m.challengeeId)
-                            ? m.nextTurnId === action.myId
+                        isFirst: (nextTurnId === m.challengerId || nextTurnId === m.challengeeId)
+                            ? nextTurnId === action.myId
                             : m.challengerId === action.myId
                     }
                 };

@@ -170,11 +170,8 @@ class OnlinePanel extends LitElement {
                 ruleType: p.get('ruletype') || 'nineball',
                 nextTurnId: p.get('nextTurnId')
             };
-        }
 
-        if (opponentId || p.has('action')) {
             const url = new URL(location.href);
-            url.searchParams.delete('action');
             url.searchParams.delete('opponentId');
             url.searchParams.delete('opponentName');
             url.searchParams.delete('ruletype');
@@ -232,9 +229,12 @@ class OnlinePanel extends LitElement {
             c => c.challengerId === opponentId && c.status === 'pending'
         );
         if (incoming) {
-            this.#acceptChallenge(incoming.challengerId).catch(err => console.error(err));
+            // Already an offer from them: Lower ID accepts to resolve simultaneous challenges
+            if (!this.#sentChallenge || this.#myId < incoming.challengerId) {
+                this.#acceptChallenge(incoming.challengerId).catch(err => console.error(err));
+            }
         } else if (!this.#sentChallenge && this.#state.users.some(u => u.userId === opponentId)) {
-            this.#challenge(opponentId, this.#autoChallenge.ruleType, this.#autoChallenge.options);
+            this.#challenge(opponentId, this.#autoChallenge.ruleType, this.#autoChallenge.options, this.#autoChallenge.nextTurnId);
         }
     }
 
@@ -246,13 +246,15 @@ class OnlinePanel extends LitElement {
         }
         if (msg.type === 'offer' && msg.challengeeId === this.#myId) {
             if (this.#autoChallenge && this.#autoChallenge.opponentId === msg.challengerId) {
-                this.#acceptChallenge(msg.challengerId).catch(e => console.error('Auto-join accept failed:', e));
-                return;
-            }
-            const sent = this.#sentChallenge;
-            if (sent && sent.challengeeId === msg.challengerId && sent.status === 'pending') {
-                if (this.#myId < msg.challengerId) {
-                    this.#acceptChallenge(msg.challengerId).catch(e => console.error('Simultaneous auto-accept failed:', e));
+                const sent = this.#sentChallenge;
+                if (sent && sent.challengeeId === msg.challengerId && sent.status === 'pending') {
+                    // Simultaneous offers: Lower ID accepts
+                    if (this.#myId < msg.challengerId) {
+                        this.#acceptChallenge(msg.challengerId).catch(e => console.error('Simultaneous auto-accept failed:', e));
+                    }
+                } else {
+                    // No simultaneous offer from us: Just accept the incoming one
+                    this.#acceptChallenge(msg.challengerId).catch(e => console.error('Auto-join accept failed:', e));
                 }
             }
         }
@@ -297,7 +299,7 @@ class OnlinePanel extends LitElement {
         });
     }
 
-    async #challenge(userId, ruleType, options) {
+    async #challenge(userId, ruleType, options, nextTurnId) {
         const isAutoChallenge = this.#autoChallenge && this.#autoChallenge.opponentId === userId;
         if (!isAutoChallenge) this.#autoChallenge = null;
         const u = this.#visibleUsers.find(u => u.userId === userId);
@@ -307,9 +309,9 @@ class OnlinePanel extends LitElement {
             window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst, options, bot: u.userName, lod: userStore.lod, flip: userStore.flip });
             return;
         }
-        const tableId = this.#lobby ? await this.#lobby.challenge(userId, ruleType, options) : 'test-' + Math.random().toString(36).slice(2, 7);
+        const tableId = this.#lobby ? await this.#lobby.challenge(userId, ruleType, options, nextTurnId) : 'test-' + Math.random().toString(36).slice(2, 7);
         logUsage("createTable");
-        this.dispatch({ type: 'CHALLENGE_SENT', payload: { challengerId: this.#myId, challengeeId: userId, recipientName: u?.userName || userId, ruleType, options, tableId } });
+        this.dispatch({ type: 'CHALLENGE_SENT', payload: { challengerId: this.#myId, challengeeId: userId, recipientName: u?.userName || userId, ruleType, options, tableId, nextTurnId } });
     }
 
     async #cancelChallenge() {

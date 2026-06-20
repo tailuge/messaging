@@ -197,6 +197,7 @@ export class Lobby {
     userId: string,
     ruleType: string,
     options?: Record<string, string>,
+    nextTurnId?: string,
   ): Promise<string> {
     const tableId = getUID();
     await this.nchan.publishChallenge({
@@ -207,6 +208,7 @@ export class Lobby {
       ruleType,
       tableId,
       options,
+      nextTurnId,
     });
     return tableId;
   }
