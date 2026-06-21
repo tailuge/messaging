@@ -1,11 +1,11 @@
-import { LitElement, html, css } from 'lit';
-import { repeat } from 'lit/directives/repeat.js';
-import { MessagingClient, canChallenge, canSpectate, userStatus, activeGames } from '../index.ts';
+import { LitElement, html } from 'lit';
+import { MessagingClient } from '../index.ts';
 import { userStore } from './user-store.js';
-import { gameUrl, spectateUrl, INITIAL_STATE, reduce, flag, getEmoji, isVercel, CLIENTVERSION, formatVersion, NCHANBASE } from './utils.js';
+import { gameUrl, spectateUrl, INITIAL_STATE, reduce, CLIENTVERSION, formatVersion, NCHANBASE } from './utils.js';
 import { logUsage } from './logusage.js';
-import { SHARED_STYLES, USER_LIST_STYLES, PLAYER_PANEL_STYLES, CHALLENGE_MODAL_STYLES, BADGE_STYLES } from './styles.js';
+import { SHARED_STYLES, PLAYER_PANEL_STYLES, CHALLENGE_MODAL_STYLES, BADGE_STYLES } from './styles.js';
 import { UserSlotManager } from './user-slot-manager.js';
+import './user-list.js';
 import './message-modal.js';
 import './challenge-banner.js';
 
@@ -16,88 +16,6 @@ const BOTS = [
 
 const emit = (el, type, detail) =>
     el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
-
-// ── UserList ──────────────────────────────────────────────────────────────────
-
-class UserList extends LitElement {
-    static properties = {
-        slots: { type: Array },
-        users: { type: Array },
-        myId: { type: String },
-        myName: { type: String },
-        tableId: { type: String },
-        isChallengePending: { type: Boolean },
-        challenges: { type: Object },
-        pendingChats: { type: Object },
-    };
-    static styles = [SHARED_STYLES, USER_LIST_STYLES, css`
-        @keyframes throb { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        li { animation: fadeIn 0.2s ease-out; }
-        .btn-chat { animation: throb 2s ease-in-out infinite; font-size: 1rem; border: none; background: none; padding: 0 0.2rem; }
-        .btn-spectate { background: #7c3aed; color: #fff; border: none; border-radius: 4px; padding: 0.25rem 0.6rem; cursor: pointer; }
-        .btn-spectate:hover { background: #6d28d9; }
-    `];
-
-    render() {
-        const slots = this.slots || [];
-        const onlineSlots = slots.filter(s => s.status === 'online');
-        if (onlineSlots.length === 0) return html`<div class="empty">No other players online yet. Invite a friend!</div>`;
-
-        const activeGameIds = new Set(
-            activeGames(this.users || [])
-                .filter(g => g.players.length > 1)
-                .map(g => g.tableId)
-        );
-
-        return html`<ul aria-label="Online players">${repeat(slots, (_, i) => i, (slot, i) => this._rowSlot(slot, i, activeGameIds))}</ul>`;
-    }
-
-    _rowSlot(slot, index, activeGameIds) {
-        if (slot.status === 'offline') {
-            const u = slot.user;
-            const status = getEmoji(u.meta?.origin ?? '', u.ruleType ?? '', userStatus(u));
-            return html`
-                <li class="is-offline" aria-label="${u.userName}">
-                    <div class="user-info">
-                        <span class="user-name">
-                            <span title="${flag(u.meta?.country).title}">${flag(u.meta?.country).emoji}</span>
-                            ${u.userName}
-                            <span aria-label="${status.title}" role="img">${status.emoji}</span>
-                        </span>
-                    </div>
-                </li>`;
-        }
-        return this._row(slot.user, activeGameIds);
-    }
-
-    _row(u, activeGameIds) {
-        const unread = this.pendingChats?.get(u.userId) > 0;
-        const hasOffer = this.challenges?.[u.userId]?.challengerId === u.userId;
-        const challengeable = !hasOffer && (u.isBot || canChallenge(u, this.myId));
-
-        const spectatable = !u.isBot &&
-            userStatus(u) === 'playing' &&
-            canSpectate(u, this.tableId) &&
-            activeGameIds.has(u.tableId);
-
-        const status = getEmoji(u.meta?.origin ?? '', u.ruleType ?? '', userStatus(u));
-        const actions = unread
-            ? html`<button class="btn-chat" aria-label="Unread message from ${u.userName}" @click=${() => emit(this, 'open-chat', u.userId)}>💬</button>`
-            : spectatable
-                ? html`<button class="btn-spectate" aria-label="Spectate ${u.userName}'s game" @click=${() => emit(this, 'spectate', u)}>Spectate</button>`
-                : challengeable
-                    ? html`<button class="btn-challenge" aria-label="Challenge ${u.userName}" ?disabled=${this.isChallengePending} @click=${() => isVercel ? window.location.href = 'https://billiards.tailuge.workers.dev/lobby' : emit(this, 'challenge', u.userId)}>Challenge</button>`
-                    : html``;
-        return html`
-            <li aria-label="${u.userName}">
-                <div class="user-info">
-                    <span class="user-name" @click=${() => emit(this, 'open-chat', u.userId)} style="cursor: pointer"><span title="${flag(u.meta?.country).title}">${flag(u.meta?.country).emoji}</span> ${u.userName} <span aria-label="${status.title}" role="img">${status.emoji}</span></span>
-                </div>
-                <div class="actions">${actions}</div>
-            </li>`;
-    }
-}
 
 // ── ChallengeModal ────────────────────────────────────────────────────────────
 
@@ -170,11 +88,8 @@ class OnlinePanel extends LitElement {
                 ruleType: p.get('ruletype') || 'nineball',
                 nextTurnId: p.get('nextTurnId')
             };
-        }
 
-        if (opponentId || p.has('action')) {
             const url = new URL(location.href);
-            url.searchParams.delete('action');
             url.searchParams.delete('opponentId');
             url.searchParams.delete('opponentName');
             url.searchParams.delete('ruletype');
@@ -232,9 +147,12 @@ class OnlinePanel extends LitElement {
             c => c.challengerId === opponentId && c.status === 'pending'
         );
         if (incoming) {
-            this.#acceptChallenge(incoming.challengerId).catch(err => console.error(err));
+            // Already an offer from them: Lower ID accepts to resolve simultaneous challenges
+            if (!this.#sentChallenge || this.#myId < incoming.challengerId) {
+                this.#acceptChallenge(incoming.challengerId).catch(err => console.error(err));
+            }
         } else if (!this.#sentChallenge && this.#state.users.some(u => u.userId === opponentId)) {
-            this.#challenge(opponentId, this.#autoChallenge.ruleType, this.#autoChallenge.options);
+            this.#challenge(opponentId, this.#autoChallenge.ruleType, this.#autoChallenge.options, this.#autoChallenge.nextTurnId);
         }
     }
 
@@ -246,13 +164,15 @@ class OnlinePanel extends LitElement {
         }
         if (msg.type === 'offer' && msg.challengeeId === this.#myId) {
             if (this.#autoChallenge && this.#autoChallenge.opponentId === msg.challengerId) {
-                this.#acceptChallenge(msg.challengerId).catch(e => console.error('Auto-join accept failed:', e));
-                return;
-            }
-            const sent = this.#sentChallenge;
-            if (sent && sent.challengeeId === msg.challengerId && sent.status === 'pending') {
-                if (this.#myId < msg.challengerId) {
-                    this.#acceptChallenge(msg.challengerId).catch(e => console.error('Simultaneous auto-accept failed:', e));
+                const sent = this.#sentChallenge;
+                if (sent && sent.challengeeId === msg.challengerId && sent.status === 'pending') {
+                    // Simultaneous offers: Lower ID accepts
+                    if (this.#myId < msg.challengerId) {
+                        this.#acceptChallenge(msg.challengerId).catch(e => console.error('Simultaneous auto-accept failed:', e));
+                    }
+                } else {
+                    // No simultaneous offer from us: Just accept the incoming one
+                    this.#acceptChallenge(msg.challengerId).catch(e => console.error('Auto-join accept failed:', e));
                 }
             }
         }
@@ -297,7 +217,7 @@ class OnlinePanel extends LitElement {
         });
     }
 
-    async #challenge(userId, ruleType, options) {
+    async #challenge(userId, ruleType, options, nextTurnId) {
         const isAutoChallenge = this.#autoChallenge && this.#autoChallenge.opponentId === userId;
         if (!isAutoChallenge) this.#autoChallenge = null;
         const u = this.#visibleUsers.find(u => u.userId === userId);
@@ -307,9 +227,9 @@ class OnlinePanel extends LitElement {
             window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst, options, bot: u.userName, lod: userStore.lod, flip: userStore.flip });
             return;
         }
-        const tableId = this.#lobby ? await this.#lobby.challenge(userId, ruleType, options) : 'test-' + Math.random().toString(36).slice(2, 7);
+        const tableId = this.#lobby ? await this.#lobby.challenge(userId, ruleType, options, nextTurnId) : 'test-' + Math.random().toString(36).slice(2, 7);
         logUsage("createTable");
-        this.dispatch({ type: 'CHALLENGE_SENT', payload: { challengerId: this.#myId, challengeeId: userId, recipientName: u?.userName || userId, ruleType, options, tableId } });
+        this.dispatch({ type: 'CHALLENGE_SENT', payload: { challengerId: this.#myId, challengeeId: userId, recipientName: u?.userName || userId, ruleType, options, tableId, nextTurnId } });
     }
 
     async #cancelChallenge() {
@@ -449,7 +369,6 @@ class OnlinePanel extends LitElement {
     }
 }
 
-customElements.define('user-list',        UserList);
 customElements.define('challenge-modal',  ChallengeModal);
 customElements.define('online-panel',     OnlinePanel);
 
