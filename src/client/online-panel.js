@@ -130,28 +130,19 @@ class OnlinePanel extends LitElement {
 
     dispatch(action) {
         this.#state = reduce(this.#state, { ...action, myId: this.#myId });
-        if (action.type === 'CONNECTED' && action.payload) {
-            this.#checkAutoChallenge();
-        } else if (action.type === 'USERS_UPDATE') {
-            this.#checkAutoChallenge();
-        } else if (action.type === 'CHALLENGE_MSG') {
+        if (action.type === 'CHALLENGE_MSG') {
             this.#handleAutoChallengeOnMessage(action.payload);
         }
         this.requestUpdate();
     }
 
     #checkAutoChallenge() {
+        // Called from onSettled. By this point handleAutoChallengeOnMessage has
+        // already processed any buffered offers reactively during the settle period.
+        // We only need to send a challenge if we haven't already and the opponent is online.
         if (!this.#autoChallenge || !this.#state.connected) return;
         const opponentId = this.#autoChallenge.opponentId;
-        const incoming = Object.values(this.#state.challenges).find(
-            c => c.challengerId === opponentId && c.status === 'pending'
-        );
-        if (incoming) {
-            // Already an offer from them: Lower ID accepts to resolve simultaneous challenges
-            if (!this.#sentChallenge || this.#myId < incoming.challengerId) {
-                this.#acceptChallenge(incoming.challengerId).catch(err => console.error(err));
-            }
-        } else if (!this.#sentChallenge && this.#state.users.some(u => u.userId === opponentId)) {
+        if (!this.#sentChallenge && this.#state.users.some(u => u.userId === opponentId)) {
             this.#challenge(opponentId, this.#autoChallenge.ruleType, this.#autoChallenge.options, this.#autoChallenge.nextTurnId);
         }
     }
@@ -215,6 +206,7 @@ class OnlinePanel extends LitElement {
                 new Notification('Challenge received!', { body: `${msg.challengerName} challenged you to ${msg.ruleType}`, icon: 'assets/threecushion.png' });
             }
         });
+        this.#lobby.onSettled(() => this.#checkAutoChallenge());
     }
 
     async #challenge(userId, ruleType, options, nextTurnId) {
