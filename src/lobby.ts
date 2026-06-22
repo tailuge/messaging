@@ -31,6 +31,13 @@ export class Lobby {
   private heartbeatTimer?: any;
   private presenceMessageCount = 0;
 
+  // Settle detection: sentinel-based replay completion
+  private joinSentinelTs: number | null = null;
+  private settledListeners: (() => void)[] = [];
+  private settleTimer: any = null;
+  private safetyTimer: any = null;
+  private isSettled = false;
+
   private readonly heartbeatInterval: number;
 
   constructor(
@@ -91,12 +98,15 @@ export class Lobby {
     await this.subscription.ready;
 
     // Broadcast our own presence with retry on failure (e.g. slow cold start)
+    // Capture the clientTs to use as a sentinel for Nchan buffer replay completion.
     for (let attempt = 1; ; attempt++) {
       try {
+        const sentinelTs = Date.now();
         await this.nchan.publishPresence({
           ...this.currentUser,
-          clientTs: Date.now(),
+          clientTs: sentinelTs,
         });
+        this.joinSentinelTs = sentinelTs;
         break;
       } catch (e) {
         const delay = Math.min(Math.pow(2, attempt) * 4000, 30000);
@@ -104,6 +114,15 @@ export class Lobby {
         await new Promise((r) => setTimeout(r, delay));
       }
     }
+
+    // Arm the safety timeout: if the sentinel never arrives (e.g. lost publish),
+    // fire onSettled after 5 seconds anyway so auto-challenge logic eventually runs.
+    this.safetyTimer = setTimeout(() => {
+      if (!this.isSettled) {
+        this.fireSettled();
+      }
+    }, 5000);
+    this.safetyTimer.unref?.();
 
     this.startHeartbeat();
     this.isJoined = true;
@@ -145,6 +164,23 @@ export class Lobby {
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = undefined;
+    }
+  }
+
+  /**
+   * Registers a callback that fires when the lobby has caught up to realtime
+   * after Nchan buffer replay. The sentinel is our own join presence message
+   * with a matching clientTs, which Nchan delivers after all buffered messages
+   * (FIFO guarantee). A 300ms settle timer then allows the ChallengeDeduplicator's
+   * 250ms timers to flush before the callback is invoked.
+   *
+   * Fires exactly once per join(). If already settled, fires immediately.
+   */
+  onSettled(callback: () => void): void {
+    if (this.isSettled) {
+      callback();
+    } else {
+      this.settledListeners.push(callback);
     }
   }
 
@@ -299,6 +335,7 @@ export class Lobby {
     this.pendingChallenges = [];
     this.deduplicator.clear();
     this.presenceMessageCount = 0;
+    this.clearSettleState();
     this.notifyListeners();
     this.isJoined = false;
     this.options.onLeave?.();
@@ -344,6 +381,18 @@ export class Lobby {
         this.notifyListeners();
       }
     }
+
+    // Sentinel detection: our own join message with matching clientTs
+    // means the Nchan buffer replay is complete (FIFO guarantee).
+    if (
+      !this.isSettled &&
+      this.joinSentinelTs !== null &&
+      msg.userId === this.currentUser.userId &&
+      msg.type === "join" &&
+      msg.clientTs === this.joinSentinelTs
+    ) {
+      this.startSettleTimers();
+    }
   }
 
   private handleChallenge(msg: ChallengeMessage): void {
@@ -376,5 +425,66 @@ export class Lobby {
       oldMsg.opponentId !== nextMsg.opponentId ||
       JSON.stringify(oldMsg.seek) !== JSON.stringify(nextMsg.seek)
     );
+  }
+
+  /**
+   * Starts the settle timer (300ms for dedup flush).
+   * Clears the 5s safety timer since the sentinel arrived.
+   */
+  private startSettleTimers(): void {
+    if (this.isSettled) return;
+
+    if (this.settleTimer) clearTimeout(this.settleTimer);
+
+    // Clear the 5s safety timer — sentinel arrived, use the 300ms settle instead
+    if (this.safetyTimer) {
+      clearTimeout(this.safetyTimer);
+      this.safetyTimer = null;
+    }
+
+    this.settleTimer = setTimeout(() => {
+      this.fireSettled();
+    }, 300);
+    this.settleTimer.unref?.();
+  }
+
+  /**
+   * Fires all onSettled listeners and cleans up timers.
+   */
+  private fireSettled(): void {
+    if (this.isSettled) return;
+    this.isSettled = true;
+
+    if (this.settleTimer) {
+      clearTimeout(this.settleTimer);
+      this.settleTimer = null;
+    }
+    if (this.safetyTimer) {
+      clearTimeout(this.safetyTimer);
+      this.safetyTimer = null;
+    }
+
+    const listeners = [...this.settledListeners];
+    this.settledListeners = [];
+    for (const cb of listeners) {
+      cb();
+    }
+  }
+
+  /**
+   * Resets all settle-related state. Called on leave().
+   */
+  private clearSettleState(): void {
+    this.joinSentinelTs = null;
+    this.isSettled = false;
+    this.settledListeners = [];
+    if (this.settleTimer) {
+      clearTimeout(this.settleTimer);
+      this.settleTimer = null;
+    }
+    if (this.safetyTimer) {
+      clearTimeout(this.safetyTimer);
+      this.safetyTimer = null;
+    }
   }
 }
