@@ -33,7 +33,7 @@ test.describe('E2E rematch', () => {
     await expect.poll(() => bobFrame.url(), { timeout: VISIBILITY_TIMEOUT }).toMatch(/lobby\.html/);
 
     // Alice sees Bob in online user list and Bob sees Alice
-    await expect(aliceFrame.locator(`user-list li[aria-label="Bob"]`)).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
-    await expect(bobFrame.locator(`user-list li[aria-label="Alice"]`)).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
+    await expect(aliceFrame.locator(`user-list li[aria-label="Bob"]:not(.is-offline)`)).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
+    await expect(bobFrame.locator(`user-list li[aria-label="Alice"]:not(.is-offline)`)).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
   });
 });

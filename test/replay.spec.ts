@@ -361,7 +361,7 @@ describe("Replay", () => {
     const userIds = users.map((u: any) => u.userId).sort();
     console.log("=== REPLAY RESULT ===");
     console.log("userIds:", userIds);
-    console.log("users:", JSON.stringify(users.map(({ meta, ...rest }: any) => rest), null, 2));
+    console.log("users:", JSON.stringify(users.map(({ ...rest }: any) => rest), null, 2));
 
     expect(userIds).toEqual(["Luke-2oo0v", "u1alicu"]);
   });
@@ -412,7 +412,7 @@ describe("Replay", () => {
     const userIds = users.map((u: any) => u.userId).sort();
     console.log("=== BUG REPLAY RESULT ===");
     console.log("userIds:", userIds);
-    console.log("users:", JSON.stringify(users.map(({ meta, ...rest }: any) => rest), null, 2));
+    console.log("users:", JSON.stringify(users.map(({ ...rest }: any) => rest), null, 2));
 
     // AnOniMouse2 should be online — but the stale leave erroneously removes them
     expect(userIds).toContain("AnOn-cr36t");

@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 465;
+export const CLIENTVERSION = 474;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -155,6 +155,9 @@ export const soloUrl = (g, userId, userName, lod, flip) => {
     if (g.absolute) return g.url;
     let url = g.url ? `${g.url}?userId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}&lod=${lod}`
                     : `${BASE}?ruletype=${g.ruletype}&userId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}&lod=${lod}`;
+    if (_localhost) {
+        url += `&lobbyUrl=${WS_SERVER}`;
+    }
     if (flip) url += '&flip=true';
     return g.url ? url : appendOptions(url, g.options);
 };
