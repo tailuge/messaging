@@ -85,3 +85,49 @@ The system becomes even cleaner with:
 
 This approach achieves the goal of "simplest system where any rematch feeds into existing challenge/accept/decline flow" with minimal complexity.
 
+---
+
+## Spec Deficiency: Startup Timing Gap
+
+### The Problem
+
+Rows 7-8 ("In lobby, challenges B | Accept from game") fail because the auto-challenge logic runs **before** Nchan-buffered challenge messages are visible to the client:
+
+1. Returning player's lobby calls `join()` → subscribes to Nchan → dispatches `CONNECTED`
+2. `checkAutoChallenge()` fires on `CONNECTED` — but the opponent's buffered challenge is still held in the `ChallengeDeduplicator`'s 250ms timer
+3. No incoming challenge found → returning player sends a **new** challenge instead of accepting the existing one
+4. Stationary player (already in lobby) receives the new challenge but has no `#autoChallenge` set → doesn't auto-accept
+5. Even if the buffered challenge later arrives and triggers the tie-breaker, the tie-breaker may select the stationary player (lower ID) — but the stationary player has no auto-accept mechanism
+
+**Root cause**: The spec assumes `checkAutoChallenge()` can see all relevant state when `CONNECTED` fires. It can't — Nchan message replay and the 250ms dedup delay mean challenges are not yet in the `challenges` map at that moment.
+
+### The Fix: `onSettled` — Lobby Replay-Completion Detection
+
+**Name**: `lobby.onSettled(callback)` — follows the existing Lobby callback pattern (`onUsersChange`, `onChallenge`, `onChat`).
+
+**Mechanism**: Self-published sentinel using the existing `clientTs` field on the `join` presence message.
+
+```
+Lobby.join()
+  ├─ subscribe to Nchan
+  ├─ sentinelTs = Date.now()
+  ├─ publish presence: { type:"join", clientTs: sentinelTs, ... }
+  │
+  ▼  [Nchan replays buffered messages FIFO, then our join]
+  │
+handlePresenceUpdate(msg)
+  ├─ msg.userId === myId && msg.type === "join" && msg.clientTs === sentinelTs?
+  │    → sentinel received → start 300ms settleTimer
+  │
+  ▼  [during 300ms: dedup 250ms timers fire, challenges emitted]
+  │
+settleTimer fires → call all onSettled listeners
+```
+
+**Why this works**:
+- **Nchan FIFO**: Every buffered message was published before our join, so it appears in the WebSocket stream before our join
+- **Match condition**: `(userId, type, clientTs)` uniquely identifies our specific join, immune to stale joins in the buffer
+- **300ms settle timer**: Covers the dedup layer's 250ms timer with margin
+- **5-second safety timeout**: Ensures `onSettled` fires even if the sentinel is lost
+
+**Driver**: `OnlinePanel.dispatch()` will move `checkAutoChallenge()` from `CONNECTED`/`USERS_UPDATE` to `lobby.onSettled()`. The reactive `handleAutoChallengeOnMessage` path remains unchanged — it auto-accepts incoming offers as they arrive through the dedup layer, independent of `onSettled`.
