@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 497;
+export const CLIENTVERSION = 499;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -38,6 +38,8 @@ export function reduce(state, action) {
     switch (action.type) {
         case 'CONNECTED':
             return { ...state, connected: action.payload };
+        case 'SETTLED':
+            return { ...state, settled: action.payload };
         case 'USERS_UPDATE':
             return { ...state, users: action.payload };
         case 'CHALLENGE_SENT':

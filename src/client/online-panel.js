@@ -63,7 +63,7 @@ class ChallengeModal extends LitElement {
 class OnlinePanel extends LitElement {
     static styles = [SHARED_STYLES, PLAYER_PANEL_STYLES];
 
-    #state = { ...INITIAL_STATE };
+    #state = { ...INITIAL_STATE, settled: false };
     #lobby = null;
     #myId;
     #myName;
@@ -73,6 +73,7 @@ class OnlinePanel extends LitElement {
     #pendingChats = new Map(); // userId → unread count
     #slotManager = new UserSlotManager();
     #autoChallenge = null;
+    #settled = false;
 
     constructor() {
         super();
@@ -194,12 +195,14 @@ class OnlinePanel extends LitElement {
 
     get #slots() { return this.#slotManager.getSlots(); }
 
-    async _connect() {
+    async     _connect() {
         this.#lobby = await this.#client.joinLobby({
             messageType: 'presence', type: 'join',
             userId: this.#myId, userName: this.#myName,
         });
         this.dispatch({ type: 'CONNECTED', payload: true });
+        this.#settled = false;
+        this.dispatch({ type: 'SETTLED', payload: false });
         this.#lobby.onUsersChange(users => {
             const allVisible = [...users, ...BOTS].filter(u => u.userId !== this.#myId);
             this.#slotManager.update(allVisible);
@@ -211,7 +214,11 @@ class OnlinePanel extends LitElement {
                 new Notification('Challenge received!', { body: `${msg.challengerName} challenged you to ${msg.ruleType}`, icon: 'assets/threecushion.png' });
             }
         });
-        this.#lobby.onSettled(() => this.#checkAutoChallenge());
+        this.#lobby.onSettled(() => {
+            this.#settled = true;
+            this.dispatch({ type: 'SETTLED', payload: true });
+            this.#checkAutoChallenge();
+        });
     }
 
     async #challenge(userId, ruleType, options, nextTurnId) {
@@ -307,7 +314,7 @@ class OnlinePanel extends LitElement {
         const p = this.#pendingChallenge;
         return html`
             <div class="panel-header">
-                <span class="dot ${this.#connected ? 'on' : ''}" role="status" aria-label="${this.#connected ? 'Connected' : 'Disconnected'}"></span>
+                <span class="dot ${this.#connected ? (this.#settled ? 'green' : 'blue') : ''}" role="status" aria-label="${this.#connected ? (this.#settled ? 'Settled' : 'Connecting') : 'Disconnected'}"></span>
                 <span class="panel-title" @click=${() => this.#info()}>Play Online (${this.#visibleUsers.filter(u => u.userId !== this.#myId).length})</span>
             </div>
             <challenge-banner

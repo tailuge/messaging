@@ -215,6 +215,8 @@ export const PLAYER_PANEL_STYLES = css`
     .panel-title { font-weight: bold; font-size: 0.8rem; color: var(--text-dim); }
     .user-name { font-size: 0.75rem; font-weight: 500; white-space: nowrap; color: var(--text); }
     .dot { width: 8px; height: 8px; border-radius: 50%; background: #dc3545; flex-shrink: 0; }
+    .dot.blue { background: #3b82f6; }
+    .dot.green { background: #22c55e; }
     .dot.on { background: #198754; }
 `;
 
