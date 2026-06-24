@@ -97,11 +97,11 @@ export class Lobby {
     for (let attempt = 1; ; attempt++) {
       try {
         const sentinelTs = Date.now();
+        this.joinSentinelTs = sentinelTs;
         await this.nchan.publishPresence({
           ...this.currentUser,
           clientTs: sentinelTs,
         });
-        this.joinSentinelTs = sentinelTs;
         break;
       } catch (e) {
         const delay = Math.min(Math.pow(2, attempt) * 4000, 30000);
