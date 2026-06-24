@@ -155,15 +155,20 @@ class OnlinePanel extends LitElement {
         }
         if (msg.type === 'offer' && msg.challengeeId === this.#myId) {
             if (this.#autoChallenge && this.#autoChallenge.opponentId === msg.challengerId) {
+                // Capture and clear synchronously so checkAutoChallenge() (fired by
+                // onSettled 50ms later) sees #autoChallenge as null and doesn't send
+                // a duplicate challenge that races with this accept.
+                const nextTurnId = this.#autoChallenge.nextTurnId;
+                this.#autoChallenge = null;
                 const sent = this.#sentChallenge;
                 if (sent && sent.challengeeId === msg.challengerId && sent.status === 'pending') {
                     // Simultaneous offers: Lower ID accepts
                     if (this.#myId < msg.challengerId) {
-                        this.#acceptChallenge(msg.challengerId).catch(e => console.error('Simultaneous auto-accept failed:', e));
+                        this.#acceptChallenge(msg.challengerId, nextTurnId).catch(e => console.error('Simultaneous auto-accept failed:', e));
                     }
                 } else {
                     // No simultaneous offer from us: Just accept the incoming one
-                    this.#acceptChallenge(msg.challengerId).catch(e => console.error('Auto-join accept failed:', e));
+                    this.#acceptChallenge(msg.challengerId, nextTurnId).catch(e => console.error('Auto-join accept failed:', e));
                 }
             }
         }
@@ -233,10 +238,10 @@ class OnlinePanel extends LitElement {
         }
     }
 
-    async #acceptChallenge(challengerId) {
+    async #acceptChallenge(challengerId, nextTurnId) {
         const c = challengerId ? this.#state.challenges[challengerId] : this.#activeChallenge;
         if (!c) return;
-        if (this.#lobby) await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options, c.challengerName, this.#autoChallenge?.nextTurnId);
+        if (this.#lobby) await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options, c.challengerName, nextTurnId);
         logUsage("joinTable");
         this.dispatch({
             type: 'CHALLENGE_MSG',
@@ -248,7 +253,7 @@ class OnlinePanel extends LitElement {
                 ruleType: c.ruleType,
                 tableId: c.tableId,
                 options: c.options,
-                nextTurnId: this.#autoChallenge?.nextTurnId
+                nextTurnId
             }
         });
         this.#autoChallenge = null;
