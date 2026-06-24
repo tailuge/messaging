@@ -249,6 +249,11 @@ describe("MessagingClient - Phase 1", () => {
         userName: "Alice",
       });
 
+      // Wait for both clients to fully join and see each other before metadata updates
+      let usersA: PresenceMessage[] = [];
+      lobbyA.onUsersChange((u) => (usersA = u));
+      await waitUntil(() => usersA.some((u) => u.userId === "alice"));
+
       const lobbyB = await clientB.joinLobby({
         messageType: "presence",
         type: "join",
@@ -259,15 +264,19 @@ describe("MessagingClient - Phase 1", () => {
       let usersB: PresenceMessage[] = [];
       lobbyB.onUsersChange((u) => (usersB = u));
 
-      // Wait for initial join
-      await waitUntil(() => usersB.some((u) => u.userId === "bob"));
+      // Both lobbies must be settled and each client must see the other
+      await new Promise<void>((r) => lobbyA.onSettled(r));
+      await new Promise<void>((r) => lobbyB.onSettled(r));
+      await waitUntil(() => usersA.length === 2);
+      await waitUntil(() => usersB.length === 2);
 
-      // Alice updates her username
+      // Alice updates her username after both clients have fully joined and settled
       await lobbyA.updatePresence({ userName: "Alice Updated" });
 
-      // Wait for update propagation
+      // Wait for update propagation - use longer timeout for real Nchan
       await waitUntil(() =>
         usersB.some((u) => u.userId === "alice" && u.userName === "Alice Updated"),
+        5000, // 5 second timeout for presence propagation
       );
 
       const aliceInB = usersB.find((u) => u.userId === "alice");

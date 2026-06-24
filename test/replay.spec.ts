@@ -1,6 +1,6 @@
-import { jest } from "@jest/globals";
 import { Lobby } from "../src/lobby";
 import { NchanClient } from "../src/nchanclient";
+import { jest } from "@jest/globals";
 
 jest.mock("../src/nchanclient");
 
@@ -329,9 +329,9 @@ describe("Replay", () => {
       onMessage = callback;
       return { stop: jest.fn(), ready: Promise.resolve() };
     }),
-    publishPresence: jest.fn().mockResolvedValue(undefined),
-    publishChallenge: jest.fn().mockResolvedValue(undefined),
-    publishChat: jest.fn().mockResolvedValue(undefined),
+    publishPresence: jest.fn().mockReturnValue(undefined),
+    publishChallenge: jest.fn().mockReturnValue(undefined),
+    publishChat: jest.fn().mockReturnValue(undefined),
   };
 
   it("should process captured messages and list active users", async () => {
@@ -381,9 +381,9 @@ describe("Replay", () => {
         onMessage = callback;
         return { stop: jest.fn(), ready: Promise.resolve() };
       }),
-      publishPresence: jest.fn().mockResolvedValue(undefined),
-      publishChallenge: jest.fn().mockResolvedValue(undefined),
-      publishChat: jest.fn().mockResolvedValue(undefined),
+      publishPresence: jest.fn().mockReturnValue(undefined),
+      publishChallenge: jest.fn().mockReturnValue(undefined),
+      publishChat: jest.fn().mockReturnValue(undefined),
     };
 
     const lobby = new Lobby(
