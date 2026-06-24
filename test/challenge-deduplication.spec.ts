@@ -40,6 +40,9 @@ describe("MessagingClient - Challenge Deduplication", () => {
       userName: "Bob",
     });
 
+    // Wait for settle before sending challenge so it goes direct path
+    await waitUntil(() => lobbyB.settled, 10000);
+
     let receivedChallenge: any = null;
     lobbyB.onChallenge((c) => {
       receivedChallenge = c;
@@ -67,11 +70,13 @@ describe("MessagingClient - Challenge Deduplication", () => {
       userName: "Bob",
     });
 
+    // Wait for settle after reconnect — buffered offer+accept will be deduped
+    await waitUntil(() => lobbyB2.settled, 10000);
+
     lobbyB2.onChallenge((c) => {
       receivedChallengeAfterReconnect = c;
     });
 
-    await wait(1000);
     expect(receivedChallengeAfterReconnect).toBeNull();
   });
 
@@ -92,6 +97,9 @@ describe("MessagingClient - Challenge Deduplication", () => {
       userId: "user-b",
       userName: "Bob",
     });
+
+    // Wait for settle before sending challenge so it goes direct path
+    await waitUntil(() => lobbyB.settled, 10000);
 
     let receivedChallenge: any = null;
     lobbyB.onChallenge((c) => {
@@ -119,11 +127,13 @@ describe("MessagingClient - Challenge Deduplication", () => {
       userName: "Bob",
     });
 
+    // Wait for settle after reconnect — buffered offer+decline will be deduped
+    await waitUntil(() => lobbyB2.settled, 10000);
+
     lobbyB2.onChallenge((c) => {
       receivedChallengeAfterReconnect = c;
     });
 
-    await wait(1000);
     expect(receivedChallengeAfterReconnect).toBeNull();
   });
 
@@ -144,6 +154,9 @@ describe("MessagingClient - Challenge Deduplication", () => {
       userId: "user-b",
       userName: "Bob",
     });
+
+    // Wait for settle before sending challenge so it goes direct path
+    await waitUntil(() => lobbyB.settled, 10000);
 
     let receivedChallenge: any = null;
     lobbyB.onChallenge((c) => {
@@ -167,11 +180,15 @@ describe("MessagingClient - Challenge Deduplication", () => {
       userName: "Bob",
     });
 
+    // Wait for settle after reconnect — buffered offer will be replayed as unresolved
+    await waitUntil(() => lobbyB2.settled, 10000);
+
     lobbyB2.onChallenge((c) => {
       receivedChallengeAfterReconnect = c;
     });
 
-    await waitUntil(() => receivedChallengeAfterReconnect !== null, 5000);
+    // Offer was not resolved, so dedup replays it on settle
+    expect(receivedChallengeAfterReconnect).not.toBeNull();
     expect(receivedChallengeAfterReconnect.type).toBe("offer");
     expect(receivedChallengeAfterReconnect.challengerId).toBe("user-a");
   });

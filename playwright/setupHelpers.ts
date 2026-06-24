@@ -25,8 +25,10 @@ export async function setupPlayersInGame(page: Page): Promise<{ aliceFrame: Fram
   const aliceFrame = await getFrame(page, new RegExp(`lobby\\.html.*${aliceName}`));
   const bobFrame = await getFrame(page, new RegExp(`lobby\\.html.*${bobName}`));
 
-  // Alice sees Bob in the lobby and clicks Challenge
-  const challengeBtn = aliceFrame.locator(`button[aria-label="Challenge ${bobName}"]`);
+  // Alice sees Bob in the lobby and clicks Challenge.
+  // Scope within the specific <li> to avoid ambiguity when the slot manager
+  // shows duplicate user entries (one with Challenge, one with Spectate).
+  const challengeBtn = aliceFrame.locator(`user-list li[aria-label="${bobName}"]:not(.is-offline) button[aria-label="Challenge ${bobName}"]`);
   await expect(challengeBtn).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
   await challengeBtn.click();
 

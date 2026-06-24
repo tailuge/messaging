@@ -7,7 +7,6 @@ import {
 } from "./types";
 import { Table } from "./table";
 import { getUID } from "./utils/uid";
-import { ChallengeDeduplicator } from "./ChallengeDeduplicator";
 
 export interface LobbyOptions {
   heartbeatInterval?: number;
@@ -24,7 +23,6 @@ export class Lobby {
   private challengeListeners: ((challenge: ChallengeMessage) => void)[] = [];
   private chatListeners: ((message: ChatMessage) => void)[] = [];
   private pendingChallenges: ChallengeMessage[] = [];
-  private deduplicator: ChallengeDeduplicator;
   private subscription: Subscription | null = null;
   private isJoined = false;
 
@@ -34,9 +32,9 @@ export class Lobby {
   // Settle detection: sentinel-based replay completion
   private joinSentinelTs: number | null = null;
   private settledListeners: (() => void)[] = [];
-  private settleTimer: any = null;
-  private safetyTimer: any = null;
   private isSettled = false;
+  // Buffered challenge messages during unsettled period, deduped on settle
+  private unsettledChallengeMessages: ChallengeMessage[] = [];
 
   private readonly heartbeatInterval: number;
 
@@ -46,11 +44,6 @@ export class Lobby {
     private options: LobbyOptions = {},
   ) {
     this.heartbeatInterval = options.heartbeatInterval || 60000;
-
-    this.deduplicator = new ChallengeDeduplicator((msg) => {
-      this.pendingChallenges.push(msg);
-      this.challengeListeners.forEach((cb) => cb(msg));
-    });
   }
 
   /**
@@ -115,15 +108,6 @@ export class Lobby {
       }
     }
 
-    // Arm the safety timeout: if the sentinel never arrives (e.g. lost publish),
-    // fire onSettled after 5 seconds anyway so auto-challenge logic eventually runs.
-    this.safetyTimer = setTimeout(() => {
-      if (!this.isSettled) {
-        this.fireSettled();
-      }
-    }, 5000);
-    this.safetyTimer.unref?.();
-
     this.startHeartbeat();
     this.isJoined = true;
   }
@@ -168,11 +152,18 @@ export class Lobby {
   }
 
   /**
+   * Whether the lobby has finished replaying buffered Nchan messages and
+   * caught up to realtime. True once the sentinel is detected.
+   */
+  public get settled(): boolean {
+    return this.isSettled;
+  }
+
+  /**
    * Registers a callback that fires when the lobby has caught up to realtime
    * after Nchan buffer replay. The sentinel is our own join presence message
    * with a matching clientTs, which Nchan delivers after all buffered messages
-   * (FIFO guarantee). A 300ms settle timer then allows the ChallengeDeduplicator's
-   * 250ms timers to flush before the callback is invoked.
+   * (FIFO guarantee). The callback fires immediately on sentinel detection.
    *
    * Fires exactly once per join(). If already settled, fires immediately.
    */
@@ -333,7 +324,6 @@ export class Lobby {
 
     this.users.clear();
     this.pendingChallenges = [];
-    this.deduplicator.clear();
     this.presenceMessageCount = 0;
     this.clearSettleState();
     this.notifyListeners();
@@ -391,13 +381,47 @@ export class Lobby {
       msg.type === "join" &&
       msg.clientTs === this.joinSentinelTs
     ) {
-      this.startSettleTimers();
+      this.fireSettled();
     }
   }
 
   private handleChallenge(msg: ChallengeMessage): void {
-    // Deduplicator tracks state from ALL challenge interactions (offer, accept, decline, cancel)
-    this.deduplicator.processMessage(msg, this.currentUser.userId);
+    // During the unsettled period (Nchan buffer replay), buffer all challenge
+    // messages so we can dedup them when settle fires. This prevents stale
+    // offers from being emitted when a resolution (accept/decline/cancel)
+    // arrives later in the same buffer replay.
+    if (!this.isSettled) {
+      this.unsettledChallengeMessages.push(msg);
+      return;
+    }
+
+    // Settled path: filter and emit directly
+    this.emitIfRelevant(msg);
+  }
+
+  /**
+   * Emits a challenge message if the current user is the intended recipient.
+   */
+  private emitIfRelevant(msg: ChallengeMessage): void {
+    if (msg.type === "offer") {
+      if (msg.challengeeId === this.currentUser.userId) {
+        this.emitChallenge(msg);
+      }
+    } else if (msg.type === "cancel") {
+      if (msg.challengeeId === this.currentUser.userId) {
+        this.emitChallenge(msg);
+      }
+    } else {
+      // accept, decline
+      if (msg.challengerId === this.currentUser.userId) {
+        this.emitChallenge(msg);
+      }
+    }
+  }
+
+  private emitChallenge(msg: ChallengeMessage): void {
+    this.pendingChallenges.push(msg);
+    this.challengeListeners.forEach((cb) => cb(msg));
   }
 
   private handleChat(msg: ChatMessage): void {
@@ -428,41 +452,43 @@ export class Lobby {
   }
 
   /**
-   * Starts the settle timer (300ms for dedup flush).
-   * Clears the 5s safety timer since the sentinel arrived.
-   */
-  private startSettleTimers(): void {
-    if (this.isSettled) return;
-
-    if (this.settleTimer) clearTimeout(this.settleTimer);
-
-    // Clear the 5s safety timer — sentinel arrived, use the 300ms settle instead
-    if (this.safetyTimer) {
-      clearTimeout(this.safetyTimer);
-      this.safetyTimer = null;
-    }
-
-    this.settleTimer = setTimeout(() => {
-      this.fireSettled();
-    }, 300);
-    this.settleTimer.unref?.();
-  }
-
-  /**
-   * Fires all onSettled listeners and cleans up timers.
+   * Fires all onSettled listeners and replays deduplicated challenge messages.
+   * Called immediately when the sentinel is detected.
+   *
+   * Uses a two-pass approach over buffered challenge messages:
+   * Pass 1: collect all resolved interaction keys (accept/decline/cancel).
+   * Pass 2: emit offers only for unresolved interactions, plus all
+   *         non-offer messages that are relevant to the current user.
+   *
+   * This handles the case where a resolution message (e.g. accept) arrives
+   * after its corresponding offer during Nchan buffer replay (FIFO ordering).
    */
   private fireSettled(): void {
     if (this.isSettled) return;
     this.isSettled = true;
 
-    if (this.settleTimer) {
-      clearTimeout(this.settleTimer);
-      this.settleTimer = null;
+    // Pass 1: collect resolved interaction keys
+    const resolvedInteractions = new Set<string>();
+    for (const msg of this.unsettledChallengeMessages) {
+      if (msg.type !== "offer") {
+        const key = [msg.challengerId, msg.challengeeId].sort().join(':');
+        resolvedInteractions.add(key);
+      }
     }
-    if (this.safetyTimer) {
-      clearTimeout(this.safetyTimer);
-      this.safetyTimer = null;
+
+    // Pass 2: emit unresolved offers + relevant non-offer messages
+    for (const msg of this.unsettledChallengeMessages) {
+      const key = [msg.challengerId, msg.challengeeId].sort().join(':');
+      if (msg.type === "offer") {
+        if (!resolvedInteractions.has(key)) {
+          this.emitIfRelevant(msg);
+        }
+      } else {
+        // accept, decline, cancel
+        this.emitIfRelevant(msg);
+      }
     }
+    this.unsettledChallengeMessages = [];
 
     const listeners = [...this.settledListeners];
     this.settledListeners = [];
@@ -478,13 +504,6 @@ export class Lobby {
     this.joinSentinelTs = null;
     this.isSettled = false;
     this.settledListeners = [];
-    if (this.settleTimer) {
-      clearTimeout(this.settleTimer);
-      this.settleTimer = null;
-    }
-    if (this.safetyTimer) {
-      clearTimeout(this.safetyTimer);
-      this.safetyTimer = null;
-    }
+    this.unsettledChallengeMessages = [];
   }
 }

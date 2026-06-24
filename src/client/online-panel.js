@@ -207,7 +207,7 @@ class OnlinePanel extends LitElement {
         });
         this.#lobby.onChallenge(msg => {
             this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
-            if (msg.type === 'offer' && msg.challengeeId === this.#myId && document.hidden && Notification.permission === 'granted') {
+            if (this.#lobby.settled && msg.type === 'offer' && msg.challengeeId === this.#myId && document.hidden && Notification.permission === 'granted') {
                 new Notification('Challenge received!', { body: `${msg.challengerName} challenged you to ${msg.ruleType}`, icon: 'assets/threecushion.png' });
             }
         });

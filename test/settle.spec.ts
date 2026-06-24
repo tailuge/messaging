@@ -41,11 +41,12 @@ describe("Lobby settle detection (onSettled)", () => {
     onMessage(JSON.stringify(msg));
   }
 
-  it("fires onSettled after sentinel join echoes back + 300ms settle timer", async () => {
+  // ── Basic settle detection ──────────────────────────────────────────
+
+  it("fires onSettled when sentinel join echoes back", async () => {
     const lobby = makeLobby("bob", "Bob");
     await lobby.join();
 
-    // Capture the sentinelTs that Lobby published
     const publishCall = mockNchan.publishPresence.mock.calls[0][0];
     const sentinelTs = publishCall.clientTs;
     expect(sentinelTs).toBeGreaterThan(0);
@@ -53,7 +54,6 @@ describe("Lobby settle detection (onSettled)", () => {
     let settled = false;
     lobby.onSettled(() => { settled = true; });
 
-    // Before sentinel: not settled
     expect(settled).toBe(false);
 
     // Feed a challenge offer from opponent (simulates buffered message)
@@ -76,14 +76,7 @@ describe("Lobby settle detection (onSettled)", () => {
       clientTs: sentinelTs,
     });
 
-    // Still not settled — 300ms timer hasn't fired
-    expect(settled).toBe(false);
-
-    // Advance past the 300ms settle timer
-    jest.advanceTimersByTime(299);
-    expect(settled).toBe(false);
-
-    jest.advanceTimersByTime(1);
+    // Settled fires immediately on sentinel detection
     expect(settled).toBe(true);
   });
 
@@ -93,7 +86,7 @@ describe("Lobby settle detection (onSettled)", () => {
 
     const sentinelTs = mockNchan.publishPresence.mock.calls[0][0].clientTs;
 
-    // Send sentinel and let settle timer fire
+    // Send sentinel
     feed({
       messageType: "presence",
       type: "join",
@@ -101,7 +94,6 @@ describe("Lobby settle detection (onSettled)", () => {
       userName: "Bob",
       clientTs: sentinelTs,
     });
-    jest.advanceTimersByTime(300);
 
     // Register after settled — should fire immediately
     let settled = false;
@@ -124,11 +116,9 @@ describe("Lobby settle detection (onSettled)", () => {
       type: "join",
       userId: "bob",
       userName: "Bob",
-      clientTs: sentinelTs - 99999, // different ts
+      clientTs: sentinelTs - 99999,
     });
 
-    // Should not trigger settle timers
-    jest.advanceTimersByTime(500);
     expect(settled).toBe(false);
   });
 
@@ -150,23 +140,7 @@ describe("Lobby settle detection (onSettled)", () => {
       clientTs: sentinelTs,
     });
 
-    jest.advanceTimersByTime(500);
     expect(settled).toBe(false);
-  });
-
-  it("fires onSettled via safety timeout if sentinel never received", async () => {
-    const lobby = makeLobby("bob", "Bob");
-    await lobby.join();
-
-    let settled = false;
-    lobby.onSettled(() => { settled = true; });
-
-    // Sentinel is never received — safety timeout should fire after 5s
-    jest.advanceTimersByTime(4999);
-    expect(settled).toBe(false);
-
-    jest.advanceTimersByTime(1);
-    expect(settled).toBe(true);
   });
 
   it("resets settle state on leave()", async () => {
@@ -200,9 +174,8 @@ describe("Lobby settle detection (onSettled)", () => {
       userName: "Bob",
       clientTs: sentinelTs,
     });
-    jest.advanceTimersByTime(500);
     expect(settled).toBe(false);
-    expect(preLeaveSettled).toBe(false); // old listener was cleared
+    expect(preLeaveSettled).toBe(false);
 
     // Now feed the actual new sentinel to verify settlement still works
     // calls[0] = first join, calls[1] = leave, calls[2] = second join
@@ -214,33 +187,124 @@ describe("Lobby settle detection (onSettled)", () => {
       userName: "Bob",
       clientTs: newSentinelTs,
     });
-    jest.advanceTimersByTime(300);
     expect(settled).toBe(true);
-    expect(preLeaveSettled).toBe(false); // old listener stays dead
+    expect(preLeaveSettled).toBe(false);
   });
 
-  it("does not fire onSettled for reconnect presence (no type field) — settled via safety timeout only", async () => {
+  // ── Challenge buffering + two-pass dedup on settle ──────────────────
+
+  it("buffers challenges during unsettled period and dedups resolved offers on settle", async () => {
     const lobby = makeLobby("bob", "Bob");
     await lobby.join();
 
-    let settled = false;
-    lobby.onSettled(() => { settled = true; });
+    const publishCall = mockNchan.publishPresence.mock.calls[0][0];
+    const sentinelTs = publishCall.clientTs;
 
-    // Feed a reconnect-like presence (no type field, userId matches)
-    // This should NOT trigger the sentinel (type !== "join")
+    let challenges: any[] = [];
+    lobby.onChallenge((c) => challenges.push(c));
+
+    // Simulate Nchan buffer replay: offer arrives, then accept (FIFO)
     feed({
-      messageType: "presence",
-      userId: "bob",
-      userName: "Bob",
-      clientTs: 99999,
+      messageType: "challenge",
+      type: "offer",
+      challengerId: "alice",
+      challengerName: "Alice",
+      challengeeId: "bob",
+      ruleType: "eightball",
+      tableId: "table-1",
+    });
+    feed({
+      messageType: "challenge",
+      type: "accept",
+      challengerId: "alice",
+      challengerName: "Alice",
+      challengeeId: "bob",
+      ruleType: "eightball",
+      tableId: "table-1",
     });
 
-    // Not settled by the reconnect message
-    jest.advanceTimersByTime(1000);
-    expect(settled).toBe(false);
+    // Nothing emitted during unsettled period
+    expect(challenges).toHaveLength(0);
 
-    // The 5s safety timer (armed in join()) fires
-    jest.advanceTimersByTime(4000);
-    expect(settled).toBe(true);
+    // Feed sentinel — triggers fireSettled with two-pass dedup
+    feed({
+      messageType: "presence",
+      type: "join",
+      userId: "bob",
+      userName: "Bob",
+      clientTs: sentinelTs,
+    });
+
+    // Offer resolved by accept → filtered. Accept not relevant to bob → not emitted.
+    expect(challenges).toHaveLength(0);
+    expect(lobby.settled).toBe(true);
+  });
+
+  it("emits unresolved offers on settle", async () => {
+    const lobby = makeLobby("bob", "Bob");
+    await lobby.join();
+
+    const publishCall = mockNchan.publishPresence.mock.calls[0][0];
+    const sentinelTs = publishCall.clientTs;
+
+    let challenges: any[] = [];
+    lobby.onChallenge((c) => challenges.push(c));
+
+    // Unresolved offer (no accept/decline follows)
+    feed({
+      messageType: "challenge",
+      type: "offer",
+      challengerId: "alice",
+      challengerName: "Alice",
+      challengeeId: "bob",
+      ruleType: "eightball",
+      tableId: "table-1",
+    });
+    expect(challenges).toHaveLength(0); // buffered
+
+    feed({
+      messageType: "presence",
+      type: "join",
+      userId: "bob",
+      userName: "Bob",
+      clientTs: sentinelTs,
+    });
+
+    expect(challenges).toHaveLength(1);
+    expect(challenges[0].type).toBe("offer");
+    expect(lobby.settled).toBe(true);
+  });
+
+  it("emits challenges immediately after settle (direct path)", async () => {
+    const lobby = makeLobby("bob", "Bob");
+    await lobby.join();
+
+    // Manually settle
+    const sentinelTs = mockNchan.publishPresence.mock.calls[0][0].clientTs;
+    feed({
+      messageType: "presence",
+      type: "join",
+      userId: "bob",
+      userName: "Bob",
+      clientTs: sentinelTs,
+    });
+    expect(lobby.settled).toBe(true);
+
+    let challenges: any[] = [];
+    lobby.onChallenge((c) => challenges.push(c));
+
+    feed({
+      messageType: "challenge",
+      type: "offer",
+      challengerId: "alice",
+      challengerName: "Alice",
+      challengeeId: "bob",
+      ruleType: "eightball",
+      tableId: "table-1",
+    });
+
+    // Immediately emitted because already settled
+    expect(challenges).toHaveLength(1);
+    expect(challenges[0].type).toBe("offer");
   });
 });
