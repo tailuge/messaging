@@ -1,5 +1,8 @@
+import { jest } from "@jest/globals";
 import { Lobby } from "../src/lobby";
 import { NchanClient } from "../src/nchanclient";
+
+jest.mock("../src/nchanclient");
 
 const messages = [
   {
@@ -182,6 +185,7 @@ const messages = [
     "userId": "u1bob",
     "userName": "Bob",
     "ruleType": "eightball",
+    "tableId": "b7000f1b",
     "clientTs": 1781710693303,
     "meta": {
       "ts": 1781710693385,
@@ -199,6 +203,7 @@ const messages = [
     "userId": "Luke-2oo0v",
     "userName": "Lukey",
     "ruleType": "eightball",
+    "tableId": "b7000f1b",
     "clientTs": 1781710693441,
     "meta": {
       "ts": 1781710693472,
@@ -216,6 +221,7 @@ const messages = [
     "userId": "u1bob",
     "userName": "Bob",
     "ruleType": "eightball",
+    "tableId": "b7000f1b",
     "clientTs": 1781710696253,
     "meta": {
       "ts": 1781710696343,
@@ -259,6 +265,7 @@ const messages = [
     "userId": "Luke-2oo0v",
     "userName": "Lukey",
     "ruleType": "eightball",
+    "tableId": "b7000f1b",
     "clientTs": 1781710697825,
     "meta": {
       "ts": 1781710697869,
@@ -312,22 +319,22 @@ const messages = [
       "version": "v4.37"
     }
   }
-]
+];
 
 describe("Replay", () => {
+  let onMessage: ((data: string) => void) | undefined;
+
+  const mockNchan = {
+    subscribePresence: jest.fn((_userId: string, callback: (data: string) => void) => {
+      onMessage = callback;
+      return { stop: jest.fn(), ready: Promise.resolve() };
+    }),
+    publishPresence: jest.fn().mockResolvedValue(undefined),
+    publishChallenge: jest.fn().mockResolvedValue(undefined),
+    publishChat: jest.fn().mockResolvedValue(undefined),
+  };
+
   it("should process captured messages and list active users", async () => {
-    let onMessage: ((data: string) => void) | undefined;
-
-    const mockNchan = {
-      subscribePresence: jest.fn((_userId: string, callback: (data: string) => void) => {
-        onMessage = callback;
-        return { stop: jest.fn(), ready: Promise.resolve() };
-      }),
-      publishPresence: jest.fn().mockResolvedValue(undefined),
-      publishChallenge: jest.fn().mockResolvedValue(undefined),
-      publishChat: jest.fn().mockResolvedValue(undefined),
-    };
-
     const lobby = new Lobby(
       mockNchan as unknown as NchanClient,
       {
@@ -367,9 +374,6 @@ describe("Replay", () => {
   });
 
   it.skip("should keep AnOniMouse2 online despite out-of-order leave-after-join", async () => {
-    // This test demonstrates a bug: when a stale leave message arrives
-    // just after a fresh join (due to network latency), the lobby incorrectly
-    // removes the user. The user should remain online.
     let onMessage: ((data: string) => void) | undefined;
 
     const mockNchan = {
@@ -397,12 +401,10 @@ describe("Replay", () => {
     expect(onMessage).toBeDefined();
     if (!onMessage) throw new Error("onMessage not set");
 
-    // Feed the bug dataset: join followed immediately by stale leave
     for (const msg of bug) {
       onMessage(JSON.stringify(msg));
     }
 
-    // Collect the final user list
     const users: any[] = [];
     lobby.onUsersChange((u) => {
       users.length = 0;
@@ -414,13 +416,11 @@ describe("Replay", () => {
     console.log("userIds:", userIds);
     console.log("users:", JSON.stringify(users.map(({ ...rest }: any) => rest), null, 2));
 
-    // AnOniMouse2 should be online — but the stale leave erroneously removes them
     expect(userIds).toContain("AnOn-cr36t");
   });
-});
+}
 
-
-const bug = [  {
+const bug = [{
     "messageType": "presence",
     "type": "join",
     "userId": "AnOn-cr36t",
