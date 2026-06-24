@@ -7,6 +7,7 @@ import {
 } from "./types";
 import { Table } from "./table";
 import { getUID } from "./utils/uid";
+import { MessageDeduplicator } from "./MessageDeduplicator";
 
 export interface LobbyOptions {
   heartbeatInterval?: number;
@@ -33,8 +34,9 @@ export class Lobby {
   private joinSentinelTs: number | null = null;
   private settledListeners: (() => void)[] = [];
   private isSettled = false;
-  // Buffered challenge messages during unsettled period, deduped on settle
+  // Buffered messages during unsettled period (Nchan buffer replay), deduped on settle
   private unsettledChallengeMessages: ChallengeMessage[] = [];
+  private unsettledPresenceMessages: PresenceMessage[] = [];
 
   private readonly heartbeatInterval: number;
 
@@ -353,6 +355,29 @@ export class Lobby {
    * fields are "meaningful" (e.g. userName, tableId) vs "noise" (e.g. meta.ts heartbeats).
    */
   private handlePresenceUpdate(msg: PresenceMessage): void {
+    // Only buffer during an active join cycle (sentinel published, waiting for echo).
+    // If joinSentinelTs is null (tests bypassing join, or pre-join), apply directly.
+    if (!this.isSettled && this.joinSentinelTs !== null) {
+      this.unsettledPresenceMessages.push(msg);
+      if (
+        msg.userId === this.currentUser.userId &&
+        msg.type === "join" &&
+        msg.clientTs === this.joinSentinelTs
+      ) {
+        this.fireSettled();
+      }
+      return;
+    }
+
+    // Settled path (or no join cycle in progress): apply presence directly
+    this.applyPresence(msg);
+  }
+
+  /**
+   * Applies a single presence message to the users map and notifies listeners.
+   * Extracted so fireSettled can replay deduplicated presence messages.
+   */
+  private applyPresence(msg: PresenceMessage): void {
     const existing = this.users.get(msg.userId);
 
     if (msg.type === "leave") {
@@ -371,18 +396,6 @@ export class Lobby {
         this.notifyListeners();
       }
     }
-
-    // Sentinel detection: our own join message with matching clientTs
-    // means the Nchan buffer replay is complete (FIFO guarantee).
-    if (
-      !this.isSettled &&
-      this.joinSentinelTs !== null &&
-      msg.userId === this.currentUser.userId &&
-      msg.type === "join" &&
-      msg.clientTs === this.joinSentinelTs
-    ) {
-      this.fireSettled();
-    }
   }
 
   private handleChallenge(msg: ChallengeMessage): void {
@@ -390,7 +403,8 @@ export class Lobby {
     // messages so we can dedup them when settle fires. This prevents stale
     // offers from being emitted when a resolution (accept/decline/cancel)
     // arrives later in the same buffer replay.
-    if (!this.isSettled) {
+    // Only buffer when actively in a join cycle (sentinel published, waiting for echo).
+    if (!this.isSettled && this.joinSentinelTs !== null) {
       this.unsettledChallengeMessages.push(msg);
       return;
     }
@@ -452,41 +466,28 @@ export class Lobby {
   }
 
   /**
-   * Fires all onSettled listeners and replays deduplicated challenge messages.
+   * Fires all onSettled listeners and replays deduplicated messages.
    * Called immediately when the sentinel is detected.
    *
-   * Uses a two-pass approach over buffered challenge messages:
-   * Pass 1: collect all resolved interaction keys (accept/decline/cancel).
-   * Pass 2: emit offers only for unresolved interactions, plus all
-   *         non-offer messages that are relevant to the current user.
-   *
-   * This handles the case where a resolution message (e.g. accept) arrives
-   * after its corresponding offer during Nchan buffer replay (FIFO ordering).
+   * Delegates dedup to MessageDeduplicator, then replays the results:
+   *   - Presence: applied via applyPresence (updates users map + notifies).
+   *   - Challenges: emitted via emitIfRelevant if relevant to current user.
    */
   private fireSettled(): void {
     if (this.isSettled) return;
     this.isSettled = true;
 
-    // Pass 1: collect resolved interaction keys
-    const resolvedInteractions = new Set<string>();
-    for (const msg of this.unsettledChallengeMessages) {
-      if (msg.type !== "offer") {
-        const key = [msg.challengerId, msg.challengeeId].sort().join(':');
-        resolvedInteractions.add(key);
-      }
+    // Dedup and replay presence (per-userId last-message-wins)
+    const presenceMessages = MessageDeduplicator.dedupePresence(this.unsettledPresenceMessages);
+    for (const msg of presenceMessages) {
+      this.applyPresence(msg);
     }
+    this.unsettledPresenceMessages = [];
 
-    // Pass 2: emit unresolved offers + relevant non-offer messages
-    for (const msg of this.unsettledChallengeMessages) {
-      const key = [msg.challengerId, msg.challengeeId].sort().join(':');
-      if (msg.type === "offer") {
-        if (!resolvedInteractions.has(key)) {
-          this.emitIfRelevant(msg);
-        }
-      } else {
-        // accept, decline, cancel
-        this.emitIfRelevant(msg);
-      }
+    // Dedup and replay challenges (offer+resolution → no-op)
+    const challengeMessages = MessageDeduplicator.dedupeChallenges(this.unsettledChallengeMessages);
+    for (const msg of challengeMessages) {
+      this.emitIfRelevant(msg);
     }
     this.unsettledChallengeMessages = [];
 
@@ -505,5 +506,6 @@ export class Lobby {
     this.isSettled = false;
     this.settledListeners = [];
     this.unsettledChallengeMessages = [];
+    this.unsettledPresenceMessages = [];
   }
 }

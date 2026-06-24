@@ -137,6 +137,12 @@ describe("MessagingClient Lifecycle Unit Tests", () => {
     const snapshots: string[][] = [];
     lobby.onUsersChange((users) => snapshots.push(users.map((u) => u.userId)));
 
+    // Feed sentinel to trigger settle (required now that presence is buffered
+    // during the unsettled period). The sentinel is our own join message echoed back.
+    const sentinelMsg = mockNchan.publishPresence.mock.calls[0][0];
+    presenceHandlers[0](JSON.stringify(sentinelMsg));
+
+    // Now settled — feed peer-1 presence
     presenceHandlers[0](
       JSON.stringify({
         messageType: "presence",
@@ -153,13 +159,20 @@ describe("MessagingClient Lifecycle Unit Tests", () => {
         },
       }),
     );
-    expect(snapshots[snapshots.length - 1]).toEqual(["peer-1"]);
+    // After sentinel + peer-1: users are ["peer-1", "user1"] (alpha order by userName)
+    expect(snapshots[snapshots.length - 1]).toEqual(["peer-1", "user1"]);
 
     await client.stop({ isTeardown: true });
     await client.resumeSession();
 
     expect(client["activeLobbies"][0]).toBe(lobby);
 
+    // Feed sentinel for resumed session (second join)
+    // publishPresence calls: [0]=first join, [1]=leave, [2]=second join
+    const sentinelMsg2 = mockNchan.publishPresence.mock.calls[2][0];
+    presenceHandlers[1](JSON.stringify(sentinelMsg2));
+
+    // Now settled — feed peer-2 presence
     presenceHandlers[1](
       JSON.stringify({
         messageType: "presence",
@@ -176,7 +189,7 @@ describe("MessagingClient Lifecycle Unit Tests", () => {
         },
       }),
     );
-    expect(snapshots[snapshots.length - 1]).toEqual(["peer-2"]);
+    expect(snapshots[snapshots.length - 1]).toEqual(["peer-2", "user1"]);
   });
 
   it("should re-broadcast presence on NchanClient reconnection without redundancy", async () => {
