@@ -187,6 +187,14 @@ export class Lobby {
   }
 
   /**
+   * Returns the current list of online users.
+   * For testing purposes and convenience.
+   */
+  public getUsers(): PresenceMessage[] {
+    return this.getUsersList();
+  }
+
+  /**
    * Stop listening to user changes.
    */
   offUsersChange(callback: (users: PresenceMessage[]) => void): void {
@@ -386,8 +394,11 @@ export class Lobby {
         this.notifyListeners();
       }
     } else if (msg.type === "join") {
-      this.users.set(msg.userId, msg);
-      this.notifyListeners();
+      // Ensure joins are never removed by deduplication
+      if (!this.users.has(msg.userId) || this.users.get(msg.userId)?.type === "leave") {
+        this.users.set(msg.userId, msg);
+        this.notifyListeners();
+      }
     } else {
       // Heartbeat or other update
       const changed = !existing || this.hasMeaningfulChange(existing, msg);
