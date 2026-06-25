@@ -5,6 +5,8 @@ import { reduce, INITIAL_STATE } from '../src/client/utils.js';
 test.describe('E2E rematch', () => {
   test.setTimeout(20000);
 
+  const shortWait = 250;
+
   test('alice plays solo, bob challenges, alice accepts from game, both go to new game', async ({ page }) => {
 
     // starting with iframe of alice and bob in lobby
@@ -23,6 +25,8 @@ test.describe('E2E rematch', () => {
 
     // alice is in game url.
     await expect.poll(() => aliceFrame.url(), { timeout: VISIBILITY_TIMEOUT }).toMatch(/ruletype=eightball/);
+
+    await page.waitForTimeout(shortWait);
 
     // bob challenges alice to a game of 8-ball
     const challengeBtn = bobFrame.locator('button[aria-label="Challenge Alice"]');
