@@ -7,7 +7,7 @@ import {
 } from "./types";
 import { Table } from "./table";
 import { getUID } from "./utils/uid";
-import { MessageDeduplicator } from "./MessageDeduplicator";
+import { MessageDeduplicator, AUTO_LEAVE_REJOIN_GRACE_MS } from "./MessageDeduplicator";
 
 export interface LobbyOptions {
   heartbeatInterval?: number;
@@ -389,6 +389,7 @@ export class Lobby {
     const existing = this.users.get(msg.userId);
 
     if (msg.type === "leave") {
+      if (this.shouldIgnoreAutoLeave(msg, existing)) return;
       if (existing) {
         this.users.delete(msg.userId);
         this.notifyListeners();
@@ -464,6 +465,24 @@ export class Lobby {
     return Array.from(this.users.values()).sort((a, b) =>
       a.userName.localeCompare(b.userName),
     );
+  }
+
+  /**
+   * Returns true when an internal Nchan auto-leave should be ignored because
+   * it arrived too soon after a fresh user join, making it likely stale
+   * cleanup for the previous connection rather than a real departure.
+   */
+  private shouldIgnoreAutoLeave(msg: PresenceMessage, existing?: PresenceMessage): boolean {
+    if (!existing) return false;
+    if (msg.type !== "leave") return false;
+    if (msg.meta?.origin !== "internal") return false;
+    if (existing.type === "leave") return false;
+
+    const leaveTs = msg.meta?.ts;
+    const existingTs = existing.meta?.ts ?? existing.clientTs;
+    if (leaveTs === undefined || existingTs === undefined) return false;
+
+    return leaveTs >= existingTs && leaveTs - existingTs <= AUTO_LEAVE_REJOIN_GRACE_MS;
   }
 
   private hasMeaningfulChange(oldMsg: PresenceMessage, nextMsg: PresenceMessage): boolean {

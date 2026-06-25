@@ -1,6 +1,13 @@
 import { ChallengeMessage, PresenceMessage } from "./types";
 
 /**
+ * Grace window (ms) during which an internal Nchan auto-leave arriving after
+ * a user join/heartbeat is treated as stale cleanup for the previous connection
+ * rather than proof that the new presence is gone.
+ */
+export const AUTO_LEAVE_REJOIN_GRACE_MS = 250;
+
+/**
  * Pure logic for deduplicating buffered Nchan replay messages.
  *
  * All methods are static and have no side effects — they take arrays of
@@ -46,8 +53,30 @@ export class MessageDeduplicator {
   static dedupePresence(messages: PresenceMessage[]): PresenceMessage[] {
     // Forward pass: overwrite in a Map so the last message per userId wins.
     // Map preserves insertion order, keeping the first occurrence position.
+    // Exception: internal Nchan auto-leaves that arrive within the grace window
+    // of a prior join/heartbeat are suppressed — they are stale cleanup for a
+    // previous connection, not proof that the new presence is gone.
     const last = new Map<string, PresenceMessage>();
     for (const msg of messages) {
+      const prev = last.get(msg.userId);
+      if (
+        prev &&
+        prev.type !== "leave" &&
+        msg.type === "leave" &&
+        msg.meta?.origin === "internal"
+      ) {
+        const leaveTs = msg.meta?.ts;
+        const prevTs = prev.meta?.ts ?? prev.clientTs;
+        if (
+          leaveTs !== undefined &&
+          prevTs !== undefined &&
+          leaveTs >= prevTs &&
+          leaveTs - prevTs <= AUTO_LEAVE_REJOIN_GRACE_MS
+        ) {
+          // Suppress the stale auto-leave — keep the prior join/heartbeat
+          continue;
+        }
+      }
       last.set(msg.userId, msg);
     }
     return [...last.values()];
