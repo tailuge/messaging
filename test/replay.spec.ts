@@ -377,7 +377,7 @@ describe("Replay", () => {
     expect(userIds).toEqual(["Luke-2oo0v", "u1alicu"]);
   });
 
-  it.skip("should keep player online despite out-of-order leave-after-join", async () => {
+  it("should keep player online despite out-of-order leave-after-join", async () => {
     let onMessage: ((data: string) => void) | undefined;
 
     const bug = [
@@ -385,14 +385,14 @@ describe("Replay", () => {
         "messageType": "presence",
         "type": "join",
         "userId": "AnOn-cr36t",
-        "userName": "AnOniMouse2",
+        "userName": "Mouse",
         "clientTs": 1781717348840,
         "meta": {
           "ts": 1781717349142,
-          "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0",
+          "ua": "Mozilla",
           "origin": "https://billiards.tailuge.workers.dev",
-          "country": "RO",
-          "city": "Iași",
+          "country": "XX",
+          "city": "",
           "since": 1781716114597,
           "version": "v4.37"
         }
