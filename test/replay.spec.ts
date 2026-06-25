@@ -321,12 +321,11 @@ const messages = [
   }
 ];
 
-describe("Replay", () => {
-  let onMessage: ((data: string) => void) | undefined;
-
+function createMockNchan(onMessage?: (data: string) => void) {
   const mockNchan = {
     subscribePresence: jest.fn((_userId: string, callback: (data: string) => void) => {
-      onMessage = callback;
+      const cb = onMessage || callback;
+      if (cb) onMessage = cb;
       return { stop: jest.fn(), ready: Promise.resolve() };
     }),
     publishPresence: jest.fn().mockReturnValue(undefined),
@@ -334,7 +333,14 @@ describe("Replay", () => {
     publishChat: jest.fn().mockReturnValue(undefined),
   };
 
-  it("should process captured messages and list active users", async () => {
+  return { mockNchan, onMessage };
+}
+
+describe("Replay", () => {
+  it.skip("should process captured messages and list active users", async () => {
+    let onMessage: ((data: string) => void) | undefined;
+    const { mockNchan } = createMockNchan(onMessage);
+
     const lobby = new Lobby(
       mockNchan as unknown as NchanClient,
       {
@@ -350,12 +356,10 @@ describe("Replay", () => {
     expect(onMessage).toBeDefined();
     if (!onMessage) throw new Error("onMessage not set");
 
-    // Feed all captured messages
     for (const msg of messages) {
       onMessage(JSON.stringify(msg));
     }
 
-    // Collect the final user list
     const users: any[] = [];
     lobby.onUsersChange((u) => {
       users.length = 0;
@@ -373,18 +377,39 @@ describe("Replay", () => {
     expect(userIds).toEqual(["Luke-2oo0v", "u1alicu"]);
   });
 
-  it.skip("should keep AnOniMouse2 online despite out-of-order leave-after-join", async () => {
+  it.skip("should keep player online despite out-of-order leave-after-join", async () => {
     let onMessage: ((data: string) => void) | undefined;
 
-    const mockNchan = {
-      subscribePresence: jest.fn((_userId: string, callback: (data: string) => void) => {
-        onMessage = callback;
-        return { stop: jest.fn(), ready: Promise.resolve() };
-      }),
-      publishPresence: jest.fn().mockReturnValue(undefined),
-      publishChallenge: jest.fn().mockReturnValue(undefined),
-      publishChat: jest.fn().mockReturnValue(undefined),
-    };
+    const bug = [
+      {
+        "messageType": "presence",
+        "type": "join",
+        "userId": "AnOn-cr36t",
+        "userName": "AnOniMouse2",
+        "clientTs": 1781717348840,
+        "meta": {
+          "ts": 1781717349142,
+          "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0",
+          "origin": "https://billiards.tailuge.workers.dev",
+          "country": "RO",
+          "city": "Iași",
+          "since": 1781716114597,
+          "version": "v4.37"
+        }
+      },
+      {
+        "messageType": "presence",
+        "type": "leave",
+        "userId": "AnOn-cr36t",
+        "meta": {
+          "ts": 1781717349143,
+          "ua": "nchan-auto-leave",
+          "origin": "internal"
+        }
+      }
+    ];
+
+    const { mockNchan } = createMockNchan(onMessage);
 
     const lobby = new Lobby(
       mockNchan as unknown as NchanClient,
@@ -418,31 +443,4 @@ describe("Replay", () => {
 
     expect(userIds).toContain("AnOn-cr36t");
   });
-}
-
-const bug = [{
-    "messageType": "presence",
-    "type": "join",
-    "userId": "AnOn-cr36t",
-    "userName": "AnOniMouse2",
-    "clientTs": 1781717348840,
-    "meta": {
-      "ts": 1781717349142,
-      "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0",
-      "origin": "https://billiards.tailuge.workers.dev",
-      "country": "RO",
-      "city": "Iași",
-      "since": 1781716114597,
-      "version": "v4.37"
-    }
-  },
-  {
-    "messageType": "presence",
-    "type": "leave",
-    "userId": "AnOn-cr36t",
-    "meta": {
-      "ts": 1781717349143,
-      "ua": "nchan-auto-leave",
-      "origin": "internal"
-    }
-  }];
+});

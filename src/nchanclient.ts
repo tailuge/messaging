@@ -221,7 +221,7 @@ export class NchanClient {
         return;
       }
 
-      console.log(`[NchanClient ${ts()}] Connecting to ${url} (attempt ${reconnectAttempts + 1})`);
+      //console.log(`[NchanClient ${ts()}] Connecting to ${url} (attempt ${reconnectAttempts + 1})`);
       ws = new globalThis.WebSocket(url);
 
       if (connectionTimeoutTimer) {
@@ -250,7 +250,7 @@ export class NchanClient {
           clearTimeout(connectionTimeoutTimer);
           connectionTimeoutTimer = null;
         }
-        console.log(`[NchanClient ${ts()}] Connected to ${url}`);
+        //console.log(`[NchanClient ${ts()}] Connected to ${url}`);
         resolveReady();
         if (isReconnect && subscription.onReconnect) {
           subscription.onReconnect();
@@ -258,7 +258,7 @@ export class NchanClient {
       };
 
       ws.onclose = (event) => {
-        console.log(`[NchanClient ${ts()}] Connection closed: ${url} (code=${event.code}, reason="${event.reason}", wasClean=${event.wasClean})`);
+        //console.log(`[NchanClient ${ts()}] Connection closed: ${url} (code=${event.code}, reason="${event.reason}", wasClean=${event.wasClean})`);
         if (connectionTimeoutTimer) {
           clearTimeout(connectionTimeoutTimer);
           connectionTimeoutTimer = null;
@@ -270,7 +270,7 @@ export class NchanClient {
           }
           const delay = Math.min(Math.pow(2, reconnectAttempts) * initialReconnectDelay, maxReconnectDelay);
           reconnectAttempts++;
-          console.log(`[NchanClient ${ts()}] Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
+          //console.log(`[NchanClient ${ts()}] Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
           reconnectTimer = setTimeout(connect, delay);
           reconnectTimer.unref?.();
         }
