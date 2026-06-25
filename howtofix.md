@@ -35,13 +35,12 @@ When handling a leave:
   then ignore the leave.
 ```
 
-Use a small grace window, for example 500 ms. Consider making it a named constant such as `AUTO_LEAVE_REJOIN_GRACE_MS = 500`.
+Use a small grace window, for example 250 ms. Consider making it a named constant such as `AUTO_LEAVE_REJOIN_GRACE_MS = 250`.
 
 An internal auto-leave can be identified by:
 
 ```typescript
 msg.type === "leave" &&
-msg.meta?.ua === "nchan-auto-leave" &&
 msg.meta?.origin === "internal"
 ```
 
@@ -98,7 +97,7 @@ if (msg.type === "leave") {
 
 This keeps explicit user-originated leaves working normally because they do not have `ua: "nchan-auto-leave"` and `origin: "internal"`.
 
-## Optional stronger fix
+## Optional stronger fix (do not do this fix)
 
 The most robust design is to add a per-presence-session id.
 
@@ -108,13 +107,6 @@ That is cleaner than a grace window, but it requires protocol/server changes. Th
 
 ## Test note
 
-The targeted test currently fails before asserting the race because `onMessage` is not captured by the mock setup. After fixing the test harness, the expected assertion should be that `AnOn-cr36t` remains present after replaying:
-
-```text
-join(meta.ts 1781717349142) -> internal auto-leave(meta.ts 1781717349143)
-```
-
 Add at least one negative test too:
 
 - `join`, then internal auto-`leave` after more than 500 ms should remove the user.
-- explicit user-originated `leave` immediately after `join` should still remove the user.
