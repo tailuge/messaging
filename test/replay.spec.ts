@@ -321,11 +321,12 @@ const messages = [
   }
 ];
 
-function createMockNchan(onMessage?: (data: string) => void) {
+function createMockNchan() {
+  let onMessage: ((data: string) => void) | undefined;
+
   const mockNchan = {
     subscribePresence: jest.fn((_userId: string, callback: (data: string) => void) => {
-      const cb = onMessage || callback;
-      if (cb) onMessage = cb;
+      onMessage = callback;
       return { stop: jest.fn(), ready: Promise.resolve() };
     }),
     publishPresence: jest.fn().mockReturnValue(undefined),
@@ -333,13 +334,18 @@ function createMockNchan(onMessage?: (data: string) => void) {
     publishChat: jest.fn().mockReturnValue(undefined),
   };
 
-  return { mockNchan, onMessage };
+  return {
+    mockNchan,
+    get onMessage() {
+      return onMessage;
+    },
+  };
 }
 
 describe("Replay", () => {
   it.skip("should process captured messages and list active users", async () => {
-    let onMessage: ((data: string) => void) | undefined;
-    const { mockNchan } = createMockNchan(onMessage);
+    const nchan = createMockNchan();
+    const { mockNchan } = nchan;
 
     const lobby = new Lobby(
       mockNchan as unknown as NchanClient,
@@ -353,6 +359,7 @@ describe("Replay", () => {
     );
 
     await lobby.join();
+    const onMessage = nchan.onMessage;
     expect(onMessage).toBeDefined();
     if (!onMessage) throw new Error("onMessage not set");
 
@@ -378,8 +385,13 @@ describe("Replay", () => {
   });
 
   it("should keep player online despite out-of-order leave-after-join", async () => {
-    let onMessage: ((data: string) => void) | undefined;
-
+    // scenario: player is on game web site and presses 'return to lobby' 
+    // redirects to lobby.html 
+    // nchan detects websocket broken begins creating 'leave' message.
+    // player arrives at lobby.html and connects websocket with 'join' message.
+    // nchan eventually publishes the original leave, ariving after the join.
+    // the systems needs to understand this and not process leaves within ~0.5 seconds of join
+    
     const bug = [
       {
         "messageType": "presence",
@@ -409,7 +421,8 @@ describe("Replay", () => {
       }
     ];
 
-    const { mockNchan } = createMockNchan(onMessage);
+    const nchan = createMockNchan();
+    const { mockNchan } = nchan;
 
     const lobby = new Lobby(
       mockNchan as unknown as NchanClient,
@@ -423,12 +436,15 @@ describe("Replay", () => {
     );
 
     await lobby.join();
+    const onMessage = nchan.onMessage;
     expect(onMessage).toBeDefined();
     if (!onMessage) throw new Error("onMessage not set");
 
     for (const msg of bug) {
       onMessage(JSON.stringify(msg));
     }
+    const sentinel = mockNchan.publishPresence.mock.calls[0][0];
+    onMessage(JSON.stringify(sentinel));
 
     const users: any[] = [];
     lobby.onUsersChange((u) => {
