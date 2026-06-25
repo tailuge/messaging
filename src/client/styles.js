@@ -81,20 +81,29 @@ export const USER_LIST_STYLES = css`
     :host { display: block; }
     ul {
         list-style: none; margin: 0; padding: 0;
-        height: 160px;
+        max-height: 160px;
         display: flex; flex-flow: column wrap; align-content: flex-start;
-        overflow-x: auto; overflow-y: hidden;
+        column-gap: 4px;
+        overflow-y: auto; overflow-x: hidden;
         scrollbar-width: none;
+        transition: max-height 0.3s ease;
     }
     ul::-webkit-scrollbar { display: none; }
+    ul.expanded {
+        max-height: var(--ul-expanded-height);
+        overflow: visible;
+    }
     li {
         display: flex; justify-content: space-between; align-items: center;
         padding: 1px 1px;
-        width: 210px; box-sizing: border-box;
+        width: 100%; box-sizing: border-box;
         border: 0.25px solid var(--border-light);
         border-bottom: none; gap: 1px;
         border-radius: 4px;
         min-height: 28px;
+    }
+    @media (min-width: 500px) {
+        li { width: calc(50% - 2px); }
     }
     li:last-child { border-bottom: 0.25px; }
     .user-info { display: flex; flex-direction: column; min-width: 0; }
@@ -107,6 +116,17 @@ export const USER_LIST_STYLES = css`
     .empty { padding: 1rem; text-align: center; color: var(--text-muted); font-style: italic; font-size: 0.8rem; }
     .is-leaving { filter: grayscale(1); opacity: 0.6; pointer-events: none; }
     .is-offline { filter: grayscale(1); opacity: 0.35; transition: opacity 0.3s ease-out; animation: none; pointer-events: none; }
+    .expand-toggle {
+        display: flex; justify-content: center; align-items: center;
+        padding: 4px; cursor: pointer;
+        font-size: 0.8rem; color: var(--text-dim);
+        border-top: 1px solid var(--border);
+        user-select: none;
+        transition: background-color 0.15s;
+    }
+    .expand-toggle:hover {
+        background: var(--btn-hover);
+    }
 `;
 
 export const CHALLENGE_BANNER_STYLES = css`
