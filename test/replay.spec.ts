@@ -343,7 +343,11 @@ function createMockNchan() {
 }
 
 describe("Replay", () => {
-  it.skip("should process captured messages and list active users", async () => {
+  it("should process captured messages and list active users", async () => {
+
+    // this test needs updating to match current system.
+    // premise is correct, test setup is wrong.
+
     const nchan = createMockNchan();
     const { mockNchan } = nchan;
 

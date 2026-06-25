@@ -466,14 +466,14 @@ describe("MessagingClient - Phase 1", () => {
       const lobbyA = await clientA.joinLobby({
         messageType: "presence",
         type: "join",
-        userId: "user-a",
+        userId: "user-aa",
         userName: "Alice",
       });
 
       const lobbyB = await clientB.joinLobby({
         messageType: "presence",
         type: "join",
-        userId: "user-b",
+        userId: "user-bb",
         userName: "Bob",
       });
 
@@ -487,12 +487,12 @@ describe("MessagingClient - Phase 1", () => {
       });
 
       // 3. A challenges B
-      const tableId = await lobbyA.challenge("user-b", "standard");
+      const tableId = await lobbyA.challenge("user-bb", "standard");
       expect(tableId).toBeDefined();
 
       // 4. B should receive the challenge
       await waitUntil(() => receivedChallenge !== null);
-      expect(receivedChallenge.challengerId).toBe("user-a");
+      expect(receivedChallenge.challengerId).toBe("user-aa");
       expect(receivedChallenge.type).toBe("offer");
 
       // 5. B disconnects (leaves lobby without isTeardown to simulate disconnect)
@@ -504,7 +504,7 @@ describe("MessagingClient - Phase 1", () => {
       const lobbyB2 = await clientB2.joinLobby({
         messageType: "presence",
         type: "join",
-        userId: "user-b",
+        userId: "user-bb",
         userName: "Bob",
       });
 
@@ -517,7 +517,7 @@ describe("MessagingClient - Phase 1", () => {
 
       // Offer was not resolved, so dedup replays it on settle
       expect(receivedChallengeAfterReconnect).not.toBeNull();
-      expect(receivedChallengeAfterReconnect.challengerId).toBe("user-a");
+      expect(receivedChallengeAfterReconnect.challengerId).toBe("user-aa");
       expect(receivedChallengeAfterReconnect.type).toBe("offer");
       expect(receivedChallengeAfterReconnect.tableId).toBe(tableId);
     });
