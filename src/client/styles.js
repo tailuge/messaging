@@ -102,6 +102,7 @@ export const USER_LIST_STYLES = css`
         border-radius: 4px;
         min-height: 28px;
     }
+    li:not(.is-offline):hover { background: var(--btn-hover); }
     @media (min-width: 600px) {
         li { width: calc(50% - 2px); }
     }
@@ -120,7 +121,7 @@ export const USER_LIST_STYLES = css`
         display: flex; justify-content: center; align-items: center;
         padding: 2px; cursor: pointer;
         font-size: 0.8rem; color: var(--text-dim);
-        
+        border-radius: 4px;
         user-select: none;
         transition: background-color 0.15s;
     }
