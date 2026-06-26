@@ -46,7 +46,7 @@ export class UserList extends LitElement {
                 return;
             }
 
-            const cols = window.innerWidth >= 500 ? 2 : 1;
+            const cols = window.innerWidth >= 600 ? 2 : 1;
             const onlineCount = (this.slots || []).filter(s => s.status === 'online').length;
 
             if (this.#expanded) {

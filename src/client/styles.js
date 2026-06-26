@@ -80,10 +80,11 @@ export const SHARED_STYLES = css`
 export const USER_LIST_STYLES = css`
     :host { display: block; }
     ul {
-        list-style: none; margin: 0; padding: 0;
+        list-style: none; margin: 0; padding: 1px;
         max-height: 160px;
         display: flex; flex-flow: column wrap; align-content: flex-start;
         column-gap: 4px;
+        row-gap: 2px;
         overflow-y: auto; overflow-x: hidden;
         scrollbar-width: none;
         transition: max-height 0.3s ease;
@@ -98,11 +99,10 @@ export const USER_LIST_STYLES = css`
         padding: 1px 1px;
         width: 100%; box-sizing: border-box;
         border: 0.25px solid var(--border-light);
-        border-bottom: none; gap: 1px;
         border-radius: 4px;
         min-height: 28px;
     }
-    @media (min-width: 500px) {
+    @media (min-width: 600px) {
         li { width: calc(50% - 2px); }
     }
     li:last-child { border-bottom: 0.25px; }
@@ -118,9 +118,9 @@ export const USER_LIST_STYLES = css`
     .is-offline { filter: grayscale(1); opacity: 0.35; transition: opacity 0.3s ease-out; animation: none; pointer-events: none; }
     .expand-toggle {
         display: flex; justify-content: center; align-items: center;
-        padding: 4px; cursor: pointer;
+        padding: 2px; cursor: pointer;
         font-size: 0.8rem; color: var(--text-dim);
-        border-top: 1px solid var(--border);
+        
         user-select: none;
         transition: background-color 0.15s;
     }
