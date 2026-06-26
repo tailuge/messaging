@@ -1,6 +1,5 @@
 import { Lobby } from "../src/lobby";
 import { NchanClient } from "../src/nchanclient";
-import { MessageDeduplicator } from "../src/MessageDeduplicator";
 
 // Test case: Sentinel message fails to arrive, keeping users in unsettled blue state
 describe("Lobby - Sentinel Failure", () => {

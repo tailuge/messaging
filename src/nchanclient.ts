@@ -257,7 +257,7 @@ export class NchanClient {
         }
       };
 
-      ws.onclose = (event) => {
+      ws.onclose = (_event) => {
         //console.log(`[NchanClient ${ts()}] Connection closed: ${url} (code=${event.code}, reason="${event.reason}", wasClean=${event.wasClean})`);
         if (connectionTimeoutTimer) {
           clearTimeout(connectionTimeoutTimer);

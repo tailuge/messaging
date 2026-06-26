@@ -1,6 +1,5 @@
 import WebSocket from "ws";
 import { startContainer, stopContainer, getServer, wait } from "./utils";
-import { NchanClient } from "../src/nchanclient";
 import { MessagingClient } from "../src/messagingclient";
 
 describe("Unsub Mapping Diagnostic", () => {
@@ -71,6 +70,6 @@ describe("Unsub Mapping Diagnostic", () => {
     await client.stop();
 
     await wait(500);
-    var afterStop = await getStats();
+    var _afterStop = await getStats();
   });
 });

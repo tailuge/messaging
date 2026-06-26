@@ -1,7 +1,6 @@
 import { NchanClient } from "../src/nchanclient";
 import { MessageDeduplicator } from "../src/MessageDeduplicator";
 import { Lobby } from "../src/lobby";
-import { parseMessage } from "../src/types";
 import { jest } from "@jest/globals";
 
 jest.mock("../src/nchanclient");
@@ -28,27 +27,6 @@ const messages: string[] = [
   '{"messageType": "presence", "type": "join", "userId": "Luke-2oo0v", "userName": "Lukey", "clientTs": 1781710698009, "meta": {"ts": 1781710698038, "ua": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36", "origin": "https://billiards.tailuge.workers.dev", "country": "GB", "city": "x", "since": 1781710676329, "version": "v4.37"}}',
   '{"messageType": "presence", "type": "join", "userId": "u1alicu", "userName": "Alice", "clientTs": 1781710701171, "meta": {"ts": 1781710701206, "ua": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36", "origin": "https://billiards.tailuge.workers.dev", "country": "GB", "city": "x", "since": 1781710676329, "version": "v4.37"}}'
 ];
-
-function createMockNchan() {
-  let onMessage: ((data: string) => void) | undefined;
-
-  const mockNchan = {
-    subscribePresence: jest.fn((_userId: string, callback: (data: string) => void) => {
-      onMessage = callback;
-      return { stop: jest.fn(), ready: Promise.resolve() };
-    }),
-    publishPresence: jest.fn().mockReturnValue(undefined),
-    publishChallenge: jest.fn().mockReturnValue(undefined),
-    publishChat: jest.fn().mockReturnValue(undefined),
-  };
-
-  return {
-    mockNchan,
-    get onMessage() {
-      return onMessage;
-    },
-  };
-}
 
 describe("Replay", () => {
   it("should process captured messages and list active users", async () => {

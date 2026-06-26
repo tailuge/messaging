@@ -1,4 +1,4 @@
-import { Lobby, LobbyOptions } from "../src/lobby";
+import { Lobby } from "../src/lobby";
 import { NchanClient } from "../src/nchanclient";
 
 const messages = [
