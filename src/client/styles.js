@@ -279,7 +279,6 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     main.has-sidebar online-panel {
         grid-area: 1 / 2 / 4 / 3;
         overflow-y: auto;
-        max-height: calc(100vh - 6rem);
     }
     main.has-sidebar .motd-row {
         grid-area: 2 / 1 / 3 / 2;
