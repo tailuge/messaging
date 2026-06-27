@@ -251,7 +251,7 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     .topbar h1 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;}
     .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem; overflow: hidden; }
     .panel-title { font-weight: bold; margin-bottom: 0.25rem; font-size: 0.8rem; color: var(--text-dim); text-align: center; }
-    .motd-row { display: flex; flex-direction: column; margin-bottom: 3px; }
+    .motd-row { display: flex; flex-direction: column; }
     @media (max-width: 500px) {
         .motd-row { display: none; }
     }
@@ -261,7 +261,8 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     main {
         display: grid;
         grid-template-columns: auto 230px;
-        gap: 0.2rem;
+        column-gap: 0.2rem;
+        row-gap: 0.1rem;
     }
 
     .solo           { grid-area: 1 / 1 / 2 / 2; }
@@ -279,6 +280,7 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     main.has-sidebar online-panel {
         grid-area: 1 / 2 / 4 / 3;
         overflow-y: auto;
+        height: 100%;
     }
     main.has-sidebar .motd-row {
         grid-area: 2 / 1 / 3 / 2;
