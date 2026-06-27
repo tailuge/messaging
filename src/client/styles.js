@@ -126,7 +126,7 @@ export const USER_LIST_STYLES = css`
     .expand-toggle:hover {
         background: var(--btn-hover);
     }
-    @media (max-width: 715px) {
+    @media (max-width: 730px) {
         .expand-toggle { visibility: hidden; pointer-events: none; }
     }
 `;
@@ -255,9 +255,6 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem; overflow: hidden; }
     .panel-title { font-weight: bold; margin-bottom: 0.25rem; font-size: 0.8rem; color: var(--text-dim); text-align: center; }
     .motd-row { display: flex; flex-direction: column; }
-    @media (max-width: 500px) {
-        .motd-row { display: none; }
-    }
     .info-row { display: flex; flex-direction: column; }
     .info-row .panel { overflow: visible; }
 
