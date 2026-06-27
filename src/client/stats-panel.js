@@ -8,7 +8,7 @@ class StatsPanel extends LitElement {
         :host { display: block; font-family: inherit; }
         .loading { color: var(--text-muted, #757575); font-size: 0.85rem; }
         .uptime { font-size: 0.78rem; color: var(--text-muted, #757575); margin: 0 0 0.2rem; line-height: 1.3; }
-        ul { list-style: none; margin: 0; padding: 0; }
+        ul { list-style: none; margin: 0; padding: 0; columns: 3; }
         li { display: flex; align-items: center; gap: 0.1rem; font-size: 0.88rem; padding: 0.02rem 0; line-height: 1.25; }
         .count { color: var(--text-muted, #757575); font-size: 0.78rem; }
     `;
