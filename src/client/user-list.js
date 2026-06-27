@@ -39,6 +39,7 @@ export class UserList extends LitElement {
 
     #toggleExpand() {
         this.#expanded = !this.#expanded;
+        emit(this, 'user-list-toggle', { expanded: this.#expanded });
         this.requestUpdate();
     }
 

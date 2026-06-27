@@ -248,14 +248,42 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     .topbar h1 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;}
     .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem; overflow: hidden; }
     .panel-title { font-weight: bold; margin-bottom: 0.25rem; font-size: 0.8rem; color: var(--text-dim); text-align: center; }
-    .main-row { display: flex; gap: 0.2rem; flex-shrink: 0; margin-bottom: 3px; }
-    .main-row .solo { flex: 0 0 auto; }
-    .main-row .players { flex: 1; display: flex; flex-direction: column; }
     .motd-row { display: flex; flex-direction: column; margin-bottom: 3px; }
     @media (max-width: 500px) {
         .motd-row { display: none; }
     }
     .info-row { display: flex; flex-direction: column; }
     .info-row .panel { overflow: visible; }
+
+    @media (min-width: 600px) {
+        main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.2rem;
+        }
+
+        .solo           { grid-area: 1 / 1 / 2 / 2; }
+        online-panel    { grid-area: 1 / 2 / 2 / 3; }
+        .motd-row       { grid-area: 2 / 1 / 3 / 3; }
+        .info-row       { grid-area: 3 / 1 / 4 / 3; }
+
+        main.has-sidebar {
+            grid-template-columns: 1fr 300px;
+        }
+        main.has-sidebar .solo {
+            grid-area: 1 / 1 / 2 / 2;
+        }
+        main.has-sidebar online-panel {
+            grid-area: 1 / 2 / 4 / 3;
+            overflow-y: auto;
+            max-height: calc(100vh - 6rem);
+        }
+        main.has-sidebar .motd-row {
+            grid-area: 2 / 1 / 3 / 2;
+        }
+        main.has-sidebar .info-row {
+            grid-area: 3 / 1 / 4 / 2;
+        }
+    }
     .container { max-width: 900px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 0.2rem; flex: 1; }
 `];

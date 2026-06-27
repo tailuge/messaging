@@ -9,7 +9,10 @@ import './motd-panel.js';
 import { CLIENTVERSION, formatVersion } from './utils.js';
 
 class LobbyApp extends LitElement {
-    static properties = { _theme: { type: String, reflect: true, attribute: 'theme' } };
+    static properties = {
+        _theme: { type: String, reflect: true, attribute: 'theme' },
+        _sidebarOpen: { type: Boolean },
+    };
     static styles = LOBBY_APP_STYLES;
 
     constructor() {
@@ -17,6 +20,10 @@ class LobbyApp extends LitElement {
         console.log("URL:", window.location.href);
         console.log("Search params:", Object.fromEntries(new URLSearchParams(window.location.search)));
         this._theme = document.documentElement.getAttribute('theme') || 'light';
+        this._sidebarOpen = false;
+        this.addEventListener('user-list-toggle', e => {
+            this._sidebarOpen = e.detail.expanded;
+        });
     }
 
     get _ctrl() {
@@ -32,16 +39,14 @@ class LobbyApp extends LitElement {
                     <user-badge></user-badge>
                     <settings-modal @theme-changed=${e => { this._theme = e.detail; }}></settings-modal>
                 </header>
-                <main>
-                    <div class="main-row">
-                        <div class="solo">
-                            <div class="panel">
-                                <div class="panel-title">Solo Practice</div>
-                                <solo-panel></solo-panel>
-                            </div>
+                <main class="${this._sidebarOpen ? 'has-sidebar' : ''}">
+                    <div class="solo">
+                        <div class="panel">
+                            <div class="panel-title">Solo Practice</div>
+                            <solo-panel></solo-panel>
                         </div>
-                        <div class="players panel"><online-panel></online-panel></div>
                     </div>
+                    <online-panel class="panel"></online-panel>
                     <div class="motd-row panel"><motd-panel></motd-panel></div>
                     <div class="info-row"><info-panel></info-panel></div>
                 </main>
