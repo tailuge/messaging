@@ -123,6 +123,9 @@ export const USER_LIST_STYLES = css`
     .expand-toggle:hover {
         background: var(--btn-hover);
     }
+    @media (max-width: 715px) {
+        .expand-toggle { display: none; }
+    }
 `;
 
 export const CHALLENGE_BANNER_STYLES = css`
@@ -226,7 +229,7 @@ export const INFO_PANEL_STYLES = css`
 `;
 
 export const PLAYER_PANEL_STYLES = css`
-    :host { display: flex; flex-direction: column; height: 100%; }
+    :host { display: flex; flex-direction: column; }
     .panel-header { display: flex; align-items: center; justify-content: center; gap: 0.4rem; margin-bottom: 0.25rem; }
     .panel-title { font-weight: bold; font-size: 0.8rem; color: var(--text-dim); }
     .user-name { font-size: 0.75rem; font-weight: 500; white-space: nowrap; color: var(--text); }
