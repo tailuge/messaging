@@ -186,7 +186,7 @@ export const SOLO_PANEL_STYLES = css`
     .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.25rem; }
     button { border: none; background: none; cursor: pointer; padding: 0.2rem; border-radius: 4px; }
     button:hover { background: var(--btn-hover); }
-    .icon-wrap { position: relative; display: block; }
+    .icon-wrap { position: relative; display: block; width: fit-content; margin: 0 auto; }
     img { display: block; width: 48px; height: 48px; margin: auto; }
 `;
 
@@ -255,35 +255,33 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     .info-row { display: flex; flex-direction: column; }
     .info-row .panel { overflow: visible; }
 
-    @media (min-width: 600px) {
-        main {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.2rem;
-        }
+    main {
+        display: grid;
+        grid-template-columns: auto 250px;
+        gap: 0.2rem;
+    }
 
-        .solo           { grid-area: 1 / 1 / 2 / 2; }
-        online-panel    { grid-area: 1 / 2 / 2 / 3; }
-        .motd-row       { grid-area: 2 / 1 / 3 / 3; }
-        .info-row       { grid-area: 3 / 1 / 4 / 3; }
+    .solo           { grid-area: 1 / 1 / 2 / 2; }
+    online-panel    { grid-area: 1 / 2 / 2 / 3; }
+    .motd-row       { grid-area: 2 / 1 / 3 / 3; }
+    .info-row       { grid-area: 3 / 1 / 4 / 3; }
 
-        main.has-sidebar {
-            grid-template-columns: 1fr 300px;
-        }
-        main.has-sidebar .solo {
-            grid-area: 1 / 1 / 2 / 2;
-        }
-        main.has-sidebar online-panel {
-            grid-area: 1 / 2 / 4 / 3;
-            overflow-y: auto;
-            max-height: calc(100vh - 6rem);
-        }
-        main.has-sidebar .motd-row {
-            grid-area: 2 / 1 / 3 / 2;
-        }
-        main.has-sidebar .info-row {
-            grid-area: 3 / 1 / 4 / 2;
-        }
+    main.has-sidebar {
+        grid-template-columns: 1fr 250px;
+    }
+    main.has-sidebar .solo {
+        grid-area: 1 / 1 / 2 / 2;
+    }
+    main.has-sidebar online-panel {
+        grid-area: 1 / 2 / 4 / 3;
+        overflow-y: auto;
+        max-height: calc(100vh - 6rem);
+    }
+    main.has-sidebar .motd-row {
+        grid-area: 2 / 1 / 3 / 2;
+    }
+    main.has-sidebar .info-row {
+        grid-area: 3 / 1 / 4 / 2;
     }
     .container { max-width: 900px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 0.2rem; flex: 1; }
 `];
