@@ -186,7 +186,7 @@ export const USER_BADGE_STYLES = css`
 
 export const SOLO_PANEL_STYLES = css`
     :host { display: block; font-family: 'Exo', sans-serif; font-weight: 200; }
-    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.25rem; }
+    .grid { display: grid; grid-template-columns: repeat(3, auto); gap: 0.25rem; justify-content: center; }
     button { border: none; background: none; cursor: pointer; padding: 0.2rem; border-radius: 4px; }
     button:hover { background: var(--btn-hover); }
     .icon-wrap { position: relative; display: block; width: fit-content; margin: 0 auto; }
@@ -209,10 +209,10 @@ export const INFO_PANEL_STYLES = css`
         .city-col { display: none; }
     }
     .loading { color: var(--text-muted); text-align: center; display: block; width: 100%; }
-    .group { margin-bottom: 0.2rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.2rem; }
+    .group { margin-bottom: 0.15rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.2rem; }
     .group-title { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); padding: 0.1rem 0.25rem; text-align: center; }
     .group-body { display: flex; flex-wrap: wrap; justify-content: space-evenly; }
-    .bottom-row { display: flex; align-items: flex-start; gap: 0.25rem; }
+    .bottom-row { display: flex; align-items: flex-start; gap: 0.1rem; }
     .bottom-row .recent { flex: 65; min-width: 0; height: 504px; overflow-y: auto; scrollbar-width: none; }
     .bottom-row .recent::-webkit-scrollbar { display: none; }
     .bottom-row .top-players { flex: 35; min-width: 0; height: 504px; overflow-y: auto; scrollbar-width: none; }
@@ -261,7 +261,7 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     main {
         display: grid;
         grid-template-columns: auto 230px;
-        column-gap: 0.2rem;
+        column-gap: 0.1rem;
         row-gap: 0.1rem;
     }
 
