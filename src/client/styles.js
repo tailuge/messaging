@@ -268,7 +268,7 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
 
     .solo           { grid-area: 1 / 1 / 2 / 2; }
     online-panel    { grid-area: 1 / 2 / 2 / 3; }
-    online-panel.panel { overflow-y: auto; max-height: calc(100vh - 6rem); }
+    online-panel.panel { overflow-y: auto; max-height: calc(100vh - 6rem); align-self: stretch; }
     .motd-row       { grid-area: 2 / 1 / 3 / 3; }
     .info-row       { grid-area: 3 / 1 / 4 / 3; }
 
