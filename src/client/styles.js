@@ -86,10 +86,9 @@ export const USER_LIST_STYLES = css`
         column-gap: 4px;
         row-gap: 2px;
         overflow-y: auto; overflow-x: hidden;
-        scrollbar-width: none;
+        scrollbar-width: thin;
         transition: max-height 0.3s ease;
     }
-    ul::-webkit-scrollbar { display: none; }
     ul.expanded {
         max-height: var(--ul-expanded-height);
         overflow: visible;
@@ -103,9 +102,6 @@ export const USER_LIST_STYLES = css`
         min-height: 28px;
     }
     li:not(.is-offline):hover { background: var(--btn-hover); }
-    @media (min-width: 600px) {
-        li { width: calc(50% - 2px); }
-    }
     li:last-child { border-bottom: 0.25px; }
     .user-info { display: flex; flex-direction: column; min-width: 0; }
     .user-name {

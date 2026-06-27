@@ -20,9 +20,6 @@ export class UserList extends LitElement {
     };
 
     #expanded = false;
-    #hasOverflow = false;
-    #_rafPending = false;
-    #_skipCheckUntil = 0;
     static styles = [SHARED_STYLES, USER_LIST_STYLES, css`
         @keyframes throb { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -33,51 +30,15 @@ export class UserList extends LitElement {
     `];
 
     updated() {
-        // Prevent stacking multiple rAF callbacks when slots update rapidly
-        if (this.#_rafPending) return;
-        this.#_rafPending = true;
-        requestAnimationFrame(() => {
-            this.#_rafPending = false;
-            const ul = this.renderRoot.querySelector('ul');
-            if (!ul) {
-                if (this.#hasOverflow) {
-                    this.#hasOverflow = false;
-                }
-                return;
-            }
-
-            const cols = window.innerWidth >= 600 ? 2 : 1;
-            const onlineCount = (this.slots || []).filter(s => s.status === 'online').length;
-
-            if (this.#expanded) {
-                const rows = Math.ceil(onlineCount / cols);
-                ul.style.setProperty('--ul-expanded-height', (rows * 36 + 8) + 'px');
-            } else {
-                ul.style.removeProperty('--ul-expanded-height');
-                // Skip check while collapse transition is animating (300ms CSS transition)
-                if (performance.now() < this.#_skipCheckUntil) return;
-                const sh = ul.scrollHeight;
-                const ch = ul.clientHeight;
-                const sw = ul.scrollWidth;
-                const cw = ul.clientWidth;
-                let overflow = false;
-                if (onlineCount > 0) {
-                    overflow = sh > ch + 2 || sw > cw + 2;
-                }
-                if (this.#hasOverflow !== overflow) {
-                    this.#hasOverflow = overflow;
-                    this.requestUpdate();
-                }
-            }
-        });
+        if (!this.#expanded) return;
+        const ul = this.renderRoot.querySelector('ul');
+        if (!ul) return;
+        const onlineCount = (this.slots || []).filter(s => s.status === 'online').length;
+        ul.style.setProperty('--ul-expanded-height', (onlineCount * 36 + 8) + 'px');
     }
 
     #toggleExpand() {
         this.#expanded = !this.#expanded;
-        if (!this.#expanded) {
-            // Delay overflow re-check until collapse transition completes (300ms + buffer)
-            this.#_skipCheckUntil = performance.now() + 350;
-        }
         this.requestUpdate();
     }
 
@@ -96,11 +57,9 @@ export class UserList extends LitElement {
             <ul class="${this.#expanded ? 'expanded' : ''}" aria-label="Online players">
                 ${repeat(slots, (_, i) => i, (slot, i) => this._rowSlot(slot, i, activeGameIds))}
             </ul>
-            ${this.#hasOverflow ? html`
-                <div class="expand-toggle" @click=${this.#toggleExpand}>
-                    ${this.#expanded ? '▲' : '▼'}
-                </div>
-            ` : ''}`;
+            <div class="expand-toggle" @click=${this.#toggleExpand}>
+                ${this.#expanded ? '▲' : '▼'}
+            </div>`;
     }
 
     _rowSlot(slot, index, activeGameIds) {
