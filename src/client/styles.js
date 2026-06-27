@@ -81,14 +81,17 @@ export const USER_LIST_STYLES = css`
     :host { display: block; }
     ul {
         list-style: none; margin: 0; padding: 1px;
-        max-height: 160px;
-        display: flex; flex-flow: column wrap; align-content: flex-start;
-        column-gap: 4px;
+        max-height: 148px;
+        display: flex; flex-direction: column;
         row-gap: 2px;
         overflow-y: auto; overflow-x: hidden;
         scrollbar-width: thin;
+        scrollbar-color: var(--border) transparent;
         transition: max-height 0.3s ease;
     }
+    ul::-webkit-scrollbar { width: 6px; }
+    ul::-webkit-scrollbar-track { background: transparent; }
+    ul::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
     ul.expanded {
         max-height: var(--ul-expanded-height);
         overflow: visible;
@@ -124,7 +127,7 @@ export const USER_LIST_STYLES = css`
         background: var(--btn-hover);
     }
     @media (max-width: 715px) {
-        .expand-toggle { display: none; }
+        .expand-toggle { visibility: hidden; pointer-events: none; }
     }
 `;
 
@@ -263,6 +266,7 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
         grid-template-columns: auto 230px;
         column-gap: 0.1rem;
         row-gap: 0.1rem;
+        align-items: start;
     }
 
     .solo           { grid-area: 1 / 1 / 2 / 2; }
