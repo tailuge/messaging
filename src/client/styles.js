@@ -260,7 +260,7 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
 
     main {
         display: grid;
-        grid-template-columns: auto 250px;
+        grid-template-columns: auto 230px;
         gap: 0.2rem;
     }
 
