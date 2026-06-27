@@ -102,7 +102,6 @@ export const USER_LIST_STYLES = css`
         min-height: 28px;
     }
     li:not(.is-offline):hover { background: var(--btn-hover); }
-    li:last-child { border-bottom: 0.25px; }
     .user-info { display: flex; flex-direction: column; min-width: 0; }
     .user-name {
         font-weight: 500; font-size: 0.8rem; color: var(--text);
