@@ -94,7 +94,7 @@ export const USER_LIST_STYLES = css`
     ul::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
     ul.expanded {
         max-height: var(--ul-expanded-height);
-        overflow: visible;
+        overflow: hidden;
     }
     li {
         display: flex; justify-content: space-between; align-items: center;

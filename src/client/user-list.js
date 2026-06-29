@@ -33,8 +33,10 @@ export class UserList extends LitElement {
         if (!this.#expanded) return;
         const ul = this.renderRoot.querySelector('ul');
         if (!ul) return;
-        const onlineCount = (this.slots || []).filter(s => s.status === 'online').length;
-        ul.style.setProperty('--ul-expanded-height', (onlineCount * 36 + 8) + 'px');
+        const height = ul.scrollHeight;
+        if (height > 0) {
+            ul.style.setProperty('--ul-expanded-height', height + 'px');
+        }
     }
 
     #toggleExpand() {
