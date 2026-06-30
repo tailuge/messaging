@@ -31,7 +31,7 @@ class ChallengeModal extends LitElement {
         { id: 'threecushion', label: 'Three Cushion (7)',   img: 'assets/threecushion.png', options: { raceTo: '7' } },
         { id: 'threecushion', label: 'Three Cushion (25)',  img: 'assets/threecushion.png', options: { raceTo: '25' } },
         { id: 'threecushion', label: 'Three Cushion Collaboration (15)', img: 'assets/threecushion.png', options: { raceTo: '15', collaboration: true, shotClock: '60' } },
-        { id: 'threecushion', label: 'Three Cushion Traditional (15)', img: 'assets/threecushion.png', options: { raceTo: '15', practice: false, shotClock: '45' } },
+        { id: 'threecushion', label: 'Three Cushion Traditional (10)', img: 'assets/threecushion.png', options: { raceTo: '10', practice: false, shotClock: '45' } },
 
     ];
 
