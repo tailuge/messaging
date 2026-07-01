@@ -6,9 +6,11 @@ import { SOLO_PANEL_STYLES, BADGE_STYLES } from './styles.js';
 const GAMES = [
     { label: "Nine Ball",     img: "assets/nineball.png",     ruletype: "nineball" },
     { label: "Snooker 6r",       img: "assets/snooker.png",      ruletype: "snooker",      options: { reds: "6" } },
+    { label: "Snooker 10r",       img: "assets/snooker.png",      ruletype: "snooker",      options: { reds: "10" } },    
     { label: "Snooker",    img: "assets/snooker.png",      ruletype: "snooker",      options: { reds: "15" } },
     { label: "3-Cushion (7)",     img: "assets/threecushion.png", ruletype: "threecushion", options: { raceTo: "7" }  },
-    { label: "3-Cushion drill",  img: "assets/drill.png",    url: "https://velikodimov.github.io/billiards/dist/index.html?ruletype=threecushion&practice&drill", absolute: true },
+    { label: "3-Cushion (15)",     img: "assets/threecushion.png", ruletype: "threecushion", options: { raceTo: "15" }  },    
+    { label: "3-Cushion analysis",  img: "assets/drill.png",    url: "https://velikodimov.github.io/billiards/dist/index.html?ruletype=threecushion&practice&drill", absolute: true },
     { label: "3-Cushion (35)",  img: "assets/threecushion.png", ruletype: "threecushion", options: { raceTo: "35" } },
     { label: "Trickshot",     img: "assets/practice.png",     url: "https://billiards.tailuge.workers.dev/practice" },
     { label: "Research",      img: "assets/research.png",     url: "https://billiards.tailuge.workers.dev/diagrams/three" },

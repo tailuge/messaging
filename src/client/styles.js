@@ -189,8 +189,8 @@ export const USER_BADGE_STYLES = css`
 
 export const SOLO_PANEL_STYLES = css`
     :host { display: block; font-family: 'Exo', sans-serif; font-weight: 200; }
-    .grid { display: grid; grid-template-columns: repeat(3, auto); gap: 0.25rem; justify-content: center; }
-    button { border: none; background: none; cursor: pointer; padding: 0.2rem; border-radius: 4px; }
+    .grid { display: grid; grid-template-columns: repeat(4, auto); gap: 0.1rem; justify-content: center; }
+    button { border: none; background: none; cursor: pointer; padding: 0.1rem; border-radius: 4px; }
     button:hover { background: var(--btn-hover); }
     .icon-wrap { position: relative; display: block; width: fit-content; margin: 0 auto; }
     img { display: block; width: 48px; height: 48px; margin: auto; }
