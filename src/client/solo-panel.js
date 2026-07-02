@@ -15,7 +15,7 @@ const GAMES = [
     { label: "Trickshot",     img: "assets/practice.png",     url: "https://billiards.tailuge.workers.dev/practice" },
     { label: "Research",      img: "assets/research.png",     url: "https://billiards.tailuge.workers.dev/diagrams/three" },
     { label: "Eight Ball",    img: "assets/eightball.png",    ruletype: "eightball" },
-    { label: "Exam",          img: "assets/cert.png",         url: "exam/exam.html" },
+    { label: "Exam",          img: "assets/cert.png",         url: "exam/index.html", absolute: true },
 ];
 
 
