@@ -1,39 +1,92 @@
-import { html } from 'lit';
-import { userStore, StoreElement } from './user-store.js';
-import { soloUrl } from './utils.js';
-import { SOLO_PANEL_STYLES, BADGE_STYLES } from './styles.js';
+import { html } from "lit";
+import { userStore, StoreElement } from "./user-store.js";
+import { soloUrl } from "./utils.js";
+import { SOLO_PANEL_STYLES, BADGE_STYLES } from "./styles.js";
 
 const GAMES = [
-    { label: "Nine Ball",     img: "assets/nineball.png",     ruletype: "nineball" },
-    { label: "Snooker 6r",       img: "assets/snooker.png",      ruletype: "snooker",      options: { reds: "6" } },
-    { label: "Snooker 10r",       img: "assets/snooker.png",      ruletype: "snooker",      options: { reds: "10" } },    
-    { label: "Snooker",    img: "assets/snooker.png",      ruletype: "snooker",      options: { reds: "15" } },
-    { label: "3-Cushion (7)",     img: "assets/threecushion.png", ruletype: "threecushion", options: { raceTo: "7" }  },
-    { label: "3-Cushion (15)",     img: "assets/threecushion.png", ruletype: "threecushion", options: { raceTo: "15" }  },    
-    { label: "3-Cushion analysis",  img: "assets/drill.png",    url: "https://velikodimov.github.io/billiards/dist/index.html?ruletype=threecushion&practice&drill", absolute: true },
-    { label: "3-Cushion (35)",  img: "assets/threecushion.png", ruletype: "threecushion", options: { raceTo: "35" } },
-    { label: "Trickshot",     img: "assets/practice.png",     url: "https://billiards.tailuge.workers.dev/practice" },
-    { label: "Research",      img: "assets/research.png",     url: "https://billiards.tailuge.workers.dev/diagrams/three" },
-    { label: "Eight Ball",    img: "assets/eightball.png",    ruletype: "eightball" },
-    { label: "Exam",          img: "assets/cert.png",         url: "exam/index.html", absolute: true },
+  { label: "Nine Ball", img: "assets/nineball.png", ruletype: "nineball" },
+  {
+    label: "Snooker 6r",
+    img: "assets/snooker.png",
+    ruletype: "snooker",
+    options: { reds: "6" },
+  },
+  {
+    label: "Snooker 10r",
+    img: "assets/snooker.png",
+    ruletype: "snooker",
+    options: { reds: "10" },
+  },
+  {
+    label: "Snooker",
+    img: "assets/snooker.png",
+    ruletype: "snooker",
+    options: { reds: "15" },
+  },
+  {
+    label: "3-Cushion (7)",
+    img: "assets/threecushion.png",
+    ruletype: "threecushion",
+    options: { raceTo: "7" },
+  },
+  {
+    label: "3-Cushion (15)",
+    img: "assets/threecushion.png",
+    ruletype: "threecushion",
+    options: { raceTo: "15" },
+  },
+  {
+    label: "3-Cushion analysis",
+    img: "assets/drill.png",
+    url: "https://velikodimov.github.io/billiards/dist/index.html?ruletype=threecushion&practice&drill",
+    absolute: true,
+  },
+  {
+    label: "3-Cushion (35)",
+    img: "assets/threecushion.png",
+    ruletype: "threecushion",
+    options: { raceTo: "35" },
+  },
+  {
+    label: "Trickshot",
+    img: "assets/practice.png",
+    url: "https://billiards.tailuge.workers.dev/practice",
+  },
+  {
+    label: "Research",
+    img: "assets/research.png",
+    url: "https://billiards.tailuge.workers.dev/diagrams/three",
+  },
+  { label: "Eight Ball", img: "assets/eightball.png", ruletype: "eightball" },
+  {
+    label: "Exam",
+    img: "assets/cert.png",
+    url: "exam/index.html",
+    absolute: true,
+  },
 ];
 
-
 class SoloPanel extends StoreElement {
-    static styles = [SOLO_PANEL_STYLES, BADGE_STYLES];
-    #games = [...GAMES].sort(() => Math.random() - 0.5);
-    render() {
-        const { clientId, userName, lod, flip } = userStore;
-        return html`<div class="grid">${this.#games.map(g => html`
-            <button title=${g.label} aria-label="Play ${g.label}"
-                @click=${() => { window.location.href = soloUrl(g, clientId, userName, lod, flip); }}>
-                <span class="icon-wrap">
-                    <img src=${g.img} alt=${g.label} />
-                    ${g.options ? html`<span class="badge">${Object.values(g.options)[0]}</span>` : ''}
-                </span>
-            </button>`)}
-        </div>`;
-    }
+  static styles = [SOLO_PANEL_STYLES, BADGE_STYLES];
+  #games = [...GAMES].sort(() => Math.random() - 0.5);
+  render() {
+    const { clientId, userName, lod, flip } = userStore;
+    return html`<div class="grid">
+      ${this.#games.map(
+        (g) =>
+          html` <a
+            href=${soloUrl(g, clientId, userName, lod, flip)}
+            title=${g.label}
+            aria-label="Play ${g.label}"
+          >
+            <span class="icon-wrap">
+              <img src=${g.img} alt=${g.label} />
+              ${g.options ? html`<span class="badge">${Object.values(g.options)[0]}</span>` : ""}
+            </span>
+          </a>`,
+      )}
+    </div>`;
+  }
 }
 
-customElements.define('solo-panel', SoloPanel);
+customElements.define("solo-panel", SoloPanel);
