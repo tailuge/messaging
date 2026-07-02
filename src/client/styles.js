@@ -212,7 +212,7 @@ export const INFO_PANEL_STYLES = css`
         .city-col { display: none; }
     }
     .loading { color: var(--text-muted); text-align: center; display: block; width: 100%; }
-    .group { margin-bottom: 0.15rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.2rem; }
+    .group { margin-bottom: 0.14rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.2rem; }
     .group-title { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); padding: 0.1rem 0.25rem; text-align: center; }
     .group-body { display: flex; flex-wrap: wrap; justify-content: space-evenly; }
     .bottom-row { display: flex; align-items: flex-start; gap: 0.1rem; }
@@ -262,7 +262,7 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
         display: grid;
         grid-template-columns: auto 230px;
         column-gap: 0.1rem;
-        row-gap: 0.1rem;
+        row-gap: 0.14rem;
         align-items: start;
     }
 
