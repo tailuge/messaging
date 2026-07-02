@@ -216,9 +216,9 @@ export const INFO_PANEL_STYLES = css`
     .group-title { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); padding: 0.1rem 0.25rem; text-align: center; }
     .group-body { display: flex; flex-wrap: wrap; justify-content: space-evenly; }
     .bottom-row { display: flex; align-items: flex-start; gap: 0.1rem; }
-    .bottom-row .recent { flex: 65; min-width: 0; height: 504px; overflow-y: auto; scrollbar-width: none; }
+    .bottom-row .recent { flex: 65; min-width: 0; height: 508px; overflow-y: auto; scrollbar-width: none; }
     .bottom-row .recent::-webkit-scrollbar { display: none; }
-    .bottom-row .top-players { flex: 35; min-width: 0; height: 504px; overflow-y: auto; scrollbar-width: none; }
+    .bottom-row .top-players { flex: 35; min-width: 0; height: 508px; overflow-y: auto; scrollbar-width: none; }
     .bottom-row .top-players::-webkit-scrollbar { display: none; }
     .bottom-row .recent .tbl, .bottom-row .recent table { width: 100%; }
     .bottom-row .top-players .group-body { flex-direction: column; }
@@ -281,7 +281,8 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     main.has-sidebar online-panel {
         grid-area: 1 / 2 / 4 / 3;
         overflow-y: auto;
-        height: 100%;
+        align-self: stretch;
+        max-height: none;
     }
     main.has-sidebar .motd-row {
         grid-area: 2 / 1 / 3 / 2;
