@@ -214,10 +214,12 @@ class OnlinePanel extends LitElement {
                 new Notification('Challenge received!', { body: `${msg.challengerName} challenged you to ${msg.ruleType}`, icon: 'assets/threecushion.png' });
             }
         });
-        this.#lobby.onSettled(() => {
+        this.#lobby.onSettled(async () => {
             this.#settled = true;
             this.dispatch({ type: 'SETTLED', payload: true });
             this.#checkAutoChallenge();
+            await this.updateComplete;
+            this.renderRoot.querySelector('user-list')?.autoExpandIfSupported();
         });
     }
 

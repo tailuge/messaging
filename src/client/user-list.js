@@ -29,6 +29,20 @@ export class UserList extends LitElement {
         .btn-spectate:hover { background: #6d28d9; }
     `];
 
+    async autoExpandIfSupported() {
+        if (this.#expanded) return;
+        const onlineCount = (this.slots || []).filter(s => s.status === 'online').length;
+        if (onlineCount > 4) {
+            await this.updateComplete;
+            const toggle = this.renderRoot.querySelector('.expand-toggle');
+            if (toggle && getComputedStyle(toggle).visibility !== 'hidden') {
+                this.#expanded = true;
+                emit(this, 'user-list-toggle', { expanded: this.#expanded });
+                this.requestUpdate();
+            }
+        }
+    }
+
     updated() {
         if (!this.#expanded) return;
         const ul = this.renderRoot.querySelector('ul');
