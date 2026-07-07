@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 611;
+export const CLIENTVERSION = 616;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -133,6 +133,11 @@ export function getEmoji(origin = "", ruleType = "", status = "") {
   if (ruleType.includes("-exam")) {
 	const exammap = ruleMap[ruleType.replace("-exam","")];
 	return { emoji: exammap.emoji+"📜", title: "exam" };
+  }
+
+  if (ruleType.includes("-speedrun")) {
+	const speedmap = ruleMap[ruleType.replace("-speedrun","")];
+	return { emoji: speedmap.emoji+"👟", title: "speedrun" };
   }
 
   // 2. Check origin patterns

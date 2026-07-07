@@ -30,10 +30,9 @@ const GAMES = [
     options: { raceTo: "7" },
   },
   {
-    label: "3-Cushion (15)",
-    img: "assets/threecushion.png",
-    ruletype: "threecushion",
-    options: { raceTo: "15" },
+    label: "Speedrun",
+    img: "assets/speedrun.png",
+    url: "speedrun/index.html",
   },
   {
     label: "3-Cushion analysis",
