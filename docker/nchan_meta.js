@@ -29,6 +29,39 @@ function obfuscateOrigin(origin) {
   return proto + obfuscateIp(hostPart) + pathPart;
 }
 
+function parseUA(ua) {
+  var os = "Unknown";
+  var browser = "Unknown";
+
+  if (ua) {
+    // OS detection (mutually exclusive priority)
+    if (/Android/i.test(ua)) {
+      os = "Android";
+    } else if (/iPhone|iPad|iPod/i.test(ua)) {
+      os = "iOS";
+    } else if (/Windows NT/i.test(ua)) {
+      os = "Windows";
+    } else if (/Mac OS X|Macintosh/i.test(ua)) {
+      os = "macOS";
+    } else if (/Linux/i.test(ua)) {
+      os = "Linux";
+    }
+
+    // Browser detection (mutually exclusive priority)
+    if (/Edg\//i.test(ua)) {
+      browser = "Edge";
+    } else if (/Chrome\//i.test(ua)) {
+      browser = "Chrome";
+    } else if (/Firefox\//i.test(ua)) {
+      browser = "Firefox";
+    } else if (/Safari\//i.test(ua)) {
+      browser = "Safari";
+    }
+  }
+
+  return { os: os, browser: browser };
+}
+
 function createMeta(r, country, city, since) {
   return {
     ts: Date.now(),
@@ -45,6 +78,7 @@ async function buildMeta(r) {
   const obfuscatedIp = obfuscateIp(ip);
   const cache = ngx.shared.ip_cache;
   const origin = r.headersIn.origin || "";
+  const parsedUA = parseUA(r.headersIn["user-agent"] || "");
 
   const cached = cache.get(obfuscatedIp);
 
@@ -64,7 +98,7 @@ async function buildMeta(r) {
 
     const since = parseInt(parts[4]) || Date.now();
     const newCount = count + 1;
-    cache.set(obfuscatedIp, `${country}|${city}|${newCount}|${origins}|${since}`, 86400000);
+    cache.set(obfuscatedIp, `${country}|${city}|${newCount}|${origins}|${since}|${parsedUA.os}|${parsedUA.browser}`, 86400000);
     return createMeta(r, country, city, since);
   }
 
@@ -87,7 +121,7 @@ async function buildMeta(r) {
   // Cache for 24 hours (86400000 ms) - use obfuscated IP as key
   const obfuscatedOrigin = origin ? obfuscateOrigin(origin) : "";
   const since = Date.now();
-  cache.set(obfuscatedIp, `${country}|${city}|1|${obfuscatedOrigin}|${since}`, 86400000);
+  cache.set(obfuscatedIp, `${country}|${city}|1|${obfuscatedOrigin}|${since}|${parsedUA.os}|${parsedUA.browser}`, 86400000);
 
   return createMeta(r, country, city, since);
 }

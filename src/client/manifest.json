@@ -21,11 +21,15 @@
       "purpose": "maskable"
     }
   ],
-  "start_url": "lobby.html",
+  "start_url": "./lobby.html",
   "background_color": "#1a1a1a",
   "display": "standalone",
   "scope": "./",
   "theme_color": "#1a1a1a",
-  "orientation": "landscape",
+  "categories": [
+    "games",
+    "sports",
+    "entertainment"
+  ],
   "description": "Free multiplayer lobby for Billiards. Find matches, challenge players, and play realistic pool online."
 }
