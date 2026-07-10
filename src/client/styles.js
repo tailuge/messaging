@@ -189,11 +189,11 @@ export const USER_BADGE_STYLES = css`
 
 export const SOLO_PANEL_STYLES = css`
     :host { display: block; font-family: 'Exo', sans-serif; font-weight: 200; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, 48px); gap: 0.1rem; justify-content: center; }
-    a { border: none; background: none; cursor: pointer; padding: 0.1rem; border-radius: 4px; display: inline-block; text-decoration: none; color: inherit; }
+    .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 48px)); gap: 0.1rem; justify-content: center; }
+    a { border: none; background: none; cursor: pointer; padding: 0.1rem; border-radius: 4px; display: inline-block; text-decoration: none; color: inherit; width: 100%; box-sizing: border-box; }
     a:hover { background: var(--btn-hover); }
-    .icon-wrap { position: relative; display: block; width: fit-content; margin: 0 auto; }
-    img { display: block; width: 48px; height: 48px; margin: auto; }
+    .icon-wrap { position: relative; display: block; width: 100%; }
+    img { display: block; width: 100%; height: auto; margin: auto; }
 `;
 
 export const INFO_PANEL_STYLES = css`
