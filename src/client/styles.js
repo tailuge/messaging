@@ -189,7 +189,7 @@ export const USER_BADGE_STYLES = css`
 
 export const SOLO_PANEL_STYLES = css`
     :host { display: block; font-family: 'Exo', sans-serif; font-weight: 200; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(48px, 1fr)); gap: 0.1rem; justify-content: center; max-width: 200px; margin: 0 auto; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, 48px); gap: 0.1rem; justify-content: center; }
     a { border: none; background: none; cursor: pointer; padding: 0.1rem; border-radius: 4px; display: inline-block; text-decoration: none; color: inherit; }
     a:hover { background: var(--btn-hover); }
     .icon-wrap { position: relative; display: block; width: fit-content; margin: 0 auto; }
