@@ -41,10 +41,10 @@ const GAMES = [
     absolute: true,
   },
   {
-    label: "3-Cushion (35)",
+    label: "3-Cushion (40)",
     img: "assets/threecushion.png",
     ruletype: "threecushion",
-    options: { raceTo: "35" },
+    options: { raceTo: "40" },
   },
   {
     label: "Trickshot",
