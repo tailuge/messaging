@@ -73,10 +73,6 @@ When upgrading to Nginx 1.30.3 and NJS 1.0.0, carefully monitor the following ar
 
 The Billiards Network Nchan Server is designed to deploy on **Render.com**. Keep the following deployment guidelines in mind:
 
-1. **Render Native Health Checks vs Docker Health Checks:**
-   * The `docker/Dockerfile` includes a native `HEALTHCHECK` directive:
-     `HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD wget ...`
-   * Render ignores the Docker `HEALTHCHECK` instruction and uses its own HTTP Health Check path configured in the Render Dashboard. Ensure the Render service health check path is mapped to `/basic_status` or a lightweight endpoint.
 2. **Subrequest Timing & API Latency:**
    * Our NJS geo-location logic performs an external request to `https://api.country.is/`. Render instances on the free/individual tier can experience transient network delays. If the API lookup times out or stalls, it could block client publish requests.
    * Ensure that the `timeout: 2000` parameter on `ngx.fetch` remains active to prevent slow geolocation lookups from cascading into system-wide publish timeouts.
