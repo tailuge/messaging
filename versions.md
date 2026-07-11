@@ -21,9 +21,9 @@ FROM alpine:3.24 AS builder
 
 | Component | Configured Version | Recommended Version | Release Date | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **Alpine Linux** | `3.23` | **`3.24.1`** (or `3.24`) | June 13, 2026 | Out-of-date |
-| **Nginx** | `1.28.2` | **`1.30.3`** (Stable) | June 17, 2026 | Out-of-date |
-| **NJS (Nginx JavaScript)** | `0.9.6` | **`1.0.0`** (Stable) | June 23, 2026 | Out-of-date |
+| **Alpine Linux** | `3.24` | **`3.24`** | June 13, 2026 | **Up-to-date** |
+| **Nginx** | `1.30.3` | **`1.30.3`** (Stable) | June 17, 2026 | **Up-to-date** |
+| **NJS (Nginx JavaScript)** | `1.0.0` | **`1.0.0`** (Stable) | June 23, 2026 | **Up-to-date** |
 | **Nchan** | `1.3.8` | **`1.3.8`** | Feb 14, 2026 | **Up-to-date** |
 
 ---
