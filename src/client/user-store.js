@@ -3,7 +3,8 @@ import { isVercel } from './utils.js';
 
 const genId = (userName) => {
     const prefix = (userName || 'user').slice(0, 4);
-    return prefix + '-' + Math.random().toString(36).slice(2, 7);
+    const sep = /Tauri/i.test(navigator.userAgent) ? '-t-' : '-';
+    return prefix + sep + Math.random().toString(36).slice(2, 7);
 };
 
 class UserStore extends EventTarget {
