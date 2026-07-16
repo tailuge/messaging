@@ -34,9 +34,9 @@ class ChallengeModal extends LitElement {
             label: 'Snooker',
             img: 'assets/snooker.png',
             rules: [
-                { id: 'snooker', label: 'Snooker (6 reds)',  img: 'assets/snooker.png', options: { reds: '6' } },
-                { id: 'snooker', label: 'Snooker (10 reds)', img: 'assets/snooker.png', options: { reds: '10' } },
-                { id: 'snooker', label: 'Snooker (15 reds)', img: 'assets/snooker.png' },
+                { id: 'snooker', label: '6 reds',  img: 'assets/snooker.png', options: { reds: '6' } },
+                { id: 'snooker', label: '10 reds', img: 'assets/snooker.png', options: { reds: '10' } },
+                { id: 'snooker', label: '15 reds', img: 'assets/snooker.png' },
             ],
         },
         {
@@ -44,11 +44,11 @@ class ChallengeModal extends LitElement {
             label: 'Three Cushion',
             img: 'assets/threecushion.png',
             rules: [
-                { id: 'threecushion', label: 'Three Cushion (7)',  img: 'assets/threecushion.png', options: { raceTo: '7' } },
-                { id: 'threecushion', label: 'Three Cushion (25)', img: 'assets/threecushion.png', options: { raceTo: '25' } },
-                { id: 'threecushion', label: 'Small Table (15)',   img: 'assets/baby.png', options: { raceTo: '15', collaboration: true, shotClock: '60', tableSize: '5' } },
+                { id: 'threecushion', label: 'Race to 7',  img: 'assets/threecushion.png', options: { raceTo: '7' } },
+                { id: 'threecushion', label: 'Race to 25', img: 'assets/threecushion.png', options: { raceTo: '25' } },
                 { id: 'threecushion', label: 'Collaboration (15)', img: 'assets/threecushion.png', options: { raceTo: '15', collaboration: true, shotClock: '60' } },
                 { id: 'threecushion', label: 'Traditional (10)',   img: 'assets/threecushion.png', options: { raceTo: '10', practice: false, shotClock: '45' } },
+                { id: 'threecushion', label: 'Small Table (15)',   img: 'assets/baby.png', options: { raceTo: '15', collaboration: true, shotClock: '60', tableSize: '5' } },
             ],
         },
         {
@@ -56,8 +56,8 @@ class ChallengeModal extends LitElement {
             label: 'Sagu',
             img: 'assets/sagu.png',
             rules: [
-                { id: 'sagu', label: '4-ball Small Table (5)', img: 'assets/sagu.png', options: { raceTo: '5', tableSize: '5' } },
-                { id: 'sagu', label: '4-ball (20)',            img: 'assets/sagu.png', options: { raceTo: '20' } },
+                { id: 'sagu', label: 'Race to 20',            img: 'assets/sagu.png', options: { raceTo: '20' } },
+                { id: 'sagu', label: 'Small Table (5)', img: 'assets/baby.png', options: { raceTo: '5', tableSize: '5' } },
             ],
         },
     ];

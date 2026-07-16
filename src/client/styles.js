@@ -183,7 +183,7 @@ export const CHALLENGE_MODAL_STYLES = css`
     button.cancel { background: var(--modal-cancel); color: var(--text); border-color: var(--btn-border); padding: 0.15rem; }
     button.msg-btn {
         display: flex; align-items: center; justify-content: center;
-        padding: 0.15rem; font-size: 1.5rem; line-height: 1;
+        padding: 0.15rem;
         background: var(--btn-bg); border: 1px solid var(--btn-border);
         border-radius: 4px; min-width: 24px; min-height: 24px;
     }
