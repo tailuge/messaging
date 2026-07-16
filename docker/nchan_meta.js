@@ -98,8 +98,7 @@ async function buildMeta(r) {
 
     const since = parseInt(parts[4]) || Date.now();
     const newCount = count + 1;
-    const existingReferrer = parts[7] || "";
-    cache.set(obfuscatedIp, `${country}|${city}|${newCount}|${origins}|${since}|${parsedUA.os}|${parsedUA.browser}|${existingReferrer}`, 86400000);
+    cache.set(obfuscatedIp, `${country}|${city}|${newCount}|${origins}|${since}|${parsedUA.os}|${parsedUA.browser}`, 86400000);
     return createMeta(r, country, city, since);
   }
 
@@ -122,12 +121,7 @@ async function buildMeta(r) {
   // Cache for 24 hours (86400000 ms) - use obfuscated IP as key
   const obfuscatedOrigin = origin ? obfuscateOrigin(origin) : "";
   const since = Date.now();
-  // Pick up referrer from presence_sub temp key (if set before publish)
-  const tempRef = cache.get(`ref:${obfuscatedIp}`) || "";
-  if (tempRef) {
-    cache.delete(`ref:${obfuscatedIp}`);
-  }
-  cache.set(obfuscatedIp, `${country}|${city}|1|${obfuscatedOrigin}|${since}|${parsedUA.os}|${parsedUA.browser}|${tempRef}`, 86400000);
+  cache.set(obfuscatedIp, `${country}|${city}|1|${obfuscatedOrigin}|${since}|${parsedUA.os}|${parsedUA.browser}`, 86400000);
 
   return createMeta(r, country, city, since);
 }
@@ -216,23 +210,38 @@ function presence_sub(r) {
       ngx.shared.online_users.set(userId, "1");
     }
 
-    // Capture referrer from subscribe URL query param (one-time per IP)
+    // Capture referrer from subscribe URL query param (tracks multiple sources per IP)
     const referrer = r.headersIn['X-Referrer'];
     if (referrer && referrer.length > 0) {
+      // Value is already URL-encoded from the client's query param (Nginx $arg_ref preserves encoding).
+      // Decode, strip query params & fragment for clean grouping, then re-encode for storage.
       const sanitized = referrer.replace(/\|/g, '');
+      const decoded = decodeURIComponent(sanitized);
+      const stripped = decoded.replace(/[?#].*$/, '').replace(/\|/g, '');
+      const value = encodeURIComponent(stripped);
       const ip = getClientIp(r);
       const obfuscatedIp = obfuscateIp(ip);
       const cache = ngx.shared.ip_cache;
-      const cached = cache.get(obfuscatedIp);
-      if (cached) {
-        const parts = cached.split("|");
-        if (!parts[7]) {
-          parts[7] = sanitized;
-          cache.set(obfuscatedIp, parts.join("|"), 86400000);
+      const rrefKey = `rref:${obfuscatedIp}`;
+      const existing = cache.get(rrefKey);
+      if (existing) {
+        const entries = existing.split(",");
+        let found = false;
+        for (let i = 0; i < entries.length; i++) {
+          const pair = entries[i].split("|");
+          if (pair[1] === value) {
+            pair[0] = String(parseInt(pair[0]) + 1);
+            entries[i] = pair.join("|");
+            found = true;
+            break;
+          }
         }
+        if (!found) {
+          entries.push(`1|${value}`);
+        }
+        cache.set(rrefKey, entries.join(","), 86400000);
       } else {
-        // Cache entry doesn't exist yet - store temporarily for buildMeta to pick up
-        cache.set(`ref:${obfuscatedIp}`, sanitized, 300000);
+        cache.set(rrefKey, `1|${value}`, 86400000);
       }
     }
 
@@ -316,7 +325,21 @@ function getIpCache() {
     const keys = cache.keys() || [];
     const entries = {};
     keys.forEach((k) => {
-      if (k.startsWith("ref:")) return;
+      if (k.startsWith("ref:") || k.startsWith("rref:")) return;
+      const value = cache.get(k);
+      if (typeof value !== "undefined") {
+        entries[k] = value;
+      }
+    });
+    return entries;
+  }
+
+  function getReferrerCache() {
+    const cache = ngx.shared.ip_cache;
+    const keys = cache.keys() || [];
+    const entries = {};
+    keys.forEach((k) => {
+      if (!k.startsWith("rref:")) return;
       const value = cache.get(k);
       if (typeof value !== "undefined") {
         entries[k] = value;
@@ -398,6 +421,7 @@ function getIpCache() {
         "presence_unsubscribe_websocket_total",
       ]),
       ip_cache: getIpCache(),
+      referrer_cache: getReferrerCache(),
       online_users: getOnlineUsers(),
       uptime: getUptime(),
       njs_logs: getLastLines("/var/log/nginx/njs_error.log", 1000),

@@ -308,13 +308,12 @@ table td {
                  <th>Location</th>
                  <th>Hits</th>
                  <th>Origins</th>
-                 <th>Referrer</th>
                  <th>Since</th>
                </tr>
              </thead>
              <tbody>
                <tr>
-                 <td colspan="7" style="text-align: center; color: var(--secondary-color)">
+                 <td colspan="6" style="text-align: center; color: var(--secondary-color)">
                    No cache data available.
                  </td>
                </tr>
@@ -322,6 +321,31 @@ table td {
            </table>
          </div>
        </div>
+
+<div class="card" id="ref-card">
+        <div class="toggle-header" onclick="toggleCard('ref-card')" style="cursor: pointer;">
+          <h3 style="margin: 0; display: inline;">Referrer Sources</h3>
+          <span class="toggle-indicator">▾</span>
+        </div>
+        <div id="ref-meta" class="refresh-tag"></div>
+        <div class="card-content" id="ref-info">
+          <table id="ref-table">
+            <thead>
+              <tr>
+                <th>Referrer</th>
+                <th>Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="2" style="text-align: center; color: var(--secondary-color)">
+                  No referrer data available.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
 <div class="card" id="ua-card">
         <div class="toggle-header" onclick="toggleCard('ua-card')" style="cursor: pointer;">
@@ -491,16 +515,39 @@ table td {
                 const hits = escapeHtml(parts[2] || "1");
                 const origins = escapeHtml(parts[3] || "-");
                 const location = city ? city : "-";
-                const referrer = parts[7] ? escapeHtml(parts[7]) : "-";
                 const sinceTs = parseInt(parts[4]);
                 const since = sinceTs ? new Date(sinceTs).toLocaleString() : "-";
-                return `<tr><td class="ip-col">${escapeHtml(ip)}</td><td>${country}</td><td>${location}</td><td>${hits}</td><td>${origins}</td><td>${referrer}</td><td>${since}</td></tr>`;
+                return `<tr><td class="ip-col">${escapeHtml(ip)}</td><td>${country}</td><td>${location}</td><td>${hits}</td><td>${origins}</td><td>${since}</td></tr>`;
               })
               .join("");
           } else {
             ipCacheTableBody.innerHTML =
-              '<tr><td colspan="7" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
+              '<tr><td colspan="6" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
           }
+
+        const refTableBody = document.querySelector("#ref-table tbody");
+        const refCacheEntries = data.referrer_cache && typeof data.referrer_cache === "object" ? data.referrer_cache : null;
+        if (refCacheEntries && Object.keys(refCacheEntries).length > 0) {
+          const aggregated = {};
+          for (const val of Object.values(refCacheEntries)) {
+            const entries = val.split(",");
+            for (const entry of entries) {
+              const pipeIdx = entry.indexOf("|");
+              if (pipeIdx === -1) continue;
+              const count = parseInt(entry.substring(0, pipeIdx)) || 1;
+              const encodedRef = entry.substring(pipeIdx + 1);
+              const ref = decodeURIComponent(encodedRef);
+              aggregated[ref] = (aggregated[ref] || 0) + count;
+            }
+          }
+          const sorted = Object.entries(aggregated).sort((a, b) => b[1] - a[1]);
+          refTableBody.innerHTML = sorted
+            .map(([ref, count]) => `<tr><td>${escapeHtml(ref)}</td><td>${count}</td></tr>`)
+            .join("");
+        } else {
+          refTableBody.innerHTML =
+            '<tr><td colspan="2" style="text-align: center; color: var(--secondary-color);">No referrer data available.</td></tr>';
+        }
 
         const uaTableBody = document.querySelector("#ua-table tbody");
         if (ipCacheEntries && Object.keys(ipCacheEntries).length > 0) {
