@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 638;
+export const CLIENTVERSION = 641;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -195,7 +195,7 @@ export const spectateUrl = ({ tableId, userId, userName, ruleType }) =>
     `${BASE}?websocketserver=${WS_SERVER}`
     + `&tableId=${tableId}&userName=${encodeURIComponent(userName)}&userId=${userId}&ruletype=${ruleType}&spectator=true`;
 
-const RULE_ASSETS = { eightball: 'eightball', snooker: 'snooker', threecushion: 'threecushion', nineball: 'nineball' };
+const RULE_ASSETS = { eightball: 'eightball', snooker: 'snooker', threecushion: 'threecushion', nineball: 'nineball', sagu: 'sagu' };
 export const ruleIcon = rule => {
     const name = RULE_ASSETS[rule];
     return name
