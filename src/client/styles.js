@@ -150,12 +150,44 @@ export const SENT_CHALLENGE_BANNER_STYLES = css`
 export const CHALLENGE_MODAL_STYLES = css`
     :host { display: block; }
     .backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.3); backdrop-filter: blur(1px); display: flex; align-items: center; justify-content: center; z-index: 100; }
-    .modal { background: var(--modal-bg); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 0.75rem 1rem; min-width: 240px; display: flex; flex-direction: column; gap: 0.4rem; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); }
+    .modal { background: var(--modal-bg); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 0.75rem 1rem; min-width: 240px; display: flex; flex-direction: column; gap: 2px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); }
     h3 { margin: 0; font-size: 0.95rem; text-align: center; }
-    .rules { display: flex; flex-direction: column; gap: 0.2rem; }
+    .sections { display: flex; flex-direction: column; gap: 2px; }
+    .section { display: flex; flex-direction: column; }
+    .section-header {
+        display: flex; align-items: center; justify-content: flex-start;
+        gap: 0.4rem;
+        padding: 0.15rem; cursor: pointer;
+        background: var(--btn-bg); border: 1px solid var(--btn-border);
+        border-radius: 4px; min-width: 24px; min-height: 24px;
+        transition: background-color 0.15s, filter 0.15s;
+    }
+    .section-header:hover { background: var(--btn-hover); }
+    .section-header.active { background: var(--btn-active); filter: brightness(1.1); }
+    .section-header img { width: 32px; height: 32px; display: block; }
+    .section-label { font-size: 0.8rem; color: var(--text); }
+    .section-body {
+        display: flex; flex-direction: column; gap: 0.2rem;
+        max-height: 0; opacity: 0; visibility: hidden;
+        padding: 0;
+        overflow: hidden;
+        transition: max-height 0.25s ease, opacity 0.2s ease, padding 0.25s ease, visibility 0.25s ease;
+    }
+    .section-body.expanded {
+        max-height: 500px;
+        opacity: 1; visibility: visible;
+        padding: 0.25rem 0 0.25rem 0;
+    }
     button.rule { text-align: left; padding: 0.2rem 0.6rem; font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem; }
     button.rule img { width: 28px; height: 28px; display: block; }
-    button.cancel { background: var(--modal-cancel); color: var(--text); border-color: var(--btn-border); }
+    button.cancel { background: var(--modal-cancel); color: var(--text); border-color: var(--btn-border); padding: 0.15rem; }
+    button.msg-btn {
+        display: flex; align-items: center; justify-content: center;
+        padding: 0.15rem; font-size: 1.5rem; line-height: 1;
+        background: var(--btn-bg); border: 1px solid var(--btn-border);
+        border-radius: 4px; min-width: 24px; min-height: 24px;
+    }
+    button.msg-btn:hover { background: var(--btn-hover); }
     .icon-wrap { position: relative; width: 28px; height: 28px; flex-shrink: 0; }
     .icon-wrap img { width: 28px; height: 28px; display: block; }
 `;
