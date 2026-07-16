@@ -107,6 +107,7 @@ export function getEmoji(origin = "", ruleType = "", status = "") {
     eightball: { emoji: "🎱", title: "eightball" },
     snooker: { emoji: "🔴", title: "snooker" },
     threecushion: { emoji: "③", title: "threecushion" },
+    sagu: { emoji: "④", title: "sagu" },
   };
 
     const mapped = ruleMap[ruleType]

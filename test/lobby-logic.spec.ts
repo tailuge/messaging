@@ -1,4 +1,4 @@
-import { reduce, INITIAL_STATE } from "../src/client/utils.js";
+import { reduce, INITIAL_STATE, getEmoji } from "../src/client/utils.js";
 
 // Mock lit
 jest.mock('lit', () => ({
@@ -6,6 +6,28 @@ jest.mock('lit', () => ({
 }));
 
 describe("Lobby Logic", () => {
+  describe("getEmoji", () => {
+    it("should return correct emoji and title for sagu", () => {
+      const result = getEmoji("", "sagu");
+      expect(result).toEqual({ emoji: "④", title: "sagu" });
+    });
+
+    it("should handle sub-types of sagu like sagu-bot", () => {
+      const result = getEmoji("", "sagu-bot");
+      expect(result).toEqual({ emoji: "④🤖", title: "bot" });
+    });
+
+    it("should handle sub-types of sagu like sagu-speedrun", () => {
+      const result = getEmoji("", "sagu-speedrun");
+      expect(result).toEqual({ emoji: "④👟", title: "speedrun" });
+    });
+
+    it("should handle sub-types of sagu like sagu-mini", () => {
+      const result = getEmoji("", "sagu-mini");
+      expect(result).toEqual({ emoji: "④🍼", title: "mini" });
+    });
+  });
+
   describe("reduce - challenge resolution", () => {
     const myId = "alice";
     const opponentId = "bob";
