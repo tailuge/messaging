@@ -26,14 +26,15 @@ class ChallengeModal extends LitElement {
         { id: 'eightball',    label: 'Eight Ball',          img: 'assets/eightball.png' },
         { id: 'nineball',     label: 'Nine Ball',           img: 'assets/nineball.png' },
         { id: 'snooker',      label: 'Snooker (6 reds)',    img: 'assets/snooker.png', options: { reds: '6' } },
-        { id: 'snooker',      label: 'Snooker (10 reds)',    img: 'assets/snooker.png', options: { reds: '10' } },	
+        { id: 'snooker',      label: 'Snooker (10 reds)',   img: 'assets/snooker.png', options: { reds: '10' } },	
         { id: 'snooker',      label: 'Snooker (15 reds)',   img: 'assets/snooker.png' },
         { id: 'threecushion', label: 'Three Cushion (7)',   img: 'assets/threecushion.png', options: { raceTo: '7' } },
         { id: 'threecushion', label: 'Three Cushion (25)',  img: 'assets/threecushion.png', options: { raceTo: '25' } },
-        { id: 'threecushion', label: 'Small Table (15)', img: 'assets/baby.png', options: { raceTo: '15', collaboration: true, shotClock: '60', tableSize: '5' } },
-        { id: 'threecushion', label: 'Collaboration (15)', img: 'assets/threecushion.png', options: { raceTo: '15', collaboration: true, shotClock: '60' } },
-        { id: 'threecushion', label: 'Traditional (10)', img: 'assets/threecushion.png', options: { raceTo: '10', practice: false, shotClock: '45' } },
-
+        { id: 'threecushion', label: 'Small Table (15)',    img: 'assets/baby.png', options: { raceTo: '15', collaboration: true, shotClock: '60', tableSize: '5' } },
+        { id: 'threecushion', label: 'Collaboration (15)',  img: 'assets/threecushion.png', options: { raceTo: '15', collaboration: true, shotClock: '60' } },
+        { id: 'threecushion', label: 'Traditional (10)',    img: 'assets/threecushion.png', options: { raceTo: '10', practice: false, shotClock: '45' } },
+        { id: 'sagu',         label: '4-ball Small Table (5)', img: 'assets/sagu.png', options: { raceTo: '5', tableSize: '5' } },
+        { id: 'sagu',         label: '4-ball (20)',         img: 'assets/sagu.png', options: { raceTo: '20' } },
     ];
 
     render() {
