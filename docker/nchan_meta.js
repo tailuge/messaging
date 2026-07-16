@@ -98,7 +98,8 @@ async function buildMeta(r) {
 
     const since = parseInt(parts[4]) || Date.now();
     const newCount = count + 1;
-    cache.set(obfuscatedIp, `${country}|${city}|${newCount}|${origins}|${since}|${parsedUA.os}|${parsedUA.browser}`, 86400000);
+    const existingReferrer = parts[7] || "";
+    cache.set(obfuscatedIp, `${country}|${city}|${newCount}|${origins}|${since}|${parsedUA.os}|${parsedUA.browser}|${existingReferrer}`, 86400000);
     return createMeta(r, country, city, since);
   }
 
@@ -121,7 +122,12 @@ async function buildMeta(r) {
   // Cache for 24 hours (86400000 ms) - use obfuscated IP as key
   const obfuscatedOrigin = origin ? obfuscateOrigin(origin) : "";
   const since = Date.now();
-  cache.set(obfuscatedIp, `${country}|${city}|1|${obfuscatedOrigin}|${since}|${parsedUA.os}|${parsedUA.browser}`, 86400000);
+  // Pick up referrer from presence_sub temp key (if set before publish)
+  const tempRef = cache.get(`ref:${obfuscatedIp}`) || "";
+  if (tempRef) {
+    cache.delete(`ref:${obfuscatedIp}`);
+  }
+  cache.set(obfuscatedIp, `${country}|${city}|1|${obfuscatedOrigin}|${since}|${parsedUA.os}|${parsedUA.browser}|${tempRef}`, 86400000);
 
   return createMeta(r, country, city, since);
 }
@@ -210,6 +216,26 @@ function presence_sub(r) {
       ngx.shared.online_users.set(userId, "1");
     }
 
+    // Capture referrer from subscribe URL query param (one-time per IP)
+    const referrer = r.headersIn['X-Referrer'];
+    if (referrer && referrer.length > 0) {
+      const sanitized = referrer.replace(/\|/g, '');
+      const ip = getClientIp(r);
+      const obfuscatedIp = obfuscateIp(ip);
+      const cache = ngx.shared.ip_cache;
+      const cached = cache.get(obfuscatedIp);
+      if (cached) {
+        const parts = cached.split("|");
+        if (!parts[7]) {
+          parts[7] = sanitized;
+          cache.set(obfuscatedIp, parts.join("|"), 86400000);
+        }
+      } else {
+        // Cache entry doesn't exist yet - store temporarily for buildMeta to pick up
+        cache.set(`ref:${obfuscatedIp}`, sanitized, 300000);
+      }
+    }
+
     r.return(200);
   } catch (e) {
     r.error(`presence_sub error: ${e.message}`);
@@ -290,6 +316,7 @@ function getIpCache() {
     const keys = cache.keys() || [];
     const entries = {};
     keys.forEach((k) => {
+      if (k.startsWith("ref:")) return;
       const value = cache.get(k);
       if (typeof value !== "undefined") {
         entries[k] = value;

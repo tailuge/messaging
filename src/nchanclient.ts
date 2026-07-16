@@ -169,7 +169,11 @@ export class NchanClient {
   // Subscribing
 
   subscribePresence(userId: string, onMessage: (data: string) => void): Subscription {
-    const path = `${PATHS.PRESENCE_SUBSCRIBE}?uid=${encodeURIComponent(userId)}`;
+    let params = `uid=${encodeURIComponent(userId)}`;
+    if (typeof document !== "undefined" && document.referrer) {
+      params += `&ref=${encodeURIComponent(document.referrer)}`;
+    }
+    const path = `${PATHS.PRESENCE_SUBSCRIBE}?${params}`;
     return this.subscribe(path, onMessage);
   }
 

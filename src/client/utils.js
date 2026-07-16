@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 622;
+export const CLIENTVERSION = 634;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -127,17 +127,22 @@ export function getEmoji(origin = "", ruleType = "", status = "") {
 
   if (ruleType.includes("-bot")) {
 	const botmap = ruleMap[ruleType.replace("-bot","")];
-	return { emoji: botmap.emoji+"🤖", title: "bot" };
+	if (botmap) return { emoji: botmap.emoji+"🤖", title: "bot" };
   }
 
   if (ruleType.includes("-exam")) {
 	const exammap = ruleMap[ruleType.replace("-exam","")];
-	return { emoji: exammap.emoji+"📜", title: "exam" };
+	if (exammap) return { emoji: exammap.emoji+"📜", title: "exam" };
   }
 
   if (ruleType.includes("-speedrun")) {
 	const speedmap = ruleMap[ruleType.replace("-speedrun","")];
-	return { emoji: speedmap.emoji+"👟", title: "speedrun" };
+	if (speedmap) return { emoji: speedmap.emoji+"👟", title: "speedrun" };
+  }
+
+  if (ruleType.includes("-mini")) {
+	const minimap = ruleMap[ruleType.replace("-mini","")];
+	if (minimap) return { emoji: minimap.emoji+"🍼", title: "mini" };
   }
 
   // 2. Check origin patterns

@@ -30,8 +30,9 @@ class ChallengeModal extends LitElement {
         { id: 'snooker',      label: 'Snooker (15 reds)',   img: 'assets/snooker.png' },
         { id: 'threecushion', label: 'Three Cushion (7)',   img: 'assets/threecushion.png', options: { raceTo: '7' } },
         { id: 'threecushion', label: 'Three Cushion (25)',  img: 'assets/threecushion.png', options: { raceTo: '25' } },
-        { id: 'threecushion', label: 'Three Cushion Collaboration (15)', img: 'assets/threecushion.png', options: { raceTo: '15', collaboration: true, shotClock: '60' } },
-        { id: 'threecushion', label: 'Three Cushion Traditional (10)', img: 'assets/threecushion.png', options: { raceTo: '10', practice: false, shotClock: '45' } },
+        { id: 'threecushion', label: 'Small Table (15)', img: 'assets/baby.png', options: { raceTo: '15', collaboration: true, shotClock: '60', tableSize: '5' } },
+        { id: 'threecushion', label: 'Collaboration (15)', img: 'assets/threecushion.png', options: { raceTo: '15', collaboration: true, shotClock: '60' } },
+        { id: 'threecushion', label: 'Traditional (10)', img: 'assets/threecushion.png', options: { raceTo: '10', practice: false, shotClock: '45' } },
 
     ];
 

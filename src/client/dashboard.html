@@ -308,12 +308,13 @@ table td {
                  <th>Location</th>
                  <th>Hits</th>
                  <th>Origins</th>
+                 <th>Referrer</th>
                  <th>Since</th>
                </tr>
              </thead>
              <tbody>
                <tr>
-                 <td colspan="6" style="text-align: center; color: var(--secondary-color)">
+                 <td colspan="7" style="text-align: center; color: var(--secondary-color)">
                    No cache data available.
                  </td>
                </tr>
@@ -490,14 +491,15 @@ table td {
                 const hits = escapeHtml(parts[2] || "1");
                 const origins = escapeHtml(parts[3] || "-");
                 const location = city ? city : "-";
+                const referrer = parts[7] ? escapeHtml(parts[7]) : "-";
                 const sinceTs = parseInt(parts[4]);
                 const since = sinceTs ? new Date(sinceTs).toLocaleString() : "-";
-                return `<tr><td class="ip-col">${escapeHtml(ip)}</td><td>${country}</td><td>${location}</td><td>${hits}</td><td>${origins}</td><td>${since}</td></tr>`;
+                return `<tr><td class="ip-col">${escapeHtml(ip)}</td><td>${country}</td><td>${location}</td><td>${hits}</td><td>${origins}</td><td>${referrer}</td><td>${since}</td></tr>`;
               })
               .join("");
           } else {
             ipCacheTableBody.innerHTML =
-              '<tr><td colspan="6" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
+              '<tr><td colspan="7" style="text-align: center; color: var(--secondary-color);">No cache data available.</td></tr>';
           }
 
         const uaTableBody = document.querySelector("#ua-table tbody");
