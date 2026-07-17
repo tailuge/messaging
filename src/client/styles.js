@@ -190,7 +190,40 @@ export const CHALLENGE_MODAL_STYLES = css`
     button.msg-btn:hover { background: var(--btn-hover); }
     .icon-wrap { position: relative; width: 28px; height: 28px; flex-shrink: 0; }
     .icon-wrap img { width: 28px; height: 28px; display: block; }
-`;
+
+    .handicap-label {
+        font-size: 0.78rem; white-space: nowrap; flex-shrink: 0;
+    }
+    .handicap-inline-slider {
+        -webkit-appearance: none;
+        appearance: none;
+        flex: 1;
+        height: 4px;
+        min-width: 50px;
+        background: var(--border);
+        border-radius: 2px;
+        outline: none;
+        cursor: pointer;
+        margin: 0 0.2rem;
+    }
+    .handicap-inline-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 12px; height: 12px;
+        border-radius: 50%;
+        background: #0d6efd;
+        border: 2px solid #fff;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        cursor: pointer;
+    }
+    .handicap-inline-slider::-moz-range-thumb {
+        width: 12px; height: 12px;
+        border-radius: 50%;
+        background: #0d6efd;
+        border: 2px solid #fff;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        cursor: pointer;
+    }`;
 
 export const BADGE_STYLES = css`
     .badge { position: absolute; bottom: -3px; right: -3px; background: #7a0f1a; color: #fff; font-size: 11px; font-weight: normal; border-radius: 3px; padding: 0 2px; line-height: 1.3; border: 1px solid #fff; min-width: 0;}
