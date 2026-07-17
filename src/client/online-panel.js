@@ -207,7 +207,12 @@ class OnlinePanel extends LitElement {
     async #acceptChallenge(challengerId, nextTurnId) {
         const c = challengerId ? this.#state.challenges[challengerId] : this.#activeChallenge;
         if (!c) return;
-        if (this.#lobby) await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, c.options, c.challengerName, nextTurnId);
+        const opts = { ...c.options };
+        if (Object.keys(opts).some(k => k.startsWith('handicap_'))) {
+            const myHandicap = localStorage.getItem(`handicap_${c.ruleType}`) || '15';
+            opts['handicap_' + this.#myId] = myHandicap;
+        }
+        if (this.#lobby) await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, opts, c.challengerName, nextTurnId);
         logUsage("joinTable");
         this.dispatch({
             type: 'CHALLENGE_MSG',
@@ -218,7 +223,7 @@ class OnlinePanel extends LitElement {
                 challengeeId: this.#myId,
                 ruleType: c.ruleType,
                 tableId: c.tableId,
-                options: c.options,
+                options: opts,
                 nextTurnId
             }
         });
@@ -279,6 +284,7 @@ class OnlinePanel extends LitElement {
             <challenge-banner
                 .challenge=${this.#activeChallenge}
                 .sent=${this.#sentChallenge}
+                myId=${this.#myId}
                 @accept=${() => this.#acceptChallenge()}
                 @decline=${() => this.#declineChallenge()}
                 @cancel=${() => this.#cancelChallenge()}
@@ -311,7 +317,15 @@ class OnlinePanel extends LitElement {
             <challenge-modal
                 .userId=${p?.userId ?? null}
                 .userName=${p?.userName ?? ''}
-                @confirm=${e => { this.#challenge(p.userId, e.detail.ruleType, e.detail.options); this.#pendingChallenge = null; }}
+                @confirm=${e => {
+                    const opts = { ...e.detail.options };
+                    if (opts.handicap) {
+                        opts['handicap_' + this.#myId] = opts.handicap;
+                        delete opts.handicap;
+                    }
+                    this.#challenge(p.userId, e.detail.ruleType, opts);
+                    this.#pendingChallenge = null;
+                }}
                 @message=${() => {
                     this.#pendingMessage = { userId: p.userId, userName: p.userName };
                     this.#pendingChallenge = null;

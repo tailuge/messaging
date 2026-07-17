@@ -4,6 +4,21 @@ This document describes the design to share player handicaps between both partie
 
 ---
 
+## Progress Summary
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| A     | Local storage (ChallengeModal slider persistence) | ✅ Done |
+| B     | Offer Phase — challenger translates `handicap` → `handicap_${myId}` | ✅ Done |
+| C     | Accept Phase — recipient merges their handicap into options | ✅ Done |
+| D     | Game engine integration — parse `handicap_*` from URL params | 🔲 TODO (game project) |
+| E     | URL assembly (`appendOptions`) — no changes needed | ✅ Done (already works) |
+| F     | Banner display — relabel `handicap_*` keys nicely | ✅ Done |
+
+All library/client-side changes (A/B/C/F) are complete and tested. Only the game engine (Section D) remains.
+
+---
+
 ## 1. Context & Objectives
 
 In handicap-enabled rules, players may have different target scores representing their skill level. To start a balanced match:
@@ -74,9 +89,9 @@ No nesting, no JSON string encoding, no escaping. Every value is a plain string.
 
 ## 3. Implementation Plan
 
-### A. Local Storage (already implemented)
+### A. Local Storage ✅
 
-The `ChallengeModal` in `src/client/challenge-modal.js` already persists handicaps per section:
+The `ChallengeModal` in `src/client/challenge-modal.js` persists handicaps per section:
 
 ```javascript
 // Loading (in _loadHandicap):
@@ -86,50 +101,54 @@ const stored = localStorage.getItem(`handicap_${key}`);  // e.g. handicap_sagu
 localStorage.setItem(`handicap_${this._expanded}`, String(val));
 ```
 
-### B. Offer Phase (Challenger)
+### B. Offer Phase (Challenger) ✅
 
-When the challenger clicks a handicap rule button in `ChallengeModal`, the `confirm` event fires with `options` including `handicap: "15"` (the flat key used by the modal internally).
-
-The challenge handler (in `online-panel.js`) must translate this to the per-user key:
+Implemented in `src/client/online-panel.js` — the `@confirm` handler on `<challenge-modal>` translates the flat `handicap` key to a per-user key:
 
 ```javascript
-const myId = userStore.clientId;
-const myHandicap = options.handicap;  // comes from ChallengeModal confirm event
-
-const challengeOptions = {
-    ...options,                         // e.g. { raceTo: "20" }
-    ['handicap_' + myId]: myHandicap,  // add per-user key
-};
-delete challengeOptions.handicap;       // remove the generic key
-
-await lobby.challenge(recipientId, ruleType, challengeOptions);
+@confirm=${e => {
+    const opts = { ...e.detail.options };
+    if (opts.handicap) {
+        opts['handicap_' + this.#myId] = opts.handicap;
+        delete opts.handicap;
+    }
+    this.#challenge(p.userId, e.detail.ruleType, opts);
+    this.#pendingChallenge = null;
+}}
 ```
 
-### C. Accept Phase (Recipient)
+### C. Accept Phase (Recipient) ✅
 
-When the recipient clicks "Accept" on an incoming challenge banner:
+Implemented in `src/client/online-panel.js` — `#acceptChallenge()` loads the recipient's handicap from localStorage and merges it:
 
 ```javascript
-const myId = userStore.clientId;
-const myHandicap = localStorage.getItem(`handicap_${ruleType}`) || "15";
-
-const updatedOptions = {
-    ...(incomingChallenge.options || {}),
-    ['handicap_' + myId]: myHandicap,
-};
-
-await lobby.acceptChallenge(
-    incomingChallenge.challengerId,
-    incomingChallenge.ruleType,
-    incomingChallenge.tableId,
-    updatedOptions,
-    incomingChallenge.challengerName
-);
+const opts = { ...c.options };
+if (Object.keys(opts).some(k => k.startsWith('handicap_'))) {
+    const myHandicap = localStorage.getItem(`handicap_${c.ruleType}`) || '15';
+    opts['handicap_' + this.#myId] = myHandicap;
+}
+// opts now contains both handicap_alice-123 and handicap_bob-456
 ```
 
-### D. Game Engine Integration
+The merged options flow through both `lobby.acceptChallenge()` and the `CHALLENGE_MSG` dispatch (which builds the game URL).
 
-The game engine reads handicaps from query params by filtering keys starting with `handicap_`:
+### D. Game Engine Integration 🔲
+
+**This is the only remaining phase — to be implemented in the game project (e.g. billiards game).**
+
+The library now produces URLs with both players' handicaps as query params.
+
+#### Example URL
+
+After Alice (handicap 18) challenges Bob (handicap 18) to Sagu and Bob accepts, the game engine receives:
+
+```
+http://localhost:8080/?websocketserver=ws://localhost:80&userName=Bob&userId=Bob-w4069&ruletype=sagu&tableId=6fc21c55&lod=4&handicap_Alice-w4069=18&handicap_Bob-w4069=18
+```
+
+#### Game Engine Code
+
+The game engine must parse `handicap_*` keys from query params to build a per-user handicap map:
 
 ```javascript
 const params = new URLSearchParams(window.location.search);
@@ -139,11 +158,19 @@ for (const [k, v] of params) {
         handicaps[k.replace('handicap_', '')] = v;
     }
 }
-// handicaps = { "alice-123": "10", "bob-456": "12" }
-// My handicap: handicaps[myUserId]
+// handicaps = { "Alice-w4069": "18", "Bob-w4069": "18" }
+// My handicap: handicaps[myUserId]    → "18"
+// Opponent's handicap: handicaps[opponentUserId]
 ```
 
-### E. URL Assembly — No Changes Needed
+**Key points for game engine integration:**
+- Filter all query params starting with `handicap_` — the userId suffix is the handicap owner.
+- Values are always strings representing integers.
+- A player finds their own handicap via `handicaps[myUserId]`.
+- Only handicap-enabled rules (Sagu, future Three Cushion) will produce these params; the game engine can check `ruletype` to decide whether to use them.
+- For non-handicap rules, no `handicap_*` params will be present.
+
+### E. URL Assembly — No Changes Needed ✅
 
 The existing `appendOptions` in `src/client/utils.js` already handles this correctly:
 
@@ -153,11 +180,15 @@ const appendOptions = (url, options) => options
     : url;
 ```
 
-With `options = { raceTo: "20", handicap_alice-123: "10", handicap_bob-456: "12" }`, this produces:
+With `options = { raceTo: "20", handicap_alice-123: "18", handicap_bob-456: "18" }`, this produces:
 ```
-&raceTo=20&handicap_alice-123=10&handicap_bob-456=12
+&raceTo=20&handicap_alice-123=18&handicap_bob-456=18
 ```
 
-### F. Future: `formatOptions` Banner Display
+### F. Banner Display ✅
 
-The `formatOptions` function in `src/client/challenge-banner.js` currently renders every option key as-is (e.g. "handicap_alice-123: 10"). For a nicer display, it could filter or relabel `handicap_*` keys in a future pass (out of scope for this plan).
+Implemented in `src/client/challenge-banner.js`:
+- `formatOptions` accepts `myId` and relabels `handicap_*` keys.
+- If the embedded userId matches `myId` → **"Your handicap: 18"**
+- Otherwise → **"Handicap: 18"**
+- The incoming banner also merges the recipient's handicap from localStorage for display.

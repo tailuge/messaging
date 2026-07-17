@@ -21,12 +21,21 @@ const OPTION_LABELS = {
  * "Collaboration") from a raw options object. Shows every key — not just a
  * curated whitelist — so newly added options surface in the banner automatically.
  * Boolean false values are omitted; boolean true values render as the label only.
+ *
+ * handicap_${userId} keys are relabeled: "Your handicap" when the userId matches
+ * myId, otherwise just "Handicap".
  */
-const formatOptions = (options) => {
+const formatOptions = (options, myId) => {
     if (!options) return [];
     return Object.entries(options)
         .filter(([, v]) => !(typeof v === 'boolean' && v === false))
         .map(([k, v]) => {
+            if (k.startsWith('handicap_')) {
+                const uid = k.slice('handicap_'.length);
+                const label = myId && uid === myId ? 'Your handicap' : 'Handicap';
+                if (typeof v === 'boolean') return label;
+                return `${label}: ${v}`;
+            }
             const label = OPTION_LABELS[k] ?? k;
             if (typeof v === 'boolean') return label;
             return `${label}: ${v}`;
@@ -34,7 +43,7 @@ const formatOptions = (options) => {
 };
 
 class ChallengeBanner extends LitElement {
-    static properties = { challenge: { type: Object }, sent: { type: Object } };
+    static properties = { challenge: { type: Object }, sent: { type: Object }, myId: { type: String } };
     static styles = [SHARED_STYLES, CHALLENGE_BANNER_STYLES, SENT_CHALLENGE_BANNER_STYLES];
 
     render() {
@@ -44,7 +53,12 @@ class ChallengeBanner extends LitElement {
     }
 
     _incoming(c) {
-        const extras = formatOptions(c.options);
+        const opts = { ...c.options };
+        if (Object.keys(opts).some(k => k.startsWith('handicap_'))) {
+            const myHandicap = localStorage.getItem(`handicap_${c.ruleType}`) || '15';
+            opts['handicap_' + this.myId] = myHandicap;
+        }
+        const extras = formatOptions(opts, this.myId);
         return html`
             <div class="banner">
                 <div class="details">${ruleIcon(c.ruleType)} ${c.ruleType}</div>
@@ -59,7 +73,7 @@ class ChallengeBanner extends LitElement {
 
     _sent(c) {
         const isWaiting = c.status === 'pending';
-        const extras = formatOptions(c.options);
+        const extras = formatOptions(c.options, this.myId);
         return html`
             <div class="banner ${c.status}">
                 <div class="details">${ruleIcon(c.ruleType)} ${c.ruleType}</div>
