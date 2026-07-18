@@ -540,7 +540,24 @@ table td {
               aggregated[ref] = (aggregated[ref] || 0) + count;
             }
           }
-          const sorted = Object.entries(aggregated).sort((a, b) => b[1] - a[1]);
+          const sorted = Object.entries(aggregated).sort((a, b) => {
+            const refA = a[0];
+            const countA = a[1];
+            const refB = b[0];
+            const countB = b[1];
+
+            const isTailugeA = refA.includes("billiards.tailuge.");
+            const isTailugeB = refB.includes("billiards.tailuge.");
+
+            if (isTailugeA && !isTailugeB) {
+              return -1;
+            }
+            if (!isTailugeA && isTailugeB) {
+              return 1;
+            }
+            // If both are in the same category, sort by count descending
+            return countB - countA;
+          });
           refTableBody.innerHTML = sorted
             .map(([ref, count]) => `<tr><td>${escapeHtml(ref)}</td><td>${count}</td></tr>`)
             .join("");
