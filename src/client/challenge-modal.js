@@ -59,7 +59,7 @@ class ChallengeModal extends LitElement {
             img: 'assets/sagu.png',
             rules: [
                 { id: 'sagu', label: 'Small Table (5)', img: 'assets/baby.png', options: { raceTo: '5', tableSize: '5' } },
-                { id: 'sagu', label: 'Race to 20',      img: 'assets/sagu.png', options: { raceTo: '20' } },
+                { id: 'sagu', label: 'Race to 11',      img: 'assets/sagu.png', options: { raceTo: '11' } },
                 { id: 'sagu', label: 'Handicap',        img: 'assets/sagu.png', options: { handicap: true } },
             ],
         },

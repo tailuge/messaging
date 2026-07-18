@@ -273,6 +273,9 @@ export const INFO_PANEL_STYLES = css`
     .ago { text-align: right; font-size: 0.65em; color: var(--text-muted); white-space: nowrap; width: 1%; }
     .city-col { font-size: 0.65em; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 5rem; }
     .replay-col { text-align: right; width: 1%; white-space: nowrap; font-size: 0.8rem; }
+    @media (max-width: 600px) {
+        .sagu-hi { display: none; }
+    }
     @media (max-width: 500px) {
         .city-col { display: none; }
     }

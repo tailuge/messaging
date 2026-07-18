@@ -12,6 +12,12 @@ const GAMES = [
     options: { reds: "6" },
   },
   {
+    label: "Snooker 10r",
+    img: "assets/snooker.png",
+    ruletype: "snooker",
+    options: { reds: "10" },
+  },    
+  {
     label: "3-Cushion 5ft",
     img: "assets/baby.png",
     ruletype: "threecushion",
@@ -41,11 +47,28 @@ const GAMES = [
     absolute: true,
   },
   {
+    label: "Books",
+    img: "assets/book.png",
+    url: "book/index.html",
+  },    
+  {
     label: "3-Cushion (40)",
     img: "assets/threecushion.png",
     ruletype: "threecushion",
     options: { raceTo: "40" },
   },
+  {
+    label: "3-Cushion (15)",
+    img: "assets/threecushion.png",
+    ruletype: "threecushion",
+    options: { raceTo: "15" },
+  },
+  {
+    label: "Sagu (5)",
+    img: "assets/sagu.png",
+    ruletype: "sagu",
+    options: { raceTo: "5" },
+  },    
   {
     label: "Trickshot",
     img: "assets/practice.png",
