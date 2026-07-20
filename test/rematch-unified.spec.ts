@@ -1,12 +1,82 @@
 
 import { reduce, INITIAL_STATE } from "../src/client/utils.js";
 
-// Mock lit
+// Mock lit, styles, components, user-store, and other browser modules
 jest.mock('lit', () => ({
   html: (strings: any, ..._values: any[]) => strings[0],
   css: (strings: any, ..._values: any[]) => strings[0],
-  LitElement: class {},
+  LitElement: class {
+    requestUpdate() {}
+    get updateComplete() { return Promise.resolve(true); }
+    get renderRoot() {
+      return {
+        querySelector: () => null
+      };
+    }
+  },
 }));
+
+jest.mock('../src/client/user-store.js', () => ({
+  userStore: {
+    clientId: 'alice',
+    userName: 'Alice',
+    lod: '2',
+    flip: false,
+    useProxy: false,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  },
+  StoreElement: class {},
+}));
+
+jest.mock('../src/client/logusage.js', () => ({
+  logUsage: () => {},
+}));
+
+jest.mock('../src/client/styles.js', () => ({
+  SHARED_STYLES: '',
+  PLAYER_PANEL_STYLES: '',
+  CHALLENGE_BANNER_STYLES: '',
+  SENT_CHALLENGE_BANNER_STYLES: '',
+  CHALLENGE_MODAL_STYLES: '',
+  LOBBY_APP_STYLES: '',
+}));
+
+jest.mock('../src/client/user-slot-manager.js', () => ({
+  UserSlotManager: class {
+    update() {}
+    getSlots() { return []; }
+  }
+}));
+
+jest.mock('../src/client/user-list.js', () => ({}));
+jest.mock('../src/client/message-modal.js', () => ({}));
+jest.mock('../src/client/challenge-banner.js', () => ({}));
+jest.mock('../src/client/challenge-modal.js', () => ({}));
+
+const mockChallengeFn = jest.fn().mockResolvedValue('table-123');
+const mockJoinLobby = jest.fn().mockImplementation(() => {
+    return {
+        onUsersChange: (cb: any) => {
+            setTimeout(() => cb([{ userId: 'bob', userName: 'Bob' }]), 0);
+        },
+        onChallenge: () => {},
+        onSettled: (cb: any) => {
+            setTimeout(cb, 10);
+        },
+        challenge: mockChallengeFn,
+        updatePresence: jest.fn().mockResolvedValue({}),
+    };
+});
+
+jest.mock('../src/index.ts', () => {
+    return {
+        MessagingClient: class {
+            setVersion() {}
+            joinLobby = mockJoinLobby;
+        }
+    };
+});
 
 describe("Unified Rematch Scenarios (newspec.md)", () => {
     const A = "alice";
@@ -93,6 +163,102 @@ describe("Unified Rematch Scenarios (newspec.md)", () => {
             } as any);
             const finalB = reduce(stateB, { type: 'CHALLENGE_MSG', myId: B, payload: acceptMsg } as any);
             expect((finalB.currentMatch as any)?.isFirst).toBe(true);
+        });
+    });
+
+    describe("OnlinePanel Rematch Option Extraction & Challenge Trigger", () => {
+        let originalWindow: any;
+
+        let onlinePanelConstructor: any;
+
+        beforeAll(() => {
+            originalWindow = (globalThis as any).window;
+            (globalThis as any).window = {
+                location: {
+                    hostname: 'localhost',
+                    host: 'localhost:80',
+                    protocol: 'http:',
+                    href: 'http://localhost/?opponentId=bob&ruletype=threecushion&tableSize=5&raceTo=15&shotclock=60&reds=6',
+                    search: '?opponentId=bob&ruletype=threecushion&tableSize=5&raceTo=15&shotclock=60&reds=6'
+                },
+                history: {
+                    replaceState: jest.fn()
+                },
+                customElements: {
+                    define: jest.fn().mockImplementation((name, ctor) => {
+                        if (name === 'online-panel') {
+                            onlinePanelConstructor = ctor;
+                        }
+                    }),
+                    get: jest.fn().mockImplementation((name) => {
+                        if (name === 'online-panel') return onlinePanelConstructor;
+                        return null;
+                    })
+                },
+                document: {
+                    addEventListener: jest.fn(),
+                    removeEventListener: jest.fn(),
+                    hidden: false
+                },
+                Notification: {
+                    permission: 'default'
+                }
+            };
+            (globalThis as any).location = (globalThis as any).window.location;
+            (globalThis as any).history = (globalThis as any).window.history;
+            (globalThis as any).customElements = (globalThis as any).window.customElements;
+            (globalThis as any).document = (globalThis as any).window.document;
+            (globalThis as any).Notification = (globalThis as any).window.Notification;
+        });
+
+        afterAll(() => {
+            if (originalWindow) {
+                (globalThis as any).window = originalWindow;
+                (globalThis as any).location = originalWindow.location;
+                (globalThis as any).history = originalWindow.history;
+            } else {
+                delete (globalThis as any).window;
+                delete (globalThis as any).location;
+                delete (globalThis as any).history;
+            }
+            delete (globalThis as any).customElements;
+            delete (globalThis as any).document;
+            delete (globalThis as any).Notification;
+        });
+
+        it("should parse whitelisted rematch options and trigger challenge with them", async () => {
+            await import("../src/client/online-panel.js" as any);
+            const panel = new (customElements.get('online-panel') as any)();
+
+            // Connect and verify that the auto-challenge triggers challenge call with correct options
+            await panel._connect();
+
+            // Wait for onSettled microtask queue and timers to process
+            await new Promise((resolve) => setTimeout(resolve, 30));
+
+            // Verify that challenge was called on the mock lobby with correct parsed options
+            expect(mockChallengeFn).toHaveBeenCalledWith(
+                'bob',
+                'threecushion',
+                {
+                    tableSize: '5',
+                    raceTo: '15',
+                    shotClock: '60',
+                    reds: '6'
+                },
+                null
+            );
+
+            // Also verify the URL was cleaned up
+            expect(window.history.replaceState).toHaveBeenCalled();
+            const lastUrl = (window.history.replaceState as jest.Mock).mock.calls[0][2];
+            const urlObj = new URL(lastUrl);
+            expect(urlObj.searchParams.get('opponentId')).toBeNull();
+            expect(urlObj.searchParams.get('tableSize')).toBeNull();
+            expect(urlObj.searchParams.get('raceTo')).toBeNull();
+            expect(urlObj.searchParams.get('shotClock')).toBeNull();
+            expect(urlObj.searchParams.get('shotclock')).toBeNull();
+            expect(urlObj.searchParams.get('reds')).toBeNull();
         });
     });
 });

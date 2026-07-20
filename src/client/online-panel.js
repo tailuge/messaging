@@ -40,11 +40,25 @@ class OnlinePanel extends LitElement {
         const p = new URLSearchParams(location.search);
         const opponentId = p.get('opponentId');
         if (opponentId) {
+            const options = {};
+            const tableSize = p.get('tableSize') || p.get('tablesize');
+            if (tableSize) options.tableSize = tableSize;
+
+            const raceTo = p.get('raceTo') || p.get('raceto');
+            if (raceTo) options.raceTo = raceTo;
+
+            const shotClock = p.get('shotClock') || p.get('shotclock');
+            if (shotClock) options.shotClock = shotClock;
+
+            const reds = p.get('reds');
+            if (reds) options.reds = reds;
+
             this.#autoChallenge = {
                 opponentId,
                 opponentName: p.get('opponentName') || opponentId,
                 ruleType: p.get('ruletype') || 'nineball',
-                nextTurnId: p.get('nextTurnId')
+                nextTurnId: p.get('nextTurnId'),
+                options: Object.keys(options).length > 0 ? options : undefined
             };
 
             const url = new URL(location.href);
@@ -52,6 +66,13 @@ class OnlinePanel extends LitElement {
             url.searchParams.delete('opponentName');
             url.searchParams.delete('ruletype');
             url.searchParams.delete('nextTurnId');
+            url.searchParams.delete('tableSize');
+            url.searchParams.delete('tablesize');
+            url.searchParams.delete('raceTo');
+            url.searchParams.delete('raceto');
+            url.searchParams.delete('shotClock');
+            url.searchParams.delete('shotclock');
+            url.searchParams.delete('reds');
             history.replaceState(null, '', url);
         }
 
