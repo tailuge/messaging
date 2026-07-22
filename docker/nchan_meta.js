@@ -252,6 +252,37 @@ function presence_sub(r) {
   }
 }
 
+async function table_unsub(r) {
+  try {
+    const userId = r.headersIn['X-User-Id'] || 'unknown';
+    const tableId = r.headersIn['X-Nchan-Channel-Id'];
+    ngx.log(ngx.WARN, `table_unsub ${userId} from table ${tableId}`);
+
+    if (userId !== 'unknown' && tableId) {
+      const body = JSON.stringify({
+        type: "table:leave",
+        senderId: userId,
+        data: {},
+        meta: {
+          ts: Date.now(),
+          ua: "nchan-auto-table-leave",
+          origin: "internal",
+        },
+      });
+
+      await r.subrequest(`/internal/publish/table/${tableId}`, {
+        method: "POST",
+        body: body,
+      });
+    }
+
+    r.return(204);
+  } catch (e) {
+    r.error(`table_unsub error: ${e.message}`);
+    r.return(500);
+  }
+}
+
 async function publish_leave(r, userId) {
   const body = JSON.stringify({
     messageType: "presence",
@@ -438,4 +469,4 @@ async function online_users_api(r) {
   r.return(200, JSON.stringify(users));
 }
 
-export default { publish, presence_sub, presence_unsub, stats, online_users_api };
+export default { publish, presence_sub, presence_unsub, stats, online_users_api, table_unsub };

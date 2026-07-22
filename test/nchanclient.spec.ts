@@ -154,7 +154,7 @@ describe("NchanClient", () => {
       const messages: string[] = [];
       const tableId = "testtable" + Date.now();
 
-      const subscription = client.subscribeTable(tableId, (data) => {
+      const subscription = client.subscribeTable(tableId, "user123", (data) => {
         messages.push(data);
       });
 
@@ -178,6 +178,44 @@ describe("NchanClient", () => {
       expect(parsed.type).toBe("MOVE");
       expect(parsed.senderId).toBe("user456");
       expect(parsed.data.x).toBe(10);
+      expectMeta(parsed);
+    });
+
+    it("should auto-publish table:leave message on WebSocket disconnect", async () => {
+      const clientA = new NchanClient(server);
+      const clientB = new NchanClient(server);
+      const messagesB: string[] = [];
+      const tableId = "testtable-leave-" + Date.now();
+
+      // Client B subscribes to the table to listen for messages
+      const subB = clientB.subscribeTable(tableId, "userB", (data) => {
+        messagesB.push(data);
+      });
+      await subB.ready;
+
+      // Client A subscribes to the table
+      const subA = clientA.subscribeTable(tableId, "userA", (_data) => {});
+      await subA.ready;
+
+      // Now Client A disconnects (unsubscribes)
+      subA.stop();
+
+      // Verify that Client B receives a table:leave message for Client A
+      await waitUntil(() => messagesB.some((m) => {
+        const parsed = JSON.parse(m);
+        return parsed.type === "table:leave" && parsed.senderId === "userA";
+      }), 4000);
+
+      subB.stop();
+
+      const leaveMessage = messagesB.find((m) => {
+        const parsed = JSON.parse(m);
+        return parsed.type === "table:leave" && parsed.senderId === "userA";
+      });
+      expect(leaveMessage).toBeDefined();
+      const parsed = JSON.parse(leaveMessage!);
+      expect(parsed.type).toBe("table:leave");
+      expect(parsed.senderId).toBe("userA");
       expectMeta(parsed);
     });
   });

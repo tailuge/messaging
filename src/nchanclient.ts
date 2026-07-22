@@ -177,8 +177,9 @@ export class NchanClient {
     return this.subscribe(path, onMessage);
   }
 
-  subscribeTable(tableId: string, onMessage: (data: string) => void): Subscription {
-    return this.subscribe(PATHS.TABLE_SUBSCRIBE(tableId), onMessage);
+  subscribeTable(tableId: string, userId: string, onMessage: (data: string) => void): Subscription {
+    const path = `${PATHS.TABLE_SUBSCRIBE(tableId)}?uid=${encodeURIComponent(userId)}`;
+    return this.subscribe(path, onMessage);
   }
 
   private subscribe(path: string, onMessage: (data: string) => void): Subscription {
@@ -282,7 +283,10 @@ export class NchanClient {
 
       ws.onerror = (event) => {
         console.error(`[NchanClient ${ts()}] WebSocket error on ${url}:`, event);
-        ws?.close();
+        if (ws) {
+          ws.onerror = null;
+          ws?.close();
+        }
       };
     };
 
