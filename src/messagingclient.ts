@@ -163,7 +163,12 @@ export class MessagingClient {
   /**
    * Joins a specific table for communication.
    */
-  async joinTable<T = any>(tableId: string, userId: string): Promise<Table<T>> {
+  async joinTable<T = any>(
+    tableId: string,
+    userId: string,
+    options?: { isSpectator?: boolean },
+  ): Promise<Table<T>> {
+    const isSpectator = options?.isSpectator ?? false;
     const existingTable = this.activeTables.find((t) => t.tableId === tableId);
 
     if (existingTable) {
@@ -171,9 +176,11 @@ export class MessagingClient {
       return existingTable as Table<T>;
     }
 
-    const lobby = this.activeLobbies.find((l) => l.currentUser.userId === userId);
+    const lobby = isSpectator
+      ? undefined
+      : this.activeLobbies.find((l) => l.currentUser.userId === userId);
 
-    const table = new Table<T>(this.nchan, tableId, userId, lobby);
+    const table = new Table<T>(this.nchan, tableId, userId, lobby, isSpectator);
     await table.join();
     this.activeTables.push(table);
 
@@ -182,6 +189,14 @@ export class MessagingClient {
     }
 
     return table;
+  }
+
+  /**
+   * Subscribes to a table as a read-only spectator.
+   * Spectator departures do not trigger onOpponentLeft on player clients.
+   */
+  async spectateTable<T = any>(tableId: string, userId: string): Promise<Table<T>> {
+    return this.joinTable(tableId, userId, { isSpectator: true });
   }
 
   private handlePageHide = (): void => {

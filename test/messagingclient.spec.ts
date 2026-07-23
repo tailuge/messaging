@@ -668,6 +668,95 @@ describe("MessagingClient - Phase 1", () => {
       expect(table).toBeDefined();
       expect(table.tableId).toBe("some-table");
     });
+
+    it("should deliver table messages to a spectator", async () => {
+      const clientA = createClient();
+      const clientB = createClient();
+      const tableId = "table-spectate-msg-" + Date.now();
+
+      await clientA.joinLobby({
+        messageType: "presence",
+        type: "join",
+        userId: "user-a",
+        userName: "Alice",
+      });
+      const tableA = await clientA.joinTable(tableId, "user-a");
+
+      const tableSpectator = await clientB.spectateTable(tableId, "user-s");
+
+      let messageReceived: any = null;
+      tableSpectator.onMessage((m) => {
+        messageReceived = m;
+      });
+
+      await tableA.publish("MOVE", { x: 1, y: 2 });
+
+      await waitUntil(() => messageReceived !== null);
+      expect(messageReceived.type).toBe("MOVE");
+      expect(messageReceived.data.x).toBe(1);
+      expect(messageReceived.senderId).toBe("user-a");
+    }, 5000);
+
+    it("should NOT trigger onOpponentLeft when a spectator leaves explicitly", async () => {
+      const clientA = createClient();
+      const clientB = createClient();
+      const tableId = "table-spectate-leave-" + Date.now();
+
+      await clientA.joinLobby({
+        messageType: "presence",
+        type: "join",
+        userId: "user-a",
+        userName: "Alice",
+      });
+      const tableA = await clientA.joinTable(tableId, "user-a");
+
+      let opponentLeft = false;
+      tableA.onOpponentLeft(() => {
+        opponentLeft = true;
+      });
+
+      const tableSpectator = await clientB.spectateTable(tableId, "user-s");
+      await tableSpectator.leave();
+
+      await wait(500);
+      expect(opponentLeft).toBe(false);
+    }, 5000);
+
+    it("should NOT trigger onOpponentLeft when a spectator disconnects", async () => {
+      const clientA = createClient();
+      const clientB = createClient();
+      const tableId = "table-spectate-disconnect-" + Date.now();
+
+      await clientA.joinLobby({
+        messageType: "presence",
+        type: "join",
+        userId: "user-a",
+        userName: "Alice",
+      });
+      const tableA = await clientA.joinTable(tableId, "user-a");
+
+      let opponentLeft = false;
+      tableA.onOpponentLeft(() => {
+        opponentLeft = true;
+      });
+
+      const tableSpectator = await clientB.spectateTable(tableId, "user-s");
+      await tableSpectator.leave({ isTeardown: true });
+
+      await waitUntil(() =>
+        clientA.recordedMessages.some((m) => {
+          try {
+            const parsed = JSON.parse(m);
+            return parsed.type === "table:leave" && parsed.senderId === "user-s";
+          } catch {
+            return false;
+          }
+        }),
+      );
+
+      await wait(500);
+      expect(opponentLeft).toBe(false);
+    }, 5000);
   });
 
   describe("Helper Functions", () => {

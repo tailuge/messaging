@@ -177,8 +177,16 @@ export class NchanClient {
     return this.subscribe(path, onMessage);
   }
 
-  subscribeTable(tableId: string, userId: string, onMessage: (data: string) => void): Subscription {
-    const path = `${PATHS.TABLE_SUBSCRIBE(tableId)}?uid=${encodeURIComponent(userId)}`;
+  subscribeTable(
+    tableId: string,
+    userId: string,
+    onMessage: (data: string) => void,
+    options?: { isSpectator?: boolean },
+  ): Subscription {
+    let path = `${PATHS.TABLE_SUBSCRIBE(tableId)}?uid=${encodeURIComponent(userId)}`;
+    if (options?.isSpectator) {
+      path += "&spectator=1";
+    }
     return this.subscribe(path, onMessage);
   }
 

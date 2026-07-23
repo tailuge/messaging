@@ -219,6 +219,38 @@ describe("NchanClient", () => {
       expectMeta(parsed);
     });
 
+    it("should tag auto-leave with isSpectator when subscribed as spectator", async () => {
+      const clientA = new NchanClient(server);
+      const clientB = new NchanClient(server);
+      const messagesB: string[] = [];
+      const tableId = "testtable-spectator-leave-" + Date.now();
+
+      const subB = clientB.subscribeTable(tableId, "userB", (data) => {
+        messagesB.push(data);
+      });
+      await subB.ready;
+
+      const subA = clientA.subscribeTable(tableId, "userA", (_data) => {}, { isSpectator: true });
+      await subA.ready;
+
+      subA.stop();
+
+      await waitUntil(() => messagesB.some((m) => {
+        const parsed = JSON.parse(m);
+        return parsed.type === "table:leave" && parsed.senderId === "userA";
+      }), 4000);
+
+      subB.stop();
+
+      const leaveMessage = messagesB.find((m) => {
+        const parsed = JSON.parse(m);
+        return parsed.type === "table:leave" && parsed.senderId === "userA";
+      });
+      expect(leaveMessage).toBeDefined();
+      const parsed = JSON.parse(leaveMessage!);
+      expect(parsed.data.isSpectator).toBe(true);
+    });
+
     it("should NOT generate spurious leave event for Client A when Client B joins", async () => {
       const clientA = new NchanClient(server);
       const clientB = new NchanClient(server);

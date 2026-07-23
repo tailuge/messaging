@@ -286,10 +286,11 @@ async function table_unsub(r) {
     ngx.log(ngx.WARN, `table_unsub ${userId} from table ${tableId}`);
 
     if (userId !== 'unknown' && tableId) {
+      const isSpectator = r.args.spectator === "1";
       const payload = {
         type: "table:leave",
         senderId: userId,
-        data: {},
+        data: isSpectator ? { isSpectator: true } : {},
       };
       await publish_auto_leave(r, `/internal/publish/table/${tableId}`, payload, "nchan-auto-table-leave");
     }

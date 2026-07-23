@@ -41,9 +41,16 @@ interface MessagingClient {
   joinLobby(user: PresenceMessage, options?: LobbyOptions): Promise<Lobby>;
 
   /**
-   * Joins a specific table (game room) for 2-player/spectator communication.
+   * Joins a specific table (game room) for 2-player communication.
+   * Updates lobby presence with tableId when a lobby session exists.
    */
   joinTable<T = any>(tableId: string, userId: string): Promise<Table<T>>;
+
+  /**
+   * Subscribes to a table as a read-only spectator.
+   * Does not update lobby presence. Spectator departures do not trigger onOpponentLeft.
+   */
+  spectateTable<T = any>(tableId: string, userId: string): Promise<Table<T>>;
 }
 ```
 
@@ -473,9 +480,13 @@ Trade-offs:
 - Not supported in all browsers (e.g., Safari iOS)
 - `pagehide` is the modern recommended approach, but may not send network requests in some cases
 
-### 2. `joinTable` Behavior
+### 2. Spectating
 
-The current `joinTable` method automatically updates the user's presence to include `tableId` (marking them as "at a table"). Future iterations could:
-- Make this behavior optional via a configuration flag
-- Allow spectating without affecting the user's availability status
-- Provide separate methods: `joinTableAsPlayer()` vs. `joinTableAsSpectator()`
+Use `spectateTable` for read-only table subscriptions. Spectator `table:leave` messages include `data.isSpectator: true` so player clients skip `onOpponentLeft`. The Nchan server tags auto-leaves from spectator WebSocket disconnects the same way (via `spectator=1` on the subscribe URL).
+
+```typescript
+const table = await client.spectateTable("table-xyz", "user-123");
+table.onMessage((msg) => { /* same as joinTable */ });
+```
+
+`TableLeaveData` and `isSpectatorTableLeave()` in `types.ts` identify spectator leave messages if needed in custom handlers.

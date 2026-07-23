@@ -43,7 +43,7 @@ The library interacts with the following Nchan endpoints:
 src/
   messagingclient.ts # Main entry point & lifecycle management
   lobby.ts           # Presence, pruning, and challenges
-  table.ts           # Table-specific messaging logic
+  table.ts           # Table-specific messaging logic (players and spectators)
   nchanclient.ts     # Low-level Nchan pub/sub transport
   types.ts           # Shared TypeScript interfaces
   utils/             # Internal utilities (UID generation, etc.)
@@ -165,3 +165,7 @@ await lobby.updatePresence({ tableId: undefined });
 ```
 
 The `tableId` is optional. Without it, users appear in the lobby as "available" (not at a table). With it, they appear as "in game" at that table. This works for any game - external pages, same-origin apps, or single-player modes that want presence tracking.
+
+### Spectating a Table
+
+Use `MessagingClient.spectateTable(tableId, userId)` for read-only table subscriptions. It reuses the same `Table` API as `joinTable` but does not update lobby presence, and spectator departures (explicit or on disconnect) do not trigger `onOpponentLeft` on player clients.

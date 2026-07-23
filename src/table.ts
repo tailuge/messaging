@@ -1,5 +1,5 @@
 import { NchanClient, Subscription } from "./nchanclient";
-import { TableMessage, parseMessage, PresenceMessage } from "./types";
+import { TableMessage, TableLeaveData, isSpectatorTableLeave, parseMessage, PresenceMessage } from "./types";
 import { Lobby } from "./lobby";
 
 /**
@@ -19,6 +19,7 @@ export class Table<T = any> {
     public readonly tableId: string,
     private userId: string,
     private lobby?: Lobby,
+    private isSpectator = false,
   ) {}
 
   /**
@@ -27,9 +28,14 @@ export class Table<T = any> {
   async join(): Promise<void> {
     if (this.isJoined) return;
 
-    this.subscription = this.nchan.subscribeTable(this.tableId, this.userId, (data) => {
-      this.handleIncomingMessage(data);
-    });
+    this.subscription = this.nchan.subscribeTable(
+      this.tableId,
+      this.userId,
+      (data) => {
+        this.handleIncomingMessage(data);
+      },
+      { isSpectator: this.isSpectator },
+    );
     await this.subscription.ready;
     this.isJoined = true;
   }
@@ -75,7 +81,10 @@ export class Table<T = any> {
       try {
         await this.nchan.publishTable(
           this.tableId,
-          { type: "table:leave", data: {} as T },
+          {
+            type: "table:leave",
+            data: (this.isSpectator ? { isSpectator: true } : {}) as T & TableLeaveData,
+          },
           this.userId,
         );
         // Small delay to ensure message is dispatched before closing the socket
@@ -102,7 +111,7 @@ export class Table<T = any> {
     if (!msg || !msg.type) return;
 
     // Handle system messages internally
-    if (msg.type === "table:leave" && msg.senderId !== this.userId) {
+    if (msg.type === "table:leave" && msg.senderId !== this.userId && !isSpectatorTableLeave(msg)) {
       this.notifyOpponentLeft();
     }
 

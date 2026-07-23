@@ -77,6 +77,15 @@ export interface TableMessage<T = unknown> {
   meta?: Meta; // Server-enriched metadata (received messages only)
 }
 
+/** Payload for table:leave system messages */
+export interface TableLeaveData {
+  isSpectator?: boolean;
+}
+
+export function isSpectatorTableLeave(msg: TableMessage): boolean {
+  return msg.type === "table:leave" && !!(msg.data as TableLeaveData)?.isSpectator;
+}
+
 /**
  * Lobby-level information about an active game table
  */

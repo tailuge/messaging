@@ -116,7 +116,7 @@ if (canChallenge(targetUser, currentUserId)) {
 }
 
 if (canSpectate(targetUser, currentTableId)) {
-  await client.joinTable(targetUser.tableId, currentUserId);
+  await client.spectateTable(targetUser.tableId, currentUserId);
 }
 ```
 
