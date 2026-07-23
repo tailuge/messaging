@@ -391,6 +391,7 @@ describe("MessagingClient - Phase 1", () => {
         receivedChallenge.ruleType,
         receivedChallenge.tableId,
       );
+      await tableB.join();
 
       // A joins the same table (as it created it)
       const tableA = await clientA.joinTable(tableId, "user-a");

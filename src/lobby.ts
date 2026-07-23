@@ -277,7 +277,6 @@ export class Lobby {
     await this.updatePresence({ tableId });
 
     const table = new Table(this.nchan, tableId, this.currentUser.userId, this);
-    await table.join();
     return table;
   }
 
