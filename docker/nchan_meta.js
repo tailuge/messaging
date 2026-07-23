@@ -267,6 +267,18 @@ async function publish_auto_leave(r, publishPath, payload, ua) {
   });
 }
 
+function table_sub(r) {
+  try {
+    const userId = r.headersIn['X-User-Id'] || 'unknown';
+    const tableId = r.headersIn['X-Nchan-Channel-Id'];
+    ngx.log(ngx.WARN, `table_sub ${userId} to table ${tableId}`);
+    r.return(200);
+  } catch (e) {
+    r.error(`table_sub error: ${e.message}`);
+    r.return(500);
+  }
+}
+
 async function table_unsub(r) {
   try {
     const userId = r.headersIn['X-User-Id'] || 'unknown';
@@ -466,4 +478,4 @@ async function online_users_api(r) {
   r.return(200, JSON.stringify(users));
 }
 
-export default { publish, presence_sub, presence_unsub, stats, online_users_api, table_unsub };
+export default { publish, presence_sub, presence_unsub, stats, online_users_api, table_unsub, table_sub };
