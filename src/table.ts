@@ -38,7 +38,7 @@ export class Table<T = any> {
   async join(): Promise<void> {
     if (this.isJoined) return;
 
-    this.subscription = this.nchan.subscribeTable(this.tableId, (data) => {
+    this.subscription = this.nchan.subscribeTable(this.tableId, this.userId, (data) => {
       this.handleIncomingMessage(data);
     });
     await this.subscription.ready;

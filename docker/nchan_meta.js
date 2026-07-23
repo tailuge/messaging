@@ -252,22 +252,50 @@ function presence_sub(r) {
   }
 }
 
+async function publish_auto_leave(r, publishPath, payload, ua) {
+  const enriched = Object.assign({}, payload, {
+    meta: {
+      ts: Date.now(),
+      ua: ua,
+      origin: "internal",
+    }
+  });
+
+  await r.subrequest(publishPath, {
+    method: "POST",
+    body: JSON.stringify(enriched),
+  });
+}
+
+async function table_unsub(r) {
+  try {
+    const userId = r.headersIn['X-User-Id'] || 'unknown';
+    const tableId = r.headersIn['X-Nchan-Channel-Id'];
+    ngx.log(ngx.WARN, `table_unsub ${userId} from table ${tableId}`);
+
+    if (userId !== 'unknown' && tableId) {
+      const payload = {
+        type: "table:leave",
+        senderId: userId,
+        data: {},
+      };
+      await publish_auto_leave(r, `/internal/publish/table/${tableId}`, payload, "nchan-auto-table-leave");
+    }
+
+    r.return(204);
+  } catch (e) {
+    r.error(`table_unsub error: ${e.message}`);
+    r.return(500);
+  }
+}
+
 async function publish_leave(r, userId) {
-  const body = JSON.stringify({
+  const payload = {
     messageType: "presence",
     type: "leave",
     userId: userId,
-    meta: {
-      ts: Date.now(),
-      ua: "nchan-auto-leave",
-      origin: "internal",
-    },
-  });
-
-  await r.subrequest("/internal/publish/presence/lobby", {
-    method: "POST",
-    body: body,
-  });
+  };
+  await publish_auto_leave(r, "/internal/publish/presence/lobby", payload, "nchan-auto-leave");
 }
 
 async function presence_unsub(r) {
@@ -438,4 +466,4 @@ async function online_users_api(r) {
   r.return(200, JSON.stringify(users));
 }
 
-export default { publish, presence_sub, presence_unsub, stats, online_users_api };
+export default { publish, presence_sub, presence_unsub, stats, online_users_api, table_unsub };

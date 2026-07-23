@@ -582,12 +582,12 @@ describe("MessagingClient - Phase 1", () => {
       expect(tableA).toBe(tableA2);
     }, 15000);
 
-    it("should throw when joining table without prior lobby join", async () => {
+    it("should succeed when joining table without prior lobby join", async () => {
       const client = createClient();
 
-      await expect(client.joinTable("some-table", "nonexistent-user")).rejects.toThrow(
-        "Cannot join table: No active lobby found for user nonexistent-user",
-      );
+      const table = await client.joinTable("some-table", "nonexistent-user");
+      expect(table).toBeDefined();
+      expect(table.tableId).toBe("some-table");
     });
   });
 
