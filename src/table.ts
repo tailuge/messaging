@@ -12,25 +12,14 @@ export class Table<T = any> {
   private messageListeners: ((event: TableMessage<T>) => void)[] = [];
   private spectatorListeners: ((spectators: PresenceMessage[]) => void)[] = [];
   private opponentLeftListeners: (() => void)[] = [];
-  private lobbyUnsubscribe?: () => void;
-
   public opponentLeft = false;
-  private opponentSeen = false;
 
   constructor(
     private nchan: NchanClient,
     public readonly tableId: string,
     private userId: string,
     private lobby?: Lobby,
-  ) {
-    if (this.lobby) {
-      const handler = (users: PresenceMessage[]) => this.handleLobbyUsersChange(users);
-      this.lobby.onUsersChange(handler);
-      this.lobbyUnsubscribe = () => {
-        this.lobby?.offUsersChange(handler);
-      };
-    }
-  }
+  ) {}
 
   /**
    * Initializes the table by subscribing to its specific channel.
@@ -105,7 +94,6 @@ export class Table<T = any> {
     this.messageListeners = [];
     this.spectatorListeners = [];
     this.opponentLeftListeners = [];
-    this.lobbyUnsubscribe?.();
     this.isJoined = false;
   }
 
@@ -120,20 +108,6 @@ export class Table<T = any> {
 
     // Notify message listeners
     this.messageListeners.forEach((cb) => cb(msg));
-  }
-
-  private handleLobbyUsersChange(users: PresenceMessage[]): void {
-    const playersAtThisTable = users.filter((u) => u.tableId === this.tableId);
-    const opponent = playersAtThisTable.find((u) => u.userId !== this.userId);
-
-    if (opponent) {
-      this.opponentSeen = true;
-    }
-
-    // Watchdog trigger: Opponent was here, but now is gone.
-    if (this.opponentSeen && !opponent) {
-      this.notifyOpponentLeft();
-    }
   }
 
   private notifyOpponentLeft(): void {

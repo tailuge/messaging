@@ -559,9 +559,87 @@ describe("MessagingClient - Phase 1", () => {
       expect(opponentLeft).toBe(true);
     }, 5000);
 
-    it("should handle challenge decline", async () => {
-      // ... (unchanged)
-    });
+    it("should NOT trigger onOpponentLeft prematurely when opponent joins the table", async () => {
+      const clientA = createClient();
+      const clientB = createClient();
+
+      const tableId = "table-premature-test";
+
+      // 1. Bob joins lobby and table first (Bob is at tableId)
+      await clientB.joinLobby({
+        messageType: "presence",
+        type: "join",
+        userId: "user-b",
+        userName: "Bob",
+      });
+      const tableB = await clientB.joinTable(tableId, "user-b");
+
+      let opponentLeftCount = 0;
+      tableB.onOpponentLeft(() => {
+        opponentLeftCount++;
+      });
+
+      // 2. Alice joins lobby (available, tableId is undefined)
+      await clientA.joinLobby({
+        messageType: "presence",
+        type: "join",
+        userId: "user-a",
+        userName: "Alice",
+      });
+
+      // Give lobby time to deliver Alice's initial presence (tableId = undefined) to Bob
+      await new Promise((r) => setTimeout(r, 400));
+
+      // 3. Alice joins the table (updates presence to tableId = table-premature-test)
+      await clientA.joinTable(tableId, "user-a");
+
+      // Give lobby time to process presence update
+      await new Promise((r) => setTimeout(r, 400));
+
+      // Bob should NOT have received an onOpponentLeft event when Alice joined!
+      expect(opponentLeftCount).toBe(0);
+    }, 5000);
+
+    it("should NOT trigger onOpponentLeft prematurely when an opponent joins the table", async () => {
+      const clientA = createClient();
+      const clientB = createClient();
+
+      const tableId = "table-spurious-test";
+
+      // 1. Bob joins lobby and table first
+      await clientB.joinLobby({
+        messageType: "presence",
+        type: "join",
+        userId: "user-b",
+        userName: "Bob",
+      });
+      const tableB = await clientB.joinTable(tableId, "user-b");
+
+      let opponentLeftCount = 0;
+      tableB.onOpponentLeft(() => {
+        opponentLeftCount++;
+      });
+
+      // 2. Alice joins lobby (available, tableId: undefined)
+      const lobbyA = await clientA.joinLobby({
+        messageType: "presence",
+        type: "join",
+        userId: "user-a",
+        userName: "Alice",
+      });
+
+      // Wait for Bob's lobby view to update & settle so Bob sees Alice (tableId: undefined)
+      await new Promise((r) => setTimeout(r, 500));
+
+      // 3. Alice joins table (updates presence to tableId)
+      await clientA.joinTable(tableId, "user-a");
+
+      // Wait brief moment for lobby presence update
+      await new Promise((r) => setTimeout(r, 500));
+
+      // Bob should NOT have received an onOpponentLeft event when Alice joined the table!
+      expect(opponentLeftCount).toBe(0);
+    }, 5000);
 
     it("should return existing table when joining same tableId twice", async () => {
       const clientA = createClient();
