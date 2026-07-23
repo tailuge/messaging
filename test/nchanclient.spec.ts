@@ -218,6 +218,37 @@ describe("NchanClient", () => {
       expect(parsed.senderId).toBe("userA");
       expectMeta(parsed);
     });
+
+    it("should NOT generate spurious leave event for Client A when Client B joins", async () => {
+      const clientA = new NchanClient(server);
+      const clientB = new NchanClient(server);
+      const messagesA: string[] = [];
+      const tableId = "testtable-spurious-" + Date.now();
+
+      // Client A subscribes to the table
+      const subA = clientA.subscribeTable(tableId, "userA", (data) => {
+        messagesA.push(data);
+      });
+      await subA.ready;
+
+      // Client B joins the table
+      const subB = clientB.subscribeTable(tableId, "userB", (_data) => {});
+      await subB.ready;
+
+      // Wait a short duration to see if Client A receives any spurious leave event
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Verify that Client A did NOT receive any table:leave message for userB or userA
+      const hasSpuriousLeave = messagesA.some((m) => {
+        const parsed = JSON.parse(m);
+        return parsed.type === "table:leave";
+      });
+      expect(hasSpuriousLeave).toBe(false);
+
+      // Clean up
+      subA.stop();
+      subB.stop();
+    });
   });
 
   describe("WebSocket connection", () => {

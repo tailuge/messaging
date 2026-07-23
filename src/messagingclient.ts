@@ -172,15 +172,14 @@ export class MessagingClient {
     }
 
     const lobby = this.activeLobbies.find((l) => l.currentUser.userId === userId);
-    if (!lobby) {
-      throw new Error(`Cannot join table: No active lobby found for user ${userId}`);
-    }
 
     const table = new Table<T>(this.nchan, tableId, userId, lobby);
     await table.join();
     this.activeTables.push(table);
 
-    await lobby.updatePresence({ tableId });
+    if (lobby) {
+      await lobby.updatePresence({ tableId });
+    }
 
     return table;
   }
