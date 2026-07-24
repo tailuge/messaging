@@ -2,14 +2,213 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Active Tables</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Active Tables Spectator</title>
     <link rel="icon" type="image/png" href="assets/threecushion.png" />
+    <style>
+      body {
+        font-family: monospace;
+        font-size: 11px;
+        background: #ffffff;
+        color: #000000;
+        margin: 10px;
+        line-height: 1.4;
+      }
+      h1, h2 {
+        font-size: 12px;
+        margin: 0 0 10px 0;
+        text-transform: uppercase;
+        border-bottom: 1px solid #ccc;
+        padding-bottom: 3px;
+      }
+      ul {
+        list-style-type: none;
+        padding: 0;
+        margin: 0 0 15px 0;
+      }
+      li {
+        margin: 3px 0;
+      }
+      .table-link {
+        color: #0000ee;
+        text-decoration: underline;
+        cursor: pointer;
+      }
+      .table-link:hover {
+        color: #551a8b;
+      }
+      #spectator-section {
+        margin-top: 15px;
+        display: none;
+      }
+      .status {
+        font-style: italic;
+        margin-bottom: 10px;
+        color: #555;
+      }
+      .event-item {
+        border-bottom: 1px dashed #eee;
+        padding: 4px 0;
+        cursor: pointer;
+      }
+      .event-item:hover {
+        background: #f7f7f7;
+      }
+      .raw-data {
+        display: none;
+        background: #fdfdfd;
+        border: 1px solid #ddd;
+        padding: 5px;
+        margin: 5px 0;
+        white-space: pre-wrap;
+        word-break: break-all;
+        font-size: 10px;
+      }
+    </style>
   </head>
   <body>
-    <pre id="list"></pre>
-    <script>
-      document.getElementById('list').textContent =
-        new URLSearchParams(location.search).getAll('active').join('\n');
+    <h1>Active Tables</h1>
+    <ul id="table-list"></ul>
+
+    <div id="spectator-section">
+      <h2 id="spectator-title">Spectating Table</h2>
+      <div id="spectator-status" class="status">Connecting...</div>
+      <ul id="event-list"></ul>
+    </div>
+
+    <script type="module">
+      import { MessagingClient } from './messaging.js';
+
+      const tableListEl = document.getElementById('table-list');
+      const spectatorSection = document.getElementById('spectator-section');
+      const spectatorTitle = document.getElementById('spectator-title');
+      const spectatorStatus = document.getElementById('spectator-status');
+      const eventList = document.getElementById('event-list');
+
+      // 1. Parse active tables from URL parameters
+      const params = new URLSearchParams(location.search);
+      const activeTables = params.getAll('active');
+
+      if (activeTables.length === 0) {
+        tableListEl.innerHTML = '<li>No active tables specified.</li>';
+      } else {
+        activeTables.forEach(tableId => {
+          const li = document.createElement('li');
+          const span = document.createElement('span');
+          span.className = 'table-link';
+          span.textContent = tableId;
+          span.onclick = () => selectTable(tableId);
+          li.appendChild(span);
+          tableListEl.appendChild(li);
+        });
+      }
+
+      let currentClient = null;
+      let currentTable = null;
+      let idleTimer = null;
+
+      async function cleanup() {
+        if (idleTimer) {
+          clearTimeout(idleTimer);
+          idleTimer = null;
+        }
+        if (currentTable) {
+          try {
+            await currentTable.leave();
+          } catch (e) {
+            console.error('Error leaving table:', e);
+          }
+          currentTable = null;
+        }
+        if (currentClient) {
+          try {
+            await currentClient.stop();
+          } catch (e) {
+            console.error('Error stopping client:', e);
+          }
+          currentClient = null;
+        }
+      }
+
+      function resetIdleTimer() {
+        if (idleTimer) {
+          clearTimeout(idleTimer);
+        }
+        idleTimer = setTimeout(async () => {
+          spectatorStatus.textContent = 'Left (Idle - no new events in 1s)';
+          if (currentTable) {
+            await currentTable.leave();
+            currentTable = null;
+          }
+          if (currentClient) {
+            await currentClient.stop();
+            currentClient = null;
+          }
+        }, 1000);
+      }
+
+      async function selectTable(tableId) {
+        // Clean up previous subscription
+        await cleanup();
+
+        // Setup UI
+        spectatorTitle.textContent = `Spectating: ${tableId}`;
+        spectatorStatus.textContent = 'Connecting...';
+        eventList.innerHTML = '';
+        spectatorSection.style.display = 'block';
+
+        // Base URL logic
+        let baseUrl = 'https://billiards-network.onrender.com';
+        if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+          const protocol = location.protocol === 'https:' ? 'https:' : 'http:';
+          baseUrl = `${protocol}//${location.host}`;
+        }
+
+        try {
+          currentClient = new MessagingClient({ baseUrl });
+          currentClient.start();
+
+          // Connect as spectator
+          currentTable = await currentClient.spectateTable(tableId, 'spectator');
+          spectatorStatus.textContent = 'Connected. Waiting for events...';
+
+          // Start initial 1 second idle timer immediately on connection
+          resetIdleTimer();
+
+          currentTable.onMessage((msg) => {
+            // Reset idle timer whenever a message is received
+            resetIdleTimer();
+
+            // Append event item
+            const li = document.createElement('li');
+            li.className = 'event-item';
+
+            // Get sender name/id
+            const senderName = msg.data?.userName || msg.data?.name || '';
+            const senderDisplay = senderName ? `${senderName} (${msg.senderId})` : msg.senderId;
+
+            const headerDiv = document.createElement('div');
+            headerDiv.textContent = `[${msg.type}] from ${senderDisplay}`;
+            li.appendChild(headerDiv);
+
+            const pre = document.createElement('pre');
+            pre.className = 'raw-data';
+            pre.textContent = JSON.stringify(msg, null, 2);
+            li.appendChild(pre);
+
+            li.onclick = (e) => {
+              e.stopPropagation();
+              const isVisible = pre.style.display === 'block';
+              pre.style.display = isVisible ? 'none' : 'block';
+            };
+
+            eventList.appendChild(li);
+          });
+        } catch (err) {
+          spectatorStatus.textContent = `Error: ${err.message}`;
+          console.error(err);
+        }
+      }
     </script>
   </body>
 </html>
