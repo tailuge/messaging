@@ -14,13 +14,27 @@ export class Table<T = any> {
   private opponentLeftListeners: (() => void)[] = [];
   public opponentLeft = false;
 
+  public bothJoined!: Promise<void>;
+  private bothJoinedResolve?: () => void;
+  private bothJoinedListeners: (() => void)[] = [];
+  private hasBothJoined = false;
+
   constructor(
     private nchan: NchanClient,
     public readonly tableId: string,
     private userId: string,
     private lobby?: Lobby,
     private isSpectator = false,
-  ) {}
+  ) {
+    this.initBothJoined();
+  }
+
+  private initBothJoined(): void {
+    this.hasBothJoined = false;
+    this.bothJoined = new Promise<void>((resolve) => {
+      this.bothJoinedResolve = resolve;
+    });
+  }
 
   /**
    * Initializes the table by subscribing to its specific channel.
@@ -36,6 +50,26 @@ export class Table<T = any> {
     );
     await this.subscription.ready;
     this.isJoined = true;
+
+    // After joining, if NOT a spectator, publish table:joined message to announce arrival
+    if (!this.isSpectator) {
+      await this.publishJoin(false);
+    }
+  }
+
+  private async publishJoin(isReply: boolean): Promise<void> {
+    try {
+      await this.nchan.publishTable(
+        this.tableId,
+        {
+          type: "table:joined",
+          data: { isSpectator: this.isSpectator, isReply } as any,
+        },
+        this.userId,
+      );
+    } catch (e) {
+      console.error("Error publishing table:joined:", e);
+    }
   }
 
   /**
@@ -50,6 +84,16 @@ export class Table<T = any> {
    */
   onMessage(callback: (event: TableMessage<T>) => void): void {
     this.messageListeners.push(callback);
+  }
+
+  /**
+   * Subscribe to both parties joined event.
+   */
+  onBothJoined(callback: () => void): void {
+    this.bothJoinedListeners.push(callback);
+    if (this.hasBothJoined) {
+      callback();
+    }
   }
 
   /**
@@ -101,7 +145,9 @@ export class Table<T = any> {
     this.messageListeners = [];
     this.spectatorListeners = [];
     this.opponentLeftListeners = [];
+    this.bothJoinedListeners = [];
     this.isJoined = false;
+    this.initBothJoined();
   }
 
   private handleIncomingMessage(data: string): void {
@@ -113,8 +159,32 @@ export class Table<T = any> {
       this.notifyOpponentLeft();
     }
 
-    // Notify message listeners
-    this.messageListeners.forEach((cb) => cb(msg));
+    if (msg.type === "table:joined" && msg.senderId !== this.userId) {
+      const isSpec = !!(msg.data as any)?.isSpectator;
+      if (!isSpec && !this.isSpectator) {
+        const isReply = !!(msg.data as any)?.isReply;
+        this.notifyBothJoined(isReply);
+      }
+    }
+
+    // Notify message listeners (excluding internal table:joined handshake messages)
+    if (msg.type !== "table:joined") {
+      this.messageListeners.forEach((cb) => cb(msg));
+    }
+  }
+
+  private notifyBothJoined(isReply: boolean): void {
+    if (this.hasBothJoined) return;
+    this.hasBothJoined = true;
+
+    this.bothJoinedResolve?.();
+    this.bothJoinedListeners.forEach((cb) => cb());
+
+    if (!isReply) {
+      this.publishJoin(true).catch((e) => {
+        console.error("Failed to publish join reply:", e);
+      });
+    }
   }
 
   private notifyOpponentLeft(): void {

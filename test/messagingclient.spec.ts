@@ -759,6 +759,81 @@ describe("MessagingClient - Phase 1", () => {
     }, 5000);
   });
 
+  describe("bothJoined Handshake", () => {
+    it("should resolve bothJoined sequentially and trigger callbacks for both players", async () => {
+      const clientA = createClient();
+      const clientB = createClient();
+      const tableId = "table-handshake-seq-" + Date.now();
+
+      // 1. Player A joins table
+      const tableA = await clientA.joinTable(tableId, "user-a");
+      let bothJoinedA = false;
+      tableA.onBothJoined(() => {
+        bothJoinedA = true;
+      });
+
+      // 2. Expect bothJoined to be false initially
+      expect(bothJoinedA).toBe(false);
+
+      // 3. Player B joins table
+      const tableB = await clientB.joinTable(tableId, "user-b");
+      let bothJoinedB = false;
+      tableB.onBothJoined(() => {
+        bothJoinedB = true;
+      });
+
+      // 4. Await bothJoined promises
+      await Promise.all([tableA.bothJoined, tableB.bothJoined]);
+
+      // 5. Verify callbacks fired
+      expect(bothJoinedA).toBe(true);
+      expect(bothJoinedB).toBe(true);
+    }, 5000);
+
+    it("should ignore spectator joins when determining bothJoined", async () => {
+      const clientA = createClient();
+      const clientB = createClient();
+      const clientSpectator = createClient();
+      const tableId = "table-handshake-spec-" + Date.now();
+
+      // 1. Player A joins table
+      const tableA = await clientA.joinTable(tableId, "user-a");
+      let bothJoinedA = false;
+      tableA.onBothJoined(() => {
+        bothJoinedA = true;
+      });
+
+      // 2. Spectator joins table
+      const tableSpectator = await clientSpectator.spectateTable(tableId, "user-spec");
+      let bothJoinedSpec = false;
+      tableSpectator.onBothJoined(() => {
+        bothJoinedSpec = true;
+      });
+
+      // Give some time to process
+      await wait(500);
+
+      expect(bothJoinedA).toBe(false);
+      expect(bothJoinedSpec).toBe(false);
+
+      // 3. Player B joins table
+      const tableB = await clientB.joinTable(tableId, "user-b");
+      let bothJoinedB = false;
+      tableB.onBothJoined(() => {
+        bothJoinedB = true;
+      });
+
+      // 4. Await bothJoined promises for the players
+      await Promise.all([tableA.bothJoined, tableB.bothJoined]);
+
+      expect(bothJoinedA).toBe(true);
+      expect(bothJoinedB).toBe(true);
+
+      // Spectator's bothJoined shouldn't be affected or triggered (or we don't care, but it shouldn't trigger as spectator doesn't publish nor count)
+      expect(bothJoinedSpec).toBe(false);
+    }, 5000);
+  });
+
   describe("Helper Functions", () => {
     it("canChallenge: returns false for self", () => {
       const user: PresenceMessage = {
