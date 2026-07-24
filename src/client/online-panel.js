@@ -1,7 +1,7 @@
 import { LitElement, html } from 'lit';
-import { MessagingClient } from '../index.ts';
+import { MessagingClient, activeGames } from '../index.ts';
 import { userStore } from './user-store.js';
-import { gameUrl, spectateUrl, INITIAL_STATE, reduce, CLIENTVERSION, formatVersion, NCHANBASE } from './utils.js';
+import { gameUrl, spectateUrl, ACTIVE_PAGE, INITIAL_STATE, reduce, CLIENTVERSION, formatVersion, NCHANBASE } from './utils.js';
 import { logUsage } from './logusage.js';
 import { SHARED_STYLES, PLAYER_PANEL_STYLES } from './styles.js';
 import { UserSlotManager } from './user-slot-manager.js';
@@ -282,10 +282,15 @@ class OnlinePanel extends LitElement {
         console.table(this.#slots.map(s => ({
             userId: s.userId,
             status: s.status,
-            offlineSince: s.offlineSince,
-            online: s.status === 'online' ? '✓' : '✗',
+            offlineSince: s.offlineSince,                online: s.status === 'online' ? '✓' : '✗',
         })));
     }
+
+    _openActiveTables = () => {
+        const ids = activeGames(this.#users || []).map(g => g.tableId);
+        const qs = ids.map(id => 'active=' + encodeURIComponent(id)).join('&');
+        window.open(ACTIVE_PAGE + (qs ? '?' + qs : ''), '_blank', 'noopener');
+    };
 
     render() {
         if (this.#tableId) {
@@ -299,7 +304,7 @@ class OnlinePanel extends LitElement {
         const p = this.#pendingChallenge;
         return html`
             <div class="panel-header">
-                <span class="dot ${this.#connected ? (this.#settled ? 'green' : 'blue') : ''}" role="status" aria-label="${this.#connected ? (this.#settled ? 'Settled' : 'Connecting') : 'Disconnected'}"></span>
+                <span class="dot ${this.#connected ? (this.#settled ? 'green' : 'blue') : ''}" role="status" aria-label="${this.#connected ? (this.#settled ? 'Settled' : 'Connecting') : 'Disconnected'}" @click=${this._openActiveTables} style="cursor:pointer"></span>
                 <span class="panel-title" @click=${() => this.#info()}>Play Online (${this.#visibleUsers.filter(u => u.userId !== this.#myId).length})</span>
             </div>
             <challenge-banner

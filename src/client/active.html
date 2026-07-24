@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Active Tables</title>
+    <link rel="icon" type="image/png" href="assets/threecushion.png" />
+  </head>
+  <body>
+    <pre id="list"></pre>
+    <script>
+      document.getElementById('list').textContent =
+        new URLSearchParams(location.search).getAll('active').join('\n');
+    </script>
+  </body>
+</html>

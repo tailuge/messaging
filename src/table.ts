@@ -26,8 +26,6 @@ export class Table<T = any> {
    * Initializes the table by subscribing to its specific channel.
    */
   async join(): Promise<void> {
-    if (this.isJoined) return;
-
     this.subscription = this.nchan.subscribeTable(
       this.tableId,
       this.userId,
