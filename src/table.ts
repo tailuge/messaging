@@ -14,13 +14,39 @@ export class Table<T = any> {
   private opponentLeftListeners: (() => void)[] = [];
   public opponentLeft = false;
 
+  public readonly bothJoined: Promise<void>;
+  private resolveBothJoined!: () => void;
+  private bothJoinedListeners: (() => void)[] = [];
+  private bothJoinedResolved = false;
+  private seenIds = new Set<string>();
+
   constructor(
     private nchan: NchanClient,
     public readonly tableId: string,
     private userId: string,
     private lobby?: Lobby,
     private isSpectator = false,
-  ) {}
+  ) {
+    this.bothJoined = new Promise<void>((resolve) => {
+      this.resolveBothJoined = () => {
+        if (this.bothJoinedResolved) return;
+        this.bothJoinedResolved = true;
+        resolve();
+        this.bothJoinedListeners.forEach((cb) => cb());
+      };
+    });
+  }
+
+  /**
+   * Subscribe to the event when both non-spectator players have joined the table.
+   */
+  onBothJoined(callback: () => void): void {
+    if (this.bothJoinedResolved) {
+      callback();
+    } else {
+      this.bothJoinedListeners.push(callback);
+    }
+  }
 
   /**
    * Initializes the table by subscribing to its specific channel.
@@ -36,6 +62,10 @@ export class Table<T = any> {
     );
     await this.subscription.ready;
     this.isJoined = true;
+
+    if (!this.isSpectator) {
+      await this.publish("joined", { id: this.userId } as any);
+    }
   }
 
   /**
@@ -111,6 +141,18 @@ export class Table<T = any> {
     // Handle system messages internally
     if (msg.type === "table:leave" && msg.senderId !== this.userId && !isSpectatorTableLeave(msg)) {
       this.notifyOpponentLeft();
+    }
+
+    if (msg.type === "joined") {
+      const joinData = msg.data as any;
+      const joinedId = joinData?.id || msg.senderId;
+      if (joinedId) {
+        this.seenIds.add(joinedId);
+        if (this.seenIds.size >= 2) {
+          this.resolveBothJoined();
+        }
+      }
+      return; // Filter out internal "joined" messages from generic onMessage listeners
     }
 
     // Notify message listeners
