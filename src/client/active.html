@@ -47,12 +47,15 @@
         color: #555;
       }
       .event-item {
-        border-bottom: 1px dashed #eee;
-        padding: 4px 0;
-        cursor: pointer;
+        padding: 1px 0;
+        font-size: 10px;
+        line-height: 1.25;
       }
       .event-item:hover {
         background: #f7f7f7;
+      }
+      .event-header {
+        cursor: pointer;
       }
       .raw-data {
         display: none;
@@ -62,7 +65,14 @@
         margin: 5px 0;
         white-space: pre-wrap;
         word-break: break-all;
-        font-size: 10px;
+        font-size: 9px;
+      }
+      .raw-data.expanded {
+        display: block;
+      }
+      .event-time {
+        color: #888;
+        margin-right: 6px;
       }
     </style>
   </head>
@@ -106,6 +116,73 @@
       let currentClient = null;
       let currentTable = null;
       let idleTimer = null;
+      let messageCount = 0;
+
+      // Format epoch ms as MM:SS:mmm (minutes:seconds:milliseconds of the time-of-day)
+      function formatTimestamp(ts) {
+        if (typeof ts !== 'number' || !isFinite(ts)) return '--:--:---';
+        const d = new Date(ts);
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        const ss = String(d.getSeconds()).padStart(2, '0');
+        const ms = String(d.getMilliseconds()).padStart(3, '0');
+        return `${mm}:${ss}:${ms}`;
+      }
+
+      // Build a single event item row showing the latest payload. When the
+      // incoming message is a duplicate-AIM burst from the same sender as the
+      // previous row, the previous row is silently replaced (no count badge).
+      function createEventItem(msg) {
+        const li = document.createElement('li');
+        li.className = 'event-item';
+        li.dataset.type = msg.type || '';
+        li.dataset.senderId = msg.senderId || '';
+
+        const dataObj = msg.data || {};
+        const senderName =
+          dataObj.userName || dataObj.name || dataObj.playername || '';
+        const senderDisplay = senderName
+          ? `${senderName} (${msg.senderId})`
+          : msg.senderId;
+        const tsText = formatTimestamp(msg.meta?.ts);
+
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'event-header';
+
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'event-time';
+        timeSpan.textContent = `[${tsText}]`;
+        headerDiv.appendChild(timeSpan);
+
+        headerDiv.append(`[${msg.type}] from ${senderDisplay}`);
+        li.appendChild(headerDiv);
+
+        // Privacy: redact chat payloads before serializing into the JSON
+        // view. The collapse key (msg.type, msg.senderId) was already
+        // computed above from the untouched message, so collapse behaviour
+        // is unaffected by the redaction.
+        const view =
+          msg.type === 'CHAT' && msg.data && 'message' in msg.data
+            ? { ...msg, data: { ...msg.data } }
+            : msg;
+        if (view !== msg) delete view.data.message;
+
+        const pre = document.createElement('pre');
+        pre.className = 'raw-data';
+        pre.textContent = JSON.stringify(view, null, 2);
+        li.appendChild(pre);
+
+        return li;
+      }
+
+      // Single delegated listener: clicking the header toggles only that row's
+      // JSON. Selection inside the JSON never reaches this handler.
+      eventList.addEventListener('click', (e) => {
+        const header = e.target.closest('.event-header');
+        if (!header || !eventList.contains(header)) return;
+        const li = header.parentElement;
+        const pre = li.querySelector('.raw-data');
+        if (pre) pre.classList.toggle('expanded');
+      });
 
       async function cleanup() {
         if (idleTimer) {
@@ -135,15 +212,11 @@
           clearTimeout(idleTimer);
         }
         idleTimer = setTimeout(async () => {
-          spectatorStatus.textContent = 'Left (Idle - no new events in 1s)';
-          if (currentTable) {
-            await currentTable.leave();
-            currentTable = null;
-          }
-          if (currentClient) {
-            await currentClient.stop();
-            currentClient = null;
-          }
+          spectatorStatus.textContent =
+            messageCount > 0
+              ? `Received ${messageCount} message${messageCount === 1 ? '' : 's'}`
+              : 'No events received';
+          await cleanup();
         }, 1000);
       }
 
@@ -156,6 +229,7 @@
         spectatorStatus.textContent = 'Connecting...';
         eventList.innerHTML = '';
         spectatorSection.style.display = 'block';
+        messageCount = 0;
 
         // Base URL logic
         let baseUrl = 'https://billiards-network.onrender.com';
@@ -178,31 +252,34 @@
           currentTable.onMessage((msg) => {
             // Reset idle timer whenever a message is received
             resetIdleTimer();
+            messageCount++;
 
-            // Append event item
-            const li = document.createElement('li');
-            li.className = 'event-item';
+            // Only collapse consecutive AIM bursts from the same sender.
+            // Every other message type is shown individually.
+            const lastLi = eventList.lastElementChild;
+            const sameAimAsLast =
+              msg.type === 'AIM' &&
+              msg.senderId &&
+              lastLi &&
+              lastLi.classList.contains('event-item') &&
+              lastLi.dataset.type === msg.type &&
+              lastLi.dataset.senderId === msg.senderId;
 
-            // Get sender name/id
-            const senderName = msg.data?.userName || msg.data?.name || '';
-            const senderDisplay = senderName ? `${senderName} (${msg.senderId})` : msg.senderId;
-
-            const headerDiv = document.createElement('div');
-            headerDiv.textContent = `[${msg.type}] from ${senderDisplay}`;
-            li.appendChild(headerDiv);
-
-            const pre = document.createElement('pre');
-            pre.className = 'raw-data';
-            pre.textContent = JSON.stringify(msg, null, 2);
-            li.appendChild(pre);
-
-            li.onclick = (e) => {
-              e.stopPropagation();
-              const isVisible = pre.style.display === 'block';
-              pre.style.display = isVisible ? 'none' : 'block';
-            };
-
-            eventList.appendChild(li);
+            if (sameAimAsLast) {
+              // Silently delete duplicates: replace lastLi with the latest
+              // payload only. No count badge, no duration label.
+              const replacement = createEventItem(msg);
+              if (
+                lastLi.querySelector('.raw-data').classList.contains('expanded')
+              ) {
+                replacement
+                  .querySelector('.raw-data')
+                  .classList.add('expanded');
+              }
+              eventList.replaceChild(replacement, lastLi);
+            } else {
+              eventList.appendChild(createEventItem(msg));
+            }
           });
         } catch (err) {
           spectatorStatus.textContent = `Error: ${err.message}`;
