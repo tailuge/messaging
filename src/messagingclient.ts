@@ -1,7 +1,7 @@
 import { NchanClient } from "./nchanclient";
 import { Lobby, LobbyOptions } from "./lobby";
 import { Table } from "./table";
-import { PresenceMessage } from "./types";
+import { PresenceMessage, TableMessage } from "./types";
 
 /**
  * The main messaging client library entry point.
@@ -166,12 +166,18 @@ export class MessagingClient {
   async joinTable<T = any>(
     tableId: string,
     userId: string,
-    options?: { isSpectator?: boolean },
+    options?: {
+      isSpectator?: boolean;
+      onMessage?: (event: TableMessage<T>) => void;
+    },
   ): Promise<Table<T>> {
     const isSpectator = options?.isSpectator ?? false;
     const existingTable = this.activeTables.find((t) => t.tableId === tableId);
 
     if (existingTable) {
+      if (options?.onMessage) {
+        existingTable.onMessage(options.onMessage);
+      }
       await existingTable.join();
       return existingTable as Table<T>;
     }
@@ -180,7 +186,7 @@ export class MessagingClient {
       ? undefined
       : this.activeLobbies.find((l) => l.currentUser.userId === userId);
 
-    const table = new Table<T>(this.nchan, tableId, userId, lobby, isSpectator);
+    const table = new Table<T>(this.nchan, tableId, userId, lobby, isSpectator, options?.onMessage);
     await table.join();
     this.activeTables.push(table);
 
@@ -195,8 +201,14 @@ export class MessagingClient {
    * Subscribes to a table as a read-only spectator.
    * Spectator departures do not trigger onOpponentLeft on player clients.
    */
-  async spectateTable<T = any>(tableId: string, userId: string): Promise<Table<T>> {
-    return this.joinTable(tableId, userId, { isSpectator: true });
+  async spectateTable<T = any>(
+    tableId: string,
+    userId: string,
+    options?: {
+      onMessage?: (event: TableMessage<T>) => void;
+    },
+  ): Promise<Table<T>> {
+    return this.joinTable(tableId, userId, { ...options, isSpectator: true });
   }
 
   private handlePageHide = (): void => {

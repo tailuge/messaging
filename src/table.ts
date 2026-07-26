@@ -26,6 +26,7 @@ export class Table<T = any> {
     private userId: string,
     private lobby?: Lobby,
     private isSpectator = false,
+    onMessage?: (event: TableMessage<T>) => void,
   ) {
     this.bothJoined = new Promise<void>((resolve) => {
       this.resolveBothJoined = () => {
@@ -35,6 +36,9 @@ export class Table<T = any> {
         this.bothJoinedListeners.forEach((cb) => cb());
       };
     });
+    if (onMessage) {
+      this.messageListeners.push(onMessage);
+    }
   }
 
   /**
