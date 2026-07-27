@@ -242,45 +242,45 @@
           currentClient = new MessagingClient({ baseUrl });
           currentClient.start();
 
-          // Connect as spectator
-          currentTable = await currentClient.spectateTable(tableId, 'spectator');
+          // Connect as spectator with early onMessage listener (Solution A)
+          currentTable = await currentClient.spectateTable(tableId, 'spectator', {
+            onMessage: (msg) => {
+              // Reset idle timer whenever a message is received
+              resetIdleTimer();
+              messageCount++;
+
+              // Only collapse consecutive AIM bursts from the same sender.
+              // Every other message type is shown individually.
+              const lastLi = eventList.lastElementChild;
+              const sameAimAsLast =
+                msg.type === 'AIM' &&
+                msg.senderId &&
+                lastLi &&
+                lastLi.classList.contains('event-item') &&
+                lastLi.dataset.type === msg.type &&
+                lastLi.dataset.senderId === msg.senderId;
+
+              if (sameAimAsLast) {
+                // Silently delete duplicates: replace lastLi with the latest
+                // payload only. No count badge, no duration label.
+                const replacement = createEventItem(msg);
+                if (
+                  lastLi.querySelector('.raw-data').classList.contains('expanded')
+                ) {
+                  replacement
+                    .querySelector('.raw-data')
+                    .classList.add('expanded');
+                }
+                eventList.replaceChild(replacement, lastLi);
+              } else {
+                eventList.appendChild(createEventItem(msg));
+              }
+            }
+          });
           spectatorStatus.textContent = 'Connected. Waiting for events...';
 
           // Start initial 1 second idle timer immediately on connection
           resetIdleTimer();
-
-          currentTable.onMessage((msg) => {
-            // Reset idle timer whenever a message is received
-            resetIdleTimer();
-            messageCount++;
-
-            // Only collapse consecutive AIM bursts from the same sender.
-            // Every other message type is shown individually.
-            const lastLi = eventList.lastElementChild;
-            const sameAimAsLast =
-              msg.type === 'AIM' &&
-              msg.senderId &&
-              lastLi &&
-              lastLi.classList.contains('event-item') &&
-              lastLi.dataset.type === msg.type &&
-              lastLi.dataset.senderId === msg.senderId;
-
-            if (sameAimAsLast) {
-              // Silently delete duplicates: replace lastLi with the latest
-              // payload only. No count badge, no duration label.
-              const replacement = createEventItem(msg);
-              if (
-                lastLi.querySelector('.raw-data').classList.contains('expanded')
-              ) {
-                replacement
-                  .querySelector('.raw-data')
-                  .classList.add('expanded');
-              }
-              eventList.replaceChild(replacement, lastLi);
-            } else {
-              eventList.appendChild(createEventItem(msg));
-            }
-          });
         } catch (err) {
           spectatorStatus.textContent = `Error: ${err.message}`;
           console.error(err);
