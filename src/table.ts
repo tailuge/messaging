@@ -19,6 +19,7 @@ export class Table<T = any> {
   private bothJoinedListeners: (() => void)[] = [];
   private bothJoinedResolved = false;
   private seenIds = new Set<string>();
+  private preJoinQueue: TableMessage<T>[] = [];
 
   constructor(
     private nchan: NchanClient,
@@ -33,8 +34,15 @@ export class Table<T = any> {
       this.resolveBothJoined = () => {
         if (this.bothJoinedResolved) return;
         this.bothJoinedResolved = true;
-        resolve();
+        // Fire onBothJoined callbacks FIRST, so consumers' flags are set
+        // before we drain queued messages into onMessage.
         this.bothJoinedListeners.forEach((cb) => cb());
+        // Now drain queued messages synchronously. By this point bothJoinedResolved
+        // is true and all onBothJoined callbacks have run, so any consumer checking
+        // a flag set in onBothJoined will see it as set when onMessage fires.
+        const queued = this.preJoinQueue.splice(0);
+        queued.forEach((msg) => this.messageListeners.forEach((cb) => cb(msg)));
+        resolve();
       };
     });
     if (onMessage) {
@@ -146,6 +154,13 @@ export class Table<T = any> {
     }
 
     // Notify message listeners
+    if (!this.isSpectator && !this.bothJoinedResolved) {
+      // Queue messages that arrive before both players have joined.
+      // They will be drained synchronously when resolveBothJoined() fires,
+      // guaranteeing bothJoinedResolved is true before any onMessage callback runs.
+      this.preJoinQueue.push(msg);
+      return;
+    }
     this.messageListeners.forEach((cb) => cb(msg));
   }
 
