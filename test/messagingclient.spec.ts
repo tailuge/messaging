@@ -396,10 +396,12 @@ describe("MessagingClient - Phase 1", () => {
       // A joins the same table (as it created it)
       const tableA = await clientA.joinTable(tableId, "user-a");
 
-      // 4. Test table messaging
+      // 4. Test table messaging — B joins with onMessage to receive
       let messageReceivedByB: any = null;
-      tableB.onMessage((m) => {
-        messageReceivedByB = m;
+      const tableBMsg = await clientB.joinTable(tableId, "user-b", {
+        onMessage: (m) => {
+          messageReceivedByB = m;
+        },
       });
 
       await tableA.publish("MOVE", { x: 5, y: 10 });
@@ -682,11 +684,11 @@ describe("MessagingClient - Phase 1", () => {
       });
       const tableA = await clientA.joinTable(tableId, "user-a");
 
-      const tableSpectator = await clientB.spectateTable(tableId, "user-s");
-
       let messageReceived: any = null;
-      tableSpectator.onMessage((m) => {
-        messageReceived = m;
+      const tableSpectator = await clientB.spectateTable(tableId, "user-s", {
+        onMessage: (m) => {
+          messageReceived = m;
+        },
       });
 
       await tableA.publish("MOVE", { x: 1, y: 2 });

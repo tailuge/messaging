@@ -27,6 +27,7 @@ export class Table<T = any> {
     private lobby?: Lobby,
     private isSpectator = false,
     onMessage?: (event: TableMessage<T>) => void,
+    onBothJoined?: () => void,
   ) {
     this.bothJoined = new Promise<void>((resolve) => {
       this.resolveBothJoined = () => {
@@ -39,16 +40,8 @@ export class Table<T = any> {
     if (onMessage) {
       this.messageListeners.push(onMessage);
     }
-  }
-
-  /**
-   * Subscribe to the event when both non-spectator players have joined the table.
-   */
-  onBothJoined(callback: () => void): void {
-    if (this.bothJoinedResolved) {
-      callback();
-    } else {
-      this.bothJoinedListeners.push(callback);
+    if (onBothJoined) {
+      this.bothJoinedListeners.push(onBothJoined);
     }
   }
 
@@ -77,13 +70,6 @@ export class Table<T = any> {
    */
   async publish(type: string, data: T): Promise<void> {
     await this.nchan.publishTable(this.tableId, { type, data }, this.userId);
-  }
-
-  /**
-   * Subscribe to events published by other participants.
-   */
-  onMessage(callback: (event: TableMessage<T>) => void): void {
-    this.messageListeners.push(callback);
   }
 
   /**

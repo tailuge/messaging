@@ -26,11 +26,11 @@ describe("Table Both Joined", () => {
     const clientB = createClient();
     const tableId = `table-both-joined-${Date.now()}`;
 
-    const tableA = await clientA.joinTable(tableId, "user-a");
-
     let isBothJoinedA_CallbackCalled = false;
-    tableA.onBothJoined(() => {
-      isBothJoinedA_CallbackCalled = true;
+    const tableA = await clientA.joinTable(tableId, "user-a", {
+      onBothJoined: () => {
+        isBothJoinedA_CallbackCalled = true;
+      },
     });
 
     let isBothJoinedA_PromiseResolved = false;
@@ -39,11 +39,11 @@ describe("Table Both Joined", () => {
     });
 
     // Bob (the second player) joins the table
-    const tableB = await clientB.joinTable(tableId, "user-b");
-
     let isBothJoinedB_CallbackCalled = false;
-    tableB.onBothJoined(() => {
-      isBothJoinedB_CallbackCalled = true;
+    const tableB = await clientB.joinTable(tableId, "user-b", {
+      onBothJoined: () => {
+        isBothJoinedB_CallbackCalled = true;
+      },
     });
 
     let isBothJoinedB_PromiseResolved = false;
@@ -74,49 +74,45 @@ describe("Table Both Joined", () => {
     const tableId = `table-spectator-joined-${Date.now()}`;
 
     // Join Player A
-    const tableA = await clientA.joinTable(tableId, "user-a");
+    let normalMessagesReceivedCount = 0;
+    const tableA = await clientA.joinTable(tableId, "user-a", {
+      onMessage: (m) => {
+        if (m.type === "joined") {
+          normalMessagesReceivedCount++;
+        }
+      },
+    });
 
     // Spectator joins
-    const tableSpectator = await clientSpectator.spectateTable(tableId, "user-spectator");
-
     let isSpectator_BothJoined_Called = false;
-    tableSpectator.onBothJoined(() => {
-      isSpectator_BothJoined_Called = true;
-    });
-
-    let normalMessagesReceivedCount = 0;
-    tableSpectator.onMessage((m) => {
-      if (m.type === "joined") {
-        normalMessagesReceivedCount++;
-      }
-    });
-
-    tableA.onMessage((m) => {
-      if (m.type === "joined") {
-        normalMessagesReceivedCount++;
-      }
+    let normalMessageReceived = false;
+    const tableSpectator = await clientSpectator.spectateTable(tableId, "user-spectator", {
+      onBothJoined: () => {
+        isSpectator_BothJoined_Called = true;
+      },
+      onMessage: (m) => {
+        if (m.type === "joined") {
+          normalMessagesReceivedCount++;
+        }
+        if (m.type === "game:start") {
+          normalMessageReceived = true;
+        }
+      },
     });
 
     // Bob joins as Player B
-    const tableB = await clientB.joinTable(tableId, "user-b");
-
-    tableB.onMessage((m) => {
-      if (m.type === "joined") {
-        normalMessagesReceivedCount++;
-      }
+    const tableB = await clientB.joinTable(tableId, "user-b", {
+      onMessage: (m) => {
+        if (m.type === "joined") {
+          normalMessagesReceivedCount++;
+        }
+      },
     });
 
     // Wait for players to settle and bothJoined on spectator to trigger
     await waitUntil(() => isSpectator_BothJoined_Called, 4000);
 
     // Let's send a normal message to verify normal onMessage still works
-    let normalMessageReceived = false;
-    tableSpectator.onMessage((m) => {
-      if (m.type === "game:start") {
-        normalMessageReceived = true;
-      }
-    });
-
     await tableA.publish("game:start", { foo: "bar" });
 
     await waitUntil(() => normalMessageReceived, 2000);

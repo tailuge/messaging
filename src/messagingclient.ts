@@ -169,15 +169,13 @@ export class MessagingClient {
     options?: {
       isSpectator?: boolean;
       onMessage?: (event: TableMessage<T>) => void;
+      onBothJoined?: () => void;
     },
   ): Promise<Table<T>> {
     const isSpectator = options?.isSpectator ?? false;
     const existingTable = this.activeTables.find((t) => t.tableId === tableId);
 
     if (existingTable) {
-      if (options?.onMessage) {
-        existingTable.onMessage(options.onMessage);
-      }
       await existingTable.join();
       return existingTable as Table<T>;
     }
@@ -186,7 +184,7 @@ export class MessagingClient {
       ? undefined
       : this.activeLobbies.find((l) => l.currentUser.userId === userId);
 
-    const table = new Table<T>(this.nchan, tableId, userId, lobby, isSpectator, options?.onMessage);
+    const table = new Table<T>(this.nchan, tableId, userId, lobby, isSpectator, options?.onMessage, options?.onBothJoined);
     await table.join();
     this.activeTables.push(table);
 
@@ -206,6 +204,7 @@ export class MessagingClient {
     userId: string,
     options?: {
       onMessage?: (event: TableMessage<T>) => void;
+      onBothJoined?: () => void;
     },
   ): Promise<Table<T>> {
     return this.joinTable(tableId, userId, { ...options, isSpectator: true });
