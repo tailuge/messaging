@@ -12,6 +12,7 @@ export class Table<T = any> {
   private messageListeners: ((event: TableMessage<T>) => void)[] = [];
   private spectatorListeners: ((spectators: PresenceMessage[]) => void)[] = [];
   private opponentLeftListeners: (() => void)[] = [];
+  private opponentRejoinedListeners: (() => void)[] = [];
   public opponentLeft = false;
 
   public readonly bothJoined: Promise<void>;
@@ -91,6 +92,13 @@ export class Table<T = any> {
   }
 
   /**
+   * Subscribe to opponent rejoin.
+   */
+  onOpponentRejoined(callback: () => void): void {
+    this.opponentRejoinedListeners.push(callback);
+  }
+
+  /**
    * Subscribe to changes in the spectator list.
    * Note: In a real implementation, this would track presence messages on the table channel.
    */
@@ -129,6 +137,7 @@ export class Table<T = any> {
     this.messageListeners = [];
     this.spectatorListeners = [];
     this.opponentLeftListeners = [];
+    this.opponentRejoinedListeners = [];
     this.isJoined = false;
   }
 
@@ -148,6 +157,12 @@ export class Table<T = any> {
         this.seenIds.add(joinedId);
         if (this.seenIds.size >= 2) {
           this.resolveBothJoined();
+        }
+
+        // Detect rejoin if it is the opponent, bothJoined has resolved, and opponentLeft is currently true
+        if (this.bothJoinedResolved && joinedId !== this.userId && this.opponentLeft) {
+          this.opponentLeft = false;
+          this.opponentRejoinedListeners.forEach((cb) => cb());
         }
       }
       return; // Filter out internal "joined" messages from generic onMessage listeners
