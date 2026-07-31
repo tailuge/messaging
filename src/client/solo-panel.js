@@ -27,7 +27,7 @@ const GAMES = [
     label: "Snooker",
     img: "assets/snooker.png",
     ruletype: "snooker",
-    options: { reds: "15" },
+      options: { reds: "15", tableSize: "12" },
   },
   {
     label: "3-Cushion (7)",
