@@ -274,7 +274,7 @@ export class Lobby {
     });
 
     // Automatically update our presence to show we've joined the table
-    await this.updatePresence({ tableId });
+    await this.updatePresence({ tableId, ruleType, options });
 
     const table = new Table(this.nchan, tableId, this.currentUser.userId, this);
     return table;
@@ -490,7 +490,8 @@ export class Lobby {
       oldMsg.tableId !== nextMsg.tableId ||
       oldMsg.ruleType !== nextMsg.ruleType ||
       oldMsg.opponentId !== nextMsg.opponentId ||
-      JSON.stringify(oldMsg.seek) !== JSON.stringify(nextMsg.seek)
+      JSON.stringify(oldMsg.seek) !== JSON.stringify(nextMsg.seek) ||
+      JSON.stringify(oldMsg.options) !== JSON.stringify(nextMsg.options)
     );
   }
 
