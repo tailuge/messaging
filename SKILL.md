@@ -72,12 +72,12 @@ lobby.onChat((msg) => {
 
 ```typescript
 interface Move { x: number; y: number }
-const table = await client.joinTable<Move>("table-xyz", "user-123");
-
-table.onMessage((msg) => {
-  if (msg.type === "MOVE") {
-    console.log(`Move at: ${msg.meta?.ts}`);
-  }
+const table = await client.joinTable<Move>("table-xyz", "user-123", {
+  onMessage: (msg) => {
+    if (msg.type === "MOVE") {
+      console.log(`Move at: ${msg.meta?.ts}`);
+    }
+  },
 });
 
 await table.publish("MOVE", { x: 10, y: 20 });

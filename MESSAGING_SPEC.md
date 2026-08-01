@@ -43,14 +43,25 @@ interface MessagingClient {
   /**
    * Joins a specific table (game room) for 2-player communication.
    * Updates lobby presence with tableId when a lobby session exists.
+   * Pass onMessage in options to receive table events; Table does not expose
+   * a post-join onMessage(callback) registration method.
    */
-  joinTable<T = any>(tableId: string, userId: string): Promise<Table<T>>;
+  joinTable<T = any>(
+    tableId: string,
+    userId: string,
+    options?: TableJoinOptions<T>,
+  ): Promise<Table<T>>;
 
   /**
    * Subscribes to a table as a read-only spectator.
    * Does not update lobby presence. Spectator departures do not trigger onOpponentLeft.
+   * Pass onMessage in options to receive table events.
    */
-  spectateTable<T = any>(tableId: string, userId: string): Promise<Table<T>>;
+  spectateTable<T = any>(
+    tableId: string,
+    userId: string,
+    options?: TableSpectatorOptions<T>,
+  ): Promise<Table<T>>;
 }
 ```
 
@@ -116,9 +127,30 @@ interface Lobby {
 }
 ```
 
+### Table join options
+
+Register `onMessage` in the options passed to `joinTable()` or `spectateTable()` so
+it is active as the subscription starts; messages received before the callback is
+registered cannot be replayed later.
+
+```typescript
+interface TableJoinOptions<T = any> {
+  isSpectator?: boolean;
+  onMessage?: (event: TableMessage<T>) => void;
+  onBothJoined?: () => void;
+}
+
+interface TableSpectatorOptions<T = any> {
+  onMessage?: (event: TableMessage<T>) => void;
+  onBothJoined?: () => void;
+}
+```
+
 ### `Table`
 
 Represents a specific communication channel for a 2-player/spectator scenario at a table.
+The `Table` instance does **not** expose a post-join `onMessage(callback)` method;
+message listeners are supplied through `joinTable()` or `spectateTable()` options.
 
 ```typescript
 interface Table<T = any> {
@@ -126,11 +158,6 @@ interface Table<T = any> {
    * Broadcast an event to all participants at the table.
    */
   publish(type: string, data: T): Promise<void>;
-
-  /**
-   * Subscribe to events published by other participants.
-   */
-  onMessage(callback: (event: TableMessage<T>) => void): void;
 
   /**
    * Subscribe to changes in the spectator list.
@@ -454,14 +481,14 @@ lobby.onChallenge((challenge) => {
 
 // Table interaction with a generic move type
 interface Move { x: number; y: number }
-const table = await client.joinTable<Move>("table-xyz", "user-123");
-
-table.onMessage((msg) => {
-  if (msg.type === "MOVE") {
-    // msg.data is typed as Move
-    applyMove(msg.data);
-    console.log("Move received at:", msg.meta?.ts);
-  }
+const table = await client.joinTable<Move>("table-xyz", "user-123", {
+  onMessage: (msg) => {
+    if (msg.type === "MOVE") {
+      // msg.data is typed as Move
+      applyMove(msg.data);
+      console.log("Move received at:", msg.meta?.ts);
+    }
+  },
 });
 
 table.publish("MOVE", { x: 10, y: 20 });
@@ -485,8 +512,9 @@ Trade-offs:
 Use `spectateTable` for read-only table subscriptions. Spectator `table:leave` messages include `data.isSpectator: true` so player clients skip `onOpponentLeft`. The Nchan server tags auto-leaves from spectator WebSocket disconnects the same way (via `spectator=1` on the subscribe URL).
 
 ```typescript
-const table = await client.spectateTable("table-xyz", "user-123");
-table.onMessage((msg) => { /* same as joinTable */ });
+const table = await client.spectateTable("table-xyz", "user-123", {
+  onMessage: (msg) => { /* handle table messages */ },
+});
 ```
 
 `TableLeaveData` and `isSpectatorTableLeave()` in `types.ts` identify spectator leave messages if needed in custom handlers.

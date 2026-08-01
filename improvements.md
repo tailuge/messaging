@@ -7,7 +7,6 @@ This plan addresses the following review findings:
 1. Automatic WebSocket reconnect does not republish the table `joined` handshake.
 2. Outbound table messages can currently be published before the local table is ready or during a reconnect gap.
 3. `Table.join()` is not idempotent and can create duplicate subscriptions when called repeatedly or concurrently.
-4. The documented `table.onMessage(callback)` API does not exist; listeners are currently accepted only through `joinTable()` / `spectateTable()` options.
 
 The implementation should preserve the existing early-registration behavior and the current ordering guarantee for player messages:
 
@@ -46,7 +45,9 @@ The plan should establish a bounded queue policy. Prefer a configurable maximum 
 
 ### Incoming messages and listeners
 
-Keep the constructor/options form for race-free early registration:
+Listeners are registered only through the options passed to `joinTable()` or
+`spectateTable()`. Those options are forwarded to the `Table` constructor so the
+callback is active before subscription setup can deliver messages:
 
 ```ts
 await client.joinTable(tableId, userId, {
@@ -55,22 +56,8 @@ await client.joinTable(tableId, userId, {
 });
 ```
 
-Add the documented method:
-
-```ts
-table.onMessage(handler);
-```
-
-Its semantics must be explicit:
-
-- A callback registered before or during `join()` receives all eligible messages, including messages drained from `preJoinQueue`.
-- A callback registered after `bothJoined` has resolved receives future messages only; already-delivered messages are not replayed.
+- `onMessage` callbacks receive eligible application messages, including messages drained from `preJoinQueue`.
 - `joined` control messages remain filtered from application `onMessage` callbacks.
-- `table:leave` remains an application-visible table message only if that is the established contract; otherwise document that it is handled internally. Do not change this behavior implicitly while adding the method.
-- Registration should be safe during callback dispatch. Use a listener snapshot when dispatching so adding a listener does not cause it to receive the current message unexpectedly.
-- If lifecycle cleanup clears listeners on `leave()`, document that a new callback must be registered for a later session. If the intended API is reusable tables, define and implement the opposite consistently.
-
-If useful for symmetry, consider adding `offMessage(handler)`, but do not make it a prerequisite for this scope unless existing consumers need listener removal.
 
 ---
 
@@ -216,51 +203,13 @@ Document that this is transport gating/queueing, not an end-to-end delivery ackn
 
 ---
 
-## Phase 5: Align the `onMessage` API
-
-Add a public method on `Table<T>`:
-
-```ts
-onMessage(callback: (event: TableMessage<T>) => void): void;
-```
-
-Implementation requirements:
-
-- Reuse the existing `messageListeners` array; do not create a second dispatch mechanism.
-- Register the callback before any queued messages are drained if called during the join phase.
-- Preserve constructor/options registration for callers that need the earliest possible listener.
-- Avoid duplicate registration only if that matches existing listener semantics; otherwise document that registering the same function twice receives two calls.
-- Use a snapshot while dispatching callbacks.
-
-Update `MessagingClient.joinTable()` and `spectateTable()` documentation/comments to explain:
-
-- Options are the preferred way to capture messages during subscription setup.
-- `table.onMessage()` is valid for handlers registered after the table object is available.
-- Late registration does not replay messages delivered before registration.
-
-Update all public examples and contracts in:
-
-- `MESSAGING_SPEC.md`
-- `SKILL.md`
-- Any README or client documentation that presents `table.onMessage()`
-
-Add unit tests for:
-
-- Post-join `table.onMessage()` receiving future messages.
-- Registration during a pending join receiving queued messages.
-- Constructor/options and method registration both receiving messages without changing dispatch order.
-- `joined` remaining hidden from application callbacks.
-- Listener behavior after `leave()` matching the documented lifecycle contract.
-
----
-
 ## Phase 6: Update `MessagingClient` integration
 
 Review `MessagingClient.activeTables` handling alongside the new idempotent table lifecycle.
 
 - Existing-table lookup should return the existing instance without calling `join()` in a way that creates a second subscription.
 - Concurrent `joinTable()` calls for the same `tableId` should share the same table/join operation.
-- If options are supplied on a later existing-table call, define whether `onMessage` and `onBothJoined` are added to the existing table or ignored. Prefer adding them through public registration methods while preserving the original early-registration path.
+- Options supplied on a later existing-table call do not add listeners; consumers must provide `onMessage` and `onBothJoined` on the initial join/spectate call.
 - `stop()` must prevent reconnect callbacks and outbound queue flushing after table teardown.
 - A later new table session must not inherit stale listeners, queue entries, or connection-generation state.
 
@@ -300,8 +249,7 @@ Check generated/client artifacts only if the source change requires rebuilding t
 
 ## Compatibility and rollout notes
 
-- Keep constructor/options listener registration as a supported compatibility path.
-- Adding `Table.onMessage()` is backward-compatible; changing when existing listeners receive messages is not. Preserve the current callback-before-queue-drain ordering.
+- Keep constructor/options listener registration as the only supported table-listener path.
 - Treat `bothJoined` as initial readiness, not a reconnect notification. If consumers need reconnect awareness, consider a separate documented callback/event rather than changing Promise semantics.
 - Do not promise that a queued message survives process termination, page unload, or permanent network failure.
 - Do not use fixed sleeps to determine reconnect readiness.
@@ -316,7 +264,6 @@ This work is complete when:
 - Repeated and concurrent `Table.join()` calls do not create duplicate subscriptions.
 - Public outbound messages are gated/queued across initial join and transient reconnect, with bounded memory and deterministic Promise settlement.
 - Explicit leave prevents stale reconnects and queued sends.
-- `table.onMessage()` exists, is exported through the normal `Table` API, and its timing semantics are documented.
 - Existing early-registration, both-joined ordering, spectator, and rejoin tests remain green.
-- New reconnect, queue, idempotency, and API tests pass.
+- New reconnect, queue, idempotency, and listener-option tests pass.
 - Typecheck/lint passes without introducing new errors.
