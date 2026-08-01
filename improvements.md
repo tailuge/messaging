@@ -1,18 +1,32 @@
 # Table Messaging Improvements Plan
 
-## Scope
+## Scope and priority
 
-This plan addresses the following review findings:
+**Main priority: remove connection-lifecycle work from consumer wrappers.** The current
+consumer wrapper must maintain `pendingPublishes` because table messages can arrive
+before `joinTable()` / `spectateTable()` resolves, while `Table.publish()` sends
+immediately. It also has to guard against repeated joins creating duplicate
+subscriptions.
+
+The highest-value sequence is:
+
+1. Make `Table.join()` and `MessagingClient.joinTable()` idempotent so one logical
+   table has one shared join operation and one active subscription.
+2. Move the initial-join publish queue into `Table.publish()` so application
+   publishes wait for table readiness instead of being dropped or reimplemented by
+   every consumer.
+3. Extend the same queue across reconnect only after transport disconnect/reconnect
+   state is observable (Phase 2).
+
+This plan addresses these review findings:
 
 1. Automatic WebSocket reconnect does not republish the table `joined` handshake.
 2. Outbound table messages can currently be published before the local table is ready or during a reconnect gap.
 3. `Table.join()` is not idempotent and can create duplicate subscriptions when called repeatedly or concurrently.
 
-The implementation should preserve the existing early-registration behavior and the current ordering guarantee for player messages:
-
-```text
-onBothJoined callback -> queued early onMessage callbacks -> bothJoined Promise continuations
-```
+Phase 1 is limited to join-call idempotency and the initial-join publish queue.
+Message deduplication, timestamp/sequence ordering, acknowledgements, and
+end-to-end delivery guarantees are explicitly out of scope.
 
 No changes should be made to the Nchan server configuration as part of this work unless testing proves that the client-side contract cannot be implemented safely without it.
 
@@ -27,7 +41,7 @@ A `Table` instance represents one logical table session and owns at most one act
 - The first `join()` creates the subscription, waits for its initial readiness, and publishes one internal `joined` handshake message for a player.
 - A second `join()` after a successful join is a no-op and resolves to the same table session.
 - Concurrent `join()` calls share one in-flight Promise; they must not create multiple WebSockets or publish duplicate initial handshakes.
-- Automatic transport reconnect does not create a new `Table` object. It reuses the same table session and republishes `joined` for the new socket connection.
+- After the later reconnect phases are implemented, automatic transport reconnect does not create a new `Table` object. It reuses the same table session and republishes `joined` for the new socket connection.
 - A deliberate `leave()` stops the subscription and prevents queued messages from being flushed afterward.
 
 ### Outbound messages
@@ -35,10 +49,9 @@ A `Table` instance represents one logical table session and owns at most one act
 `table.publish(type, data)` is application traffic and must not race the local subscription lifecycle.
 
 - During initial join, it waits for the initial subscription and local handshake to be ready rather than publishing against an uninitialized table.
-- During a transient reconnect, it is queued FIFO rather than silently sent into a dead connection.
-- After the replacement socket is connected and the replacement `joined` handshake has been accepted by the transport, queued messages are flushed in order.
+- During a transient reconnect, reconnect queueing is deferred until the transport lifecycle work in Phase 2 and the reconnect queue work in Phase 4.
 - If the table is explicitly left, queued messages are rejected/cleared and must never be sent by a later reconnect.
-- Queueing protects local transport readiness only. It must not be documented as guaranteed remote delivery; applications that require state recovery still need acknowledgements, sequence numbers, or a replayable state protocol.
+- Queueing protects local transport readiness only. It must not be documented as guaranteed remote delivery; applications that require state recovery still need acknowledgements or a replayable state protocol.
 - Internal control messages such as `joined` must bypass the public-message queue to avoid a handshake deadlock.
 
 The plan should establish a bounded queue policy. Prefer a configurable maximum with a safe default, and reject new publishes with a clear error when the queue is full rather than allowing unbounded memory growth.
@@ -61,36 +74,76 @@ await client.joinTable(tableId, userId, {
 
 ---
 
-## Phase 1: Define the table state machine
+## Phase 1: Make initial table joins safe and queue publishes in `Table`
 
-Before editing code, document and implement explicit internal states rather than inferring them from one Boolean:
+**Goal:** eliminate the consumer wrapper's `pendingPublishes` and its defensive
+join handling for the initial connection. This phase should establish the smallest
+correct lifecycle before adding reconnect behavior.
 
-- `idle`: no active subscription and no join in progress.
-- `joining`: initial subscription/join Promise is in flight.
-- `ready`: local subscription is connected and the initial `joined` handshake has been published.
-- `reconnecting`: the existing subscription is recovering; public messages are queued.
-- `leaving`: explicit teardown is in progress; reconnect and queue flushing are disabled.
-- `closed`: the table has been deliberately left and cannot send until a clearly defined new join cycle.
+### 1. Define the initial table states
 
-At minimum, introduce state equivalent to:
+Use explicit internal state rather than inferring readiness from one Boolean:
 
-- `joinPromise` / `joiningPromise` for concurrent-call deduplication.
-- A transport readiness flag or generation number.
-- An outbound FIFO queue containing message payloads and their Promise resolve/reject functions.
-- A deliberate-leave flag or lifecycle generation to invalidate stale asynchronous work.
+- `idle`: no subscription and no join in progress.
+- `joining`: the shared initial join Promise is in flight.
+- `ready`: the subscription is ready and the player's initial `joined` handshake has completed.
+- `leaving`: teardown is in progress; queued publishes cannot be flushed.
+- `closed`: the table has been deliberately left and cannot be reused for publishing or joined again.
 
-Do not expose these internal fields as public API.
+Do not expose these fields as public API. Reconnect state is deferred to Phase 2.
+`Table.join()` must reject after `closed`; only `MessagingClient` may create or
+return a fresh replacement table session.
 
-### Invariants
+### 2. Make `Table.join()` idempotent
 
-1. At most one active `Subscription` exists per `Table` instance.
-2. At most one initial `joined` publish is made per join cycle.
-3. Every automatic reconnect publishes a fresh `joined` control message exactly once for that connection generation.
-4. A public `publish()` never calls `nchan.publishTable()` while the local subscription is known to be disconnected or before initial join readiness.
-5. Queued publishes preserve FIFO order.
-6. Queued publishes are either flushed once or rejected once; no Promise remains pending after leave or terminal failure.
-7. A stale reconnect callback from an old subscription cannot mutate the state of a newer join cycle.
-8. The internal `joined` publish cannot wait on the public outbound queue.
+- The first `join()` creates the subscription and stores a shared `joinPromise`.
+- Concurrent `join()` calls return the same in-flight Promise.
+- A call after initial readiness is a no-op.
+- Exactly one active subscription and one initial player `joined` handshake exist per join cycle.
+- The message callback supplied through the constructor/options remains attached before subscription readiness, preserving early registration.
+- A failed join clears or rejects the shared operation and any publishes waiting on it.
+
+### 3. Move the initial-join publish queue into `Table`
+
+`Table.publish()` must not call `nchan.publishTable()` until the table is ready.
+Instead:
+
+- Publishes made during `joining` are held by the `Table` and settle when the initial join becomes ready or fails.
+- The internal `joined` handshake uses a separate control path and must not wait behind application publishes.
+- Successful readiness flushes the held application publishes.
+- Explicit `leave()` rejects or clears held publishes and prevents stale async work from sending them later.
+- Queue capacity and publish failure behavior must be explicit; no publish may remain pending forever.
+- This queue is transport readiness protection only. It does not provide acknowledgements, deduplication, or message ordering guarantees.
+
+### 4. Make `MessagingClient.joinTable()` share the same operation
+
+- An existing table lookup returns the existing `Table` without invoking a second join operation.
+- Add a `MessagingClient`-level in-flight join map keyed by the logical table session identity, including `tableId`, `userId`, and player/spectator role.
+- Concurrent `joinTable()` calls with the same key return the same in-flight Promise; they must not each construct a `Table`, open a subscription, or publish a handshake.
+- Options supplied after the initial table creation do not add listeners; consumers must provide `onMessage` and `onBothJoined` on the initial join/spectate call.
+- Before consulting or creating a session, reject a same-`tableId` call whose user or player/spectator role differs from the active session; do not let a different in-flight key bypass this conflict check.
+- Remove the in-flight entry in a `finally` block.
+- `MessagingClient` must register an internal lifecycle cleanup callback when it creates a `Table`; `Table.leave()` invokes that callback after teardown so the closed table is removed from `activeTables` and later joins create a fresh session.
+
+### Phase 1 invariants
+
+1. A logical table has at most one active subscription during its initial join cycle.
+2. Concurrent/repeated join calls do not create duplicate initial handshakes.
+3. An application publish issued before readiness is owned by `Table`, not by the consumer.
+4. Every held publish is eventually settled or explicitly rejected/cleared on teardown.
+5. The internal `joined` handshake cannot deadlock behind the application queue.
+
+### Phase 1 tests
+
+Add focused tests for:
+
+- Concurrent `Table.join()` calls sharing one subscription and one initial handshake.
+- Concurrent `MessagingClient.joinTable()` calls sharing one in-flight Promise and one table instance.
+- Repeated `Table.join()` after readiness being a no-op.
+- `Table.publish()` during initial join being delivered after readiness.
+- Multiple early publishes settling when the join succeeds.
+- Join failure and explicit leave settling/clearing held publishes.
+- A consumer no longer needing a separate initial-connection publish queue.
 
 ---
 
@@ -113,7 +166,7 @@ Preferred behavior:
 
 - Invoke `onDisconnect` when an established socket closes unexpectedly.
 - Do not invoke it for an intentional `stop()`.
-- Invoke `onReconnect` after the replacement socket opens and before or around the table's replacement `joined` publish according to the chosen ordering contract.
+- Invoke `onReconnect` after the replacement socket opens and define whether the table's replacement `joined` publish occurs before application publishing is reopened.
 - Preserve existing lobby behavior and tests.
 - Ensure callbacks are associated with the current socket/connection generation so an old socket's close event cannot mark a newer socket disconnected.
 
@@ -129,24 +182,11 @@ Update `NchanClient` unit tests for:
 
 ---
 
-## Phase 3: Implement idempotent `Table.join()` and reconnect handshake
+## Phase 3: Implement the reconnect handshake
 
-### Initial join
-
-Refactor `Table.join()` so all callers share one operation:
-
-1. If already `ready`, return immediately.
-2. If `joining`, return the existing `joinPromise`.
-3. If `reconnecting`, wait for the current reconnect readiness as appropriate rather than opening another subscription.
-4. If `idle`/reusable, create exactly one subscription and attach the message handler before awaiting readiness.
-5. Attach transport lifecycle callbacks immediately after creating the subscription.
-6. Await initial `subscription.ready`.
-7. Mark local transport ready.
-8. For players, publish internal `joined` exactly once for the initial connection.
-9. Mark the table ready and flush any public messages queued during initial join.
-10. On failure, reject the join and all queued publishes that cannot be completed; reset to a retryable state if that is supported.
-
-The internal handshake should use a dedicated private method such as `publishJoined()` rather than calling the public `publish()` method.
+Phase 1 owns the initial join Promise, idempotent join calls, and initial-join
+publish queue. This phase handles only the transition after an established table
+subscription disconnects.
 
 ### Automatic reconnect
 
@@ -155,9 +195,8 @@ When the existing subscription reconnects:
 1. Mark public transport readiness false as soon as disconnect is reported.
 2. Keep the same `Table` object and listeners.
 3. Publish a fresh internal `joined` message for the new connection if this is a player.
-4. Mark public transport readiness true only after that control publish succeeds.
-5. Flush queued public messages FIFO.
-6. If the handshake publish fails, keep the queue pending and allow the transport's reconnect/error policy to determine the next attempt; do not silently drop messages.
+4. Mark transport readiness true only after that control publish succeeds.
+5. Leave application publishes held during reconnect to the queue behavior defined in Phase 4.
 
 The existing opponent rejoin detection should continue to observe the new `joined` message. Add tests for both sides of the reconnect where possible, including the case where the peer receives the new handshake after seeing `table:leave`.
 
@@ -165,9 +204,11 @@ Do not reset the one-shot `bothJoined` Promise during a transient reconnect unle
 
 ---
 
-## Phase 4: Gate and queue `Table.publish()`
+## Phase 4: Extend the publish queue across reconnect
 
-Split publishing into two paths:
+Phase 1 establishes queue ownership during initial join. After Phase 2 exposes
+transport disconnect/reconnect state, extend the same `Table.publish()` queue to
+cover reconnecting sessions.
 
 ### Internal control path
 
@@ -183,33 +224,28 @@ Used for `joined` and future transport-control messages.
 Used by `table.publish(type, data)`.
 
 - If the table is ready, publish immediately.
-- If initial join or reconnect is in progress, enqueue the message and return a Promise tied to its eventual flush.
+- If reconnecting, hold the publish until replacement readiness is established.
 - If the table is leaving/closed, reject immediately with a documented error.
-- If the queue reaches its maximum, reject the new call without disturbing existing queued messages.
-- On a publish failure, reject that message and define whether later messages remain queued or are also rejected. Prefer preserving order and rejecting the failed item plus the remaining queue if ordering can no longer be trusted.
-- Do not flush concurrently: one flush loop must own queue draining, and a second reconnect/join callback must await the existing flush Promise.
+- If the queue reaches its maximum, reject the new call without disturbing existing held publishes.
+- Every held publish must resolve or reject exactly once; no silent drops or permanently pending Promises.
 
-Add tests for:
+Do not add message deduplication, timestamp ordering, sequence numbers, or
+end-to-end delivery acknowledgements in this phase.
 
-- `publish()` called before `join()` completes is delivered after readiness.
-- Multiple early publishes preserve order.
-- `publish()` during reconnect is delayed until replacement handshake completion.
-- Queue overflow rejects predictably.
-- Leave rejects/clears queued messages.
-- A failed publish does not leave a hanging Promise.
-- Internal `joined` is still sent when no peer has joined yet.
-
-Document that this is transport gating/queueing, not an end-to-end delivery acknowledgement.
-
+Add focused tests for publishes issued during reconnect, explicit leave during
+reconnect, failed replacement handshakes, and queue capacity behavior.
 ---
 
-## Phase 6: Update `MessagingClient` integration
+## Phase 5: Update `MessagingClient` integration
 
 Review `MessagingClient.activeTables` handling alongside the new idempotent table lifecycle.
 
 - Existing-table lookup should return the existing instance without calling `join()` in a way that creates a second subscription.
-- Concurrent `joinTable()` calls for the same `tableId` should share the same table/join operation.
+- Concurrent `joinTable()` calls for the same logical table session should share the same client-level in-flight join operation.
+- A same-`tableId` call with a different user or player/spectator role must reject before creating another session.
 - Options supplied on a later existing-table call do not add listeners; consumers must provide `onMessage` and `onBothJoined` on the initial join/spectate call.
+- `MessagingClient` must register an internal cleanup callback on each created `Table`; direct `Table.leave()` invokes it after teardown so the closed table is removed from `activeTables`.
+- Failed joins must remove their in-flight map entry, and `Table.join()` after `closed` must reject.
 - `stop()` must prevent reconnect callbacks and outbound queue flushing after table teardown.
 - A later new table session must not inherit stale listeners, queue entries, or connection-generation state.
 
@@ -240,8 +276,8 @@ npm test -- --runInBand
 If transport reconnect behavior is covered by browser-level behavior rather than a deterministic unit mock, add a focused Playwright or integration scenario that forcibly closes the table WebSocket and verifies:
 
 1. The peer sees the expected leave/rejoin transition.
-2. A message published during the reconnect is delivered once, after readiness.
-3. No duplicate messages result from repeated `join()` calls.
+2. A message published during the reconnect is held until the documented reconnect-ready state.
+3. Repeated `join()` calls do not create duplicate subscriptions or handshakes.
 
 Check generated/client artifacts only if the source change requires rebuilding them; avoid committing generated output unless this repository's normal workflow requires it.
 
@@ -264,6 +300,7 @@ This work is complete when:
 - Repeated and concurrent `Table.join()` calls do not create duplicate subscriptions.
 - Public outbound messages are gated/queued across initial join and transient reconnect, with bounded memory and deterministic Promise settlement.
 - Explicit leave prevents stale reconnects and queued sends.
-- Existing early-registration, both-joined ordering, spectator, and rejoin tests remain green.
-- New reconnect, queue, idempotency, and listener-option tests pass.
+- Existing early-registration, both-joined, spectator, and rejoin tests remain green.
+- New reconnect, queue, idempotent-join, and listener-option tests pass.
+- Message deduplication and ordering are not required for this work.
 - Typecheck/lint passes without introducing new errors.
