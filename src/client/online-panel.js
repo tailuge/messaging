@@ -332,7 +332,7 @@ class OnlinePanel extends LitElement {
                 }}
                 @spectate=${e => {
                     const u = e.detail;
-                    window.location.href = spectateUrl({ tableId: u.tableId, userId: this.#myId, userName: this.#myName, ruleType: u.ruleType || 'nineball' });
+                    window.location.href = spectateUrl({ tableId: u.tableId, userId: this.#myId, userName: this.#myName, ruleType: u.ruleType || 'nineball', options: u.options });
                 }}
                 @open-chat=${e => {
                     const u = this.#visibleUsers.find(u => u.userId === e.detail);

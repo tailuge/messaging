@@ -9,13 +9,13 @@ const GAMES = [
     label: "Snooker 6r",
     img: "assets/snooker.png",
     ruletype: "snooker",
-    options: { reds: "6" },
+    options: { reds: "6", tableSize: "12" },
   },
   {
     label: "Snooker 10r",
     img: "assets/snooker.png",
     ruletype: "snooker",
-    options: { reds: "10" },
+    options: { reds: "10", tableSize: "12" },
   },    
   {
     label: "3-Cushion 5ft",

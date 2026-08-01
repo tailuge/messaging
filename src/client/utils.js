@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 702;
+export const CLIENTVERSION = 704;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -192,9 +192,11 @@ export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options,
     return appendOptions(url, options);
 };
 
-export const spectateUrl = ({ tableId, userId, userName, ruleType }) =>
-    `${BASE}?websocketserver=${WS_SERVER}`
-    + `&tableId=${tableId}&userName=${encodeURIComponent(userName)}&userId=${userId}&ruletype=${ruleType}&spectator=true`;
+export const spectateUrl = ({ tableId, userId, userName, ruleType, options }) => {
+    const url = `${BASE}?websocketserver=${WS_SERVER}`
+        + `&tableId=${tableId}&userName=${encodeURIComponent(userName)}&userId=${userId}&ruletype=${ruleType}&spectator=true`;
+    return appendOptions(url, options);
+};
 
 const RULE_ASSETS = { eightball: 'eightball', snooker: 'snooker', threecushion: 'threecushion', nineball: 'nineball', sagu: 'sagu' };
 export const ruleIcon = rule => {

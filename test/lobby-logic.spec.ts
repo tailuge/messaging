@@ -1,4 +1,4 @@
-import { reduce, INITIAL_STATE, getEmoji } from "../src/client/utils.js";
+import { reduce, INITIAL_STATE, getEmoji, spectateUrl } from "../src/client/utils.js";
 
 // Mock lit
 jest.mock('lit', () => ({
@@ -25,6 +25,18 @@ describe("Lobby Logic", () => {
     it("should handle sub-types of sagu like sagu-mini", () => {
       const result = getEmoji("", "sagu-mini");
       expect(result).toEqual({ emoji: "④🍼", title: "mini" });
+    });
+  });
+
+  describe("spectateUrl", () => {
+    it("includes presence options in the spectate URL", () => {
+      expect(spectateUrl({
+        tableId: "table-1",
+        userId: "spectator-1",
+        userName: "Sam",
+        ruleType: "snooker",
+        options: { tableSize: "12" },
+      })).toContain("&tableSize=12");
     });
   });
 
