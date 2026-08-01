@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 704;
+export const CLIENTVERSION = 705;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -99,9 +99,11 @@ export function reduce(state, action) {
 /**
  * Returns an emoji and title based on origin or ruleType.
  * @param {string} origin 
- * @param {string} ruleType 
+ * @param {string} ruleType
+ * @param {string} status
+ * @param {Record<string, string|number|boolean>} options
  */
-export function getEmoji(origin = "", ruleType = "", status = "") {
+export function getEmoji(origin = "", ruleType = "", status = "", options = {}) {
   const ruleMap = {
     bot: { emoji: "🤖", title: "bot" },
     nineball: { emoji: "⑨", title: "nineball" },
@@ -111,41 +113,41 @@ export function getEmoji(origin = "", ruleType = "", status = "") {
     sagu: { emoji: "④", title: "sagu" },
   };
 
-    const mapped = ruleMap[ruleType]
+    const mapped = ruleMap[ruleType];
+    const isMini = String(options?.tableSize) === "5";
+    const decorate = result => isMini
+      ? { emoji: result.emoji + "🍼", title: "mini" }
+      : result;
     
   // 1. Check user status first
   if (status === "spectating") return { emoji: "🔭", title: "spectator" };
-  if (status === "playing") return mapped ?? { emoji: "🎮", title: "playing" };
+  if (status === "playing") return decorate(mapped ?? { emoji: "🎮", title: "playing" });
   if (status === "available" &&ruleType === "replay") return { emoji: "👀", title: "replay" };
 
 
     
   if (mapped) {
-      if (origin.includes("veli")) return { emoji: "🎓", title: "study" };
-      if (origin.includes("github")) return { emoji: mapped.emoji+"🐙", title: "github" };
-      if (origin.includes("localhost")) return { emoji: mapped.emoji+"🏠", title: "localhost" };
-      return mapped;
+      if (origin.includes("veli")) return decorate({ emoji: "🎓", title: "study" });
+      if (origin.includes("github")) return decorate({ emoji: mapped.emoji+"🐙", title: "github" });
+      if (origin.includes("localhost")) return decorate({ emoji: mapped.emoji+"🏠", title: "localhost" });
+      return decorate(mapped);
   }
 
   if (ruleType.includes("-bot")) {
 	const botmap = ruleMap[ruleType.replace("-bot","")];
-	if (botmap) return { emoji: botmap.emoji+"🤖", title: "bot" };
+	if (botmap) return decorate({ emoji: botmap.emoji+"🤖", title: "bot" });
   }
 
   if (ruleType.includes("-exam")) {
 	const exammap = ruleMap[ruleType.replace("-exam","")];
-	if (exammap) return { emoji: exammap.emoji+"📜", title: "exam" };
+	if (exammap) return decorate({ emoji: exammap.emoji+"📜", title: "exam" });
   }
 
   if (ruleType.includes("-speedrun")) {
 	const speedmap = ruleMap[ruleType.replace("-speedrun","")];
-	if (speedmap) return { emoji: speedmap.emoji+"👟", title: "speedrun" };
+	if (speedmap) return decorate({ emoji: speedmap.emoji+"👟", title: "speedrun" });
   }
 
-  if (ruleType.includes("-mini")) {
-	const minimap = ruleMap[ruleType.replace("-mini","")];
-	if (minimap) return { emoji: minimap.emoji+"🍼", title: "mini" };
-  }
 
   // 2. Check origin patterns
 

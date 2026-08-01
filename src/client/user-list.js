@@ -82,7 +82,7 @@ export class UserList extends LitElement {
     _rowSlot(slot, index, activeGameIds) {
         if (slot.status === 'offline') {
             const u = slot.user;
-            const status = getEmoji(u.meta?.origin ?? '', u.ruleType ?? '', userStatus(u));
+            const status = getEmoji(u.meta?.origin ?? '', u.ruleType ?? '', userStatus(u), u.options);
             return html`
                 <li class="is-offline" aria-label="${u.userName}">
                     <div class="user-info">
@@ -107,7 +107,7 @@ export class UserList extends LitElement {
             canSpectate(u, this.tableId) &&
             activeGameIds.has(u.tableId);
 
-        const status = getEmoji(u.meta?.origin ?? '', u.ruleType ?? '', userStatus(u));
+        const status = getEmoji(u.meta?.origin ?? '', u.ruleType ?? '', userStatus(u), u.options);
         const actions = unread
             ? html`<button class="btn-chat" aria-label="Unread message from ${u.userName}" @click=${() => emit(this, 'open-chat', u.userId)}>💬</button>`
             : spectatable

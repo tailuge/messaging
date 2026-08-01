@@ -22,9 +22,29 @@ describe("Lobby Logic", () => {
       expect(result).toEqual({ emoji: "④👟", title: "speedrun" });
     });
 
-    it("should handle sub-types of sagu like sagu-mini", () => {
-      const result = getEmoji("", "sagu-mini");
+    it("should mark a small table using the tableSize option", () => {
+      const result = getEmoji("", "sagu", "", { tableSize: "5" });
       expect(result).toEqual({ emoji: "④🍼", title: "mini" });
+    });
+
+    it("should accept numeric tableSize values", () => {
+      const result = getEmoji("", "sagu", "", { tableSize: 5 });
+      expect(result).toEqual({ emoji: "④🍼", title: "mini" });
+    });
+
+    it("should mark a playing small-table user as mini", () => {
+      const result = getEmoji("", "sagu", "playing", { tableSize: "5" });
+      expect(result).toEqual({ emoji: "④🍼", title: "mini" });
+    });
+
+    it("should not mark a regular table as mini", () => {
+      const result = getEmoji("", "sagu", "", { tableSize: "12" });
+      expect(result).toEqual({ emoji: "④", title: "sagu" });
+    });
+
+    it("should not interpret a legacy -mini rule type as a small table", () => {
+      const result = getEmoji("", "sagu-mini");
+      expect(result).toEqual({ emoji: "🎮", title: "external" });
     });
   });
 
