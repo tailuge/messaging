@@ -32,6 +32,11 @@ describe("Lobby Logic", () => {
       expect(result).toEqual({ emoji: "④🍼", title: "mini" });
     });
 
+    it("should mark numeric and string tableSize 6 as mini", () => {
+      expect(getEmoji("", "sagu", "", { tableSize: 6 })).toEqual({ emoji: "④🍼", title: "mini" });
+      expect(getEmoji("", "sagu", "", { tableSize: "6" })).toEqual({ emoji: "④🍼", title: "mini" });
+    });
+
     it("should mark a playing small-table user as mini", () => {
       const result = getEmoji("", "sagu", "playing", { tableSize: "5" });
       expect(result).toEqual({ emoji: "④🍼", title: "mini" });

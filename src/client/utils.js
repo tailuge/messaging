@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 705;
+export const CLIENTVERSION = 707;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -114,7 +114,7 @@ export function getEmoji(origin = "", ruleType = "", status = "", options = {}) 
   };
 
     const mapped = ruleMap[ruleType];
-    const isMini = String(options?.tableSize) === "5";
+    const isMini = ["5", "6"].includes(String(options?.tableSize));
     const decorate = result => isMini
       ? { emoji: result.emoji + "🍼", title: "mini" }
       : result;

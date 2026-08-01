@@ -35,6 +35,7 @@ class ChallengeModal extends LitElement {
             label: 'Snooker',
             img: 'assets/snooker.png',
             rules: [
+                { id: 'snooker', label: '3 reds',  img: 'assets/baby.png', options: { reds: '3', tableSize: '6' } },
                 { id: 'snooker', label: '6 reds',  img: 'assets/snooker.png', options: { reds: '6', tableSize: '12' } },
                 { id: 'snooker', label: '10 reds', img: 'assets/snooker.png', options: { reds: '10', tableSize: '12' } },
                 { id: 'snooker', label: '15 reds', img: 'assets/snooker.png', options: { reds: '15', tableSize: '12' } },
