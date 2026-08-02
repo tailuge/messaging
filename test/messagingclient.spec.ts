@@ -349,7 +349,7 @@ describe("MessagingClient - Phase 1", () => {
   });
 
   describe("Challenges & Tables (Phase 2)", () => {
-    it("should handle a full challenge/accept and table messaging flow", async () => {
+    it("should handle a full challenge/accept flow", async () => {
       const clientA = createClient();
       const clientB = createClient();
 
@@ -391,24 +391,6 @@ describe("MessagingClient - Phase 1", () => {
         receivedChallenge.ruleType,
         receivedChallenge.tableId,
       );
-
-      // A joins the same table (as it created it)
-      const tableA = await clientA.joinTable(tableId, "user-a");
-
-      // 4. Test table messaging — B joins with onMessage to receive
-      let messageReceivedByB: any = null;
-      await clientB.joinTable(tableId, "user-b", {
-        onMessage: (m) => {
-          messageReceivedByB = m;
-        },
-      });
-
-      await tableA.publish("MOVE", { x: 5, y: 10 });
-
-      await waitUntil(() => messageReceivedByB !== null);
-      expect(messageReceivedByB.type).toBe("MOVE");
-      expect(messageReceivedByB.data.x).toBe(5);
-      expect(messageReceivedByB.senderId).toBe("user-a");
     });
 
     it("should handle challenge with options", async () => {
@@ -693,6 +675,33 @@ describe("MessagingClient - Phase 1", () => {
       expect(messageReceived.type).toBe("MOVE");
       expect(messageReceived.data.x).toBe(1);
       expect(messageReceived.senderId).toBe("user-a");
+    }, 5000);
+
+    it("should deliver messages between two players on a table", async () => {
+      const clientA = createClient();
+      const clientB = createClient();
+      const tableId = "table-p2p-msg-" + Date.now();
+
+      // 1. A joins the table as a player
+      const tableA = await clientA.joinTable(tableId, "user-a");
+
+      // 2. B joins the same table as a player, receiving messages
+      let messageReceivedByB: any = null;
+      await clientB.joinTable(tableId, "user-b", {
+        onMessage: (m) => {
+          messageReceivedByB = m;
+        },
+      });
+
+      // 3. A publishes a move immediately (possibly before B's socket is live).
+      //    The channel replay buffer (nchan_message_buffer_length 2000 / 90s) must
+      //    guarantee delivery — no message may be lost.
+      await tableA.publish("MOVE", { x: 5, y: 10 });
+
+      await waitUntil(() => messageReceivedByB !== null, 4000);
+      expect(messageReceivedByB.type).toBe("MOVE");
+      expect(messageReceivedByB.data.x).toBe(5);
+      expect(messageReceivedByB.senderId).toBe("user-a");
     }, 5000);
 
     it("should NOT trigger onOpponentLeft when a spectator leaves explicitly", async () => {

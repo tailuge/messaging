@@ -62,9 +62,20 @@ function parseUA(ua) {
   return { os: os, browser: browser };
 }
 
+function createMessageId() {
+  // UUID-shaped server identity. Message identity must not depend on the
+  // millisecond timestamp because multiple publishes can share one ts.
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+    var r = Math.random() * 16 | 0;
+    var v = c === "x" ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 function createMeta(r, country, city, since) {
   return {
     ts: Date.now(),
+    msgId: createMessageId(),
     ua: r.headersIn["user-agent"] || "",
     origin: r.headersIn.origin || "",
     country: country,
@@ -129,9 +140,14 @@ async function buildMeta(r) {
 function mergeMeta(payload, meta) {
   if (payload && typeof payload === "object" && !Array.isArray(payload)) {
     const clientMeta = payload.meta || {};
-    // Merge: Preserve client 'version' while letting server meta dominate other fields
+    // The server owns message identity. Preserve client version metadata, but
+    // assign a fresh ID to every accepted publish so legacy and modern clients
+    // use the same reconnect-replay path.
     // Use Object.assign for NJS compatibility (spread operator might not be supported)
-    payload.meta = Object.assign({}, meta, { version: clientMeta.version });
+    payload.meta = Object.assign({}, meta, {
+      version: clientMeta.version,
+      msgId: meta.msgId,
+    });
     return payload;
   }
   return { data: payload, meta: meta };
@@ -258,6 +274,7 @@ async function publish_auto_leave(r, publishPath, payload, ua) {
       ts: Date.now(),
       ua: ua,
       origin: "internal",
+      msgId: createMessageId(),
     }
   });
 

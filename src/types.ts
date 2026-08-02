@@ -11,6 +11,7 @@ export interface Meta {
   country: string; // Country code from IP (e.g., "US", "GB", "XX")
   since?: number; // Epoch ms when this IP was first seen (from ip_cache)
   version?: string; // Optional client-side software version
+  msgId?: string; // Server-generated message identity used for reconnect replay suppression
 }
 
 /**

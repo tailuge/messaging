@@ -13,6 +13,8 @@ function expectMeta(parsed: Record<string, unknown>) {
   expect(meta.ts).toBeDefined();
   expect(typeof meta.ts).toBe("number");
   expect(meta.ts).toBeGreaterThan(0);
+  expect(typeof meta.msgId).toBe("string");
+  expect(meta.msgId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
 }
 
 describe("NchanClient", () => {

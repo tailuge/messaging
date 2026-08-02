@@ -12,6 +12,11 @@ export class MessagingClient {
   private activeLobbies: Lobby[] = [];
   private lobbyInstances: Map<string, Lobby> = new Map();
   private activeTables: Table[] = [];
+  /** In-flight joinTable() operations keyed by session identity (tableId|userId|role). */
+  private joiningTables: Map<
+    string,
+    { tableId: string; userId: string; isSpectator: boolean; promise: Promise<Table<any>> }
+  > = new Map();
   private lobbyConfigs: Map<string, { user: PresenceMessage; options?: LobbyOptions }> = new Map();
   private isStopping = false;
   private isStarted = false;
@@ -21,8 +26,8 @@ export class MessagingClient {
   private stopPromise: Promise<void> | null = null;
   private joiningLobbies: Map<string, Promise<Lobby>> = new Map();
 
-  constructor(options: { baseUrl: string }) {
-    this.nchan = new NchanClient(options.baseUrl);
+  constructor(options: { baseUrl: string; nchan?: NchanClient }) {
+    this.nchan = options.nchan ?? new NchanClient(options.baseUrl);
   }
 
   /**
@@ -162,6 +167,12 @@ export class MessagingClient {
 
   /**
    * Joins a specific table for communication.
+   *
+   * Resolves as soon as the session exists; the handshake (subscription ready,
+   * `joined` publish, presence update) continues in the background. Concurrent
+   * calls for the same session share one operation and one table instance.
+   * Same-tableId calls with a different user or role reject before a second
+   * session is created.
    */
   async joinTable<T = any>(
     tableId: string,
@@ -173,26 +184,97 @@ export class MessagingClient {
     },
   ): Promise<Table<T>> {
     const isSpectator = options?.isSpectator ?? false;
-    const existingTable = this.activeTables.find((t) => t.tableId === tableId);
+    const key = this.tableKey(tableId, userId, isSpectator);
 
-    if (existingTable) {
-      await existingTable.join();
-      return existingTable as Table<T>;
+    // Concurrent calls for the same session share one operation.
+    const inFlight = this.joiningTables.get(key);
+    if (inFlight) return inFlight.promise as Promise<Table<T>>;
+
+    // Same-tableId calls with a different user or role reject before creating a session.
+    this.assertNoTableConflict(tableId, userId, isSpectator);
+
+    // Reuse an already-joined session for this identity. Options supplied on
+    // this later call do not add listeners (constructor registration only).
+    const existing = this.activeTables.find((t) => t.tableId === tableId);
+    if (existing) {
+      return Promise.resolve(existing as Table<T>);
     }
 
     const lobby = isSpectator
       ? undefined
       : this.activeLobbies.find((l) => l.currentUser.userId === userId);
 
-    const table = new Table<T>(this.nchan, tableId, userId, lobby, isSpectator, options?.onMessage, options?.onBothJoined);
-    await table.join();
+    const table = new Table<T>(
+      this.nchan,
+      tableId,
+      userId,
+      lobby,
+      isSpectator,
+      options?.onMessage,
+      options?.onBothJoined,
+      () => this.removeActiveTable(table),
+    );
     this.activeTables.push(table);
 
+    // The session exists — resolve now. The handshake continues in the
+    // background so consumers never need a separate initial-connection
+    // publish queue.
+    const handshake = table.join().catch((e) => {
+      console.error(`Table ${tableId} join handshake failed:`, e);
+    });
     if (lobby) {
-      await lobby.updatePresence({ tableId });
+      void handshake.then(async () => {
+        if (table.closed) return;
+        try {
+          await lobby.updatePresence({ tableId });
+        } catch (e) {
+          console.error("Failed to update presence after table join:", e);
+        }
+      });
     }
 
-    return table;
+    // Register the in-flight entry *before* the delete (scheduled as a
+    // microtask via .finally) so the same-key entry is never stale.
+    const joinPromise = Promise.resolve(table).finally(() => {
+      this.joiningTables.delete(key);
+    });
+    this.joiningTables.set(key, { tableId, userId, isSpectator, promise: joinPromise });
+    return joinPromise;
+  }
+
+  /** Logical session identity for the in-flight join map. */
+  private tableKey(tableId: string, userId: string, isSpectator: boolean): string {
+    return `${tableId}|${userId}|${isSpectator ? "s" : "p"}`;
+  }
+
+  /**
+   * Rejects same-tableId joins with a different user or role before a second
+   * session can be created within this client instance.
+   */
+  private assertNoTableConflict(tableId: string, userId: string, isSpectator: boolean): void {
+    for (const entry of this.joiningTables.values()) {
+      if (entry.tableId === tableId && (entry.userId !== userId || entry.isSpectator !== isSpectator)) {
+        throw new Error(
+          `Table ${tableId} is already being joined as ` +
+            `${entry.isSpectator ? "spectator" : "player"} ${entry.userId}; ` +
+            `cannot also join as ${isSpectator ? "spectator" : "player"} ${userId}`,
+        );
+      }
+    }
+    for (const t of this.activeTables) {
+      if (t.tableId === tableId && (t.userId !== userId || t.isSpectator !== isSpectator)) {
+        throw new Error(
+          `Table ${tableId} is already joined as ${t.isSpectator ? "spectator" : "player"} ${t.userId}; ` +
+            `cannot also join as ${isSpectator ? "spectator" : "player"} ${userId}`,
+        );
+      }
+    }
+  }
+
+  /** Lifecycle cleanup: drop a closed table so later joins create a fresh session. */
+  private removeActiveTable(table: Table): void {
+    const idx = this.activeTables.indexOf(table);
+    if (idx !== -1) this.activeTables.splice(idx, 1);
   }
 
   /**

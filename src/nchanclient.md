@@ -20,7 +20,7 @@ const client = new NchanClient("your-server.com:8080");
 
 ## Publishing
 
-All published messages are automatically enriched by the server with a `meta` object containing timing and origin information.
+All JSON messages are automatically enriched by the server with a `meta` object containing timing, origin, and message identity information. The server assigns `meta.msgId`; clients must not generate or overwrite it. `meta.ts` is the event timestamp, not a unique message key.
 
 ### Presence
 
@@ -70,7 +70,7 @@ Subscription methods return a `Subscription` object. The client will automatical
 ### Global Presence & Challenges
 
 ```typescript
-const sub = client.subscribePresence((data: string) => {
+const sub = client.subscribePresence("user-123", (data: string) => {
   const msg = JSON.parse(data);
   // msg is either PresenceMessage or ChallengeMessage
   console.log(msg.messageType, msg.meta.ts);
@@ -96,10 +96,10 @@ sub.stop(); // Closes the WebSocket and prevents reconnection
 
 The client uses an exponential backoff strategy for reconnections:
 
-1.  Immediate attempt on first drop.
-2.  Subsequent attempts: $2^{attempts} \times 1000$ms.
-3.  Maximum delay: 30 seconds.
-4.  Reset: Reconnection counter resets to 0 upon a successful `onopen`.
+1.  Immediate attempt on the first connection.
+2.  After a disconnect, retry with exponential backoff starting at 8 seconds.
+3.  Maximum reconnect delay: 60 seconds, with at most 10 attempts.
+4.  Reset: the reconnect counter resets to 0 after a successful `onopen`.
 
 ## Data Models
 

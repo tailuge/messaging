@@ -80,8 +80,15 @@ const table = await client.joinTable<Move>("table-xyz", "user-123", {
   },
 });
 
+// Safe immediately after joinTable(): the library queues until the
+// subscription is ready, sends in order, and retries transient failures.
 await table.publish("MOVE", { x: 10, y: 20 });
+await table.bothJoined; // two-player readiness; may remain pending if no opponent joins
 ```
+
+`onMessage` and `onBothJoined` must be supplied on the initial join call. The
+library suppresses reconnect buffer replays internally using server-generated
+`meta.msgId`; consumers should not generate message IDs or deduplicate by `meta.ts`.
 
 ## Spectators
 

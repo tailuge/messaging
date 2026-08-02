@@ -179,20 +179,23 @@ interface Table<T = any> {
 
 ### `meta` (Server-Enriched Metadata)
 
-All messages published through the transport layer are automatically enriched by the server with metadata from HTTP headers and connection info. This `meta` object is **added by the server** and should be used by clients as the absolute source of truth for timing (`ts`).
+All JSON messages published through the transport layer are automatically enriched by the server with metadata from HTTP headers and connection info. The server also assigns a unique `msgId` to each accepted message, including server-generated auto-leave messages. This `meta` object is **added by the server** and should be used by clients as the absolute source of truth for timing (`ts`). Clients should not generate or overwrite `msgId`.
 
 ```typescript
 interface Meta {
-  ts: string; // ISO timestamp of the request (Source of Truth for time)
+  ts: number; // Epoch milliseconds (Source of Truth for event time)
+  msgId?: string; // Server-generated identity used to suppress reconnect replays
   ua: string; // User-Agent header
+  ip: string; // Obfuscated client address
   origin: string; // Origin header value
   method: string; // HTTP method (always POST for publish)
   country: string; // Country code from IP (e.g., "US", "GB", "XX")
-  city: string; // City from IP geolocation
+  since?: number; // First-seen time for the obfuscated client address
+  version?: string; // Optional client software version
 }
 ```
 
-**Note**: The client should NOT include `ua` in published messages — the server adds this automatically from HTTP headers. This ensures reliable, tamper-resistant metadata for UI features like flag rendering.
+**Note**: The client should NOT include `ua`, `ip`, `ts`, or `msgId` in published messages. The server adds metadata automatically. `msgId` is an identity for reconnect replay suppression; `ts` is only the event timestamp. The optional `version` field may be supplied through `MessagingClient.setVersion()`.
 
 ### `PresenceMessage`
 

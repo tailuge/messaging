@@ -75,4 +75,20 @@ describe("Table Rejoin Detection (Option A)", () => {
     expect(opponentLeftCalled).toBe(1);
     expect(opponentRejoinedCalled).toBe(1);
   });
+
+  it("should filter table:leave messages from onMessage listeners", async () => {
+    const onMessage = jest.fn();
+    const t = new Table(mockNchan, "test-table", "user-a", undefined, false, onMessage);
+    await t.join();
+
+    const handleMessage = (t as any).handleIncomingMessage.bind(t);
+    handleMessage(JSON.stringify({ type: "joined", senderId: "user-a", data: { id: "user-a" } }));
+    handleMessage(JSON.stringify({ type: "joined", senderId: "user-b", data: { id: "user-b" } }));
+    handleMessage(JSON.stringify({ type: "table:leave", senderId: "user-b", data: {} }));
+
+    // Internal departure detection still fires...
+    expect(t.opponentLeft).toBe(true);
+    // ...but the system message never reaches application listeners.
+    expect(onMessage).not.toHaveBeenCalled();
+  });
 });

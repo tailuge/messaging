@@ -3,12 +3,44 @@ import { TableMessage, TableLeaveData, isSpectatorTableLeave, parseMessage, Pres
 import { Lobby } from "./lobby";
 
 /**
+ * Configuration for the bounded application-publish outbox.
+ */
+export interface TableOutboxOptions {
+  /** Max queued publishes before publish() rejects. Default 1000. */
+  maxSize?: number;
+  /** Base retry delay on publish failure (doubles each attempt). Default 4000ms. */
+  initialRetryDelayMs?: number;
+  /** Maximum retry delay. Default 30000ms. */
+  maxRetryDelayMs?: number;
+}
+
+interface PendingPublish<T> {
+  type: string;
+  data: T;
+  resolve: () => void;
+  reject: (err: Error) => void;
+}
+
+/**
  * Represents a specific communication channel for a 2-player/spectator scenario at a table.
  * Uses `any` as default for internal storage flexibility; consumers should use `unknown` or specific types.
  */
 export class Table<T = any> {
   private subscription: Subscription | null = null;
   private isJoined = false;
+  private isClosed = false;
+  /** True once the subscription socket has opened (vs. still connecting). */
+  private socketEstablished = false;
+  /** Bounded application-publish outbox. */
+  private readonly maxOutboxSize: number;
+  private readonly initialRetryDelayMs: number;
+  private readonly maxRetryDelayMs: number;
+  private publishQueue: PendingPublish<T>[] = [];
+  private flushing = false;
+  private flushPromise: Promise<void> | null = null;
+  private retryAttempt = 0;
+  /** In-flight join operation; concurrent join() calls share it. */
+  private joinPromise: Promise<void> | null = null;
   private messageListeners: ((event: TableMessage<T>) => void)[] = [];
   private spectatorListeners: ((spectators: PresenceMessage[]) => void)[] = [];
   private opponentLeftListeners: (() => void)[] = [];
@@ -21,16 +53,37 @@ export class Table<T = any> {
   private bothJoinedResolved = false;
   private seenIds = new Set<string>();
   private preJoinQueue: TableMessage<T>[] = [];
+  /**
+   * Reconnect replay dedup. Nchan replays the channel buffer from `oldest` on
+   * reconnect, so messages already processed are re-delivered. Preferred key:
+   * the server-generated per-message `msgId`, which survives the server
+   * round-trip (see nchan_meta.js mergeMeta). Server `meta.ts` has millisecond
+   * granularity, so two DISTINCT messages can share a ts — a ts-only dedup
+   * would drop the second one and, e.g., strand the bothJoined handshake.
+   * FIFO-bounded to the message buffer size (2000) with headroom.
+   */
+  private seenMsgIds = new Map<string, true>();
+  private static readonly MAX_SEEN_MSG_IDS = 8192;
+  /** True once leave() has completed; join() rejects afterwards. */
+  public get closed(): boolean {
+    return this.isClosed;
+  }
 
   constructor(
     private nchan: NchanClient,
     public readonly tableId: string,
-    private userId: string,
+    public readonly userId: string,
     private lobby?: Lobby,
-    private isSpectator = false,
+    public readonly isSpectator = false,
     onMessage?: (event: TableMessage<T>) => void,
     onBothJoined?: () => void,
+    /** Internal: invoked after teardown so the owning client can drop the closed session. */
+    private onClosed?: () => void,
+    outbox?: TableOutboxOptions,
   ) {
+    this.maxOutboxSize = outbox?.maxSize ?? 1000;
+    this.initialRetryDelayMs = outbox?.initialRetryDelayMs ?? 4000;
+    this.maxRetryDelayMs = outbox?.maxRetryDelayMs ?? 30000;
     this.bothJoined = new Promise<void>((resolve) => {
       this.resolveBothJoined = () => {
         if (this.bothJoinedResolved) return;
@@ -55,9 +108,30 @@ export class Table<T = any> {
   }
 
   /**
-   * Initializes the table by subscribing to its specific channel.
+   * Joins the table: creates exactly one subscription and, for players, one
+   * initial `joined` handshake per join cycle. Idempotent: concurrent calls
+   * share one in-flight operation and calls after the table is ready are
+   * no-ops. Rejects once the table has been closed via leave().
+   *
+   * Deliberately not `async`: concurrent callers must receive the very same
+   * Promise object (an `async` wrapper would create a new one per call).
    */
-  async join(): Promise<void> {
+  join(): Promise<void> {
+    if (this.isClosed) {
+      return Promise.reject(new Error(`Cannot join table ${this.tableId}: table is closed`));
+    }
+    if (this.isJoined) return Promise.resolve();
+    if (this.joinPromise) return this.joinPromise;
+
+    this.joinPromise = this.doJoin().finally(() => {
+      this.joinPromise = null;
+    });
+    return this.joinPromise;
+  }
+
+  private async doJoin(): Promise<void> {
+    if (this.isClosed) return;
+
     this.subscription = this.nchan.subscribeTable(
       this.tableId,
       this.userId,
@@ -66,19 +140,183 @@ export class Table<T = any> {
       },
       { isSpectator: this.isSpectator },
     );
-    await this.subscription.ready;
-    this.isJoined = true;
+    // The transport reconnects internally, keeping the same Subscription and
+    // Table object; re-announce the handshake and flush the outbox per
+    // replacement connection.
+    this.subscription.onReconnect = () => this.handleReconnect();
+    try {
+      await this.subscription.ready;
+    } catch (e) {
+      this.subscription.stop();
+      throw e;
+    }
+    this.socketEstablished = true;
+
+    // The table may have been closed while the subscription was connecting.
+    if (this.isClosed) {
+      this.subscription.stop();
+      return;
+    }
 
     if (!this.isSpectator) {
-      await this.publish("joined", { id: this.userId } as any);
+      try {
+        // Control path: never queued behind application publishes (handshake
+        // deadlock), retried until accepted so bothJoined cannot hang.
+        await this.publishControl("joined", { id: this.userId });
+      } catch (e) {
+        // The handshake could not be announced. Tear the subscription down so a
+        // retry starts clean instead of a broken half-joined state with a
+        // duplicate subscription.
+        this.subscription.stop();
+        throw e;
+      }
     }
+    if (this.isClosed) {
+      this.subscription?.stop();
+      return;
+    }
+    this.isJoined = true;
   }
 
   /**
    * Broadcast an event to all participants at the table.
+   *
+   * Publishes are enqueued to a single bounded outbox, sent serially and in
+   * order by a flusher, and retried with exponential backoff until the server
+   * accepts them. Publishes issued before the subscription is live are held
+   * until readiness. The promise resolves when the server accepted the POST;
+   * it rejects if the table is closed or the queue is full. This is not a
+   * guarantee of remote delivery — applications needing state recovery should
+   * use acks or a replayable state protocol.
    */
-  async publish(type: string, data: T): Promise<void> {
-    await this.nchan.publishTable(this.tableId, { type, data }, this.userId);
+  publish(type: string, data: T): Promise<void> {
+    if (this.isClosed) {
+      return Promise.reject(new Error(`Cannot publish to table ${this.tableId}: table is closed`));
+    }
+    if (this.publishQueue.length >= this.maxOutboxSize) {
+      return Promise.reject(
+        new Error(`Table ${this.tableId} publish queue is full (max ${this.maxOutboxSize})`),
+      );
+    }
+    return new Promise<void>((resolve, reject) => {
+      this.publishQueue.push({ type, data, resolve, reject });
+      void this.flush();
+    });
+  }
+
+  /**
+   * Reconnect handling: the transport replaced our connection, so re-announce
+   * the `joined` handshake for the new connection (control path — fixes the
+   * server-restart dead-table hang) and kick the outbox so any publishes
+   * queued during the gap are sent. Keeps the same Table object and listeners.
+   */
+  private handleReconnect(): void {
+    if (this.isClosed || !this.isJoined) return;
+    if (!this.isSpectator) {
+      this.publishControl("joined", { id: this.userId }).catch((e) => {
+        console.error(`Table ${this.tableId} re-announced joined failed:`, e);
+      });
+    }
+    // Kick the flusher so publishes held or queued during the gap are sent.
+    void this.flush();
+  }
+
+  /**
+   * Direct publish with retry, used for internal control messages (e.g.
+   * `joined`). Bypasses the application outbox so a control handshake can
+   * never wait behind (or be starved by) application publishes.
+   */
+  private publishControl(type: string, data: unknown): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const attempt = (retries: number): void => {
+        if (this.isClosed) {
+          reject(new Error(`Cannot publish control message to closed table ${this.tableId}`));
+          return;
+        }
+        this.nchan
+          .publishTable(this.tableId, { type, data }, this.userId)
+          .then(() => resolve())
+          .catch((e: Error) => {
+            if (this.isClosed) {
+              reject(e);
+              return;
+            }
+            const delay = Math.min(
+              Math.pow(2, retries + 1) * this.initialRetryDelayMs,
+              this.maxRetryDelayMs,
+            );
+            setTimeout(() => attempt(retries + 1), delay);
+          });
+      };
+      attempt(0);
+    });
+  }
+
+  /** Starts the serial flusher if it is not already running. */
+  private flush(): Promise<void> {
+    if (this.flushing && this.flushPromise) return this.flushPromise;
+    this.flushing = true;
+    this.flushPromise = this.runFlush().finally(() => {
+      this.flushing = false;
+      this.flushPromise = null;
+      // A publish may have arrived in the window between the flusher's loop
+      // exiting (queue momentarily empty) and this finally releasing the lock;
+      // it grabbed the dead in-flight promise and would otherwise hang forever.
+      // Restart the flusher so it is processed. (Without this, sequential
+      // awaited publishes like `await publish(a); await publish(b)` deadlock.)
+      if (this.publishQueue.length > 0 && !this.isClosed) {
+        void this.flush();
+      }
+    });
+    return this.flushPromise;
+  }
+
+  /** Sends queued publishes one at a time, in order, retrying on failure. */
+  private async runFlush(): Promise<void> {
+    while (this.publishQueue.length > 0 && !this.isClosed) {
+      // Per design decision 1, hold application publishes until the
+      // subscription is live when a join is in flight.
+      if (!this.socketEstablished && this.joinPromise) {
+        try {
+          await this.joinPromise;
+        } catch {
+          // Join failed; the retry loop owns delivery from here.
+        }
+      }
+      if (this.isClosed) break;
+
+      const item = this.publishQueue.shift()!;
+      try {
+        await this.nchan.publishTable(
+          this.tableId,
+          { type: item.type, data: item.data },
+          this.userId,
+        );
+        this.retryAttempt = 0;
+        item.resolve();
+      } catch (e) {
+        if (this.isClosed) {
+          item.reject(e as Error);
+          return;
+        }
+        // Keep the failed item at the head so retries preserve order.
+        this.publishQueue.unshift(item);
+        await this.delay(this.nextRetryDelay());
+      }
+    }
+  }
+
+  private nextRetryDelay(): number {
+    const delay = Math.min(
+      Math.pow(2, this.retryAttempt + 1) * this.initialRetryDelayMs,
+      this.maxRetryDelayMs,
+    );
+    this.retryAttempt++;
+    return delay;
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((r) => setTimeout(r, ms));
   }
 
   /**
@@ -110,6 +348,11 @@ export class Table<T = any> {
    * Leave the table and stop all subscriptions.
    */
   async leave(options: { isTeardown?: boolean } = {}): Promise<void> {
+    if (this.isClosed) return;
+    // Mark closed immediately so new publishes reject, the flusher stops, and
+    // the control path aborts its retries.
+    this.isClosed = true;
+
     // Only send leave message on explicit user action, not on page hide/teardown
     if (!options.isTeardown) {
       try {
@@ -133,21 +376,63 @@ export class Table<T = any> {
       await this.lobby.updatePresence({ tableId: undefined });
     }
 
-    this.subscription?.stop();
+    // If the socket is still connecting, do NOT close it here: aborting a
+    // still-connecting socket would prevent the server from ever establishing
+    // the subscription, so its unsubscribe `table:leave` would never fire. The
+    // in-flight doJoin() closes it itself once established (it sees `closed`
+    // and tears down). Once established, close it directly.
+    if (this.socketEstablished) {
+      this.subscription?.stop();
+    }
     this.messageListeners = [];
     this.spectatorListeners = [];
     this.opponentLeftListeners = [];
     this.opponentRejoinedListeners = [];
     this.isJoined = false;
+    this.joinPromise = null;
+    // Reject any held publishes: every held publish settles exactly once and
+    // no stale async work can send them after the table is closed.
+    this.rejectQueuedPublishes();
+    // Notify the owning client so the closed session is dropped and later
+    // joins create a fresh session.
+    this.onClosed?.();
+  }
+
+  private rejectQueuedPublishes(): void {
+    while (this.publishQueue.length > 0) {
+      const item = this.publishQueue.shift()!;
+      item.reject(new Error(`Table ${this.tableId} publish cancelled: table closed`));
+    }
   }
 
   private handleIncomingMessage(data: string): void {
     const msg = parseMessage<TableMessage<T>>(data);
     if (!msg || !msg.type) return;
 
-    // Handle system messages internally
-    if (msg.type === "table:leave" && msg.senderId !== this.userId && !isSpectatorTableLeave(msg)) {
-      this.notifyOpponentLeft();
+    // Internal replay dedup: on reconnect Nchan replays the channel buffer from
+    // `oldest`, so messages already processed are re-delivered. Dedup by the
+    // per-message msgId, robust against same-millisecond ts collisions. This
+    // runs before system-message handling so replayed `joined`/`table:leave`
+    // cannot re-trigger opponent-left/rejoin notifications. Messages without
+    // server metadata (e.g. unit fixtures) are always delivered.
+    const msgId = msg.meta?.msgId;
+    if (typeof msgId === "string") {
+      if (this.seenMsgIds.has(msgId)) return;
+      this.seenMsgIds.set(msgId, true);
+      // FIFO-bounded: the channel buffer holds 2000 messages, so only that
+      // many need remembering across a reconnect replay.
+      if (this.seenMsgIds.size > Table.MAX_SEEN_MSG_IDS) {
+        const oldest = this.seenMsgIds.keys().next().value;
+        if (oldest !== undefined) this.seenMsgIds.delete(oldest);
+      }
+    }
+
+    // Handle system messages internally and filter them from generic onMessage.
+    if (msg.type === "table:leave") {
+      if (msg.senderId !== this.userId && !isSpectatorTableLeave(msg)) {
+        this.notifyOpponentLeft();
+      }
+      return; // Filter out internal "table:leave" messages from onMessage listeners
     }
 
     if (msg.type === "joined") {
