@@ -63,12 +63,12 @@ function parseUA(ua) {
 }
 
 function createMessageId() {
-  // UUID-shaped server identity. Message identity must not depend on the
-  // millisecond timestamp because multiple publishes can share one ts.
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
-    var r = Math.random() * 16 | 0;
-    var v = c === "x" ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
+  // Compact hex identity. Uniqueness is only required within a channel's
+  // buffered-message window (reconnect replay suppression), and message
+  // identity must not depend on the millisecond timestamp because multiple
+  // publishes can share one ts.
+  return "xxxxxx".replace(/x/g, function () {
+    return Math.floor(Math.random() * 16).toString(16);
   });
 }
 
