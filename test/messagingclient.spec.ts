@@ -385,20 +385,19 @@ describe("MessagingClient - Phase 1", () => {
       expect(receivedChallenge.challengerId).toBe("user-a");
       expect(receivedChallenge.tableId).toBe(tableId);
 
-      // 3. B accepts challenge
-      const tableB = await lobbyB.acceptChallenge(
+      // 3. B accepts challenge (publishes accept + updates presence)
+      await lobbyB.acceptChallenge(
         receivedChallenge.challengerId,
         receivedChallenge.ruleType,
         receivedChallenge.tableId,
       );
-      await tableB.join();
 
       // A joins the same table (as it created it)
       const tableA = await clientA.joinTable(tableId, "user-a");
 
       // 4. Test table messaging — B joins with onMessage to receive
       let messageReceivedByB: any = null;
-      const tableBMsg = await clientB.joinTable(tableId, "user-b", {
+      await clientB.joinTable(tableId, "user-b", {
         onMessage: (m) => {
           messageReceivedByB = m;
         },
@@ -450,15 +449,12 @@ describe("MessagingClient - Phase 1", () => {
       expect(receivedChallenge.options).toEqual(options);
 
       // Verify options are preserved through accept flow
-      const tableB = await lobbyB.acceptChallenge(
+      await lobbyB.acceptChallenge(
         receivedChallenge.challengerId,
         receivedChallenge.ruleType,
         receivedChallenge.tableId,
         { customAcceptOption: "value" },
       );
-
-      // Table should be created successfully with options passed through
-      expect(tableB).toBeDefined();
     });
 
     it("should receive pending challenges after rejoining the lobby", async () => {
@@ -624,7 +620,7 @@ describe("MessagingClient - Phase 1", () => {
       });
 
       // 2. Alice joins lobby (available, tableId: undefined)
-      const lobbyA = await clientA.joinLobby({
+      await clientA.joinLobby({
         messageType: "presence",
         type: "join",
         userId: "user-a",
@@ -685,7 +681,7 @@ describe("MessagingClient - Phase 1", () => {
       const tableA = await clientA.joinTable(tableId, "user-a");
 
       let messageReceived: any = null;
-      const tableSpectator = await clientB.spectateTable(tableId, "user-s", {
+      await clientB.spectateTable(tableId, "user-s", {
         onMessage: (m) => {
           messageReceived = m;
         },

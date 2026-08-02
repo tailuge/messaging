@@ -82,7 +82,7 @@ Sent by the **Challenger** to withdraw the offer before it is accepted or declin
 The `Lobby` class provides high-level methods to manage these messages:
 
 - `challenge(userId, ruleType)`: Generates a UID, publishes an `offer`, and returns the `tableId`.
-- `acceptChallenge(userId, ruleType, tableId)`: Publishes an `accept` message and joins the `Table`.
+- `acceptChallenge(userId, ruleType, tableId)`: Publishes an `accept` message and updates presence to show we've joined the table. The table itself is joined via `MessagingClient.joinTable()` with the same `tableId`.
 - `declineChallenge(userId, ruleType)`: Publishes a `decline` message.
 - `cancelChallenge(userId, ruleType)`: Publishes a `cancel` message.
 - `onChallenge(callback)`: Allows the consumer to listen for incoming challenges directed at them.

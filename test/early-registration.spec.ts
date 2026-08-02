@@ -52,7 +52,7 @@ describe("Table Early Message Registration", () => {
     });
 
     // Wait for the joinTable of Player B to complete and the message to be received.
-    const tableB = await tableBPromise;
+    await tableBPromise;
 
     await waitUntil(() => receivedMessage !== null, 4000);
 

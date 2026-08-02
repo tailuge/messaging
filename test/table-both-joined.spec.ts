@@ -86,7 +86,7 @@ describe("Table Both Joined", () => {
     // Spectator joins
     let isSpectator_BothJoined_Called = false;
     let normalMessageReceived = false;
-    const tableSpectator = await clientSpectator.spectateTable(tableId, "user-spectator", {
+    await clientSpectator.spectateTable(tableId, "user-spectator", {
       onBothJoined: () => {
         isSpectator_BothJoined_Called = true;
       },
@@ -101,7 +101,7 @@ describe("Table Both Joined", () => {
     });
 
     // Bob joins as Player B
-    const tableB = await clientB.joinTable(tableId, "user-b", {
+    await clientB.joinTable(tableId, "user-b", {
       onMessage: (m) => {
         if (m.type === "joined") {
           normalMessagesReceivedCount++;

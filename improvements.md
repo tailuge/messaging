@@ -304,3 +304,135 @@ This work is complete when:
 - New reconnect, queue, idempotent-join, and listener-option tests pass.
 - Message deduplication and ordering are not required for this work.
 - Typecheck/lint passes without introducing new errors.
+
+---
+
+## Appendix: Consumer-driven proposal — simplified join / pub / sub + startup reliability
+
+### 1. How the game client uses the library today
+
+The primary consumer is the external billiards game, a separate project consuming this
+package as `@tailuge/messaging`. Its flow:
+
+1. **Lobby page** (this repo's `src/client/`) runs the challenge handshake over presence —
+   `lobby.challenge()` / `lobby.acceptChallenge()` — then redirects to the external game
+   page URL carrying the `tableId`.
+2. **Game page** creates its own `MessagingClient` and joins the table through a
+   `MessageRelay` adapter (`MessagingMessageRelay`), which registers callbacks in the
+   `joinTable()` options (constructor registration) and hooks `onOpponentLeft` /
+   `onOpponentRejoined` post-join.
+
+The relay implements `connect / subscribe / publish / awaitBothJoined` and is concrete
+evidence of the library's rough edges — every workaround in it maps to a library gap:
+
+| Relay workaround | Library gap it compensates for |
+|---|---|
+| `pendingCallbacks` + "register before join" + version comments (≥ 1.36 / 1.37) | `Table` only accepts `onMessage` / `onBothJoined` at construction; no post-join registration |
+| `pendingPublishes` + flush after connect — "the WebSocket is live before this.table is assigned" | `joinTable()` resolves late (subscription ready + `joined` publish + lobby `updatePresence`), so there is a window where the client can receive but cannot publish — this drops the `WatchEvent` reply to the opponent's `BeginEvent` at startup |
+| `lastProcessedTimestamp` dedup | On reconnect Nchan replays the channel buffer from `oldest` and the library re-delivers old messages to the app |
+| `msg.type !== "table:leave"` filter | System messages (`table:leave`, `joined`) leak through `onMessage` |
+| `awaitBothJoined(8000)` timeout wrapper | `table.bothJoined` can hang forever — it depends on buffer replay of the opponent's `joined`, lost on server restart or failed publish |
+| publish parses `type` / `data` out of the payload | API forces the `(type, data)` ceremony instead of accepting a whole payload |
+
+`Lobby.acceptChallenge()` no longer constructs a `Table` — it only publishes the
+accept message and updates presence. The table is joined via
+`MessagingClient.joinTable()` with the same `tableId` (a client-generated channel id,
+not a server entity), keeping a single table-creation path.
+
+### 2. Target API: simple join / pub / sub
+
+```ts
+// join — resolves as soon as the session exists; the handshake continues in the
+// background (subscription ready + joined publish + presence update)
+const table = await client.joinTable(tableId, userId, {
+  isSpectator,
+  onMessage: (msg: TableMessage) => { ... },  // constructor/options registration kept
+  onBothJoined: () => { ... },                // the no-loss guarantee comes from the
+});                                             // inbound buffer, not from registration timing
+
+// more hooks may be added post-join (these already work today)
+table.onOpponentLeft(cb);
+table.onOpponentRejoined(cb);
+
+// pub — safe at any time; queued, serialized, retried until the server accepts
+await table.publish({ type: "BeginEvent", data: {...} });   // object or JSON string
+
+// signals — guaranteed to resolve, never hang
+await table.ready;         // channel live + caught up (sentinel echo)
+await table.bothPlayers;   // both players known (resolves, or resolves with state on timeout)
+```
+
+With this, `MessagingMessageRelay` collapses to ~15 lines: `connect` → `joinTable`,
+`subscribe` → `onMessage`, `publish` → `publish`, `awaitBothJoined` →
+`table.bothPlayers`. The `pendingCallbacks`, `pendingPublishes`, `lastProcessedTimestamp`,
+`table:leave` filter, and timeout wrapper all disappear.
+
+### 3. Reliability model: at-least-once, in-order, deduped
+
+With Nchan (buffered, in-memory pub/sub), durable exactly-once is impossible without
+persistence. The right contract for a turn-based game:
+
+1. **Outbox with retry.** `publish()` enqueues; a serial flusher POSTs and retries with
+   backoff until HTTP 200 (server accepted into the channel buffer). Never a single
+   fire-and-forget fetch as today.
+2. **Replay = delivery.** The peer receives live, or via buffer replay on (re)subscribe —
+   the same mechanism `bothJoined` already relies on.
+3. **Sentinel catch-up on every (re)subscribe.** Buffer inbound until the local `joined`
+   echo returns, then replay FIFO and mark `ready`. Reuse the Lobby's settle primitive;
+   this replaces `preJoinQueue` / `seenIds` / `bothJoinedResolved` with one mechanism.
+4. **Internal replay dedup.** Track the highest `meta.ts` seen (or a per-sender seq) and
+   skip older replays on reconnect. This is the relay's `lastProcessedTimestamp` logic
+   moved into the library.
+5. **Reconnect = re-announce.** Wire the table subscription's `onReconnect` (Lobby does
+   this; `Table` ignores it today): re-publish `joined`, flush the outbox. Fixes the
+   "server restart → dead table" hang.
+6. **`bothJoined` cannot hang.** Keep the promise but (a) count the opponent's first
+   message as presence too (not just `joined`), and (b) an internal timeout resolves it
+   with a `bothPlayers: false` state the app can inspect.
+
+Bounded risks (documented honestly):
+
+- Peer absent longer than the buffer window (2000 messages / message expiry) → message
+  evicted. Mitigation: state-snapshot resync at `bothPlayers` (for billiards, the
+  current game state subsumes lost moves).
+- Server restart wipes in-memory channels. Same mitigation, or Nchan Redis persistence
+  (`nchan_use_redis`) — the only path to true durability, deliberately out of scope here.
+
+### 4. Design decision: keep client-published `joined` (no server change)
+
+Leave must stay server-side (`table_unsub` → `table:leave`): on page shutdown JS may not
+run, so the WebSocket close is the only trustworthy signal. Join is different — the client
+is the thing subscribing, so JS is running; a client-published `joined` routed through the
+outbox (retry) and re-published on reconnect is as reliable as a server `table:join` hook.
+
+Skip the NJS/Nginx change: it would couple the library's guarantees to a Docker redeploy
+for a distributable package. A server-published `table:join` (mirroring `table:leave`)
+remains a possible future symmetry/observability improvement, not a requirement.
+
+### 5. How this improves the game client
+
+- **No startup drops.** The `WatchEvent`-after-`BeginEvent` race disappears: `joinTable`
+  returns immediately and the outbox absorbs publishes made before readiness.
+- **No dedup code.** Replay duplicates are filtered inside the library.
+- **No system-message filtering.** `table:leave` / `joined` never reach app listeners.
+- **No manual timeouts.** `bothPlayers` resolves by construction.
+- **No pending queues.** `pendingCallbacks` / `pendingPublishes` are absorbed by
+  constructor `onMessage` + the outbox.
+
+Net: the relay becomes a thin pass-through and the "compensation layer" that currently
+carries the startup-reliability burden is deleted.
+
+### 6. Relationship to the phased plan above
+
+Phases 1–5 already cover idempotent joins, the initial-join publish queue, transport
+lifecycle observability, and the reconnect queue — aligned with this proposal's items 1,
+2, and 5. This proposal adds three extensions:
+
+- **Extension A: internal replay dedup** (highest `meta.ts` / per-sender seq) — currently
+  explicitly out of scope above; required to remove the consumer's
+  `lastProcessedTimestamp`.
+- **Extension B: hang-proof `bothJoined`** — opponent-first-message counts as presence
+  plus an internal timeout.
+- **Extension C: consumer contract as acceptance driver** — completion criteria should
+  include "`MessagingMessageRelay` no longer needs `pendingPublishes`, `pendingCallbacks`,
+  `lastProcessedTimestamp`, or `awaitBothJoined`."

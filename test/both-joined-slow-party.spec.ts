@@ -55,7 +55,7 @@ describe("bothJoined slow-party race condition", () => {
     let bReceivedBeforeBothJoined = false;
     let bFiredBothJoined = false;
 
-    const tableB = await clientB.joinTable(tableId, "user-b", {
+    await clientB.joinTable(tableId, "user-b", {
       onBothJoined: () => {
         // onBothJoined fires synchronously inside resolveBothJoined(),
         // before the queue is drained — so this is the correct flag to check.
@@ -109,7 +109,7 @@ describe("bothJoined slow-party race condition", () => {
     let bReceivedBeforeBothJoined = false;
     let bFiredBothJoined = false;
 
-    const tableB = await clientB.joinTable(tableId, "user-b", {
+    await clientB.joinTable(tableId, "user-b", {
       onBothJoined: () => {
         bFiredBothJoined = true;
       },

@@ -91,9 +91,11 @@ interface Lobby {
 
   /**
    * Accept an incoming challenge.
-   * Returns the Table instance for the accepted game.
+   * Publishes the accept message and updates presence to show we've joined the table.
+   * The table itself is joined separately via MessagingClient.joinTable() with the
+   * same tableId (a client-generated channel id, not a server entity).
    */
-  acceptChallenge(userId: string, ruleType: string, tableId: string, options?: Record<string, string>, challengerName?: string): Promise<Table>;
+  acceptChallenge(userId: string, ruleType: string, tableId: string, options?: Record<string, string>, challengerName?: string): Promise<void>;
 
   /**
    * Decline an incoming challenge.

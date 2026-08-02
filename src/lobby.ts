@@ -5,7 +5,6 @@ import {
   parseMessage,
   ChatMessage,
 } from "./types";
-import { Table } from "./table";
 import { getUID } from "./utils/uid";
 import { MessageDeduplicator, AUTO_LEAVE_REJOIN_GRACE_MS } from "./MessageDeduplicator";
 
@@ -252,7 +251,9 @@ export class Lobby {
 
   /**
    * Accept an incoming challenge.
-   * Returns the Table instance for the accepted game.
+   * Publishes the accept message and updates presence to show we've joined the table.
+   * The table itself is joined separately via MessagingClient.joinTable() with the
+   * same tableId (which is just a client-generated channel id, not a server entity).
    */
   async acceptChallenge(
     userId: string,
@@ -261,7 +262,7 @@ export class Lobby {
     options?: Record<string, string>,
     challengerName?: string,
     nextTurnId?: string,
-  ): Promise<Table> {
+  ): Promise<void> {
     await this.nchan.publishChallenge({
       type: "accept",
       challengerId: userId,
@@ -275,9 +276,6 @@ export class Lobby {
 
     // Automatically update our presence to show we've joined the table
     await this.updatePresence({ tableId, ruleType, options });
-
-    const table = new Table(this.nchan, tableId, this.currentUser.userId, this);
-    return table;
   }
 
   /**
