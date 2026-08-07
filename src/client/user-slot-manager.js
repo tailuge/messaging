@@ -57,9 +57,16 @@ export class UserSlotManager {
       }
     }
 
-    // Phase 2 — Process arrivals (new or returning users)
+    // Phase 2 — Process arrivals and refresh online snapshots.
+    // Keep an existing user's slot stable, but always replace its snapshot so
+    // live presence fields such as tableId and ruleType do not become stale.
     for (const user of users) {
-      if (!this.#slots.some((s) => s.status === 'online' && s.userId === user.userId)) {
+      const existingOnline = this.#slots.find(
+        (slot) => slot.status === 'online' && slot.userId === user.userId,
+      );
+      if (existingOnline) {
+        existingOnline.user = user;
+      } else {
         this.#placeUser(user);
       }
     }

@@ -85,10 +85,28 @@ describe("UserSlotManager", function () {
       expect(slots[0].userId).toBe("alice");
       expect(slots[0].status).toBe("online");
     });
+
+    it("5. Online updates refresh the snapshot without moving the slot", function () {
+      var _a = createManager(),
+        manager = _a.manager;
+      var playingAlice = { ...alice, tableId: "table-1", type: "heartbeat" };
+      var availableAlice = { ...alice, tableId: undefined, type: "join" };
+
+      manager.update([playingAlice, bob]);
+      var initialSlots = manager.getSlots();
+      manager.update([availableAlice, bob]);
+      var updatedSlots = manager.getSlots();
+
+      expect(updatedSlots).toHaveLength(2);
+      expect(updatedSlots[0]).toBe(initialSlots[0]);
+      expect(updatedSlots[0].user).toBe(availableAlice);
+      expect(updatedSlots[0].user.tableId).toBeUndefined();
+      expect(updatedSlots[1].user).toBe(bob);
+    });
   });
 
   describe("eviction logic", function () {
-    it("5. Evict oldest expired — new user takes the oldest expired slot", function () {
+    it("6. Evict oldest expired — new user takes the oldest expired slot", function () {
       var _a = createManager(),
         manager = _a.manager,
         advance = _a.advance;
@@ -106,7 +124,7 @@ describe("UserSlotManager", function () {
       expect(slots[1].status).toBe("offline");
     });
 
-    it("6. Evict: picks the one with largest elapsed, not first in array", function () {
+    it("7. Evict: picks the one with largest elapsed, not first in array", function () {
       var _a = createManager(),
         manager = _a.manager,
         advance = _a.advance;
@@ -132,7 +150,7 @@ describe("UserSlotManager", function () {
       expect(slots[1].status).toBe("offline");
     });
 
-    it("7. Push when no expired slots — new user gets brand new slot", function () {
+    it("8. Push when no expired slots — new user gets brand new slot", function () {
       var _a = createManager(),
         manager = _a.manager,
         advance = _a.advance;
@@ -150,7 +168,7 @@ describe("UserSlotManager", function () {
   });
 
   describe("multiple users", function () {
-    it("8. Multiple joins — all get stable slots", function () {
+    it("9. Multiple joins — all get stable slots", function () {
       var _a = createManager(),
         manager = _a.manager;
       var slots = manager.update([alice, bob, charlie]);
@@ -159,7 +177,7 @@ describe("UserSlotManager", function () {
       expect(slots.every(function (s) { return s.status === "online"; })).toBe(true);
     });
 
-    it("9. Partial departures — some leave, some stay", function () {
+    it("10. Partial departures — some leave, some stay", function () {
       var _a = createManager(),
         manager = _a.manager;
       manager.update([alice, bob, charlie]);
@@ -173,7 +191,7 @@ describe("UserSlotManager", function () {
       expect(slots[2].status).toBe("online");
     });
 
-    it("10. Bots always in user list — never greyed out", function () {
+    it("11. Bots always in user list — never greyed out", function () {
       var _a = createManager(),
         manager = _a.manager;
       var bots = [mkUser("bot-clawbreak", "ClawBreak"), mkUser("bot-thefarjaw", "TheFarJaw")];
@@ -188,7 +206,7 @@ describe("UserSlotManager", function () {
   });
 
   describe("reset", function () {
-    it("11. Reset clears all slots", function () {
+    it("12. Reset clears all slots", function () {
       var _a = createManager(),
         manager = _a.manager;
       manager.update([alice, bob]);
@@ -197,7 +215,7 @@ describe("UserSlotManager", function () {
       expect(manager.getSlots()).toHaveLength(0);
     });
 
-    it("12. Reset then update — fresh start", function () {
+    it("13. Reset then update — fresh start", function () {
       var _a = createManager(),
         manager = _a.manager;
       manager.update([alice, bob]);
@@ -210,20 +228,20 @@ describe("UserSlotManager", function () {
   });
 
   describe("edge cases", function () {
-    it("13. Empty updates — no users produces no slots", function () {
+    it("14. Empty updates — no users produces no slots", function () {
       var _a = createManager(),
         manager = _a.manager;
       expect(manager.update([])).toHaveLength(0);
     });
 
-    it("14. Self-exclusion — manager never sees the user's own ID", function () {
+    it("15. Self-exclusion — manager never sees the user's own ID", function () {
       var _a = createManager(),
         manager = _a.manager;
       var slots = manager.update([alice, bob]);
       expect(slots.find(function (s) { return s.userId === "me"; })).toBeUndefined();
     });
 
-    it("15. Stable indices — positions preserved across departures and new joins", function () {
+    it("16. Stable indices — positions preserved across departures and new joins", function () {
       var _a = createManager(),
         manager = _a.manager,
         advance = _a.advance;
@@ -241,7 +259,7 @@ describe("UserSlotManager", function () {
       expect(slots[1].status).toBe("online");
     });
 
-    it("16. Grace period boundary — exactly at the edge", function () {
+    it("17. Grace period boundary — exactly at the edge", function () {
       var _a = createManager(),
         manager = _a.manager,
         advance = _a.advance;
