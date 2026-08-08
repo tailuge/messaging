@@ -2,13 +2,15 @@ import { html, css } from 'lit';
 import { userStore, StoreElement } from './user-store.js';
 import { SHARED_STYLES, CHALLENGE_MODAL_STYLES } from './styles.js';
 import './stats-panel.js';
+import './customisation-panel.js';
 
 class SettingsModal extends StoreElement {
     static properties = {
         _open: { state: true },
         _notifEnabled: { state: true },
         _showStats: { state: true },
-        _copied: { state: true }
+        _copied: { state: true },
+        _showCustomisation: { state: true }
     };
     static LOD_LABELS = ['pixelated', 'polygons', 'high poly', 'shaders', 'antialiased'];
     static styles = [SHARED_STYLES, CHALLENGE_MODAL_STYLES, css`
@@ -98,6 +100,7 @@ class SettingsModal extends StoreElement {
         this._open = false;
         this._showStats = false;
         this._copied = false;
+        this._showCustomisation = false;
         this._theme = document.documentElement.getAttribute('theme') || 'light';
         this._notifEnabled = Notification.permission === 'granted';
         this._onKeydown = this._onKeydown.bind(this);
@@ -120,7 +123,7 @@ class SettingsModal extends StoreElement {
     }
 
     _toggle(e) { e.stopPropagation(); this._open = !this._open; }
-    _close()   { this._open = false; }
+    _close()   { this._open = false; this._showCustomisation = false; }
 
     _setTheme(e) {
         const theme = e.target.checked ? 'dark' : 'light';
@@ -182,11 +185,8 @@ class SettingsModal extends StoreElement {
                             </label>
                         </div>
                         <div class="row">
-                            <span>Cue</span>
-                            <label class="switch">
-                                <input type="checkbox" .checked=${(userStore.getCustom().cue ?? '0') === '1'} @change=${e => userStore.setCustom('cue', e.target.checked ? '1' : '0')}>
-                                <span class="slider"></span>
-                            </label>
+                            <span>Customise</span>
+                            <button @click=${() => this._showCustomisation = true} style="margin-left: auto;">Open</button>
                         </div>
                         <div class="row">
                             <span>Use proxy to connect</span>
@@ -217,7 +217,10 @@ class SettingsModal extends StoreElement {
 
                         <button class="cancel" @click=${this._close} style="margin-top: 0.4rem;">Close</button>
                     </div>
-                </div>` : ''}
+                </div>
+                ${this._showCustomisation ? html`
+                    <customisation-panel @close=${() => this._showCustomisation = false}></customisation-panel>
+                ` : ''}` : ''}
         `;
     }
 }
