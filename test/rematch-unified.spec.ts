@@ -25,6 +25,8 @@ jest.mock('../src/client/user-store.js', () => ({
     useProxy: false,
     addEventListener: () => {},
     removeEventListener: () => {},
+    getCustom: () => ({}),
+    setCustom: () => {},
   },
   StoreElement: class {},
 }));
@@ -117,7 +119,7 @@ describe("Unified Rematch Scenarios (newspec.md)", () => {
 
     describe("Scenario 5/6: Rematch + Cross-site Accept (Simplified)", () => {
         it("should work when one player has an autoChallenge and the other sends an offer", () => {
-            // A arrives with ?opponentId=B (autoChallenge)
+            // A arrives with ?opponent.userId=B (autoChallenge)
             // B is already in lobby and sends an offer to A
             const offerB = { type: 'offer', challengerId: B, challengerName: 'Bob', challengeeId: A, tableId: 'table-B', ruleType: 'nineball' };
 
@@ -178,8 +180,8 @@ describe("Unified Rematch Scenarios (newspec.md)", () => {
                     hostname: 'localhost',
                     host: 'localhost:80',
                     protocol: 'http:',
-                    href: 'http://localhost/?opponentId=bob&ruletype=threecushion&tableSize=5&raceTo=15&shotclock=60&reds=6',
-                    search: '?opponentId=bob&ruletype=threecushion&tableSize=5&raceTo=15&shotclock=60&reds=6'
+                    href: 'http://localhost/?opponent.userId=bob&opponent.userName=Bob&opponent.custom.cue=1&ruletype=threecushion&tableSize=5&raceTo=15&shotclock=60&reds=6&custom.skin=red',
+                    search: '?opponent.userId=bob&opponent.userName=Bob&opponent.custom.cue=1&ruletype=threecushion&tableSize=5&raceTo=15&shotclock=60&reds=6&custom.skin=red'
                 },
                 history: {
                     replaceState: jest.fn()
@@ -246,14 +248,18 @@ describe("Unified Rematch Scenarios (newspec.md)", () => {
                     shotClock: '60',
                     reds: '6'
                 },
-                null
+                null,
+                {}
             );
 
             // Also verify the URL was cleaned up
             expect(window.history.replaceState).toHaveBeenCalled();
             const lastUrl = (window.history.replaceState as jest.Mock).mock.calls[0][2];
             const urlObj = new URL(lastUrl);
-            expect(urlObj.searchParams.get('opponentId')).toBeNull();
+            expect(urlObj.searchParams.get('opponent.userId')).toBeNull();
+            expect(urlObj.searchParams.get('opponent.userName')).toBeNull();
+            expect(urlObj.searchParams.get('opponent.custom.cue')).toBeNull();
+            expect(urlObj.searchParams.get('custom.skin')).toBeNull();
             expect(urlObj.searchParams.get('tableSize')).toBeNull();
             expect(urlObj.searchParams.get('raceTo')).toBeNull();
             expect(urlObj.searchParams.get('shotClock')).toBeNull();

@@ -40,6 +40,7 @@ export interface PresenceMessage {
   isLeaving?: boolean; // True when user has sent 'leave' but grace period has not expired
   clientTs?: number; // Client-side timestamp for message ordering resilience
   readonly options?: Record<string, string>; // Optional: game-specific configuration
+  custom?: Record<string, string | number>; // Optional: customisation settings
 }
 
 /**
@@ -54,6 +55,7 @@ export interface ChallengeMessage {
   ruleType: string;
   tableId?: string; // Optional: table created by challenger
   readonly options?: Record<string, string>; // Optional: game-specific configuration
+  custom?: Record<string, string | number>; // Optional: customisation settings
   nextTurnId?: string; // Who goes first on rematch
   meta?: Meta; // Server-enriched metadata (received messages only)
 }

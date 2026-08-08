@@ -17,6 +17,7 @@ class UserStore extends EventTarget {
         if (isVercel) {
             localStorage.removeItem('userId');
             localStorage.removeItem('userName');
+            localStorage.removeItem('custom');
         }
 
         const storedId = (localStorage.getItem('userId') || '').trim();
@@ -47,6 +48,7 @@ class UserStore extends EventTarget {
         this.lod = localStorage.getItem('lod') || '2';
         this.flip = localStorage.getItem('flip') === 'true';
         this.useProxy = localStorage.getItem('useProxy') === 'true';
+        try { this.custom = JSON.parse(localStorage.getItem('custom')) || {}; } catch (_) { this.custom = {}; }
 
         console.log('UserStore identity:', this.userName, this.clientId);
     }
@@ -75,6 +77,16 @@ set(clientId, userName) {
     setFlip(val) {
         this.flip = !!val;
         localStorage.setItem('flip', this.flip);
+        this.dispatchEvent(new Event('change'));
+    }
+
+    getCustom() {
+        return { ...this.custom };
+    }
+
+    setCustom(key, value) {
+        this.custom = { ...this.custom, [key]: value };
+        localStorage.setItem('custom', JSON.stringify(this.custom));
         this.dispatchEvent(new Event('change'));
     }
 }

@@ -1,5 +1,7 @@
 # Customisation Plan: Extensible `custom` Dictionary (Zero-Code-Extension Design)
 
+> **Status: ✅ Implemented (steps 1–7); 🚧 Step 8 planned.** Steps 1–7 are in the codebase (see git history); Step 8 (customisation panel) is planned, not yet implemented. The rematch-entry note in the gap section at the bottom is resolved. Remaining TODO: the Verification section's URL-formatting tests (items 2–3).
+
 This document outlines an extensible design for passing custom settings (e.g. `custom.cue`, `custom.skin`, etc.) for both the player and opponent to the game launch URL.
 
 **Key principle: adding a new `custom.whatever` field should require NO transport/URL code changes — only the settings UI needs a new control.**
@@ -126,6 +128,19 @@ gameUrl({
 - Handle `undefined` gracefully: `(userStore.getCustom().cue ?? '0')` as the default.
 - **Future fields:** just add another control calling `userStore.setCustom('newField', val)`. No other files touched.
 
+### Step 8: Customisation Panel (`src/client/customisation-panel.js`) — 🚧 planned, not yet implemented
+
+A dedicated panel for customisation settings, launched from a button in the Settings modal. For now it contains only the existing `cue` choice; the framework is the deliverable — future customisations should be a one-row addition.
+
+- **New file**: `src/client/customisation-panel.js` — a LitElement patterned on `settings-modal.js` (`StoreElement`, `SHARED_STYLES` + `CHALLENGE_MODAL_STYLES`, backdrop + `.modal` container, Escape-to-close). Registered as `<customisation-panel>`.
+- **Launch**: add a "Customise" row/button in `settings-modal.js` that shows the panel. Simplest approach: a `_showCustomisation` state flag on `SettingsModal` rendering `<customisation-panel>` inside its backdrop — the same pattern already used for `_showStats` → `<stats-panel>`.
+- **Content (for now)**: one section of customisation rows — only **Cue** (toggle `0`/`1`), bound to `userStore.getCustom().cue ?? '0'` / `userStore.setCustom('cue', …)`. This is the same control from Step 7, **moved out of** `settings-modal.js` into the new panel.
+- **Framework for the future**: render the rows from an array (e.g. `static CUSTOMISATIONS = [{ key: 'cue', label: 'Cue', type: 'toggle' }]`) so a new customisation is just a new array entry — no transport/URL changes needed (per the key principle).
+- **Notes**:
+  - Reuses `userStore.getCustom()` / `setCustom()` — no storage changes.
+  - Transport and URL are already generic (Steps 3–6), so this is purely UI.
+  - Keep it very simple: no sub-panels, no previews — just the toggle list.
+
 ---
 
 ## 4. Target URL Example
@@ -149,3 +164,32 @@ To add e.g. `custom.skin`:
 1. **Unit Test**: Verify presence/challenge messages convey `custom` dict correctly.
 2. **URL Formatting Test**: Test `gameUrl()` with `custom: { cue: '0', extra: 'x' }` produces `&custom.cue=0&custom.extra=x`.
 3. **Opponent URL Test**: Test `gameUrl()` with `opponent: { userId: 'b', userName: 'Bob', custom: { cue: '1' } }` produces `&opponent.custom.cue=1`.
+
+
+
+------------ gap
+
+Rematch entry flow — ✅ done (in this repo)
+The lobby constructor in this project (`src/client/online-panel.js`) now reads the canonical keys only (no legacy fallback) and cleans every rematch/entry param from the URL:
+
+```js
+const p = new URLSearchParams(location.search);
+const opponentId = p.get('opponent.userId');                  // canonical — no opponentId fallback
+if (opponentId) {
+  this.#autoChallenge = {
+    opponentId,
+    opponentName: p.get('opponent.userName') || opponentId,   // canonical — no opponentName fallback
+    ruleType: p.get('ruletype') || 'nineball',
+    nextTurnId: p.get('nextTurnId'),
+    options: { tableSize, raceTo, shotClock, reds }           // whitelisted option keys only
+  };
+  // URL cleanup: delete opponent.userId + opponent.userName, then strip every namespaced
+  // key (opponent.* incl. opponent.custom.*, and custom.*), then the option keys above.
+}
+```
+
+- Reads canonical `opponent.userId` / `opponent.userName` only — legacy `opponentId` / `opponentName` are neither emitted nor read by this project.
+- Cleanup explicitly deletes `opponent.userId` / `opponent.userName` and additionally strips all `opponent.*` / `custom.*` namespaced keys (covers `opponent.custom.*`), plus `ruletype` / `nextTurnId` / `tableSize` / `raceTo` / `shotClock` / `reds`, so nothing lingers in the address bar.
+- Verified by `test/rematch-unified.spec.ts`: asserts `opponent.userId`, `opponent.userName`, `opponent.custom.cue` and `custom.skin` are all stripped after construction.
+
+**Consumer side (separate project):** `gameover.ts` must emit the canonical `opponent.userId` / `opponent.userName` keys when building the rematch URL, and the consumer lobby should read those canonical keys too. That change is out of scope for this repo.

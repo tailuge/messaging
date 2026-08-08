@@ -4,28 +4,28 @@ Two URL formats bring players from the game site to the lobby:
 
 | Format | Purpose | Parameters |
 |---|---|---|
-| **Rematch params** | Player clicked "Rematch" in game | `?opponentId=X&opponentName=Y&ruletype=Z&nextTurnId=W` |
-| **Cross-site accept** | Player clicked "Accept" on a challenge while in game | `?action=join&ruletype=Z&opponentId=X&opponentName=Y` |
+| **Rematch params** | Player clicked "Rematch" in game | `?opponent.userId=X&opponent.userName=Y&ruletype=Z&nextTurnId=W` |
+| **Cross-site accept** | Player clicked "Accept" on a challenge while in game | `?action=join&ruletype=Z&opponent.userId=X&opponent.userName=Y` |
 | **No params** | Player clicked "Return to Lobby" (or game ended normally) | `lobby.html` |
 
 ## All Combinations
 
 | # | Player A action | Player B action | Player A URL | Player B URL | Desired action |
 |---|---|---|---|---|---|
-| 1 | Rematch | Rematch | `?opponentId=B&...&nextTurnId=A` | `?opponentId=A&...&nextTurnId=A` | one party triggers accept flow |
-| 2 | Rematch | Return to Lobby | `?opponentId=B&...&nextTurnId=A` | (no params) | A shows "waiting for challenge to be accepted", B shows "challenge banner accept/decline" |
-| 3 | Return to Lobby | Rematch | (no params) | `?opponentId=A&...&nextTurnId=A` | B shows "waiting for challenge to be accepted", A shows "challenge banner accept/decline" |
+| 1 | Rematch | Rematch | `?opponent.userId=B&...&nextTurnId=A` | `?opponent.userId=A&...&nextTurnId=A` | one party triggers accept flow |
+| 2 | Rematch | Return to Lobby | `?opponent.userId=B&...&nextTurnId=A` | (no params) | A shows "waiting for challenge to be accepted", B shows "challenge banner accept/decline" |
+| 3 | Return to Lobby | Rematch | (no params) | `?opponent.userId=A&...&nextTurnId=A` | B shows "waiting for challenge to be accepted", A shows "challenge banner accept/decline" |
 | 4 | Return to Lobby | Return to Lobby | (no params) | (no params) | |
-| 5 | Rematch | Accept from game | `?opponentId=B&...&nextTurnId=A` | `?action=join&opponentId=A&ruletype=...` | B will trigger accept flow |
-| 6 | Accept from game | Rematch | `?action=join&opponentId=B&ruletype=...` | `?opponentId=A&...&nextTurnId=A` | A will trigger accept flow |
-| 7 | In lobby, challenges B | Accept from game | (already in lobby) | `?action=join&opponentId=A&ruletype=...` | B will trigger accept flow |
-| 8 | Accept from game | In lobby, challenges A | `?action=join&opponentId=B&ruletype=...` | (already in lobby) | A will trigger accept flow |
+| 5 | Rematch | Accept from game | `?opponent.userId=B&...&nextTurnId=A` | `?action=join&opponent.userId=A&ruletype=...` | B will trigger accept flow |
+| 6 | Accept from game | Rematch | `?action=join&opponent.userId=B&ruletype=...` | `?opponent.userId=A&...&nextTurnId=A` | A will trigger accept flow |
+| 7 | In lobby, challenges B | Accept from game | (already in lobby) | `?action=join&opponent.userId=A&ruletype=...` | B will trigger accept flow |
+| 8 | Accept from game | In lobby, challenges A | `?action=join&opponent.userId=B&ruletype=...` | (already in lobby) | A will trigger accept flow |
 
 **Key facts:**
 
 - Both players are on separate computers and independently decide their action
 - The game site cannot pre-coordinate roles — it doesn't know what the other player chose
-- **Row 1** (both rematch) is the only case with a race condition — both arrive with `opponentId` AND `nextTurnId`
+- **Row 1** (both rematch) is the only case with a race condition — both arrive with `opponent.userId` AND `nextTurnId`
 - **Rows 5-6** are rematch + cross-site accept — no `nextTurnId` in the `?action=join` URL (currently lost)
 - **Rows 7-8** are standard cross-site challenge accepts — challenger already in lobby, no race
 - `?action=join` never includes `nextTurnId` currently. The user is open to fixing this on the game site side.
@@ -62,19 +62,19 @@ Further simplification:
 Remove `action=join` entirely. External game sites can just send:
 
 ```
-?ruletype=Z&opponentId=X&opponentName=Y
+?ruletype=Z&opponent.userId=X&opponent.userName=Y
 ```
 
 instead of:
 
 ```
-?action=join&ruletype=Z&opponentId=X&opponentName=Y
+?action=join&ruletype=Z&opponent.userId=X&opponent.userName=Y
 ```
 
 This eliminates the special `action=join` case and simplifies URL parameter handling to a single unified approach:
 
-- **Rematch params**: `?opponentId=X&opponentName=Y&ruletype=Z&nextTurnId=W` → challenge offer
-- **Cross-site accept params**: `?opponentId=X&opponentName=Y&ruletype=Z` → accept message (when matching challenge exists)
+- **Rematch params**: `?opponent.userId=X&opponent.userName=Y&ruletype=Z&nextTurnId=W` → challenge offer
+- **Cross-site accept params**: `?opponent.userId=X&opponent.userName=Y&ruletype=Z` → accept message (when matching challenge exists)
 - **No params**: `lobby.html` → normal lobby behavior
 
 The system becomes even cleaner with:

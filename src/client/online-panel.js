@@ -38,7 +38,7 @@ class OnlinePanel extends LitElement {
         this.#myName = userStore.userName;
 
         const p = new URLSearchParams(location.search);
-        const opponentId = p.get('opponentId');
+        const opponentId = p.get('opponent.userId');
         if (opponentId) {
             const options = {};
             const tableSize = p.get('tableSize') || p.get('tablesize');
@@ -55,15 +55,22 @@ class OnlinePanel extends LitElement {
 
             this.#autoChallenge = {
                 opponentId,
-                opponentName: p.get('opponentName') || opponentId,
+                opponentName: p.get('opponent.userName') || opponentId,
                 ruleType: p.get('ruletype') || 'nineball',
                 nextTurnId: p.get('nextTurnId'),
                 options: Object.keys(options).length > 0 ? options : undefined
             };
 
             const url = new URL(location.href);
-            url.searchParams.delete('opponentId');
-            url.searchParams.delete('opponentName');
+            url.searchParams.delete('opponent.userId');
+            url.searchParams.delete('opponent.userName');
+            // Strip namespaced customisation keys (custom.*, opponent.custom.*) that the
+            // game page echoes back. The lobby reads customisation from localStorage only.
+            const staleKeys = [];
+            for (const key of url.searchParams.keys()) {
+                if (key.startsWith('opponent.') || key.startsWith('custom.')) staleKeys.push(key);
+            }
+            for (const key of staleKeys) url.searchParams.delete(key);
             url.searchParams.delete('ruletype');
             url.searchParams.delete('nextTurnId');
             url.searchParams.delete('tableSize');
@@ -162,6 +169,9 @@ class OnlinePanel extends LitElement {
         return !!this.#state.currentMatch?.isFirst;
     }
     get #matchOptions()    { return this.#state.currentMatch?.options; }
+    get #opponentId()      { return this.#state.currentMatch?.opponentId; }
+    get #opponentName()    { return this.#state.currentMatch?.opponentName; }
+    get #opponentCustom()  { return this.#state.currentMatch?.opponentCustom; }
     get #activeChallenge() {
         return Object.values(this.#state.challenges).find(c => c.challengeeId === this.#myId && c.status === 'pending');
     }
@@ -208,10 +218,10 @@ class OnlinePanel extends LitElement {
         if (u?.isBot) {
             const tableId = 'bot-' + Math.random().toString(36).slice(2, 8);
             const isFirst = true; // Bot challenges always make user first or handled by game engine
-            window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst, options, bot: u.userName, lod: userStore.lod, flip: userStore.flip });
+            window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst, options, bot: u.userName, lod: userStore.lod, flip: userStore.flip, custom: userStore.getCustom() });
             return;
         }
-        const tableId = this.#lobby ? await this.#lobby.challenge(userId, ruleType, options, nextTurnId) : 'test-' + Math.random().toString(36).slice(2, 7);
+        const tableId = this.#lobby ? await this.#lobby.challenge(userId, ruleType, options, nextTurnId, userStore.getCustom()) : 'test-' + Math.random().toString(36).slice(2, 7);
         logUsage("createTable");
         this.dispatch({ type: 'CHALLENGE_SENT', payload: { challengerId: this.#myId, challengeeId: userId, recipientName: u?.userName || userId, ruleType, options, tableId, nextTurnId } });
     }
@@ -233,7 +243,7 @@ class OnlinePanel extends LitElement {
             const myHandicap = localStorage.getItem(`handicap_${c.ruleType}`) || '15';
             opts['handicap_' + this.#myId] = myHandicap;
         }
-        if (this.#lobby) await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, opts, c.challengerName, nextTurnId);
+        if (this.#lobby) await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, opts, c.challengerName, nextTurnId, userStore.getCustom());
         logUsage("joinTable");
         this.dispatch({
             type: 'CHALLENGE_MSG',
@@ -245,7 +255,8 @@ class OnlinePanel extends LitElement {
                 ruleType: c.ruleType,
                 tableId: c.tableId,
                 options: opts,
-                nextTurnId
+                nextTurnId,
+                custom: userStore.getCustom()
             }
         });
         this.#autoChallenge = null;
@@ -294,7 +305,7 @@ class OnlinePanel extends LitElement {
 
     render() {
         if (this.#tableId) {
-            const url = gameUrl({ tableId: this.#tableId, userId: this.#myId, userName: this.#myName, ruleType: this.#ruleType, isFirst: this.#isFirst, options: this.#matchOptions, lod: userStore.lod, flip: userStore.flip });
+            const url = gameUrl({ tableId: this.#tableId, userId: this.#myId, userName: this.#myName, ruleType: this.#ruleType, isFirst: this.#isFirst, options: this.#matchOptions, lod: userStore.lod, flip: userStore.flip, custom: userStore.getCustom(), opponent: this.#opponentId ? { userId: this.#opponentId, userName: this.#opponentName, custom: this.#opponentCustom } : undefined });
             this.#autoChallenge = null;
             this.#state = { ...this.#state, currentMatch: null };
             window.location.href = url;

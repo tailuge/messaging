@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 720;
+export const CLIENTVERSION = 725;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -29,7 +29,7 @@ export const INITIAL_STATE = {
     connected: false,
     users: [],
     challenges: {}, // indexed by other player's ID
-    currentMatch: null // { tableId, ruleType, isFirst }
+    currentMatch: null // { tableId, ruleType, options, isFirst, opponentId, opponentName, opponentCustom }
 };
 
 export function reduce(state, action) {
@@ -69,6 +69,10 @@ export function reduce(state, action) {
                 if (!pending || pending.tableId !== m.tableId) return state;
                 const options = m.options || pending.options;
                 const nextTurnId = m.nextTurnId || pending.nextTurnId;
+                const weAreChallenger = action.myId === m.challengerId;
+                const opponentId = weAreChallenger ? m.challengeeId : m.challengerId;
+                const opponentCustom = weAreChallenger ? (m.custom || {}) : (pending.custom || {});
+                const opponentName = weAreChallenger ? pending.recipientName : pending.challengerName;
                 delete C[id];
                 return {
                     ...state, challenges: C,
@@ -78,7 +82,8 @@ export function reduce(state, action) {
                         options,
                         isFirst: (nextTurnId === m.challengerId || nextTurnId === m.challengeeId)
                             ? nextTurnId === action.myId
-                            : m.challengerId === action.myId
+                            : m.challengerId === action.myId,
+                        opponentId, opponentName, opponentCustom
                     }
                 };
             } else if (m.type === 'decline') {
@@ -183,7 +188,7 @@ export const soloUrl = (g, userId, userName, lod, flip) => {
     return g.url ? url : appendOptions(url, g.options);
 };
 
-export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options, bot, lod, flip }) => {
+export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options, bot, lod, flip, custom, opponent }) => {
     let url = `${BASE}?websocketserver=${WS_SERVER}`
         + `&userName=${encodeURIComponent(userName)}&userId=${userId}&ruletype=${ruleType}`;
     if (!bot) url += `&tableId=${tableId}`;
@@ -191,7 +196,21 @@ export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options,
     if (bot) url += `&bot=${encodeURIComponent(bot)}`;
     if (lod !== undefined) url += `&lod=${lod}`;
     if (flip) url += '&flip=true';
-    return appendOptions(url, options);
+    url = appendOptions(url, options);
+    if (custom) {
+        for (const [k, v] of Object.entries(custom)) {
+            url += `&custom.${encodeURIComponent(k)}=${encodeURIComponent(v)}`;
+        }
+    }
+    if (opponent?.userId) {
+        url += `&opponent.userId=${encodeURIComponent(opponent.userId)}&opponent.userName=${encodeURIComponent(opponent.userName || '')}`;
+        if (opponent.custom) {
+            for (const [k, v] of Object.entries(opponent.custom)) {
+                url += `&opponent.custom.${encodeURIComponent(k)}=${encodeURIComponent(v)}`;
+            }
+        }
+    }
+    return url;
 };
 
 export const spectateUrl = ({ tableId, userId, userName, ruleType, options }) => {

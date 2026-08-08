@@ -234,6 +234,7 @@ export class Lobby {
     ruleType: string,
     options?: Record<string, string>,
     nextTurnId?: string,
+    custom?: Record<string, string | number>,
   ): Promise<string> {
     const tableId = getUID();
     await this.nchan.publishChallenge({
@@ -245,6 +246,7 @@ export class Lobby {
       tableId,
       options,
       nextTurnId,
+      custom,
     });
     return tableId;
   }
@@ -262,6 +264,7 @@ export class Lobby {
     options?: Record<string, string>,
     challengerName?: string,
     nextTurnId?: string,
+    custom?: Record<string, string | number>,
   ): Promise<void> {
     await this.nchan.publishChallenge({
       type: "accept",
@@ -272,6 +275,7 @@ export class Lobby {
       tableId,
       options,
       nextTurnId,
+      custom,
     });
 
     // Automatically update our presence to show we've joined the table

@@ -182,6 +182,13 @@ class SettingsModal extends StoreElement {
                             </label>
                         </div>
                         <div class="row">
+                            <span>Cue</span>
+                            <label class="switch">
+                                <input type="checkbox" .checked=${(userStore.getCustom().cue ?? '0') === '1'} @change=${e => userStore.setCustom('cue', e.target.checked ? '1' : '0')}>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="row">
                             <span>Use proxy to connect</span>
                             <label class="switch">
                                 <input type="checkbox" .checked=${userStore.useProxy} @change=${e => userStore.setUseProxy(e.target.checked)}>
