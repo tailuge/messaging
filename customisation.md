@@ -1,195 +1,28 @@
-# Customisation Plan: Extensible `custom` Dictionary (Zero-Code-Extension Design)
+# Customisation Contract
 
-> **Status: ✅ Implemented (steps 1–7); 🚧 Step 8 planned.** Steps 1–7 are in the codebase (see git history); Step 8 (customisation panel) is planned, not yet implemented. The rematch-entry note in the gap section at the bottom is resolved. Remaining TODO: the Verification section's URL-formatting tests (items 2–3).
+The one contract: a `custom` dictionary is dutifully transcribed into URL params — nothing else. The dictionary is generic: `cue` is just the first element, more will follow (skin, cloth, table, …).
 
-This document outlines an extensible design for passing custom settings (e.g. `custom.cue`, `custom.skin`, etc.) for both the player and opponent to the game launch URL.
+## Shape
 
-**Key principle: adding a new `custom.whatever` field should require NO transport/URL code changes — only the settings UI needs a new control.**
+`custom` is a dictionary of primitives (`string | number | boolean`) and nested objects:
 
----
-
-## 1. Concrete Goal & Requirements
-
-- **Initial Field**: `custom.cue` (numeric value `0` or `1`, default `0`).
-- **Generic Transport**: A `custom` dictionary (`Record<string, string | number>`) on challenge offer/accept messages — any key-value pair flows through automatically. Defined on both `PresenceMessage` and `ChallengeMessage` types for future use, but only populated on challenge messages.
-- **URL Parameter Output**:
-  - Local player: `&custom.cue=0&custom.skin=red` (all keys flattened from the `custom` dict)
-  - Opponent: `&opponent.userId=...&opponent.userName=...&opponent.custom.cue=1&opponent.custom.skin=blue`
-  - Standard player identifiers: `&userId=...&userName=...`
-- **Settings UI**: A toggle in `SettingsModal` for Cue (`0` or `1`). New fields only need a new UI control — no other code.
-
----
-
-## 2. Data Structure & Serialization
-
-- **In State & Messages**: A `custom` dictionary — `{ cue: 0, skin: 'red' }` — stored as a field on `ChallengeMessage` (also added to `PresenceMessage` for future extensibility, but not populated on presence messages).
-- **Query String Mapping** (generic, key-iteration based):
-  - `custom: { cue: 0, skin: 'red' }` → `&custom.cue=0&custom.skin=red`
-  - Opponent's `custom: { cue: 1 }` → `&opponent.custom.cue=1`
-- **No hardcoded field names anywhere in the transport/URL layer.**
-
----
-
-## 3. Implementation Steps
-
-### Step 1: Type Definitions (`src/types.ts`)
-- Add `custom?: Record<string, string | number>` to `PresenceMessage`.
-- Add `custom?: Record<string, string | number>` to `ChallengeMessage`.
-
-### Step 2: `UserStore` — Generic Custom Persistence (`src/client/user-store.js`)
-- Add public `custom` property, loaded on init from `localStorage.getItem('custom')` (JSON.parse, default `{}`).
-- Add `getCustom()` → returns the full custom object (shallow copy).
-- Add `setCustom(key, value)` → sets the key, JSON.stringify → localStorage, dispatches `change` event.
-- When `isVercel` is true, also clear `localStorage.removeItem('custom')` along with the existing `userId`/`userName` clears.
-- **No per-field getters/setters.** Adding a new custom field = calling `userStore.setCustom('newField', val)` from anywhere.
-
-> **Note:** `custom` is NOT included on presence messages (join/heartbeat/leave). It is only sent on challenge offer/accept messages, since it's only needed when a game starts.
-
-### Step 3: URL Generator — Generic Flattening (`src/client/utils.js`)
-- Update `gameUrl()` to accept optional `custom` (Record) and `opponent` ({ userId, userName, custom }) params.
-  - Iterates over `custom` keys → appends `&custom.key=value`.
-  - If `opponent.userId` is present: append `&opponent.userId=...&opponent.userName=...`.
-  - Iterates over `opponent.custom` keys → appends `&opponent.custom.key=value`.
-- Update `INITIAL_STATE` comment to reflect new `currentMatch` shape: `{ tableId, ruleType, options, isFirst, opponentId, opponentName, opponentCustom }`.
-- **No hardcoded field names in the URL builder.** Any key in the dict becomes a query param.
-
-### Step 4: Online Panel — Challenge Messages & URLs (`src/client/online-panel.js`)
-- On `#challenge(...)`: include `custom: userStore.getCustom()` in the `lobby.challenge()` call.
-- On `#acceptChallenge(...)`: include `custom: userStore.getCustom()` in the `lobby.acceptChallenge()` call and in the synthetic `CHALLENGE_MSG` dispatch payload (so `m.custom` is available to the challenger in reduce).
-- **Bot path**: In `#challenge()`, the bot branch calls `gameUrl()` directly — must also pass `custom: userStore.getCustom()`.
-- On game launch (redirect in `render()`): pass `userStore.getCustom()` as `custom` to `gameUrl()`. Read opponent info from `currentMatch.opponentId` / `opponentName` / `opponentCustom`.
-- Add `#opponentId`, `#opponentName`, `#opponentCustom` accessors reading from `this.#state.currentMatch`.
-
-> **Note:** `custom` is NOT included in presence join/heartbeat messages or in the `CHALLENGE_SENT` dispatch payload. It only flows through challenge offer/accept messages.
-
-### Step 5: Challenge Flow — How Opponent Custom Reaches Each Player
-
-This is the critical piece. Here's how custom data travels through the challenge handshake:
-
-**Data carried on messages:**
-- The `offer` ChallengeMessage carries the **challenger's** `custom`.
-- The `accept` ChallengeMessage carries the **accepter's** `custom`.
-
-**In `utils.js` reduce, when an `accept` is processed, `currentMatch` gets three new fields:**
-- `opponentId` — the other player's userId
-- `opponentName` — the other player's userName
-- `opponentCustom` — the other player's `custom` dict
-
-Derivation depends on which side we're on:
-
-| We are the... | Opponent is... | opponentCustom source |
-|---|---|---|
-| **Challenger** (our id === m.challengerId) | The accepter (m.challengeeId) | `m.custom` (from the accept message) |
-| **Accepter** (our id === m.challengeeId) | The challenger (m.challengerId) | `pending.custom` (from the original offer stored in `C[id]`) |
-
-```js
-// Pseudocode in reduce (accept branch):
-const weAreChallenger = action.myId === m.challengerId;
-const opponentId = weAreChallenger ? m.challengeeId : m.challengerId;
-const opponentCustom = weAreChallenger ? m.custom : (pending.custom || {});
-// opponentName comes from challenge data, not users-list lookup:
-const opponentName = weAreChallenger
-    ? pending.recipientName       // CHALLENGE_SENT stores challengee's name as recipientName
-    : pending.challengerName;     // incoming offer stores challenger's name
-
-currentMatch: {
-    tableId, ruleType, options, isFirst,
-    opponentId, opponentName, opponentCustom,
-}
+```json
+{ "cue": { "shaftColour": "#d2b48c", "grain": true }, "skin": "blue" }
 ```
 
-**In `online-panel.js` render(), the game URL is built with:**
-```js
-const match = this.#state.currentMatch;
-gameUrl({
-    ...,
-    custom: userStore.getCustom(),
-    opponent: {
-        userId: match.opponentId,
-        userName: match.opponentName,
-        custom: match.opponentCustom,
-    }
-});
-```
+`undefined` / `null` values are omitted. Nested objects flatten to dot-notation keys; arrays are not recursed.
 
-**Also:**
-- `lobby.challenge()` and `lobby.acceptChallenge()` both accept and pass a `custom` parameter through to `nchan.publishChallenge()` (see Step 6).
-- The accepter's `pending.custom` comes from the incoming offer message (`{ ...m }` captures all fields including `custom`). No special handling needed.
-- The challenger's `m.custom` comes from the accept message. The synthetic dispatch in `#acceptChallenge()` must include `custom`.
+## Transport
 
-### Step 6: Lobby — Accept `custom` Parameter (`src/lobby.ts`)
-- Add `custom?: Record<string, string | number>` parameter to `challenge()` and `acceptChallenge()`.
-- Both methods pass `custom` through to their `nchan.publishChallenge()` call.
+1. **Persistence** — localStorage key `custom` (JSON string of the dict). `userStore.setCustom(key, value)` read-modify-writes it; `userStore.getCustom()` returns the in-memory snapshot, refreshed cross-document via the `storage` event (so e.g. the `cue.html` iframe can write to `custom.cue.*` directly).
+   - **Iframe modifiers must not erase adjacent fields**: a page that customises `custom.<element>.*` (e.g. the cue picker writing `custom.cue.*`) must read the existing dict, set only its own key, and write the whole dict back — never `setItem('custom', JSON.stringify(ownState))`, or it wipes sibling customisations (e.g. `custom.skin`) owned by other elements.
+2. **Challenge messages** — `custom` rides on challenge offer/accept messages (`ChallengeMessage.custom`).
+3. **Game URL** — `gameUrl()` flattens it recursively:
+   - local player → `custom.a.b=v`
+   - opponent → `opponent.custom.a.b=v`
 
-> **Note:** `hasMeaningfulChange()` does NOT need updating — `custom` is not on presence messages, so there's nothing to compare. `acceptChallenge()` does NOT pass `custom` to `updatePresence()`.
+   Numbers and booleans are stringified; `#` in hex colours is URL-encoded (`%23`), so the consumer must decode params before use.
 
-### Step 7: Settings UI (`src/client/settings-modal.js`)
-- Add a cue toggle (`0` / `1`) bound to `userStore.getCustom().cue` / `userStore.setCustom('cue', val)`.
-- Handle `undefined` gracefully: `(userStore.getCustom().cue ?? '0')` as the default.
-- **Future fields:** just add another control calling `userStore.setCustom('newField', val)`. No other files touched.
+## Golden rule
 
-### Step 8: Customisation Panel (`src/client/customisation-panel.js`) — 🚧 planned, not yet implemented
-
-A dedicated panel for customisation settings, launched from a button in the Settings modal. For now it contains only the existing `cue` choice; the framework is the deliverable — future customisations should be a one-row addition.
-
-- **New file**: `src/client/customisation-panel.js` — a LitElement patterned on `settings-modal.js` (`StoreElement`, `SHARED_STYLES` + `CHALLENGE_MODAL_STYLES`, backdrop + `.modal` container, Escape-to-close). Registered as `<customisation-panel>`.
-- **Launch**: add a "Customise" row/button in `settings-modal.js` that shows the panel. Simplest approach: a `_showCustomisation` state flag on `SettingsModal` rendering `<customisation-panel>` inside its backdrop — the same pattern already used for `_showStats` → `<stats-panel>`.
-- **Content (for now)**: one section of customisation rows — only **Cue** (toggle `0`/`1`), bound to `userStore.getCustom().cue ?? '0'` / `userStore.setCustom('cue', …)`. This is the same control from Step 7, **moved out of** `settings-modal.js` into the new panel.
-- **Framework for the future**: render the rows from an array (e.g. `static CUSTOMISATIONS = [{ key: 'cue', label: 'Cue', type: 'toggle' }]`) so a new customisation is just a new array entry — no transport/URL changes needed (per the key principle).
-- **Notes**:
-  - Reuses `userStore.getCustom()` / `setCustom()` — no storage changes.
-  - Transport and URL are already generic (Steps 3–6), so this is purely UI.
-  - Keep it very simple: no sub-panels, no previews — just the toggle list.
-
----
-
-## 4. Target URL Example
-
-```
-https://game-url.example.com/?websocketserver=...&userId=user-123&userName=Alice&custom.cue=0&opponent.userId=user-456&opponent.userName=Bob&opponent.custom.cue=1
-```
-
----
-
-## 5. Adding a New Custom Field (Illustrative)
-
-To add e.g. `custom.skin`:
-1. In `settings-modal.js`: add a new toggle/select calling `userStore.setCustom('skin', val)`.
-2. **That's it.** The field automatically flows through challenge messages and the game URL as `&custom.skin=red` and `&opponent.custom.skin=blue`.
-
----
-
-## 6. Verification
-
-1. **Unit Test**: Verify presence/challenge messages convey `custom` dict correctly.
-2. **URL Formatting Test**: Test `gameUrl()` with `custom: { cue: '0', extra: 'x' }` produces `&custom.cue=0&custom.extra=x`.
-3. **Opponent URL Test**: Test `gameUrl()` with `opponent: { userId: 'b', userName: 'Bob', custom: { cue: '1' } }` produces `&opponent.custom.cue=1`.
-
-
-
------------- gap
-
-Rematch entry flow — ✅ done (in this repo)
-The lobby constructor in this project (`src/client/online-panel.js`) now reads the canonical keys only (no legacy fallback) and cleans every rematch/entry param from the URL:
-
-```js
-const p = new URLSearchParams(location.search);
-const opponentId = p.get('opponent.userId');                  // canonical — no opponentId fallback
-if (opponentId) {
-  this.#autoChallenge = {
-    opponentId,
-    opponentName: p.get('opponent.userName') || opponentId,   // canonical — no opponentName fallback
-    ruleType: p.get('ruletype') || 'nineball',
-    nextTurnId: p.get('nextTurnId'),
-    options: { tableSize, raceTo, shotClock, reds }           // whitelisted option keys only
-  };
-  // URL cleanup: delete opponent.userId + opponent.userName, then strip every namespaced
-  // key (opponent.* incl. opponent.custom.*, and custom.*), then the option keys above.
-}
-```
-
-- Reads canonical `opponent.userId` / `opponent.userName` only — legacy `opponentId` / `opponentName` are neither emitted nor read by this project.
-- Cleanup explicitly deletes `opponent.userId` / `opponent.userName` and additionally strips all `opponent.*` / `custom.*` namespaced keys (covers `opponent.custom.*`), plus `ruletype` / `nextTurnId` / `tableSize` / `raceTo` / `shotClock` / `reds`, so nothing lingers in the address bar.
-- Verified by `test/rematch-unified.spec.ts`: asserts `opponent.userId`, `opponent.userName`, `opponent.custom.cue` and `custom.skin` are all stripped after construction.
-
-**Consumer side (separate project):** `gameover.ts` must emit the canonical `opponent.userId` / `opponent.userName` keys when building the rematch URL, and the consumer lobby should read those canonical keys too. That change is out of scope for this repo.
+Adding a new customisation (a new key under `custom`) costs **zero** transport/URL code: write it with `userStore.setCustom('field', value)` (or directly from its own iframe, e.g. `custom.cue.*`) and read it in the game page at `custom.field.*`. The transport never knows or cares what the fields mean. Verified by `test/gameurl-custom.spec.ts` and `test/rematch-unified.spec.ts`.
