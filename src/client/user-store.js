@@ -50,6 +50,15 @@ class UserStore extends EventTarget {
         this.useProxy = localStorage.getItem('useProxy') === 'true';
         try { this.custom = JSON.parse(localStorage.getItem('custom')) || {}; } catch (_) { this.custom = {}; }
 
+        // Pick up customisation changes written by other same-origin documents
+        // (e.g. the cue picker in ./cue.html opened inside an iframe) without a reload.
+        window.addEventListener('storage', e => {
+            if (e.key === 'custom') {
+                try { this.custom = JSON.parse(e.newValue) || {}; } catch (_) { this.custom = {}; }
+                this.dispatchEvent(new Event('change'));
+            }
+        });
+
         console.log('UserStore identity:', this.userName, this.clientId);
     }
 

@@ -234,7 +234,7 @@ export class Lobby {
     ruleType: string,
     options?: Record<string, string>,
     nextTurnId?: string,
-    custom?: Record<string, string | number>,
+    custom?: Record<string, unknown>,
   ): Promise<string> {
     const tableId = getUID();
     await this.nchan.publishChallenge({
@@ -264,7 +264,7 @@ export class Lobby {
     options?: Record<string, string>,
     challengerName?: string,
     nextTurnId?: string,
-    custom?: Record<string, string | number>,
+    custom?: Record<string, unknown>,
   ): Promise<void> {
     await this.nchan.publishChallenge({
       type: "accept",

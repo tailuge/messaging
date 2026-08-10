@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 726;
+export const CLIENTVERSION = 730;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -177,6 +177,21 @@ const appendOptions = (url, options) => options
     ? Object.entries(options).reduce((u, [k, v]) => u + `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`, url)
     : url;
 
+// Recursively flatten a customisation object into dot-notation URL params.
+// { cue: { colour: 'red', length: '57' }, skin: 'blue' } →
+//   custom.cue.colour=red&custom.cue.length=57&custom.skin=blue
+const flattenCustom = (obj, prefix, out) => {
+    for (const [k, v] of Object.entries(obj)) {
+        const key = prefix ? `${prefix}.${encodeURIComponent(k)}` : encodeURIComponent(k);
+        if (v && typeof v === 'object' && !Array.isArray(v)) {
+            flattenCustom(v, key, out);
+        } else if (v !== undefined && v !== null) {
+            out.push(`${key}=${encodeURIComponent(v)}`);
+        }
+    }
+    return out;
+};
+
 export const soloUrl = (g, userId, userName, lod, flip) => {
     if (g.absolute) return g.url;
     let url = g.url ? `${g.url}?userId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}&lod=${lod}`
@@ -198,16 +213,12 @@ export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options,
     if (flip) url += '&flip=true';
     url = appendOptions(url, options);
     if (custom) {
-        for (const [k, v] of Object.entries(custom)) {
-            url += `&custom.${encodeURIComponent(k)}=${encodeURIComponent(v)}`;
-        }
+        for (const p of flattenCustom(custom, 'custom', [])) url += `&${p}`;
     }
     if (opponent?.userId) {
         url += `&opponent.userId=${encodeURIComponent(opponent.userId)}&opponent.userName=${encodeURIComponent(opponent.userName || '')}`;
         if (opponent.custom) {
-            for (const [k, v] of Object.entries(opponent.custom)) {
-                url += `&opponent.custom.${encodeURIComponent(k)}=${encodeURIComponent(v)}`;
-            }
+            for (const p of flattenCustom(opponent.custom, 'opponent.custom', [])) url += `&${p}`;
         }
     }
     return url;

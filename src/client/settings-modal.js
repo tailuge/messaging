@@ -2,7 +2,6 @@ import { html, css } from 'lit';
 import { userStore, StoreElement } from './user-store.js';
 import { SHARED_STYLES, CHALLENGE_MODAL_STYLES } from './styles.js';
 import './stats-panel.js';
-import './customisation-panel.js';
 
 class SettingsModal extends StoreElement {
     static properties = {
@@ -10,7 +9,7 @@ class SettingsModal extends StoreElement {
         _notifEnabled: { state: true },
         _showStats: { state: true },
         _copied: { state: true },
-        _showCustomisation: { state: true }
+        _showCue: { state: true }
     };
     static LOD_LABELS = ['pixelated', 'polygons', 'high poly', 'shaders', 'antialiased'];
     static styles = [SHARED_STYLES, CHALLENGE_MODAL_STYLES, css`
@@ -93,6 +92,23 @@ class SettingsModal extends StoreElement {
             transition: transform 0.1s;
         }
         input[type="range"]::-moz-range-thumb:hover { transform: scale(1.2); }
+
+        /* Cue picker iframe overlay (80% of screen) */
+        .cue-backdrop {
+            position: fixed; inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 200;
+        }
+        .cue-frame {
+            width: 80vw; height: 80vh;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+        }
+        .cue-frame iframe { width: 100%; height: 100%; border: none; display: block; }
     `];
 
     constructor() {
@@ -100,7 +116,7 @@ class SettingsModal extends StoreElement {
         this._open = false;
         this._showStats = false;
         this._copied = false;
-        this._showCustomisation = false;
+        this._showCue = false;
         this._theme = document.documentElement.getAttribute('theme') || 'light';
         this._notifEnabled = Notification.permission === 'granted';
         this._onKeydown = this._onKeydown.bind(this);
@@ -117,13 +133,17 @@ class SettingsModal extends StoreElement {
     }
 
     _onKeydown(e) {
-        if (this._open && e.key === 'Escape') {
-            this._close();
+        if (e.key === 'Escape') {
+            if (this._showCue) {
+                this._showCue = false;
+            } else if (this._open) {
+                this._close();
+            }
         }
     }
 
     _toggle(e) { e.stopPropagation(); this._open = !this._open; }
-    _close()   { this._open = false; this._showCustomisation = false; }
+    _close()   { this._open = false; this._showCue = false; }
 
     _setTheme(e) {
         const theme = e.target.checked ? 'dark' : 'light';
@@ -185,10 +205,6 @@ class SettingsModal extends StoreElement {
                             </label>
                         </div>
                         <div class="row">
-                            <span>Customise</span>
-                            <button @click=${() => this._showCustomisation = true} style="margin-left: auto;">Open</button>
-                        </div>
-                        <div class="row">
                             <span>Use proxy to connect</span>
                             <label class="switch">
                                 <input type="checkbox" .checked=${userStore.useProxy} @change=${e => userStore.setUseProxy(e.target.checked)}>
@@ -215,11 +231,20 @@ class SettingsModal extends StoreElement {
 
                         ${this._showStats ? html`<div><strong style="font-size:0.82rem">Recent visitors</strong><stats-panel></stats-panel></div>` : ''}
 
+                        <div class="section-title">Customise</div>
+                        <div class="row">
+                            <button @click=${() => this._showCue = true}>Cue</button>
+                        </div>
+
                         <button class="cancel" @click=${this._close} style="margin-top: 0.4rem;">Close</button>
                     </div>
                 </div>
-                ${this._showCustomisation ? html`
-                    <customisation-panel @close=${() => this._showCustomisation = false}></customisation-panel>
+                ${this._showCue ? html`
+                    <div class="cue-backdrop" @click=${e => e.target === e.currentTarget && (this._showCue = false)}>
+                        <div class="cue-frame">
+                            <iframe src="./cue.html" title="Cue"></iframe>
+                        </div>
+                    </div>
                 ` : ''}` : ''}
         `;
     }
