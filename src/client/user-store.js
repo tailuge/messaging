@@ -48,13 +48,13 @@ class UserStore extends EventTarget {
         this.lod = localStorage.getItem('lod') || '2';
         this.flip = localStorage.getItem('flip') === 'true';
         this.useProxy = localStorage.getItem('useProxy') === 'true';
-        try { this.custom = JSON.parse(localStorage.getItem('custom')) || {}; } catch (_) { this.custom = {}; }
+        try { this.custom = JSON.parse(localStorage.getItem('custom')) || {}; } catch { this.custom = {}; }
 
         // Pick up customisation changes written by other same-origin documents
         // (e.g. the cue picker in ./cue.html opened inside an iframe) without a reload.
         window.addEventListener('storage', e => {
             if (e.key === 'custom') {
-                try { this.custom = JSON.parse(e.newValue) || {}; } catch (_) { this.custom = {}; }
+                try { this.custom = JSON.parse(e.newValue) || {}; } catch { this.custom = {}; }
                 this.dispatchEvent(new Event('change'));
             }
         });

@@ -1,5 +1,5 @@
 # ---------- build stage ----------
-ARG NGINX_VERSION=1.30.3
+ARG NGINX_VERSION=1.30.4
 ARG NCHAN_VERSION=1.3.8
 ARG NJS_VERSION=1.0.0
 
