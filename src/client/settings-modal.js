@@ -9,7 +9,7 @@ class SettingsModal extends StoreElement {
         _notifEnabled: { state: true },
         _showStats: { state: true },
         _copied: { state: true },
-        _showCue: { state: true }
+        _picker: { state: true }
     };
     static LOD_LABELS = ['pixelated', 'polygons', 'high poly', 'shaders', 'antialiased'];
     static styles = [SHARED_STYLES, CHALLENGE_MODAL_STYLES, css`
@@ -93,14 +93,14 @@ class SettingsModal extends StoreElement {
         }
         input[type="range"]::-moz-range-thumb:hover { transform: scale(1.2); }
 
-        /* Cue picker iframe overlay (80% of screen) */
-        .cue-backdrop {
+        /* Customisation picker iframe overlay (80% of screen) */
+        .picker-backdrop {
             position: fixed; inset: 0;
             background: rgba(0, 0, 0, 0.5);
             display: flex; align-items: center; justify-content: center;
             z-index: 200;
         }
-        .cue-frame {
+        .picker-frame {
             width: 80vw; height: 80vh;
             background: var(--surface);
             border: 1px solid var(--border);
@@ -108,7 +108,8 @@ class SettingsModal extends StoreElement {
             overflow: hidden;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
         }
-        .cue-frame iframe { width: 100%; height: 100%; border: none; display: block; }
+        .picker-frame iframe { width: 100%; height: 100%; border: none; display: block; }
+        .customise-btn { width: 4.5rem; }
     `];
 
     constructor() {
@@ -116,7 +117,7 @@ class SettingsModal extends StoreElement {
         this._open = false;
         this._showStats = false;
         this._copied = false;
-        this._showCue = false;
+        this._picker = null;
         this._theme = document.documentElement.getAttribute('theme') || 'light';
         this._notifEnabled = Notification.permission === 'granted';
         this._onKeydown = this._onKeydown.bind(this);
@@ -136,13 +137,13 @@ class SettingsModal extends StoreElement {
     }
 
     _onMessage(e) {
-        if (e.data?.type === 'done') this._showCue = false;
+        if (e.data?.type === 'done') this._picker = null;
     }
 
     _onKeydown(e) {
         if (e.key === 'Escape') {
-            if (this._showCue) {
-                this._showCue = false;
+            if (this._picker) {
+                this._picker = null;
             } else if (this._open) {
                 this._close();
             }
@@ -150,7 +151,7 @@ class SettingsModal extends StoreElement {
     }
 
     _toggle(e) { e.stopPropagation(); this._open = !this._open; }
-    _close()   { this._open = false; this._showCue = false; }
+    _close()   { this._open = false; this._picker = null; }
 
     _setTheme(e) {
         const theme = e.target.checked ? 'dark' : 'light';
@@ -240,16 +241,19 @@ class SettingsModal extends StoreElement {
 
                         <div class="section-title">Customise</div>
                         <div class="row">
-                            <button @click=${() => this._showCue = true}>Cue</button>
+                            <button class="customise-btn" @click=${() => this._picker = 'cue'}>Cue</button>
+                            <button class="customise-btn" @click=${() => this._picker = 'wall'}>Wall</button>
                         </div>
 
                         <button class="cancel" @click=${this._close} style="margin-top: 0.4rem;">Close</button>
                     </div>
                 </div>
-                ${this._showCue ? html`
-                    <div class="cue-backdrop" @click=${e => e.target === e.currentTarget && (this._showCue = false)}>
-                        <div class="cue-frame">
-                            <iframe src="./cue.html" title="Cue"></iframe>
+                ${this._picker ? html`
+                    <div class="picker-backdrop" @click=${e => e.target === e.currentTarget && (this._picker = null)}>
+                        <div class="picker-frame">
+                            ${this._picker === 'cue'
+                                ? html`<iframe src="./cue.html" title="Cue"></iframe>`
+                                : html`<iframe src="./wall.html?userName=${encodeURIComponent(userStore.userName)}" title="Wall"></iframe>`}
                         </div>
                     </div>
                 ` : ''}` : ''}
