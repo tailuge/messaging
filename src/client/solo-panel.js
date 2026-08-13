@@ -97,7 +97,7 @@ class SoloPanel extends StoreElement {
       ${this.#games.map(
         (g) =>
           html` <a
-            href=${soloUrl(g, clientId, userName, lod, flip)}
+            href=${soloUrl(g, clientId, userName, lod, flip, userStore.getCustom())}
             title=${g.label}
             aria-label="Play ${g.label}"
           >

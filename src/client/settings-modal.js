@@ -120,16 +120,23 @@ class SettingsModal extends StoreElement {
         this._theme = document.documentElement.getAttribute('theme') || 'light';
         this._notifEnabled = Notification.permission === 'granted';
         this._onKeydown = this._onKeydown.bind(this);
+        this._onMessage = this._onMessage.bind(this);
     }
 
     connectedCallback() {
         super.connectedCallback();
         window.addEventListener('keydown', this._onKeydown);
+        window.addEventListener('message', this._onMessage);
     }
 
     disconnectedCallback() {
         super.disconnectedCallback();
         window.removeEventListener('keydown', this._onKeydown);
+        window.removeEventListener('message', this._onMessage);
+    }
+
+    _onMessage(e) {
+        if (e.data?.type === 'done') this._showCue = false;
     }
 
     _onKeydown(e) {

@@ -1,4 +1,4 @@
-import { gameUrl } from "../src/client/utils.js";
+import { gameUrl, soloUrl } from "../src/client/utils.js";
 
 // lit is ESM-only and unused by gameUrl — stub it out.
 jest.mock("lit", () => ({
@@ -16,7 +16,7 @@ const BASE = {
     ruleType: "nineball",
 };
 
-const param = (url: string, key: string) => new URL(url).searchParams.get(key);
+const param = (url: string, key: string) => new URL(url, "http://x").searchParams.get(key);
 
 // gameUrl is plain JS, so ts-jest infers its destructured params as required —
 // cast each call's args (matches the `as any` style already used in this suite).
@@ -62,5 +62,44 @@ describe("gameUrl custom flattening", () => {
         expect(param(url, "custom.cue.colour")).toBe("red");
         expect(param(url, "custom.cue.length")).toBeNull();
         expect(param(url, "custom.cue.tip")).toBeNull();
+    });
+});
+
+describe("soloUrl custom flattening", () => {
+    it("adds the current player's custom properties as custom.* params", () => {
+        const url = soloUrl(
+            { ruletype: "nineball" },
+            "alice",
+            "Alice",
+            "2",
+            false,
+            { cue: { colour: "red", length: "57" }, skin: "blue" },
+        );
+        expect(param(url, "custom.cue.colour")).toBe("red");
+        expect(param(url, "custom.cue.length")).toBe("57");
+        expect(param(url, "custom.skin")).toBe("blue");
+        expect(param(url, "custom.cue")).toBeNull();
+    });
+
+    it("adds custom params for url-based solo games", () => {
+        const url = soloUrl({ url: "speedrun/index.html" }, "alice", "Alice", "2", false, { cue: "1" });
+        expect(param(url, "custom.cue")).toBe("1");
+    });
+
+    it("omits custom params when none are set", () => {
+        const url = soloUrl({ ruletype: "nineball" }, "alice", "Alice", "2", false);
+        expect(param(url, "custom")).toBeNull();
+    });
+
+    it("leaves absolute external games untouched", () => {
+        const url = soloUrl(
+            { url: "https://example.com/game", absolute: true },
+            "alice",
+            "Alice",
+            "2",
+            false,
+            { cue: "1" },
+        );
+        expect(url).toBe("https://example.com/game");
     });
 });

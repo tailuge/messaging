@@ -17,7 +17,7 @@ The one contract: a `custom` dictionary is dutifully transcribed into URL params
 1. **Persistence** — localStorage key `custom` (JSON string of the dict). `userStore.setCustom(key, value)` read-modify-writes it; `userStore.getCustom()` returns the in-memory snapshot, refreshed cross-document via the `storage` event (so e.g. the `cue.html` iframe can write to `custom.cue.*` directly).
    - **Iframe modifiers must not erase adjacent fields**: a page that customises `custom.<element>.*` (e.g. the cue picker writing `custom.cue.*`) must read the existing dict, set only its own key, and write the whole dict back — never `setItem('custom', JSON.stringify(ownState))`, or it wipes sibling customisations (e.g. `custom.skin`) owned by other elements.
 2. **Challenge messages** — `custom` rides on challenge offer/accept messages (`ChallengeMessage.custom`).
-3. **Game URL** — `gameUrl()` flattens it recursively:
+3. **Game URL** — `gameUrl()` (and `soloUrl()` for the solo panel) flattens it recursively:
    - local player → `custom.a.b=v`
    - opponent → `opponent.custom.a.b=v`
 

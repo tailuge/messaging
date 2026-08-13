@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 735;
+export const CLIENTVERSION = 741;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -192,7 +192,11 @@ const flattenCustom = (obj, prefix, out) => {
     return out;
 };
 
-export const soloUrl = (g, userId, userName, lod, flip) => {
+const appendCustom = (url, custom, prefix) => custom && typeof custom === 'object'
+    ? flattenCustom(custom, prefix, []).reduce((u, p) => u + `&${p}`, url)
+    : url;
+
+export const soloUrl = (g, userId, userName, lod, flip, custom) => {
     if (g.absolute) return g.url;
     let url = g.url ? `${g.url}?userId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}&lod=${lod}`
                     : `${BASE}?ruletype=${g.ruletype}&userId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}&lod=${lod}`;
@@ -200,6 +204,7 @@ export const soloUrl = (g, userId, userName, lod, flip) => {
         url += `&lobbyUrl=${WS_SERVER}`;
     }
     if (flip) url += '&flip=true';
+    url = appendCustom(url, custom, 'custom');
     return g.url ? url : appendOptions(url, g.options);
 };
 
@@ -212,14 +217,10 @@ export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options,
     if (lod !== undefined) url += `&lod=${lod}`;
     if (flip) url += '&flip=true';
     url = appendOptions(url, options);
-    if (custom) {
-        for (const p of flattenCustom(custom, 'custom', [])) url += `&${p}`;
-    }
+    url = appendCustom(url, custom, 'custom');
     if (opponent?.userId) {
         url += `&opponent.userId=${encodeURIComponent(opponent.userId)}&opponent.userName=${encodeURIComponent(opponent.userName || '')}`;
-        if (opponent.custom) {
-            for (const p of flattenCustom(opponent.custom, 'opponent.custom', [])) url += `&${p}`;
-        }
+        url = appendCustom(url, opponent.custom, 'opponent.custom');
     }
     return url;
 };
