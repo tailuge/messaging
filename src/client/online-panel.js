@@ -1,7 +1,7 @@
 import { LitElement, html } from 'lit';
 import { MessagingClient, activeGames } from '../index.ts';
 import { userStore } from './user-store.js';
-import { gameUrl, spectateUrl, ACTIVE_PAGE, INITIAL_STATE, reduce, CLIENTVERSION, formatVersion, NCHANBASE } from './utils.js';
+import { gameUrl, spectateUrl, flag, ACTIVE_PAGE, INITIAL_STATE, reduce, CLIENTVERSION, formatVersion, NCHANBASE } from './utils.js';
 import { logUsage } from './logusage.js';
 import { SHARED_STYLES, PLAYER_PANEL_STYLES } from './styles.js';
 import { UserSlotManager } from './user-slot-manager.js';
@@ -181,6 +181,15 @@ class OnlinePanel extends LitElement {
 
     get #visibleUsers() { return [...this.#users, ...BOTS]; }
 
+    get #localCustom() {
+        const custom = userStore.getCustom();
+        if (custom.emoji === undefined || custom.emoji === null) {
+            const country = this.#users.find(u => u.userId === this.#myId)?.meta?.country;
+            if (country) return { ...custom, emoji: flag(country).emoji };
+        }
+        return custom;
+    }
+
     get #slots() { return this.#slotManager.getSlots(); }
 
     async     _connect() {
@@ -218,7 +227,7 @@ class OnlinePanel extends LitElement {
         if (u?.isBot) {
             const tableId = 'bot-' + Math.random().toString(36).slice(2, 8);
             const isFirst = true; // Bot challenges always make user first or handled by game engine
-            window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst, options, bot: u.userName, lod: userStore.lod, flip: userStore.flip, custom: userStore.getCustom() });
+            window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst, options, bot: u.userName, lod: userStore.lod, flip: userStore.flip, custom: this.#localCustom });
             return;
         }
         const tableId = this.#lobby ? await this.#lobby.challenge(userId, ruleType, options, nextTurnId, userStore.getCustom()) : 'test-' + Math.random().toString(36).slice(2, 7);
@@ -305,7 +314,7 @@ class OnlinePanel extends LitElement {
 
     render() {
         if (this.#tableId) {
-            const url = gameUrl({ tableId: this.#tableId, userId: this.#myId, userName: this.#myName, ruleType: this.#ruleType, isFirst: this.#isFirst, options: this.#matchOptions, lod: userStore.lod, flip: userStore.flip, custom: userStore.getCustom(), opponent: this.#opponentId ? { userId: this.#opponentId, userName: this.#opponentName, custom: this.#opponentCustom } : undefined });
+            const url = gameUrl({ tableId: this.#tableId, userId: this.#myId, userName: this.#myName, ruleType: this.#ruleType, isFirst: this.#isFirst, options: this.#matchOptions, lod: userStore.lod, flip: userStore.flip, custom: this.#localCustom, opponent: this.#opponentId ? { userId: this.#opponentId, userName: this.#opponentName, custom: this.#opponentCustom } : undefined });
             this.#autoChallenge = null;
             this.#state = { ...this.#state, currentMatch: null };
             window.location.href = url;
