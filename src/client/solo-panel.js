@@ -1,10 +1,10 @@
 import { html } from "lit";
 import { userStore, StoreElement } from "./user-store.js";
-import { soloUrl } from "./utils.js";
+import { soloUrl, badgeText } from "./utils.js";
 import { SOLO_PANEL_STYLES, BADGE_STYLES } from "./styles.js";
 
 const GAMES = [
-  { label: "Nine Ball", img: "assets/nineball.png", ruletype: "nineball" },
+    { label: "Nine Ball", img: "assets/nineball.png", ruletype: "nineball" },
   {
     label: "Snooker 6r",
     img: "assets/snooker.png",
@@ -103,7 +103,7 @@ class SoloPanel extends StoreElement {
           >
             <span class="icon-wrap">
               <img src=${g.img} alt=${g.label} />
-              ${g.options ? html`<span class="badge">${Object.values(g.options)[0]}</span>` : ""}
+              ${g.options ? html`<span class="badge">${badgeText(g.options)}</span>` : ""}
             </span>
           </a>`,
       )}

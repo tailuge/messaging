@@ -62,6 +62,18 @@ function parseUA(ua) {
   return { os: os, browser: browser };
 }
 
+function reduceUA(ua) {
+  // Strip legacy compatibility tokens that carry no OS/browser signal.
+  // Versions of the remaining tokens are left untouched.
+  if (!ua) return "";
+  return ua
+    .replace(/Mozilla\/[\d.]+/g, "")
+    .replace(/AppleWebKit\/[\d.]+/g, "")
+    .replace(/\(KHTML, like Gecko\)/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function createMessageId() {
   // Compact hex identity. Uniqueness is only required within a channel's
   // buffered-message window (reconnect replay suppression), and message
@@ -76,7 +88,7 @@ function createMeta(r, country, city, since) {
   return {
     ts: Date.now(),
     msgId: createMessageId(),
-    ua: r.headersIn["user-agent"] || "",
+    ua: reduceUA(r.headersIn["user-agent"] || ""),
     origin: r.headersIn.origin || "",
     country: country,
     city: city || "",

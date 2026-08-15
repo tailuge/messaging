@@ -1,5 +1,6 @@
 import { LitElement, html } from 'lit';
 import { SHARED_STYLES, CHALLENGE_MODAL_STYLES, BADGE_STYLES } from './styles.js';
+import { badgeText } from './utils.js';
 
 const emit = (el, type, detail) =>
     el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
@@ -20,6 +21,7 @@ class ChallengeModal extends LitElement {
             img: 'assets/eightball.png',
             rules: [
                 { id: 'eightball', label: 'Eight Ball', img: 'assets/eightball.png' },
+                { id: 'eightball', label: 'Eight Ball (Free Aim)', img: 'assets/eightball.png', options: { freeaim: 'true'} },
             ],
         },
         {
@@ -28,6 +30,7 @@ class ChallengeModal extends LitElement {
             img: 'assets/nineball.png',
             rules: [
                 { id: 'nineball', label: 'Nine Ball', img: 'assets/nineball.png' },
+		{ id: 'nineball', label: 'Nine Ball (Free Aim)', img: 'assets/nineball.png', options: { freeaim: 'true'} },
             ],
         },
         {
@@ -39,6 +42,7 @@ class ChallengeModal extends LitElement {
                 { id: 'snooker', label: '6 reds',  img: 'assets/snooker.png', options: { reds: '6', tableSize: '12' } },
                 { id: 'snooker', label: '10 reds', img: 'assets/snooker.png', options: { reds: '10', tableSize: '12' } },
                 { id: 'snooker', label: '15 reds', img: 'assets/snooker.png', options: { reds: '15', tableSize: '12' } },
+		{ id: 'snooker', label: '6 reds',  img: 'assets/snooker.png', options: { freeaim: 'true', reds: '6', tableSize: '12' } },
             ],
         },
         {
@@ -50,6 +54,7 @@ class ChallengeModal extends LitElement {
                 { id: 'threecushion', label: 'Race to 7',          img: 'assets/threecushion.png', options: { raceTo: '7' } },
                 { id: 'threecushion', label: 'Race to 25',         img: 'assets/threecushion.png', options: { raceTo: '25' } },
                 { id: 'threecushion', label: 'Collaboration (15)', img: 'assets/threecushion.png', options: { raceTo: '15', collaboration: true, shotClock: '60' } },
+                { id: 'threecushion', label: 'Free Aim (15)', img: 'assets/threecushion.png', options: { freeaim: 'true', raceTo: '15', collaboration: true, shotClock: '60' } },
                 { id: 'threecushion', label: 'Traditional (10)',   img: 'assets/threecushion.png', options: { raceTo: '10', practice: false, shotClock: '45' } },
                 { id: 'threecushion', label: 'Handicap',           img: 'assets/threecushion.png', options: { handicap: true } },
             ],
@@ -61,6 +66,7 @@ class ChallengeModal extends LitElement {
             rules: [
                 { id: 'sagu', label: 'Small Table (5)', img: 'assets/baby.png', options: { raceTo: '5', tableSize: '5' } },
                 { id: 'sagu', label: 'Race to 11',      img: 'assets/sagu.png', options: { raceTo: '11' } },
+                { id: 'sagu', label: 'Free Aim (5)',      img: 'assets/sagu.png', options: { freeaim: 'true', raceTo: '5' } },
                 { id: 'sagu', label: 'Handicap',        img: 'assets/sagu.png', options: { handicap: true } },
             ],
         },
@@ -126,7 +132,7 @@ class ChallengeModal extends LitElement {
                                             }}>
                                                 <span class="icon-wrap">
                                                     <img src=${r.img} alt=${r.label} />
-                                                    ${r.options && r.options.handicap !== true ? html`<span class="badge">${Object.values(r.options)[0]}</span>` : ''}
+                                                    ${r.options && r.options.handicap !== true ? html`<span class="badge">${badgeText(r.options)}</span>` : ''}
                                                 </span>
                                                 ${r.options?.handicap === true ? html`
                                                     <span class="handicap-label">Handicap (${this._handicap})</span>

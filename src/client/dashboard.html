@@ -373,6 +373,32 @@ table td {
         </div>
       </div>
 
+<div class="card" id="geo-card">
+        <div class="toggle-header" onclick="toggleCard('geo-card')" style="cursor: pointer;">
+          <h3 style="margin: 0; display: inline;">Country & Location</h3>
+          <span class="toggle-indicator">▾</span>
+        </div>
+        <div id="geo-meta" class="refresh-tag"></div>
+        <div class="card-content" id="geo-info">
+          <table id="geo-table">
+            <thead>
+              <tr>
+                <th>Country Code</th>
+                <th>Location</th>
+                <th>Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="3" style="text-align: center; color: var(--secondary-color)">
+                  No data available.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
 <div class="card" id="njs-logs-card">
         <div class="toggle-header" onclick="toggleCard('njs-logs-card')" style="cursor: pointer;">
           <h3 style="margin: 0; display: inline;">NJS Logs</h3>
@@ -585,6 +611,28 @@ table td {
                 .join("");
         } else {
             uaTableBody.innerHTML =
+                '<tr><td colspan="3" style="text-align: center; color: var(--secondary-color);">No data available.</td></tr>';
+        }
+
+        const geoTableBody = document.querySelector("#geo-table tbody");
+        if (ipCacheEntries && Object.keys(ipCacheEntries).length > 0) {
+            const geoCounts = {};
+            for (const val of Object.values(ipCacheEntries)) {
+                const parts = val.split("|");
+                const country = parts[0] || "XX";
+                const location = parts[1] || "";
+                const key = country + "|" + location;
+                geoCounts[key] = (geoCounts[key] || 0) + 1;
+            }
+            const sorted = Object.entries(geoCounts).sort((a, b) => b[1] - a[1]);
+            geoTableBody.innerHTML = sorted
+                .map(([key, count]) => {
+                    const [country, location] = key.split("|");
+                    return `<tr><td>${escapeHtml(country)}</td><td>${escapeHtml(location || "-")}</td><td>${count}</td></tr>`;
+                })
+                .join("");
+        } else {
+            geoTableBody.innerHTML =
                 '<tr><td colspan="3" style="text-align: center; color: var(--secondary-color);">No data available.</td></tr>';
         }
 

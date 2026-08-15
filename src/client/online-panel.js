@@ -230,7 +230,7 @@ class OnlinePanel extends LitElement {
             window.location.href = gameUrl({ tableId, userId: this.#myId, userName: this.#myName, ruleType, isFirst, options, bot: u.userName, lod: userStore.lod, flip: userStore.flip, custom: this.#localCustom });
             return;
         }
-        const tableId = this.#lobby ? await this.#lobby.challenge(userId, ruleType, options, nextTurnId, userStore.getCustom()) : 'test-' + Math.random().toString(36).slice(2, 7);
+        const tableId = this.#lobby ? await this.#lobby.challenge(userId, ruleType, options, nextTurnId, this.#localCustom) : 'test-' + Math.random().toString(36).slice(2, 7);
         logUsage("createTable");
         this.dispatch({ type: 'CHALLENGE_SENT', payload: { challengerId: this.#myId, challengeeId: userId, recipientName: u?.userName || userId, ruleType, options, tableId, nextTurnId } });
     }
@@ -252,7 +252,7 @@ class OnlinePanel extends LitElement {
             const myHandicap = localStorage.getItem(`handicap_${c.ruleType}`) || '15';
             opts['handicap_' + this.#myId] = myHandicap;
         }
-        if (this.#lobby) await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, opts, c.challengerName, nextTurnId, userStore.getCustom());
+        if (this.#lobby) await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, opts, c.challengerName, nextTurnId, this.#localCustom);
         logUsage("joinTable");
         this.dispatch({
             type: 'CHALLENGE_MSG',
@@ -265,7 +265,7 @@ class OnlinePanel extends LitElement {
                 tableId: c.tableId,
                 options: opts,
                 nextTurnId,
-                custom: userStore.getCustom()
+                custom: this.#localCustom
             }
         });
         this.#autoChallenge = null;
