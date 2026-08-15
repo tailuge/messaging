@@ -180,8 +180,8 @@ describe("Unified Rematch Scenarios (newspec.md)", () => {
                     hostname: 'localhost',
                     host: 'localhost:80',
                     protocol: 'http:',
-                    href: 'http://localhost/?opponent.userId=bob&opponent.userName=Bob&opponent.custom.cue=1&ruletype=threecushion&tableSize=5&raceTo=15&shotclock=60&reds=6&custom.skin=red',
-                    search: '?opponent.userId=bob&opponent.userName=Bob&opponent.custom.cue=1&ruletype=threecushion&tableSize=5&raceTo=15&shotclock=60&reds=6&custom.skin=red'
+                    href: 'http://localhost/?opponent.userId=bob&opponent.userName=Bob&opponent.custom.cue=1&ruletype=threecushion&tableSize=5&raceTo=15&shotclock=60&reds=6&freeaim=true&custom.skin=red',
+                    search: '?opponent.userId=bob&opponent.userName=Bob&opponent.custom.cue=1&ruletype=threecushion&tableSize=5&raceTo=15&shotclock=60&reds=6&freeaim=true&custom.skin=red'
                 },
                 history: {
                     replaceState: jest.fn()
@@ -246,7 +246,8 @@ describe("Unified Rematch Scenarios (newspec.md)", () => {
                     tableSize: '5',
                     raceTo: '15',
                     shotClock: '60',
-                    reds: '6'
+                    reds: '6',
+                    freeaim: 'true'
                 },
                 null,
                 {}
@@ -265,6 +266,7 @@ describe("Unified Rematch Scenarios (newspec.md)", () => {
             expect(urlObj.searchParams.get('shotClock')).toBeNull();
             expect(urlObj.searchParams.get('shotclock')).toBeNull();
             expect(urlObj.searchParams.get('reds')).toBeNull();
+            expect(urlObj.searchParams.get('freeaim')).toBeNull();
         });
     });
 });

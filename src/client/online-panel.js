@@ -53,6 +53,9 @@ class OnlinePanel extends LitElement {
             const reds = p.get('reds');
             if (reds) options.reds = reds;
 
+            const freeaim = p.get('freeaim');
+            if (freeaim) options.freeaim = freeaim;
+
             this.#autoChallenge = {
                 opponentId,
                 opponentName: p.get('opponent.userName') || opponentId,
@@ -80,6 +83,7 @@ class OnlinePanel extends LitElement {
             url.searchParams.delete('shotClock');
             url.searchParams.delete('shotclock');
             url.searchParams.delete('reds');
+            url.searchParams.delete('freeaim');
             history.replaceState(null, '', url);
         }
 
