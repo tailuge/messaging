@@ -119,7 +119,7 @@ class SettingsModal extends StoreElement {
         this._copied = false;
         this._picker = null;
         this._theme = document.documentElement.getAttribute('theme') || 'light';
-        this._notifEnabled = Notification.permission === 'granted';
+        this._notifEnabled = typeof Notification !== 'undefined' && Notification.permission === 'granted';
         this._onKeydown = this._onKeydown.bind(this);
         this._onMessage = this._onMessage.bind(this);
     }
@@ -173,7 +173,7 @@ class SettingsModal extends StoreElement {
     }
 
     async _toggleNotifications(e) {
-        if (e.target.checked) {
+        if (e.target.checked && typeof Notification !== 'undefined') {
             const result = await Notification.requestPermission();
             this._notifEnabled = result === 'granted';
         } else {
