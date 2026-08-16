@@ -431,14 +431,10 @@ function getIpCache() {
       if (!startTime) {
         try {
           const fs = require("fs");
-          const content = fs.readFileSync("/var/log/nginx/njs_error.log", "utf8");
-          const firstLine = content.split("\n")[0];
-          const tsMatch = firstLine.match(/^(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2})/);
-          if (tsMatch) {
-            const tsStr = tsMatch[1].replace(/\//g, "-").replace(" ", "T");
-            startTime = new Date(tsStr).getTime().toString();
-            stats.set("start_time", startTime);
-          }
+          // /proc/1 is the container's own nginx master (PID 1), so its mtime
+          // is this process's start time — not the shared host's uptime.
+          startTime = fs.statSync("/proc/1").mtime.getTime().toString();
+          stats.set("start_time", startTime);
         } catch (e) {
           // fallback to now
         }
