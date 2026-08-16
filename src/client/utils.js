@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 753;
+export const CLIENTVERSION = 756;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -120,9 +120,13 @@ export function getEmoji(origin = "", ruleType = "", status = "", options = {}) 
 
     const mapped = ruleMap[ruleType];
     const isMini = ["5", "6"].includes(String(options?.tableSize));
-    const decorate = result => isMini
-      ? { emoji: result.emoji + "🍼", title: "mini" }
-      : result;
+    const isFreeaim = Boolean(options?.freeaim);
+    const decorate = result => {
+      if (!isMini && !isFreeaim) return result;
+      const emoji = result.emoji + (isMini ? "🍼" : "") + (isFreeaim ? "⌖" : "");
+      const title = [isMini && "mini", isFreeaim && "freeaim"].filter(Boolean).join(" ");
+      return { emoji, title };
+    };
     
   // 1. Check user status first
   if (status === "spectating") return { emoji: "🔭", title: "spectator" };

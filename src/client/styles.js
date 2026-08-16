@@ -230,7 +230,7 @@ export const BADGE_STYLES = css`
 `;
 
 export const USER_BADGE_STYLES = css`
-    :host { display: inline-flex; align-items: center; align-self: center; font-family: 'Exo', sans-serif; font-weight: 200; }
+    :host { display: inline-flex; align-items: center; align-self: center; font-family: 'Exo', sans-serif; font-weight: 200; min-width: 0; overflow: hidden; }
     .badge {
         display: inline-flex; align-items: center; gap: 4px;
         padding: 0px 4px 0px 2px; border-radius: 4px;
@@ -240,6 +240,8 @@ export const USER_BADGE_STYLES = css`
         transition: filter 0.15s, box-shadow 0.15s;
         box-shadow: 0 0 10px rgba(100, 255, 131, 0.2);
         min-width: 0;
+        overflow: hidden;
+        max-width: 100%;
     }
     .badge:hover { filter: brightness(1.3); }
     .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: var(--dot-color, #888); }
@@ -320,6 +322,8 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     .topbar { display: flex; align-items: center; flex-shrink: 0; gap: 0.4rem; }
     .topbar .logo { width: 32px; height: 32px; flex-shrink: 0; filter: grayscale(100%); opacity: 0.7; }
     .topbar h1 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;}
+    .topbar settings-modal { flex-shrink: 0; }
+    .topbar user-badge { min-width: 0; }
     .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem; overflow: hidden; }
     .panel-title { font-weight: bold; margin-bottom: 0.25rem; font-size: 0.8rem; color: var(--text-dim); text-align: center; }
     .motd-row { display: flex; flex-direction: column; }

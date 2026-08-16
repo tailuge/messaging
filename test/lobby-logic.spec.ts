@@ -51,6 +51,19 @@ describe("Lobby Logic", () => {
       const result = getEmoji("", "sagu-mini");
       expect(result).toEqual({ emoji: "🎮", title: "external" });
     });
+
+    it("should mark a freeaim game with a crosshair", () => {
+      expect(getEmoji("", "sagu", "", { freeaim: "true" })).toEqual({ emoji: "④⌖", title: "freeaim" });
+      expect(getEmoji("", "sagu", "", { freeaim: true })).toEqual({ emoji: "④⌖", title: "freeaim" });
+    });
+
+    it("should combine mini and freeaim decorations", () => {
+      expect(getEmoji("", "sagu", "", { tableSize: "5", freeaim: "true" })).toEqual({ emoji: "④🍼⌖", title: "mini freeaim" });
+    });
+
+    it("should not mark a game without freeaim", () => {
+      expect(getEmoji("", "sagu", "", {})).toEqual({ emoji: "④", title: "sagu" });
+    });
   });
 
   describe("spectateUrl", () => {
