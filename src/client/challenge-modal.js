@@ -42,7 +42,7 @@ class ChallengeModal extends LitElement {
                 { id: 'snooker', label: '6 reds',  img: 'assets/snooker.png', options: { reds: '6', tableSize: '12' } },
                 { id: 'snooker', label: '10 reds', img: 'assets/snooker.png', options: { reds: '10', tableSize: '12' } },
                 { id: 'snooker', label: '15 reds', img: 'assets/snooker.png', options: { reds: '15', tableSize: '12' } },
-		{ id: 'snooker', label: '6 reds',  img: 'assets/snooker.png', options: { freeaim: 'true', reds: '6', tableSize: '12' } },
+		{ id: 'snooker', label: '6 reds (Free Aim)',  img: 'assets/snooker.png', options: { freeaim: 'true', reds: '6', tableSize: '12' } },
             ],
         },
         {
@@ -54,7 +54,7 @@ class ChallengeModal extends LitElement {
                 { id: 'threecushion', label: 'Race to 7',          img: 'assets/threecushion.png', options: { raceTo: '7' } },
                 { id: 'threecushion', label: 'Race to 25',         img: 'assets/threecushion.png', options: { raceTo: '25' } },
                 { id: 'threecushion', label: 'Collaboration (15)', img: 'assets/threecushion.png', options: { raceTo: '15', collaboration: true, shotClock: '60' } },
-                { id: 'threecushion', label: 'Free Aim (15)', img: 'assets/threecushion.png', options: { freeaim: 'true', raceTo: '15', collaboration: true, shotClock: '60' } },
+                { id: 'threecushion', label: 'Race to 15 (Free Aim)', img: 'assets/threecushion.png', options: { freeaim: 'true', raceTo: '15', collaboration: true, shotClock: '60' } },
                 { id: 'threecushion', label: 'Traditional (10)',   img: 'assets/threecushion.png', options: { raceTo: '10', practice: false, shotClock: '45' } },
                 { id: 'threecushion', label: 'Handicap',           img: 'assets/threecushion.png', options: { handicap: true } },
             ],

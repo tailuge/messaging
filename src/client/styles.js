@@ -167,7 +167,7 @@ export const CHALLENGE_MODAL_STYLES = css`
     .section-header img { width: 32px; height: 32px; display: block; }
     .section-label { font-size: 0.8rem; color: var(--text); }
     .section-body {
-        display: flex; flex-direction: column; gap: 0.2rem;
+        display: flex; flex-direction: column; gap: 3px;
         max-height: 0; opacity: 0; visibility: hidden;
         padding: 0;
         overflow: hidden;
@@ -178,7 +178,7 @@ export const CHALLENGE_MODAL_STYLES = css`
         opacity: 1; visibility: visible;
         padding: 0.25rem 0 0.25rem 0;
     }
-    button.rule { text-align: left; padding: 0.2rem 0.6rem; font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem; }
+    button.rule { text-align: left; padding: 3px 0.6rem; font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem; margin-left: 2.4rem; }
     button.rule img { width: 28px; height: 28px; display: block; }
     button.cancel { background: var(--modal-cancel); color: var(--text); border-color: var(--btn-border); padding: 0.15rem; }
     button.msg-btn {
