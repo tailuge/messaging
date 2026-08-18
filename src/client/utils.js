@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 777;
+export const CLIENTVERSION = 782;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -247,8 +247,9 @@ export const renderTrophy = i => ['🏆','🥈','🥉','🎖️'][i] ?? '';
 
 // Text shown in the small red badge on a game/rule icon.
 // `freeaim` is rendered as a symbol rather than the literal "true".
+// Uses ⊕ (circled plus) instead of ⌖ because it renders larger/clearer at small sizes.
 export const badgeText = (options) =>
-    options?.freeaim ? '⌖' : Object.values(options || {})[0];
+    options?.freeaim ? '⊕' : Object.values(options || {})[0];
 
 export const replayUrl = (base, userId, userName) =>
     `${base}&userId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}`;
