@@ -48,6 +48,7 @@ jest.mock('../src/client/user-slot-manager.js', () => ({
   UserSlotManager: class {
     update() {}
     getSlots() { return []; }
+    reset() {}
   }
 }));
 

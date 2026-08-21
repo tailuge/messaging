@@ -197,6 +197,7 @@ class OnlinePanel extends LitElement {
     get #slots() { return this.#slotManager.getSlots(); }
 
     async     _connect() {
+        this.#slotManager.reset();
         this.#lobby = await this.#client.joinLobby({
             messageType: 'presence', type: 'join',
             userId: this.#myId, userName: this.#myName,
