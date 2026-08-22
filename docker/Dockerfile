@@ -36,7 +36,7 @@ RUN wget -qO- https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz | tar zxv
     rm -rf /build/nginx-${NGINX_VERSION} /build/njs-${NJS_VERSION} /nchan
 
 # ---------- runtime stage ----------
-FROM nginx:${NGINX_VERSION}-alpine
+FROM nginx:${NGINX_VERSION}-alpine-slim
 
 ARG NGINX_VERSION
 

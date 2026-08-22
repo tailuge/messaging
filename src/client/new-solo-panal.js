@@ -40,6 +40,14 @@ const CONFIG_PANEL_STYLES = css`
     width: 250px;
   }
 
+  .game-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    width: 48px;
+  }
+
   .game-button {
     display: grid;
     place-items: center;
@@ -76,6 +84,36 @@ const CONFIG_PANEL_STYLES = css`
     width: 36px;
     height: 36px;
     object-fit: contain;
+  }
+
+  .game-toggle {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 16px;
+    padding: 0;
+    background: #20231f;
+    border: 1px solid #454a40;
+    border-radius: 3px;
+  }
+
+  .game-toggle::before {
+    content: "";
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid #d8ddd1;
+  }
+
+  .game-toggle:hover {
+    background: #30352d;
+    border-color: #bacd73;
+  }
+
+  .game-toggle:focus-visible {
+    outline: 2px solid #d1e879;
+    outline-offset: 2px;
   }
 
   .config {
@@ -226,17 +264,25 @@ class NewSoloPanal extends LitElement {
     return html`
       <nav class="navigation" aria-label="Game type">
         ${GAMES.map(
-          (game, index) => html`
-            <button
-              class="game-button ${this.#selectedGame === index ? "selected" : ""}"
-              type="button"
-              aria-label=${game.label}
-              aria-pressed=${this.#selectedGame === index}
-              title=${game.label}
-              @click=${() => this.selectGame(index)}
-            >
-              <img src=${game.img} alt="" />
-            </button>
+          (game, index) =>          html`
+            <div class="game-option">
+              <button
+                class="game-button ${this.#selectedGame === index ? "selected" : ""}"
+                type="button"
+                aria-label=${game.label}
+                aria-pressed=${this.#selectedGame === index}
+                title=${game.label}
+                @click=${() => this.selectGame(index)}
+              >
+                <img src=${game.img} alt="" />
+              </button>
+              <button
+                class="game-toggle"
+                type="button"
+                aria-label=${`Open ${game.label} options`}
+                title="Open options"
+              ></button>
+            </div>
           `,
         )}
       </nav>
