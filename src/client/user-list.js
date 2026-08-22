@@ -27,6 +27,21 @@ export class UserList extends LitElement {
         .btn-chat { animation: throb 2s ease-in-out infinite; font-size: 1rem; border: none; background: none; padding: 0 0.2rem; }
         .btn-spectate { background: #7c3aed; color: #fff; border: none; border-radius: 4px; padding: 0.25rem 0.6rem; cursor: pointer; }
         .btn-spectate:hover { background: #6d28d9; }
+        .name-wrap { position: relative; display: inline-block; }
+        .user-name { overflow: visible; }
+        .loc-tip {
+            position: absolute;
+            left: 50%; bottom: calc(100% + 6px);
+            transform: translateX(-50%);
+            background: #222; color: #fff;
+            padding: 4px 8px; border-radius: 4px;
+            font-size: 0.75rem; white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            z-index: 10;
+        }
+        .name-wrap:hover .loc-tip { opacity: 1; transition: opacity 0.2s ease 10s; }
     `];
 
     async autoExpandIfSupported() {
@@ -88,7 +103,7 @@ export class UserList extends LitElement {
                     <div class="user-info">
                         <span class="user-name">
                             <span title="${flag(u.meta?.country).title}">${flag(u.meta?.country).emoji}</span>
-                            ${u.userName}
+                            <span class="name-wrap">${u.userName}<span class="loc-tip">${u.meta?.city ?? ''}</span></span>
                             <span aria-label="${status.title}" role="img">${status.emoji}</span>
                         </span>
                     </div>
@@ -118,7 +133,7 @@ export class UserList extends LitElement {
         return html`
             <li aria-label="${u.userName}">
                 <div class="user-info">
-                    <span class="user-name" @click=${() => emit(this, 'open-chat', u.userId)} style="cursor: pointer"><span title="${flag(u.meta?.country).title}">${flag(u.meta?.country).emoji}</span> ${u.userName} <span aria-label="${status.title}" role="img">${status.emoji}</span></span>
+                    <span class="user-name" @click=${() => emit(this, 'open-chat', u.userId)} style="cursor: pointer"><span title="${flag(u.meta?.country).title}">${flag(u.meta?.country).emoji}</span> <span class="name-wrap">${u.userName}<span class="loc-tip">${u.meta?.city ?? ''}</span></span> <span aria-label="${status.title}" role="img">${status.emoji}</span></span>
                 </div>
                 <div class="actions">${actions}</div>
             </li>`;
