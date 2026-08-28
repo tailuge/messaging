@@ -31,7 +31,7 @@ export class UserList extends LitElement {
         .user-name { overflow: visible; }
         .loc-tip {
             position: absolute;
-            left: 50%; bottom: calc(100% + 6px);
+            left: 50%; top: 0;
             transform: translateX(-50%);
             background: #222; color: #fff;
             padding: 4px 8px; border-radius: 4px;
@@ -41,7 +41,7 @@ export class UserList extends LitElement {
             transition: opacity 0.2s ease;
             z-index: 10;
         }
-        .name-wrap:hover .loc-tip { opacity: 1; transition: opacity 0.2s ease 10s; }
+        .name-wrap:hover .loc-tip { opacity: 1; transition: opacity 0.2s ease 5s; }
     `];
 
     async autoExpandIfSupported() {

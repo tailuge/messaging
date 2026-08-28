@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Proto2 — Variant Selection Modal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Exo:wght@200;600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg:           #f5f5f5;
+        --surface:      #ffffff;
+        --border:       #dddddd;
+        --text:         #212121;
+        --text-muted:   #757575;
+        --text-dim:     #555555;
+        --btn-bg:       #ffffff;
+        --btn-border:   #cccccc;
+        --btn-hover:    #f0f0f0;
+        --btn-active:   #e0e0e0;
+        --modal-bg:     #ffffff;
+        --modal-cancel: #f8f9fa;
+        --accent:       #0d6efd;
+        --accent-hover: #0b5ed7;
+      }
+      html[data-theme="dark"] {
+        --bg:           #1a1a1a;
+        --surface:      #2a2a2a;
+        --border:       #444444;
+        --text:         #e0e0e0;
+        --text-muted:   #aaaaaa;
+        --text-dim:     #aaaaaa;
+        --btn-bg:       #3a3a3a;
+        --btn-border:   #555555;
+        --btn-hover:    #444444;
+        --btn-active:   #505050;
+        --modal-bg:     #2a2a2a;
+        --modal-cancel: #3a3a3a;
+        --accent:       #6ba3f5;
+        --accent-hover: #4c8bef;
+      }
+      body {
+        margin: 0;
+        padding: 1rem;
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'Exo', sans-serif;
+        font-weight: 200;
+      }
+      .page-head {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        max-width: 720px;
+        margin: 0 auto 0.8rem;
+      }
+      .page-head h1 {
+        flex: 1;
+        margin: 0;
+        font-size: 0.95rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+      }
+      .page-head .toggle {
+        border: 1px solid var(--btn-border);
+        background: var(--btn-bg);
+        color: var(--text);
+        border-radius: 4px;
+        padding: 0.25rem 0.6rem;
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.75rem;
+      }
+      .openers {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        flex-wrap: wrap;
+        max-width: 720px;
+        margin: 0 auto;
+      }
+      .openers button {
+        font: inherit;
+        font-size: 0.85rem;
+        padding: 0.45rem 1rem;
+        cursor: pointer;
+        border-radius: 4px;
+        color: #fff;
+        border: none;
+      }
+      .openers .solo-btn { background: #198754; }
+      .openers .solo-btn:hover { background: #157347; }
+      .openers .chal-btn { background: var(--accent); }
+      .openers .chal-btn:hover { background: var(--accent-hover); }
+      .launch-log {
+        max-width: 720px;
+        margin: 0.8rem auto 0;
+        padding: 0.4rem 0.6rem;
+        border: 1px dashed var(--border);
+        border-radius: 6px;
+        font-size: 0.68rem;
+        color: var(--text-muted);
+        word-break: break-all;
+        min-height: 2.2em;
+        box-sizing: border-box;
+      }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "lit": "https://cdn.jsdelivr.net/npm/lit@3.3.3/+esm"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div class="page-head">
+      <h1>Proto2 · Variant Selection Modal</h1>
+      <button class="toggle" id="themeToggle">🌙 Dark</button>
+    </div>
+
+    <div class="openers">
+      <button class="solo-btn" id="openSolo">▶ Solo play</button>
+      <button class="chal-btn" id="openChal">⚔ Challenge Alice</button>
+    </div>
+
+    <div class="launch-log" id="log">Last confirm will appear here…</div>
+
+    <proto2-modal id="modalSolo" mode="solo"></proto2-modal>
+    <proto2-modal id="modalChal" mode="challenge" opponent="Alice"></proto2-modal>
+
+    <script type="module">
+      import { LitElement, html, css } from 'lit';
+
+      const GAMES = [
+        {
+          key: 'eightball',
+          label: 'Eight Ball',
+          img: 'assets/eightball.png',
+          freeaim: true,
+          variants: [
+            { id: 'std', short: '', label: 'Eight Ball', options: {} },
+          ],
+        },
+        {
+          key: 'nineball',
+          label: 'Nine Ball',
+          img: 'assets/nineball.png',
+          freeaim: true,
+          variants: [
+            { id: 'std', short: '', label: 'Nine Ball', options: {} },
+          ],
+        },
+        {
+          key: 'snooker',
+          label: 'Snooker',
+          img: 'assets/snooker.png',
+          freeaim: true,
+          variants: [
+            { id: '3',  short: '3 reds',  label: '3 Reds (baby table)', options: { reds: '3',  tableSize: '6' } },
+            { id: '6',  short: '6 reds',  label: '6 Reds',              options: { reds: '6',  tableSize: '12' } },
+            { id: '10', short: '10 reds', label: '10 Reds',             options: { reds: '10', tableSize: '12' } },
+            { id: '15', short: '15 reds', label: '15 Reds (full size)', options: { reds: '15', tableSize: '12' } },
+          ],
+        },
+        {
+          key: 'threecushion',
+          label: 'Three Cushion',
+          img: 'assets/threecushion.png',
+          handicap: true,
+          variants: [
+            { id: '7',     short: 'race 7',  label: 'Race to 7',               options: { raceTo: '7' } },
+            { id: '15',    short: 'race 15', label: 'Race to 15',              options: { raceTo: '15' } },
+            { id: '25',    short: 'race 25', label: 'Race to 25',              options: { raceTo: '25' } },
+            { id: 'small', short: 'small · 15', label: 'Small table, race to 15', img: 'assets/baby.png', options: { raceTo: '15', tableSize: '5' } },
+          ],
+        },
+        {
+          key: 'sagu',
+          label: 'Sagu',
+          img: 'assets/sagu.png',
+          variants: [
+            { id: '5',     short: 'race 5', label: 'Race to 5',              options: { raceTo: '5' } },
+            { id: '11',    short: 'race 11', label: 'Race to 11',            options: { raceTo: '11' } },
+            { id: 'small', short: 'small · 5',  label: 'Small table, race to 5', img: 'assets/baby.png', options: { raceTo: '5', tableSize: '5' } },
+          ],
+        },
+      ];
+
+      const ls = {
+        get(k, d) { const v = localStorage.getItem(`proto2_${k}`); return v === null ? d : v; },
+        set(k, v) { localStorage.setItem(`proto2_${k}`, v); },
+      };
+
+      const emit = (el, type, detail) =>
+        el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
+
+      class Proto2Modal extends LitElement {
+        static properties = {
+          mode: { type: String },
+          opponent: { type: String },
+          open: { type: Boolean, reflect: true },
+          _sel: { state: true },
+          _freeaim: { state: true },
+          _handicap: { state: true },
+          _vid: { state: true },
+        };
+
+        static styles = css`
+          :host {
+            display: block;
+            font-family: 'Exo', sans-serif;
+            font-weight: 200;
+            color: var(--text);
+          }
+          :host(:not([open])) { display: none; }
+          button { font: inherit; cursor: pointer; border-radius: 4px; box-sizing: border-box; }
+          button:focus-visible, input:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+          }
+
+          .backdrop {
+            position: fixed; inset: 0;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(1px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100;
+          }
+          .modal {
+            box-sizing: border-box;
+            background: var(--modal-bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 0.65rem 0.75rem;
+            width: 320px;
+            max-width: calc(100vw - 1.5rem);
+            display: flex; flex-direction: column; gap: 6px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+          }
+          h3 { margin: 0 0 2px; font-size: 0.9rem; text-align: center; font-weight: 600; }
+
+          .tiles { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+          .tile {
+            position: relative;
+            width: 54px;
+            padding: 3px 3px 2px;
+            background: var(--btn-bg);
+            border: 1px solid var(--btn-border);
+            transition: border-color 0.12s, box-shadow 0.12s, transform 0.12s;
+          }
+          .tile:hover { background: var(--btn-hover); transform: translateY(-1px); }
+          .tile.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+          .tile img { display: block; width: 46px; height: 46px; object-fit: contain; }
+          .tile .tile-label {
+            display: block;
+            font-size: 0.53rem;
+            text-align: center;
+            color: var(--text-muted);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          }
+          .tile.selected .tile-label { color: var(--accent); font-weight: 600; }
+          .tile .badge {
+            position: absolute;
+            top: -4px; right: -4px;
+            background: #7a0f1a;
+            color: #fff;
+            font-size: 9px;
+            line-height: 1.3;
+            border-radius: 3px;
+            padding: 0 3px;
+            border: 1px solid var(--modal-bg);
+            pointer-events: none;
+          }
+
+          .variants {
+            display: flex; flex-wrap: wrap; gap: 3px;
+            justify-content: center;
+            min-height: 22px;
+          }
+          .chip {
+            min-height: 22px;
+            padding: 1px 9px;
+            font-size: 0.72rem;
+            background: var(--btn-bg);
+            border: 1px solid var(--btn-border);
+            color: var(--text);
+            transition: all 0.1s;
+          }
+          .chip:hover { background: var(--btn-hover); border-color: var(--accent); }
+          .chip.selected {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+            font-weight: 600;
+          }
+          .chip.toggle { font-size: 0.66rem; }
+          .chip.toggle.on { background: #198754; border-color: #198754; color: #fff; }
+
+          .hint {
+            text-align: center;
+            font-size: 0.62rem;
+            color: var(--text-muted);
+            min-height: 1em;
+          }
+
+          .handicap-row {
+            display: flex; align-items: center; gap: 6px;
+            padding: 0 6px;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+          }
+          input[type="range"].hc {
+            flex: 1; height: 4px;
+            appearance: none;
+            background: var(--border);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+          }
+          input[type="range"].hc::-webkit-slider-thumb {
+            appearance: none;
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: var(--accent);
+            border: 2px solid var(--modal-bg);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+          }
+
+          .action {
+            width: 100%;
+            min-height: 30px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            background: var(--accent);
+            border: none;
+            color: #fff;
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            transition: background 0.12s, transform 0.05s;
+          }
+          .action:hover { background: var(--accent-hover); }
+          .action:active { transform: scale(0.985); }
+
+          .footer { display: flex; gap: 4px; }
+          .footer .msg-btn {
+            flex-shrink: 0;
+            min-width: 30px;
+            background: var(--btn-bg);
+            border: 1px solid var(--btn-border);
+          }
+          .footer .msg-btn:hover { background: var(--btn-hover); }
+          .footer .cancel {
+            flex: 1;
+            background: var(--modal-cancel);
+            color: var(--text);
+            border: 1px solid var(--btn-border);
+          }
+          .footer .cancel:hover { background: var(--btn-hover); }
+        `;
+
+        constructor() {
+          super();
+          this.mode = 'solo';
+          this.opponent = '';
+          this.open = false;
+          this._handicap = parseInt(ls.get('handicap', '15'), 10);
+          this._sel = ls.get('game', 'threecushion');
+          if (!GAMES.some(g => g.key === this._sel)) this._sel = 'threecushion';
+          this.#loadGame(this._sel);
+        }
+
+        get game() { return GAMES.find(g => g.key === this._sel); }
+        get _isHc() { return this.game.handicap && this._vid[this._sel] === 'hc'; }
+        get variant() {
+          if (this._isHc) return null;
+          const g = this.game;
+          return g.variants.find(v => v.id === this._vid[this._sel]) ?? g.variants[0];
+        }
+
+        #loadGame(key) {
+          const g = GAMES.find(x => x.key === key);
+          const stored = ls.get(`v_${key}`, null);
+          this._vid = { ...this._vid, [key]: g.variants.some(v => v.id === stored) ? stored : g.variants[0].id };
+          this._freeaim = ls.get('freeaim', 'false') === 'true' && Boolean(g.freeaim);
+        }
+
+        show() { this.open = true; }
+        hide() { this.open = false; }
+
+        _selectGame(key) {
+          if (this._sel !== key) {
+            this._sel = key;
+            ls.set('game', key);
+            this.#loadGame(key);
+          }
+        }
+
+        _selectVariant(id) {
+          this._vid = { ...this._vid, [this._sel]: id };
+          ls.set(`v_${this._sel}`, id);
+          if (id !== 'hc' && (this.variant || this._isHc)) this._confirm();
+        }
+
+        _toggleFreeaim() {
+          this._freeaim = !this._freeaim;
+          ls.set('freeaim', String(this._freeaim));
+        }
+
+        _onHandicap(e) {
+          this._handicap = parseInt(e.target.value, 10);
+          ls.set('handicap', String(this._handicap));
+        }
+
+        _confirm() {
+          const opts = this._isHc ? {} : { ...this.variant.options };
+          if (this.game.freeaim && this._freeaim && !opts.freeaim) opts.freeaim = 'true';
+          if (this._isHc) opts.handicap = String(this._handicap);
+          emit(this, 'confirm', {
+            mode: this.mode,
+            ruleType: this.game.key,
+            options: opts,
+            opponent: this.opponent || undefined,
+          });
+          this.hide();
+        }
+
+        _actionLabel() {
+          const parts = [];
+          if (this._isHc) {
+            parts.push(`handicap ${this._handicap}`);
+          } else if (this.variant?.short) {
+            parts.push(this.variant.short);
+          }
+          if (this._freeaim && this.game.freeaim) parts.push('⊕');
+          const verb = this.mode === 'challenge' ? `Challenge ${this.opponent}` : 'Play';
+          return `${verb} — ${this.game.label}${parts.length ? ' · ' + parts.join(' ') : ''} ▸`;
+        }
+
+        render() {
+          if (!this.open) return html``;
+          const g = this.game;
+          return html`
+            <div class="backdrop" @click=${e => e.target === e.currentTarget && this.hide()}>
+              <div class="modal" role="dialog" aria-modal="true" aria-label="Select game variant">
+                ${this.mode === 'challenge'
+                  ? html`<h3>Challenge ${this.opponent}</h3>`
+                  : html`<h3>Play Solo</h3>`}
+
+                <div class="tiles" role="radiogroup" aria-label="Game type">
+                  ${GAMES.map(x => html`
+                    <button
+                      class="tile ${x.key === this._sel ? 'selected' : ''}"
+                      role="radio"
+                      aria-checked=${x.key === this._sel}
+                      title=${x.label}
+                      @click=${() => this._selectGame(x.key)}
+                    >
+                      <img src=${x.img} alt="" />
+                      ${x.variants.length > 1
+                        ? html`<span class="badge">${x.variants.find(v => v.id === this._vid[x.key])?.short}</span>`
+                        : ''}
+                      <span class="tile-label">${x.label.replace('Three Cushion', '3-Cush.')}</span>
+                    </button>
+                  `)}
+                </div>
+
+                ${g.variants.length > 1 || g.freeaim || g.handicap ? html`
+                  <div class="variants" role="radiogroup" aria-label="${g.label} variant">
+                    ${g.handicap ? html`
+                      <button
+                        class="chip ${this._isHc ? 'selected' : ''}"
+                        role="radio"
+                        aria-checked=${this._isHc}
+                        title="Handicap match"
+                        @click=${() => this._selectVariant('hc')}
+                      >Handicap</button>
+                    ` : ''}
+                    ${g.variants.map(v => html`
+                      <button
+                        class="chip ${!this._isHc && this.variant.id === v.id ? 'selected' : ''}"
+                        role="radio"
+                        aria-checked=${!this._isHc && this.variant.id === v.id}
+                        title=${`${v.label} — click to start`}
+                        @click=${() => this._selectVariant(v.id)}
+                      >${v.short || v.label}</button>
+                    `)}
+                    ${g.freeaim ? html`
+                      <button
+                        class="chip toggle ${this._freeaim ? 'on' : ''}"
+                        aria-pressed=${this._freeaim}
+                        title="Free aim assist"
+                        @click=${() => this._toggleFreeaim()}
+                      >⌖ free aim</button>
+                    ` : ''}
+                  </div>
+                ` : ''}
+
+                ${g.handicap && this._isHc ? html`
+                  <div class="handicap-row">
+                    <span>Hcp</span>
+                    <input
+                      class="hc"
+                      type="range"
+                      min="5" max="30" step="1"
+                      .value=${String(this._handicap)}
+                      @input=${this._onHandicap}
+                      aria-label="Handicap level"
+                    />
+                    <span>${this._handicap}</span>
+                  </div>
+                ` : ''}
+
+                <button class="action" @click=${() => this._confirm()}>
+                  ${this._actionLabel()}
+                </button>
+
+                <div class="footer">
+                  ${this.mode === 'challenge'
+                    ? html`<button class="msg-btn" type="button" aria-label="Send message"
+                        @click=${() => { emit(this, 'message'); this.hide(); }}>💬</button>`
+                    : ''}
+                  <button class="cancel" @click=${() => { emit(this, 'cancel'); this.hide(); }}>
+                    Cancel
+                  </button>
+                </div>
+
+                <div class="hint">tap a variant to start · tap again elsewhere to just change</div>
+              </div>
+            </div>`;
+        }
+      }
+
+      customElements.define('proto2-modal', Proto2Modal);
+
+      document.getElementById('themeToggle')?.addEventListener('click', (e) => {
+        const root = document.documentElement;
+        const dark = root.dataset.theme !== 'dark';
+        root.dataset.theme = dark ? 'dark' : 'light';
+        e.target.textContent = dark ? '☀️ Light' : '🌙 Dark';
+      });
+
+      const log = document.getElementById('log');
+      document.addEventListener('confirm', (e) => {
+        const { mode, ruleType, options, opponent } = e.detail;
+        const params = new URLSearchParams({ ruletype: ruleType, ...options }).toString();
+        log.textContent =
+          `[${mode}] ${location.origin}/game/?${params}` +
+          (opponent ? `  → offer sent to ${opponent}` : '');
+      });
+      document.getElementById('openSolo').onclick = () => document.getElementById('modalSolo').show();
+      document.getElementById('openChal').onclick = () => document.getElementById('modalChal').show();
+    </script>
+  </body>
+</html>
