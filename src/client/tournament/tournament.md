@@ -108,6 +108,254 @@ Starting only changes `status: "open" -> "started"`, then:
 
 ## Out of Scope
 
-- Actual games, matchmaking, match results, bracket advancement, or tournament progression.
+- Actual games, matchmaking, match results, bracket advancement, or tournament progression for the knockout tournament.
 - Authentication beyond existing user/display-name conventions.
 - A new database, KV provider, or storage library.
+
+# Arena Tournaments
+
+## Overview
+
+Add an Arena mode alongside the existing fixed-size knockout tournament. An Arena is a single, fixed-duration competition in which joined players play as many games as possible during a one-hour window. Each completed win awards one point; the highest-scoring eligible player wins.
+
+The Arena is **client-administered**:
+
+- Clients discover available participants, select opponents, and drive the matchmaking loop.
+- Players use the existing challenge and acceptance flow to resolve who gets to play; Arena does not add a separate claim or matchmaking protocol.
+- The server/KV stores only the Arena identity/timing and participant scores.
+- There is no dedicated matchmaking worker, matchmaking server, long-lived server process, or second game system.
+- For the MVP, support one active Arena at a time.
+
+This is a plan only. Before implementation, inspect the existing challenge, table/game-result, and KV implementations and adapt their current contracts rather than creating parallel abstractions.
+
+## Commonality with Existing Tournaments
+
+Reuse the existing tournament page and conventions wherever the concepts overlap:
+
+- Keep the standalone Lit page under `src/client/tournament/` and reuse the lobby theme tokens, shared styles, user store, game-type catalogue, accessibility conventions, and live-update approach.
+- Reuse the existing tournament identity, game type, player identity/display-name, shareable-page, and status patterns where suitable.
+- Keep the existing knockout tournament's registration and display-only bracket behavior unchanged; Arena should be a separate tournament mode/type rather than changing knockout semantics.
+- Reuse the existing KV integration for the small Arena record and participant scores. Do not introduce another database, storage provider, claim primitive, or client-side-only source of truth for Arena scores.
+- Reuse the existing `Lobby` challenge/acceptance flow and `MessagingClient.joinTable()` / `Table` game transport. Arena pairing should create an ordinary challenge/table session with optional Arena metadata, not a second challenge or game protocol.
+- Reuse the existing authoritative game-result path. Arena scoring is an additional consumer of a completed result, not a replacement for game validation, game creation, or result calculation.
+- Reuse existing presence/table state for the UI's available/playing indication; Arena does not persist a second availability state.
+
+The important difference is progression: knockout tournaments are registered and then display a bracket, while an Arena repeatedly returns eligible players to matchmaking until the time window closes.
+
+## Arena Data Model
+
+Persist only the minimum shared state in the existing KV store. The exact key layout should follow the project's current KV conventions and should be confirmed against the implementation before coding.
+
+```ts
+interface Arena {
+  id: string;
+  gameType: string;
+  startTime: number;
+  endTime: number;
+  status: "scheduled" | "active" | "finished";
+  players: ArenaPlayer[];
+}
+
+interface ArenaPlayer {
+  playerId: string;
+  points: number;
+  games: number;
+  wins: number;
+}
+```
+
+The server does not retain Arena matchmaking, table, challenge, or game state. Existing challenge/table state and the authoritative game result remain responsible for the game itself. If duplicate result delivery is possible, use the existing result/challenge identity or the simplest existing persistence convention to avoid scoring the same completed game twice; do not introduce a separate Arena match system solely for this purpose.
+
+The server is authoritative for Arena membership, score updates, and Arena lifecycle. Clients may discover opponents and render state, but must not award points locally.
+
+## Arena Lifecycle
+
+### Creation and Scheduling
+
+Provide an Arena setup/admin path using the existing tournament UI conventions. The MVP may create or schedule one Arena with:
+
+- an existing supported game type;
+- a one-hour duration;
+- `startTime`, `endTime`, and `status: "scheduled"` or `"active"` according to the existing deployment's scheduling convention.
+
+There must never be more than one active Arena in the MVP. The UI should derive countdown text from the persisted Arena timestamps, not from a client-created duration alone.
+
+At or after `startTime`, the Arena is `active`; at or after `endTime`, it is `finished`. The transition may be triggered lazily by an API request or client interaction, but it must be enforced server-side on every operation that creates a match or changes Arena state.
+
+### Joining and Leaving
+
+The Arena page displays:
+
+- Arena name and game type;
+- start time, end time, and a countdown;
+- Join/Leave control;
+- live leaderboard;
+- the current player's points, wins, games, and availability.
+
+Joining adds an `ArenaPlayer` record initialized as:
+
+```text
+points = 0
+wins = 0
+games = 0
+```
+
+Joining is rejected after the Arena has finished. Leaving removes or marks the participant inactive using the existing KV conventions; it must not erase completed scoring history. Whether a player is currently playing is derived from the existing presence/table state, not duplicated in the Arena record.
+
+## Client-Driven Matchmaking
+
+After joining, the client reads the Arena participant snapshot and looks for another participant. The client should remain available between games and start another discovery cycle after returning from a completed match.
+
+The flow is:
+
+```text
+Player joins Arena
+        ↓
+client finds another Arena participant
+        ↓
+client uses the existing challenge flow
+        ↓
+other player accepts or declines
+        ↓
+existing billiards game starts after acceptance
+```
+
+Challenge acceptance is the concurrency mechanism. There is no Arena-specific claim endpoint, two-player reservation, matchmaking queue, or persistent matchmaking process. If a challenge is declined, expires, or loses a race with another accepted challenge, the client simply chooses another participant and retries through the existing challenge behavior.
+
+The Arena must prevent only obviously invalid choices in the client UI, such as selecting the current player, a player who is no longer in the Arena, or a player already shown by existing presence as being at a table. The server does not need to maintain a separate Arena `available`/`playing` status.
+
+### Pairing Preference
+
+When selecting an opponent, prefer the following order:
+
+1. a participant currently available according to existing presence/table state;
+2. a player who did not just play this player;
+3. the longest-waiting participant, using existing presence/join information where available;
+4. any available participant if necessary.
+
+A recent opponent is a preference, not a hard exclusion. A rematch is allowed when necessary. The implementation should prioritize keeping players active over perfect fairness; this preference can be maintained in client state or derived from recent existing challenge/game history rather than persisted as Arena state.
+
+The client must tolerate stale participant snapshots, declined challenges, disconnects, and duplicate notifications by treating existing challenge/game state and the server's Arena score state as authoritative.
+
+## Existing Challenge and Game Integration
+
+Arena matches must use the existing challenge and table/game mechanisms:
+
+- Extend the existing challenge data with optional Arena context, for example `arenaId`. No Arena match/claim ID is required for the MVP.
+- Normal challenges remain valid and behave exactly as before when Arena fields are absent.
+- A successful Arena challenge creates the same kind of challenge/table session used by normal play.
+- The existing player acceptance resolves the pairing; do not add automatic Arena acceptance or a second acceptance protocol.
+- Use existing player validation, table creation/channel identity, turn/game messaging, and authoritative result logic.
+- Update presence/table state through the existing Lobby/Table APIs so normal lobby behavior remains consistent.
+
+The plan must first identify the current result event and its authoritative winner representation. Arena should subscribe to or hook into that existing completion path rather than infer a win from client UI state.
+
+## Scoring and Idempotency
+
+When an Arena-associated game completes, the authoritative result handler performs one server-side score update:
+
+```text
+winner:
+    points += 1
+    wins += 1
+
+both players:
+    games += 1
+    status = available
+
+both players:
+    lastOpponentId = the other player
+    lastPlayedAt = result timestamp
+```
+
+The score update must be safe when the same result is delivered more than once, replayed after reconnect, or observed by both clients. Prefer the existing result/challenge identity and existing idempotency convention. A duplicate notification may repeat a harmless state refresh but must not increment `games`, `wins`, or `points` again. Do not create a separate Arena match ledger unless the existing result path cannot provide this guarantee.
+
+If a game ends without a valid winner, follow the existing result/draw/forfeit semantics and define explicitly whether it increments games and releases both players without awarding points. Do not invent a conflicting game-result rule in the Arena layer.
+
+After the existing game flow completes, clients may immediately start another opponent-discovery/challenge cycle.
+
+## Live Leaderboard
+
+Display:
+
+| Rank | Player | Points | Games | Win % |
+| ---- | ------ | -----: | -----: | ----: |
+
+For the MVP, `Points = Wins`. Sort by:
+
+1. points descending;
+2. win percentage descending;
+3. games descending.
+
+Define zero-game win percentage as `0%` and use a deterministic final tie-breaker such as player name or ID if the existing ranking convention does not already provide one. Bots may appear on the leaderboard and can fill matchmaking gaps, but bots are not eligible to win the Arena. The eligibility rule must be applied when determining the displayed winner, not by hiding bot scores.
+
+Leaderboard and participant updates should follow the application's existing real-time or polling conventions. A client refresh must reconstruct the same state from KV and retained/current messages rather than relying on in-memory browser state.
+
+## Arena Ending
+
+At or after `endTime`:
+
+- transition the Arena to `finished`;
+- reject all new Arena challenges and game creation;
+- allow already-started games to finish through the existing game flow;
+- apply valid results from those games exactly once;
+- calculate and display the final eligible winner from completed Arena scores.
+
+A player must not start a new Arena game after the end time, even if their client has stale `available` state. Existing games finishing after `endTime` may update the final scores if they were claimed before the deadline, subject to the existing result rules.
+
+The finished page should preserve the final leaderboard and prominently identify the winner. Define how ties are displayed (for example, shared winners) before implementation rather than silently relying on client ordering.
+
+## Arena UI Experience
+
+The intended loop is:
+
+```text
+JOIN ARENA
+        ↓
+Finding opponent…
+        ↓
+You vs PlayerName
+        ↓
+existing billiards game
+        ↓
+You won! +1 point
+        ↓
+Back to Arena — Play Next Game
+        ↓
+Finding opponent…
+```
+
+Keep the live leaderboard visible throughout the Arena experience. Reuse the existing game launch/return conventions so the Arena page can restore the player's Arena context from the challenge/table context and continue matchmaking after a completed game.
+
+## Implementation Boundaries
+
+Keep the MVP small:
+
+- one active Arena;
+- one-hour duration;
+- client-driven discovery;
+- existing challenge acceptance resolves pairing;
+- no Arena-specific active-game or pairing state;
+- one point per authoritative win;
+- bots may fill gaps but cannot win;
+- no dedicated matchmaking service;
+- no duplicate challenge, table, game, or result abstractions;
+- no new database or KV provider.
+
+Before code changes, produce a short architecture mapping showing which existing modules own: tournament registration/page state, KV access, challenge creation/acceptance, table/game lifecycle, result finalization, and real-time updates. Any new Arena endpoint or KV operation should be the smallest extension required by that mapping.
+
+## Arena Testing Plan
+
+Add focused tests after the existing implementations have been inspected. Cover:
+
+- joining initializes a participant and rejects invalid/finished Arena joins;
+- concurrent challenges are resolved by the existing challenge acceptance behavior;
+- declined, expired, or superseded challenges allow the client to retry;
+- pairing preference avoids an immediate rematch when another player is available but permits it when necessary;
+- Arena challenges use the existing challenge/acceptance/table flow and normal challenges remain unchanged;
+- an authoritative win increments the winner's points and wins and both players' games exactly once;
+- duplicate/replayed result notifications do not double-score;
+- completed matches release players for another game;
+- end-time enforcement blocks new Arena challenges while allowing already-started games to finish;
+- leaderboard sorting, zero-game percentages, bot eligibility, and final winner display;
+- client refresh/reconnect reconstructs the leaderboard and player status from shared state.
