@@ -159,33 +159,35 @@
           img: 'assets/snooker.png',
           freeaim: true,
           variants: [
-            { id: '3',  short: '3 reds',  label: '3 Reds (baby table)', options: { reds: '3',  tableSize: '6' } },
-            { id: '6',  short: '6 reds',  label: '6 Reds',              options: { reds: '6',  tableSize: '12' } },
-            { id: '10', short: '10 reds', label: '10 Reds',             options: { reds: '10', tableSize: '12' } },
-            { id: '15', short: '15 reds', label: '15 Reds (full size)', options: { reds: '15', tableSize: '12' } },
+            { id: '3',  short: 'Reds 3',  label: 'Reds 3',  options: { reds: '3' } },
+            { id: '6',  short: 'Reds 6',  label: 'Reds 6',  options: { reds: '6' } },
+            { id: '10', short: 'Reds 10', label: 'Reds 10', options: { reds: '10' } },
+            { id: '15', short: 'Reds 15', label: 'Reds 15', options: { reds: '15' } },
           ],
+          sizes: true,
         },
         {
           key: 'threecushion',
           label: 'Three Cushion',
           img: 'assets/threecushion.png',
-          handicap: true,
+          freeaim: true,
           variants: [
-            { id: '7',     short: 'race 7',  label: 'Race to 7',               options: { raceTo: '7' } },
-            { id: '15',    short: 'race 15', label: 'Race to 15',              options: { raceTo: '15' } },
-            { id: '25',    short: 'race 25', label: 'Race to 25',              options: { raceTo: '25' } },
-            { id: 'small', short: 'small · 15', label: 'Small table, race to 15', img: 'assets/baby.png', options: { raceTo: '15', tableSize: '5' } },
+            { id: '7',  short: 'Race to 7',  label: 'Race to 7',  options: { raceTo: '7' } },
+            { id: '15', short: 'Race to 15', label: 'Race to 15', options: { raceTo: '15' } },
+            { id: '25', short: 'Race to 25', label: 'Race to 25', options: { raceTo: '25' } },
           ],
+          sizes: true,
         },
         {
           key: 'sagu',
           label: 'Sagu',
           img: 'assets/sagu.png',
+          freeaim: true,
           variants: [
-            { id: '5',     short: 'race 5', label: 'Race to 5',              options: { raceTo: '5' } },
-            { id: '11',    short: 'race 11', label: 'Race to 11',            options: { raceTo: '11' } },
-            { id: 'small', short: 'small · 5',  label: 'Small table, race to 5', img: 'assets/baby.png', options: { raceTo: '5', tableSize: '5' } },
+            { id: '5',  short: 'Race to 5',  label: 'Race to 5',  options: { raceTo: '5' } },
+            { id: '11', short: 'Race to 11', label: 'Race to 11', options: { raceTo: '11' } },
           ],
+          sizes: true,
         },
       ];
 
@@ -204,8 +206,8 @@
           open: { type: Boolean, reflect: true },
           _sel: { state: true },
           _freeaim: { state: true },
-          _handicap: { state: true },
           _vid: { state: true },
+          _size: { state: true },
         };
 
         static styles = css`
@@ -263,23 +265,22 @@
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
           }
           .tile.selected .tile-label { color: var(--accent); font-weight: 600; }
-          .tile .badge {
-            position: absolute;
-            top: -4px; right: -4px;
-            background: #7a0f1a;
-            color: #fff;
-            font-size: 9px;
-            line-height: 1.3;
-            border-radius: 3px;
-            padding: 0 3px;
-            border: 1px solid var(--modal-bg);
-            pointer-events: none;
-          }
-
           .variants {
             display: flex; flex-wrap: wrap; gap: 3px;
             justify-content: center;
             min-height: 22px;
+          }
+          .choice-group {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+          }
+          .choice-label {
+            color: var(--text-muted);
+            font-size: 0.66rem;
+            margin-right: 2px;
           }
           .chip {
             min-height: 22px;
@@ -298,6 +299,13 @@
             font-weight: 600;
           }
           .chip.toggle { font-size: 0.66rem; }
+          .aim-group {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+          }
           .chip.toggle.on { background: #198754; border-color: #198754; color: #fff; }
 
           .hint {
@@ -305,6 +313,16 @@
             font-size: 0.62rem;
             color: var(--text-muted);
             min-height: 1em;
+          }
+          .languages {
+            text-align: center;
+            font-size: 0.62rem;
+          }
+          .languages a {
+            color: var(--text-muted);
+            text-decoration: underline;
+            cursor: pointer;
+            margin: 0 0.2rem;
           }
 
           .handicap-row {
@@ -332,16 +350,16 @@
 
           .action {
             width: 100%;
-            min-height: 30px;
+            min-height: 42px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             background: var(--accent);
             border: none;
             color: #fff;
-            font-size: 0.78rem;
-            font-weight: 600;
-            letter-spacing: 0.08em;
+            font-size: 1.25rem;
+            font-weight: 200;
+            letter-spacing: 0.12em;
             transition: background 0.12s, transform 0.05s;
           }
           .action:hover { background: var(--accent-hover); }
@@ -369,16 +387,15 @@
           this.mode = 'solo';
           this.opponent = '';
           this.open = false;
-          this._handicap = parseInt(ls.get('handicap', '15'), 10);
+          this._size = ls.get('size', 'full');
           this._sel = ls.get('game', 'threecushion');
           if (!GAMES.some(g => g.key === this._sel)) this._sel = 'threecushion';
           this.#loadGame(this._sel);
         }
 
         get game() { return GAMES.find(g => g.key === this._sel); }
-        get _isHc() { return this.game.handicap && this._vid[this._sel] === 'hc'; }
+        get _isHc() { return false; }
         get variant() {
-          if (this._isHc) return null;
           const g = this.game;
           return g.variants.find(v => v.id === this._vid[this._sel]) ?? g.variants[0];
         }
@@ -388,6 +405,7 @@
           const stored = ls.get(`v_${key}`, null);
           this._vid = { ...this._vid, [key]: g.variants.some(v => v.id === stored) ? stored : g.variants[0].id };
           this._freeaim = ls.get('freeaim', 'false') === 'true' && Boolean(g.freeaim);
+          this._size = ls.get(`size_${key}`, 'full');
         }
 
         show() { this.open = true; }
@@ -404,7 +422,11 @@
         _selectVariant(id) {
           this._vid = { ...this._vid, [this._sel]: id };
           ls.set(`v_${this._sel}`, id);
-          if (id !== 'hc' && (this.variant || this._isHc)) this._confirm();
+        }
+
+        _selectSize(size) {
+          this._size = size;
+          ls.set(`size_${this._sel}`, size);
         }
 
         _toggleFreeaim() {
@@ -412,15 +434,10 @@
           ls.set('freeaim', String(this._freeaim));
         }
 
-        _onHandicap(e) {
-          this._handicap = parseInt(e.target.value, 10);
-          ls.set('handicap', String(this._handicap));
-        }
-
         _confirm() {
           const opts = this._isHc ? {} : { ...this.variant.options };
+          if (this.game.sizes) opts.tableSize = this._size === 'mini' ? '5' : '12';
           if (this.game.freeaim && this._freeaim && !opts.freeaim) opts.freeaim = 'true';
-          if (this._isHc) opts.handicap = String(this._handicap);
           emit(this, 'confirm', {
             mode: this.mode,
             ruleType: this.game.key,
@@ -431,15 +448,7 @@
         }
 
         _actionLabel() {
-          const parts = [];
-          if (this._isHc) {
-            parts.push(`handicap ${this._handicap}`);
-          } else if (this.variant?.short) {
-            parts.push(this.variant.short);
-          }
-          if (this._freeaim && this.game.freeaim) parts.push('⊕');
-          const verb = this.mode === 'challenge' ? `Challenge ${this.opponent}` : 'Play';
-          return `${verb} — ${this.game.label}${parts.length ? ' · ' + parts.join(' ') : ''} ▸`;
+          return 'PLAY';
         }
 
         render() {
@@ -462,57 +471,61 @@
                       @click=${() => this._selectGame(x.key)}
                     >
                       <img src=${x.img} alt="" />
-                      ${x.variants.length > 1
-                        ? html`<span class="badge">${x.variants.find(v => v.id === this._vid[x.key])?.short}</span>`
-                        : ''}
                       <span class="tile-label">${x.label.replace('Three Cushion', '3-Cush.')}</span>
                     </button>
                   `)}
                 </div>
 
-                ${g.variants.length > 1 || g.freeaim || g.handicap ? html`
+                      ${g.variants.length > 1 || g.freeaim || g.sizes ? html`
                   <div class="variants" role="radiogroup" aria-label="${g.label} variant">
-                    ${g.handicap ? html`
-                      <button
-                        class="chip ${this._isHc ? 'selected' : ''}"
-                        role="radio"
-                        aria-checked=${this._isHc}
-                        title="Handicap match"
-                        @click=${() => this._selectVariant('hc')}
-                      >Handicap</button>
+                    ${g.sizes ? html`
+                      <div class="choice-group">
+                        <span class="choice-label">Table:</span>
+                        <button
+                          class="chip ${this._size === 'full' ? 'selected' : ''}"
+                          role="radio"
+                          aria-checked=${this._size === 'full'}
+                          @click=${() => this._selectSize('full')}
+                        >Full size</button>
+                        <button
+                          class="chip ${this._size === 'mini' ? 'selected' : ''}"
+                          role="radio"
+                          aria-checked=${this._size === 'mini'}
+                          @click=${() => this._selectSize('mini')}
+                        >Mini</button>
+                      </div>
                     ` : ''}
-                    ${g.variants.map(v => html`
-                      <button
-                        class="chip ${!this._isHc && this.variant.id === v.id ? 'selected' : ''}"
-                        role="radio"
-                        aria-checked=${!this._isHc && this.variant.id === v.id}
-                        title=${`${v.label} — click to start`}
-                        @click=${() => this._selectVariant(v.id)}
-                      >${v.short || v.label}</button>
-                    `)}
+                    ${g.variants.length > 1 ? html`
+                      <div class="choice-group">
+                        <span class="choice-label">Rule:</span>
+                        ${g.variants.map(v => html`
+                          <button
+                            class="chip ${this.variant.id === v.id ? 'selected' : ''}"
+                            role="radio"
+                            aria-checked=${this.variant.id === v.id}
+                            title=${v.label}
+                            @click=${() => this._selectVariant(v.id)}
+                          >${v.short || v.label}</button>
+                        `)}
+                      </div>
+                    ` : ''}
                     ${g.freeaim ? html`
-                      <button
-                        class="chip toggle ${this._freeaim ? 'on' : ''}"
-                        aria-pressed=${this._freeaim}
-                        title="Free aim assist"
-                        @click=${() => this._toggleFreeaim()}
-                      >⌖ free aim</button>
+                      <div class="aim-group">
+                        <span class="choice-label">Aim:</span>
+                        <button
+                          class="chip toggle ${!this._freeaim ? 'on' : ''}"
+                          aria-pressed=${!this._freeaim}
+                          title="Free aim"
+                          @click=${() => this._toggleFreeaim()}
+                        >Free</button>
+                        <button
+                          class="chip toggle ${this._freeaim ? 'on' : ''}"
+                          aria-pressed=${this._freeaim}
+                          title="Aim assist"
+                          @click=${() => this._toggleFreeaim()}
+                        >Assist</button>
+                      </div>
                     ` : ''}
-                  </div>
-                ` : ''}
-
-                ${g.handicap && this._isHc ? html`
-                  <div class="handicap-row">
-                    <span>Hcp</span>
-                    <input
-                      class="hc"
-                      type="range"
-                      min="5" max="30" step="1"
-                      .value=${String(this._handicap)}
-                      @input=${this._onHandicap}
-                      aria-label="Handicap level"
-                    />
-                    <span>${this._handicap}</span>
                   </div>
                 ` : ''}
 
@@ -530,7 +543,12 @@
                   </button>
                 </div>
 
-                <div class="hint">tap a variant to start · tap again elsewhere to just change</div>
+                <div class="languages" aria-label="Language">
+                  <a href="#" @click=${e => e.preventDefault()}>English</a>
+                  <a href="#" @click=${e => e.preventDefault()}>한국어</a>
+                  <a href="#" @click=${e => e.preventDefault()}>日本語</a>
+                  <a href="#" @click=${e => e.preventDefault()}>Türkçe</a>
+                </div>
               </div>
             </div>`;
         }

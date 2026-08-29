@@ -116,7 +116,9 @@ Starting only changes `status: "open" -> "started"`, then:
 
 ## Overview
 
-Add an Arena mode alongside the existing fixed-size knockout tournament. An Arena is a single, fixed-duration competition in which joined players play as many games as possible during a one-hour window. Each completed win awards one point; the highest-scoring eligible player wins.
+Create Arena tournaments as a separate standalone page at `src/client/tournament/arena.html`, visually inspired by the Lichess Arena tournament experience. The existing knockout tournament page and flow remain unchanged.
+
+An Arena is a single, fixed-duration competition in which joined players play as many games as possible during a one-hour window. Each completed win awards one point; the highest-scoring eligible player wins. The Arena page is the player's central home before, during, and after the tournament: it shows the live leaderboard, matchmaking state, current score, and final results.
 
 The Arena is **client-administered**:
 
@@ -127,6 +129,36 @@ The Arena is **client-administered**:
 - For the MVP, support one active Arena at a time.
 
 This is a plan only. Before implementation, inspect the existing challenge, table/game-result, and KV implementations and adapt their current contracts rather than creating parallel abstractions.
+
+## Arena Page and Visual Experience
+
+The Arena UI should resemble a Lichess Arena page without copying branding or assets:
+
+- compact tournament header showing game type, status, and countdown;
+- prominent `JOIN ARENA` button before joining;
+- live leaderboard as the primary content area;
+- current player's score and statistics clearly highlighted;
+- matchmaking panel showing `Finding opponent…`, the selected opponent, and a return-to-Arena state after games;
+- responsive layout that works on desktop and mobile;
+- reuse the existing lobby theme tokens, light/dark conventions, typography, game assets, and top-left logo/header treatment.
+
+The page must be a dedicated `arena.html` entry point, not a mode switch embedded in the knockout page. It may reuse shared modules and styles, but its markup and interaction model should be specific to Arena tournaments.
+
+The Arena page should reuse the lobby's identity and presence UI so the current user appears online consistently:
+
+- reuse `user-store.js` for the current user's identity and persisted display name;
+- reuse `user-badge.js` and its supporting components/styles wherever appropriate for player names, flags, status, and online presence;
+- initialize the existing presence/messaging client when the page loads and clean it up when the page is unloaded;
+- use existing lobby presence/table state rather than inventing a separate Arena online-status model;
+- reuse the same lobby logo/branding at the top-left, including its link and responsive/header styling.
+
+When the Arena is finished, replace the active matchmaking presentation with a prominent top-three podium/medal display:
+
+1. gold medal and first-place player;
+2. silver medal and second-place player;
+3. bronze medal and third-place player.
+
+Keep the complete final leaderboard below or alongside the podium. If fewer than three eligible players exist, show only the available places. Bots are treated as normal players and may appear on the leaderboard and podium.
 
 ## Commonality with Existing Tournaments
 
@@ -276,7 +308,7 @@ After the existing game flow completes, clients may immediately start another op
 
 ## Live Leaderboard
 
-Display:
+Display the leaderboard on `arena.html`:
 
 | Rank | Player | Points | Games | Win % |
 | ---- | ------ | -----: | -----: | ----: |
@@ -284,10 +316,12 @@ Display:
 For the MVP, `Points = Wins`. Sort by:
 
 1. points descending;
-2. win percentage descending;
-3. games descending.
+2. Elo descending;
+3. deterministic final tie-breaker such as player name or ID.
 
-Define zero-game win percentage as `0%` and use a deterministic final tie-breaker such as player name or ID if the existing ranking convention does not already provide one. Bots may appear on the leaderboard and can fill matchmaking gaps, but bots are not eligible to win the Arena. The eligibility rule must be applied when determining the displayed winner, not by hiding bot scores.
+The requested primary ordering is score first, then Elo. Win percentage and games may be displayed as statistics but must not outrank Elo in sorting unless a later product decision explicitly changes this rule.
+
+Define zero-game win percentage as `0%` and use a deterministic final tie-breaker such as player name or ID if the existing ranking convention does not already provide one. Bots may appear on the leaderboard and can fill matchmaking gaps, but bots are treated as normal players and are eligible to win the Arena. The rule must be applied consistently when determining the displayed winner and podium.
 
 Leaderboard and participant updates should follow the application's existing real-time or polling conventions. A client refresh must reconstruct the same state from KV and retained/current messages rather than relying on in-memory browser state.
 
@@ -303,7 +337,7 @@ At or after `endTime`:
 
 A player must not start a new Arena game after the end time, even if their client has stale `available` state. Existing games finishing after `endTime` may update the final scores if they were claimed before the deadline, subject to the existing result rules.
 
-The finished page should preserve the final leaderboard and prominently identify the winner. Define how ties are displayed (for example, shared winners) before implementation rather than silently relying on client ordering.
+The finished `arena.html` page should preserve the final leaderboard and prominently identify the winner using the top-three medal podium. Define how ties are displayed (for example, shared winners) before implementation rather than silently relying on client ordering.
 
 ## Arena UI Experience
 
@@ -327,6 +361,13 @@ Finding opponent…
 
 Keep the live leaderboard visible throughout the Arena experience. Reuse the existing game launch/return conventions so the Arena page can restore the player's Arena context from the challenge/table context and continue matchmaking after a completed game.
 
+## Arena Navigation and Page Context
+
+- The Arena page URL must identify the Arena using the existing shareable tournament identity convention.
+- A player joining from `arena.html` remains associated with that Arena when redirected into an existing billiards game.
+- Returning from a completed game restores `arena.html` and resumes client-driven opponent discovery while the Arena is active.
+- The page must not require the knockout tournament page to be loaded or mounted.
+
 ## Implementation Boundaries
 
 Keep the MVP small:
@@ -345,6 +386,15 @@ Keep the MVP small:
 Before code changes, produce a short architecture mapping showing which existing modules own: tournament registration/page state, KV access, challenge creation/acceptance, table/game lifecycle, result finalization, and real-time updates. Any new Arena endpoint or KV operation should be the smallest extension required by that mapping.
 
 ## Arena Testing Plan
+
+In addition to the behavioral tests below, verify that:
+
+- `arena.html` is independently reachable and loads without the knockout tournament page;
+- the lobby logo appears at the top-left with the expected link and responsive behavior;
+- the current user is initialized through the existing user/presence components and appears online;
+- the leaderboard is sorted by points, then Elo;
+- the finished view renders the correct top-three medal podium, including bots when they place;
+- the join control transitions into the matchmaking state and the return flow restores Arena context.
 
 Add focused tests after the existing implementations have been inspected. Cover:
 
