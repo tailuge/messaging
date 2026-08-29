@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Billiards Tournaments</title>
+    <meta
+      name="description"
+      content="Create and join free online billiards knockout tournaments — 8-ball, 9-ball, snooker, 3-cushion and sagu."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Exo:wght@200;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/png" href="assets/threecushion.png" />
+    <meta name="theme-color" content="#1a1a1a" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #f5f5f5;
+      }
+      html[theme="dark"],
+      html[theme="dark"] body {
+        background: #1a1a1a;
+      }
+    </style>
+    <script>
+      try {
+        document.documentElement.setAttribute("theme", localStorage.getItem("theme") || "dark")
+      } catch (_e) {
+        document.documentElement.setAttribute("theme", "dark")
+      }
+    </script>
+  </head>
+  <body>
+    <tournament-app></tournament-app>
+    <script src="tournament.js" type="module"></script>
+  </body>
+</html>

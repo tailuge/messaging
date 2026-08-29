@@ -1,15 +1,27 @@
 import { css, html, LitElement } from "lit";
 
 const GAMES = [
-  { label: "Nine Ball", img: "assets/nineball.png" },
-  { label: "Eight Ball", img: "assets/eightball.png" },
-  { label: "Sagu", img: "assets/sagu.png" },
-  { label: "Three-Cushion", img: "assets/threecushion.png" },
-  { label: "Drill", img: "assets/drill.png" },
+  { label: "Nine Ball", img: "assets/nineball.png", settings: {} },
+  { label: "Eight Ball", img: "assets/eightball.png", settings: {} },
+  {
+    label: "Sagu",
+    img: "assets/sagu.png",
+    settings: { raceTo: ["5", "11"] },
+  },
+  {
+    label: "Three-Cushion",
+    img: "assets/threecushion.png",
+    settings: { raceTo: ["7", "15", "25", "40"] },
+  },
+  { label: "Drill", img: "assets/drill.png", settings: null },
+  {
+    label: "Snooker",
+    img: "assets/snooker.png",
+    settings: { reds: ["3", "6", "10", "15"] },
+  },
 ];
 
 const SETTINGS = {
-  raceTo: ["7", "15", "25", "40"],
   aiming: ["Off", "On"],
   tableSize: ["5 ft", "10 ft"],
   ruleSet: ["Traditional", "Proximity"],
@@ -53,23 +65,22 @@ const CONFIG_PANEL_STYLES = css`
     place-items: center;
     width: 48px;
     height: 48px;
-    padding: 5px;
-    background: #20231f;
-    border: 1px solid #454a40;
-    border-radius: 5px;
-    transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    transition: transform 120ms ease;
   }
 
   .game-button:hover {
-    background: #30352d;
-    border-color: #bacd73;
+    background: transparent;
     transform: translateY(-1px);
   }
 
   .game-button.selected {
-    background: #d1e879;
-    border-color: #f2ffc0;
-    box-shadow: 0 0 0 1px #8ea94b;
+    background: transparent;
+    border: none;
+    box-shadow: none;
   }
 
   .game-button:focus-visible,
@@ -81,8 +92,8 @@ const CONFIG_PANEL_STYLES = css`
 
   .game-button img {
     display: block;
-    width: 36px;
-    height: 36px;
+    width: 48px;
+    height: 48px;
     object-fit: contain;
   }
 
@@ -209,6 +220,7 @@ class NewSoloPanal extends LitElement {
   #selectedGame = 0;
   #settings = {
     raceTo: "15",
+    reds: "15",
     aiming: "Off",
     tableSize: "10 ft",
     ruleSet: "Traditional",
@@ -225,6 +237,17 @@ class NewSoloPanal extends LitElement {
     this.requestUpdate();
   }
 
+  toggleOptions(index) {
+    const game = GAMES[index];
+    if (!game.settings) return;
+    this.#selectedGame = index;
+    this.requestUpdate();
+  }
+
+  get selectedSettings() {
+    return GAMES[this.#selectedGame].settings;
+  }
+
   play() {
     this.dispatchEvent(
       new CustomEvent("play-game", {
@@ -238,12 +261,12 @@ class NewSoloPanal extends LitElement {
     );
   }
 
-  renderChoiceRow(label, name) {
+  renderChoiceRow(label, name, values = SETTINGS[name]) {
     return html`
       <div class="config-row">
         <span class="label">${label}</span>
         <div class="choices">
-          ${SETTINGS[name].map(
+          ${values.map(
             (value) => html`
               <button
                 class="choice ${this.#settings[name] === value ? "selected" : ""}"
@@ -281,6 +304,7 @@ class NewSoloPanal extends LitElement {
                 type="button"
                 aria-label=${`Open ${game.label} options`}
                 title="Open options"
+                @click=${() => this.toggleOptions(index)}
               ></button>
             </div>
           `,
@@ -288,11 +312,20 @@ class NewSoloPanal extends LitElement {
       </nav>
 
       <section class="config" aria-label="Game configuration">
-        ${this.renderChoiceRow("Race To", "raceTo")}
-        ${this.renderChoiceRow("Aiming Assist", "aiming")}
-        ${this.renderChoiceRow("Table Size", "tableSize")}
-        ${this.renderChoiceRow("Rule Set", "ruleSet")}
-        ${this.renderChoiceRow("Time Control", "timeControl")}
+        ${this.selectedSettings?.raceTo
+          ? this.renderChoiceRow("Race To", "raceTo", this.selectedSettings.raceTo)
+          : ""}
+        ${this.selectedSettings?.reds
+          ? this.renderChoiceRow("Reds", "reds", this.selectedSettings.reds)
+          : ""}
+        ${this.selectedSettings
+          ? html`
+              ${this.renderChoiceRow("Aiming Assist", "aiming")}
+              ${this.renderChoiceRow("Table Size", "tableSize")}
+              ${this.renderChoiceRow("Rule Set", "ruleSet")}
+              ${this.renderChoiceRow("Time Control", "timeControl")}
+            `
+          : ""}
         <button class="play" type="button" @click=${() => this.play()}>PLAY</button>
       </section>
     `;
