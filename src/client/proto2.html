@@ -133,6 +133,7 @@
 
     <script type="module">
       import { LitElement, html, css } from 'lit';
+      import { proto2Strings } from './proto2-strings.js';
 
       const GAMES = [
         {
@@ -212,7 +213,11 @@
           _freeaim: { state: true },
           _vid: { state: true },
           _size: { state: true },
+          _lang: { state: true },
         };
+
+        #strings = proto2Strings;
+        #unsubLang;
 
         static styles = css`
           :host {
@@ -310,7 +315,7 @@
             justify-content: center;
             gap: 3px;
           }
-          .chip.toggle.on { background: #198754; border-color: #198754; color: #fff; }
+          .chip.toggle.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 
           .hint {
             text-align: center;
@@ -327,6 +332,11 @@
             text-decoration: underline;
             cursor: pointer;
             margin: 0 0.2rem;
+          }
+          .languages a.active {
+            color: var(--accent);
+            font-weight: 600;
+            text-decoration: none;
           }
 
           .handicap-row {
@@ -395,6 +405,18 @@
           this._sel = ls.get('game', 'threecushion');
           if (!GAMES.some(g => g.key === this._sel)) this._sel = 'threecushion';
           this.#loadGame(this._sel);
+          this._lang = this.#strings.lang;
+          // Re-render both modal instances when the language changes.
+          this.#unsubLang = this.#strings.onChange((lang) => { this._lang = lang; });
+        }
+
+        disconnectedCallback() {
+          super.disconnectedCallback();
+          this.#unsubLang?.();
+        }
+
+        #t(key, params) {
+          return this.#strings.t(key, params);
         }
 
         get game() { return GAMES.find(g => g.key === this._sel); }
@@ -443,8 +465,12 @@
 
         _confirm() {
           const opts = this._isHc ? {} : { ...this.variant.options };
-          opts.tableSize = this._size === 'mini' ? '5' : '12';
-          if (this.game.freeaim && this._freeaim && !opts.freeaim) opts.freeaim = 'true';
+          if (this._size === 'mini') {
+            opts.tableSize = ['snooker', 'nineball', 'eightball'].includes(this.game.key) ? '6' : '5';
+          } else if (this.game.key === 'snooker') {
+            opts.tableSize = '12';
+          }
+          if (this.game.freeaim && this._freeaim) opts.freeaim = 'true';
           emit(this, 'confirm', {
             mode: this.mode,
             ruleType: this.game.key,
@@ -454,8 +480,15 @@
           this.hide();
         }
 
+        #tileLabel(x) {
+          const label = this.#t(x.label);
+          // Keep the compact English abbreviation only when there is no
+          // translation (the ellipsis CSS handles longer translated labels).
+          return label === 'Three Cushion' ? '3-Cush.' : label;
+        }
+
         _actionLabel() {
-          return 'PLAY';
+          return this.#t('PLAY');
         }
 
         render() {
@@ -463,48 +496,48 @@
           const g = this.game;
           return html`
             <div class="backdrop" @click=${e => e.target === e.currentTarget && this.hide()}>
-              <div class="modal" role="dialog" aria-modal="true" aria-label="Select game variant">
+              <div class="modal" role="dialog" aria-modal="true" aria-label=${this.#t('Select game variant')}>
                 ${this.mode === 'challenge'
-                  ? html`<h3>Challenge ${this.opponent}</h3>`
-                  : html`<h3>Play Solo</h3>`}
+                  ? html`<h3>${this.#t('Challenge {name}', { name: this.opponent })}</h3>`
+                  : html`<h3>${this.#t('Play Solo')}</h3>`}
 
-                <div class="tiles" role="radiogroup" aria-label="Game type">
+                <div class="tiles" role="radiogroup" aria-label=${this.#t('Game type')}>
                   ${GAMES.map(x => html`
                     <button
                       class="tile ${x.key === this._sel ? 'selected' : ''}"
                       role="radio"
                       aria-checked=${x.key === this._sel}
-                      title=${x.label}
+                      title=${this.#t(x.label)}
                       @click=${() => this._selectGame(x.key)}
                     >
                       <img src=${x.img} alt="" />
-                      <span class="tile-label">${x.label.replace('Three Cushion', '3-Cush.')}</span>
+                      <span class="tile-label">${this.#tileLabel(x)}</span>
                     </button>
                   `)}
                 </div>
 
                       ${g.variants.length > 1 || g.freeaim || g.sizes ? html`
-                  <div class="variants" role="radiogroup" aria-label="${g.label} variant">
+                  <div class="variants" role="radiogroup" aria-label=${this.#t('{game} variant', { game: this.#t(g.label) })}>
                     ${g.sizes ? html`
                       <div class="choice-group">
-                        <span class="choice-label">Table:</span>
+                        <span class="choice-label">${this.#t('Table:')}</span>
                         <button
                           class="chip ${this._size === 'full' ? 'selected' : ''}"
                           role="radio"
                           aria-checked=${this._size === 'full'}
                           @click=${() => this._selectSize('full')}
-                        >Full size</button>
+                        >${this.#t('Full size')}</button>
                         <button
                           class="chip ${this._size === 'mini' ? 'selected' : ''}"
                           role="radio"
                           aria-checked=${this._size === 'mini'}
                           @click=${() => this._selectSize('mini')}
-                        >Mini</button>
+                        >${this.#t('Mini')}</button>
                       </div>
                     ` : ''}
                     ${g.variants.length > 1 ? html`
                       <div class="choice-group">
-                        <span class="choice-label">Rule:</span>
+                        <span class="choice-label">${this.#t('Rule:')}</span>
                         ${g.variants
                           .filter(v => g.key !== 'snooker' || this._size !== 'mini' || ['3', '6'].includes(v.id))
                           .map(v => html`
@@ -514,25 +547,25 @@
                             aria-checked=${this.variant.id === v.id}
                             title=${v.label}
                             @click=${() => this._selectVariant(v.id)}
-                          >${v.short || v.label}</button>
+                          >${this.#t(v.short || v.label)}</button>
                         `)}
                       </div>
                     ` : ''}
                     ${g.freeaim ? html`
                       <div class="aim-group">
-                        <span class="choice-label">Aim:</span>
-                        <button
-                          class="chip toggle ${!this._freeaim ? 'on' : ''}"
-                          aria-pressed=${!this._freeaim}
-                          title="Free aim"
-                          @click=${() => this._toggleFreeaim()}
-                        >Free</button>
+                        <span class="choice-label">${this.#t('Aim:')}</span>
                         <button
                           class="chip toggle ${this._freeaim ? 'on' : ''}"
                           aria-pressed=${this._freeaim}
-                          title="Aim assist"
+                          title=${this.#t('Free aim')}
                           @click=${() => this._toggleFreeaim()}
-                        >Assist</button>
+                        >${this.#t('Free')}</button>
+                        <button
+                          class="chip toggle ${!this._freeaim ? 'on' : ''}"
+                          aria-pressed=${!this._freeaim}
+                          title=${this.#t('Aim assist')}
+                          @click=${() => this._toggleFreeaim()}
+                        >${this.#t('Assist')}</button>
                       </div>
                     ` : ''}
                   </div>
@@ -544,19 +577,23 @@
 
                 <div class="footer">
                   ${this.mode === 'challenge'
-                    ? html`<button class="msg-btn" type="button" aria-label="Send message"
+                    ? html`<button class="msg-btn" type="button" aria-label=${this.#t('Send message')}
                         @click=${() => { emit(this, 'message'); this.hide(); }}>💬</button>`
                     : ''}
                   <button class="cancel" @click=${() => { emit(this, 'cancel'); this.hide(); }}>
-                    Cancel
+                    ${this.#t('Cancel')}
                   </button>
                 </div>
 
-                <div class="languages" aria-label="Language">
-                  <a href="#" @click=${e => e.preventDefault()}>English</a>
-                  <a href="#" @click=${e => e.preventDefault()}>한국어</a>
-                  <a href="#" @click=${e => e.preventDefault()}>日本語</a>
-                  <a href="#" @click=${e => e.preventDefault()}>Türkçe</a>
+                <div class="languages" aria-label=${this.#t('Language')}>
+                  ${this.#strings.languages.map(l => html`
+                    <a
+                      href="#"
+                      class=${l.code === this._lang ? 'active' : ''}
+                      aria-current=${l.code === this._lang ? 'true' : 'false'}
+                      @click=${e => { e.preventDefault(); this.#strings.set(l.code); }}
+                    >${l.label}</a>
+                  `)}
                 </div>
               </div>
             </div>`;
