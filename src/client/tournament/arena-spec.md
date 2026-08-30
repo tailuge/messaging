@@ -30,6 +30,10 @@ The initial scope is deliberately smaller than the broader Arena plan previously
 - Each Arena receives a server-generated unique ID and a shareable URL.
 - Multiple Arenas must be able to exist concurrently and remain isolated by Arena ID.
 - The server should remain intentionally dumb: it stores and returns the supplied Arena game configuration rather than trying to understand or validate every game-specific option.
+- Every newly created Arena starts with two built-in bot participants: `TheFarJaw` and `ClawBreak`.
+- The two names are server-created participant records with stable IDs, are active immediately, and remain visible in the participant list and leaderboard for the Arena lifetime.
+- They are seeded availability participants: they count toward the displayed participant availability and are included in the normal participant capacity.
+- They should appear and behave like ordinary participants in the UI, without bot-specific labels or styling.
 
 ### Arena game configuration
 
@@ -78,7 +82,9 @@ The Arena detail response must return this exact configuration so a future clien
 - Joining is rejected after the Arena ends.
 - Leaving marks a participant inactive while retaining their participant record and any score/history that may exist later.
 - A player must not be duplicated in an Arena.
-- The active participant count and inactive state must be visible or otherwise clear in the UI.
+- The two seeded participants are always retained and cannot be removed by a client leave request.
+- Human players may leave and later rejoin; rejoining reactivates their existing participant record rather than creating a duplicate.
+- The active participant count and inactive state must be visible or otherwise clear in the UI; seeded participants need no special visual treatment.
 - The MVP does not need a separate persisted availability/playing state.
 
 ### Discovery
@@ -91,6 +97,8 @@ The Arena detail response must return this exact configuration so a future clien
 ### Leaderboard and history
 
 - During the active phase, show all joined participants, including inactive leavers, with their state distinguishable.
+- The leaderboard must always include `TheFarJaw` and `ClawBreak`, even before any human player joins.
+- The seeded participants may show zeroed or placeholder score/stat fields until scoring is implemented, and are rendered like all other participants.
 - Since scoring hookup is deferred, the initial leaderboard may show zeroed or placeholder score/stat fields, but the data model must support future points, wins, and games.
 - Retain the ten most recent finished Arena results globally.
 - History entries must be sufficient to render a finished Arena without relying on deleted working keys: Arena ID, full opaque game configuration, timing, final participants/leaderboard, and winner/result summary when scoring is later implemented.
@@ -109,7 +117,7 @@ The Arena detail response must return this exact configuration so a future clien
 2. User supplies/selects a `ruleType` and any game-specific `options`.
 3. User selects or supplies an allowed practical duration such as 10 or 30 minutes.
 4. User activates Create Arena.
-5. Server validates only that the request is structurally usable, generates an Arena ID, persists the complete opaque configuration, and returns the Arena.
+5. Server validates only that the request is structurally usable, generates an Arena ID, adds `TheFarJaw` and `ClawBreak` as active seeded participants, persists the complete opaque configuration, and returns the Arena.
 6. Client navigates to or displays the Arena detail page and its shareable URL.
 
 ### Discover and view
@@ -246,7 +254,26 @@ Response:
     "startTime": 1788100000000,
     "endTime": 1788100600000,
     "status": "active",
-    "players": [],
+    "players": [
+      {
+        "playerId": "bot-thefarjaw",
+        "name": "TheFarJaw",
+        "active": true,
+        "joinedAt": 1788100000000,
+        "points": 0,
+        "wins": 0,
+        "games": 0
+      },
+      {
+        "playerId": "bot-clawbreak",
+        "name": "ClawBreak",
+        "active": true,
+        "joinedAt": 1788100000000,
+        "points": 0,
+        "wins": 0,
+        "games": 0
+      }
+    ],
     "createdAt": 1788100000000
   }
 }
@@ -307,6 +334,10 @@ The current API's result endpoint may remain behind a feature boundary until aut
 - Do not reject an otherwise structurally valid option merely because the server does not understand it.
 - Reject missing, non-numeric, or non-positive duration values; do not silently default to one hour.
 - Prevent duplicate joins, including repeated requests.
+- Always create exactly one `TheFarJaw` record and one `ClawBreak` record for every Arena.
+- Keep the seeded participant records available for the Arena lifetime; they must not be removed by ordinary client leave requests.
+- Count seeded participants in the normal participant count and capacity.
+- Do not add bot-specific labels, styling, or behavior to the UI.
 - Handle concurrent join requests without losing an existing participant.
 - Reject joins after lazy status transition to `finished`, even if the client displays stale `active` state.
 - Make repeated leave requests harmless or return a clear already-inactive response.
@@ -324,6 +355,8 @@ The current API's result endpoint may remain behind a feature boundary until aut
 - Active Arenas are discoverable from a list and via direct URL.
 - Multiple concurrent Arenas remain isolated.
 - A player can join once, see themselves in the participant list, and leave without losing retained participation data.
+- Every Arena contains exactly two active seeded participants, `TheFarJaw` and `ClawBreak`, from creation onward.
+- Seeded participants count toward normal availability and capacity and appear like ordinary participants in the participant list and leaderboard.
 - All joined players remain visible during the Arena, with inactive state distinguishable.
 - Refresh reconstructs the same Arena state from the API/KV.
 - Finished Arenas reject new joins and appear in the ten-item history with their full configuration.

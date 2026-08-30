@@ -2,6 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { THEME_VARS, SHARED_STYLES } from '../styles.js';
 import { userStore } from '../user-store.js';
 import '../user-badge.js';
+import './arena-view.js';
 import '../proto2-modal.js';
 
 const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -11,6 +12,7 @@ const API_BASE = window.location.hostname === 'localhost' || window.location.hos
 class ArenaApp extends LitElement {
     static properties = {
         _theme: { type: String, reflect: true, attribute: 'theme' },
+        _id: { state: true },
         _ruleType: { state: true },
         _options: { state: true },
         _durationMinutes: { state: true },
@@ -53,6 +55,7 @@ class ArenaApp extends LitElement {
     constructor() {
         super();
         this._theme = document.documentElement.getAttribute('theme') || 'dark';
+        this._id = new URLSearchParams(window.location.search).get('id') || '';
         this._ruleType = '';
         this._options = {};
         this._durationMinutes = 10;
@@ -65,7 +68,7 @@ class ArenaApp extends LitElement {
 
     connectedCallback() {
         super.connectedCallback();
-        this._loadArenas();
+        if (!this._id) this._loadArenas();
     }
 
     async _loadArenas() {
@@ -148,6 +151,7 @@ class ArenaApp extends LitElement {
     }
 
     render() {
+        if (this._id) return html`<arena-view arenaId=${this._id}></arena-view>`;
         const arena = this._createdArena;
         return html`<div class="container">
             ${this._renderActiveArenas()}

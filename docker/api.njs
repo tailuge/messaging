@@ -46,6 +46,10 @@ const K_ACTIVE = "arena:active";
 const RESULT_HISTORY_LIMIT = 10;
 const ARENA_DURATION_MINUTES = [10, 30];
 const WORKING_TTL_SECONDS = 4 * 60 * 60;
+const SEEDED_PLAYERS = [
+    { playerId: "arena-thefarjaw", name: "TheFarJaw" },
+    { playerId: "arena-clawbreak", name: "ClawBreak" },
+];
 
 function arenaKeys(arenaId) {
     const id = encodeURIComponent(String(arenaId));
@@ -176,7 +180,13 @@ async function arenaCreate(r) {
         startTime: start,
         endTime: start + duration,
         status: "active",
-        players: [],
+        players: SEEDED_PLAYERS.map((player) => ({
+            playerId: player.playerId,
+            name: player.name,
+            elo: 0,
+            joinedAt: start,
+            active: true,
+        })),
         createdAt: start,
     };
     const keys = arenaKeys(id);
@@ -213,8 +223,12 @@ async function arenaLeave(r, arenaId) {
     if (!body) return json(r, 400, { error: "JSON inválido" });
     const arena = await loadArena(arenaId);
     if (!arena) return json(r, 404, { error: "Nenhuma Arena criada" });
-    const rec = arena.players.find((p) => p.playerId === String(body.playerId));
+    const playerId = String(body.playerId);
+    const rec = arena.players.find((p) => p.playerId === playerId);
     if (!rec) return json(r, 404, { error: "Não participante" });
+    if (SEEDED_PLAYERS.some((player) => player.playerId === playerId)) {
+        return json(r, 409, { error: "Participante fixo não pode sair" });
+    }
     rec.active = false;
     await redis("SET", arenaKeys(arenaId).arena, JSON.stringify(arena), "EX", String(WORKING_TTL_SECONDS));
     return json(r, 200, { status: "success" });
