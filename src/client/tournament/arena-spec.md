@@ -8,7 +8,7 @@ Planning only. This document captures the minimum product and technical requirem
 
 Provide a lightweight Arena feature where a user can create a fixed-duration competition using a caller-supplied game configuration, other users can discover and join or leave it, and a bounded history of completed Arena results is retained.
 
-The initial scope is deliberately smaller than the broader Arena plan previously described in `tournament.md`: creation, discovery, joining, leaving, lifecycle display, and result-history storage/display are in scope. Automatic matchmaking, challenge integration, game launch, and Arena scoring hookup are deferred.
+The initial scope is deliberately smaller than the broader Arena plan previously described in `tournament.md`: creation, discovery, joining, leaving, lifecycle display, result-history storage/display, and basic active-player pairing are in scope. Full game launch and Arena scoring hookup remain deferred.
 
 ## Existing Context
 
@@ -85,7 +85,7 @@ The Arena detail response must return this exact configuration so a future clien
 - The two seeded participants are always retained and cannot be removed by a client leave request.
 - Human players may leave and later rejoin; rejoining reactivates their existing participant record rather than creating a duplicate.
 - The active participant count and inactive state must be visible or otherwise clear in the UI; seeded participants need no special visual treatment.
-- The MVP does not need a separate persisted availability/playing state.
+- The MVP does not need a separate persisted availability/playing state; pairing reads current playing state from lobby presence.
 
 ### Discovery
 
@@ -93,6 +93,24 @@ The Arena detail response must return this exact configuration so a future clien
 - The list should show active Arenas and enough metadata to choose one: rule type, relevant opaque options, duration/end time, status, participant count, and Arena ID/link.
 - A refresh button is the required update mechanism. Automatic polling and real-time Arena list events are not required for this MVP.
 - Refresh should also be available after create, join, and leave actions.
+
+### Pairing
+
+- Pairing is available only when a player is joined to an Arena and the Arena status is `active`.
+- The client should use the lobby's online-user list as the source of current playing state. The Arena page may not have this list locally, so it should consume or receive the same lobby presence data rather than inventing a second availability state.
+- A pairing candidate must satisfy both conditions:
+  - the participant is present in the Arena leaderboard; and
+  - the corresponding user is present in the lobby online-user list and is not currently playing.
+- The current player must be excluded from the candidate set.
+- Seeded participants such as `TheFarJaw` and `ClawBreak` are eligible according to the same participant and online-presence rules; no special pairing behavior is required for them.
+- When pairing starts, overlay the leaderboard with a `Pairing` state.
+- The overlay must show a ten-second countdown, starting at 10 seconds and decrementing to zero.
+- Do not select or challenge a candidate before the ten-second countdown completes.
+- When the countdown reaches zero, select one eligible candidate at random and initiate the existing challenge action for that opponent.
+- After a candidate is selected, replace the countdown state with `Paired with <player name>` for two seconds.
+- After the two-second confirmation, return to the normal leaderboard view.
+- If no eligible candidates exist when the countdown completes, do not issue a challenge; show an appropriate no-available-opponent result and return to the normal leaderboard view.
+- Pairing must be cancellable or safely ignored if the player leaves the Arena, the Arena finishes, or the player is no longer eligible before the countdown completes.
 
 ### Leaderboard and history
 
@@ -140,6 +158,16 @@ The Arena detail response must return this exact configuration so a future clien
 1. Joined user activates Leave Arena.
 2. Server marks the participant inactive without losing their participation data or future history snapshot.
 3. UI refreshes and keeps the participant visible with an inactive state.
+4. Any pending pairing countdown is cancelled or invalidated.
+
+### Pair
+
+1. A joined player in an active Arena activates pairing.
+2. The leaderboard is covered by a `Pairing` overlay with a ten-second countdown.
+3. At countdown completion, the client intersects Arena leaderboard participants with currently online, non-playing lobby users, excludes the current player, and chooses one eligible opponent at random.
+4. The client initiates the existing challenge action for the selected opponent.
+5. The overlay shows `Paired with <player name>` for two seconds, then returns to the leaderboard.
+6. If there is no eligible opponent, no challenge is sent and the normal leaderboard is restored.
 
 ### Finish and history
 
@@ -312,7 +340,9 @@ The current API's result endpoint may remain behind a feature boundary until aut
   - link/section for recent finished Arena history.
 - The create form must allow the initial required game configuration fields to be entered without forcing a preset abstraction. It should support `ruleType`, `tableSize`, `reds`, `raceTo`, and `freeaim`, while keeping the implementation extensible for future options.
 - Use accessible labels, status announcements, disabled/loading states, and clear errors.
-- Do not add matchmaking states, challenge buttons, game redirects, podiums, or automatic opponent selection to this minimal phase.
+- Do not add game redirects, podiums, or automatic opponent selection beyond the explicit ten-second random pairing flow defined above.
+- The detail view should provide a pairing action only when the player is joined and the Arena is active.
+- Pairing feedback is limited to the leaderboard overlay states: `Pairing`, the countdown, `Paired with <player name>`, and the no-available-opponent outcome.
 
 ## Explicitly Deferred
 
@@ -339,6 +369,9 @@ The current API's result endpoint may remain behind a feature boundary until aut
 - Count seeded participants in the normal participant count and capacity.
 - Do not add bot-specific labels, styling, or behavior to the UI.
 - Handle concurrent join requests without losing an existing participant.
+- Do not challenge a user who is playing according to the latest lobby online-user state.
+- Re-evaluate pairing eligibility when the countdown completes, not only when pairing begins.
+- Ensure only one pairing countdown/challenge attempt can be active for a player at a time.
 - Reject joins after lazy status transition to `finished`, even if the client displays stale `active` state.
 - Make repeated leave requests harmless or return a clear already-inactive response.
 - Ensure two Arena IDs cannot read or mutate each other's players/configuration/history.
@@ -372,6 +405,7 @@ The current API's result endpoint may remain behind a feature boundary until aut
 4. Add join/leave validation and idempotent participant updates.
 5. Add lazy lifecycle transition and bounded history finalization.
 6. Build the independent Arena list/detail/history Lit UI with refresh-driven updates.
-7. Add focused tests for create/config round-tripping, list/get, join, leave, expiry/history, and concurrent Arena isolation.
-8. Run `npm run build:all` and relevant tests.
-9. Specify and implement game/challenge/result integration only in a later phase, using Arena ID to retrieve the stored configuration.
+7. Integrate Arena detail pairing with lobby online-user presence and the existing challenge action.
+8. Add focused tests for create/config round-tripping, list/get, join, leave, expiry/history, concurrent Arena isolation, pairing eligibility, countdown completion, random selection, and cancellation.
+9. Run `npm run build:all` and relevant tests.
+10. Specify and implement full game launch/result integration only in a later phase, using Arena ID to retrieve the stored configuration.

@@ -1,4 +1,6 @@
 import { LitElement, html, css } from 'lit';
+import { MessagingClient } from '../../index.ts';
+import { NCHANBASE, formatVersion, CLIENTVERSION } from '../utils.js';
 import { THEME_VARS, SHARED_STYLES } from '../styles.js';
 import { userStore } from '../user-store.js';
 
@@ -11,6 +13,7 @@ class ArenaView extends LitElement {
         arenaId: { type: String },
         _arena: { state: true },
         _leaderboard: { state: true },
+        _onlineUsers: { state: true },
         _busy: { state: true },
         _error: { state: true },
     };
@@ -33,6 +36,7 @@ class ArenaView extends LitElement {
         th { color: var(--text-muted); font-size: .7rem; }
         th:not(:first-child), td:not(:first-child) { text-align: right; }
         .inactive { color: var(--text-muted); opacity: .65; }
+        .online-dot { display: inline-block; width: .45rem; height: .45rem; margin-right: .3rem; border-radius: 50%; background: #198754; vertical-align: middle; }
         .empty { color: var(--text-muted); text-align: center; padding: 1rem 0; }
     `];
 
@@ -41,13 +45,46 @@ class ArenaView extends LitElement {
         this.arenaId = '';
         this._arena = null;
         this._leaderboard = [];
+        this._onlineUsers = [];
         this._busy = false;
+        this._presenceClient = null;
+        this._lobby = null;
         this._error = '';
     }
 
     connectedCallback() {
         super.connectedCallback();
         this._load();
+        this._connectPresence();
+    }
+
+    disconnectedCallback() {
+        this._lobby?.leave();
+        this._presenceClient?.stop();
+        super.disconnectedCallback();
+    }
+
+    async _connectPresence() {
+        const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+        const baseUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? `${protocol}//${window.location.host}`
+            : `https://${NCHANBASE}`;
+        this._presenceClient = new MessagingClient({ baseUrl });
+        this._presenceClient.setVersion(formatVersion(CLIENTVERSION));
+        try {
+                this._lobby = await this._presenceClient.joinLobby({
+                messageType: 'presence', type: 'join',
+                userId: userStore.clientId, userName: userStore.userName,
+            });
+            this._lobby.onUsersChange(users => {
+                this._onlineUsers = [...users, {
+                    userId: userStore.clientId,
+                    userName: userStore.userName,
+                }];
+            });
+        } catch (error) {
+            console.error('Arena presence connection failed:', error);
+        }
     }
 
     async _load() {
@@ -114,7 +151,12 @@ class ArenaView extends LitElement {
                     <h2 class="title">Leaderboard</h2>
                     ${this._leaderboard.length ? html`<table class="players"><thead><tr><th>Player</th><th>Points</th><th>Wins</th><th>Games</th></tr></thead><tbody>${this._leaderboard.map(row => {
                         const record = arena.players.find(p => p.playerId === row.playerId);
-                        return html`<tr class=${record?.active === false ? 'inactive' : ''}><td>${row.name}${record?.active === false ? ' (left)' : ''}</td><td>${row.points}</td><td>${row.wins}</td><td>${row.games}</td></tr>`;
+                        const onlineUser = this._onlineUsers.find(user =>
+                            user.userId === row.playerId ||
+                            (user.userName === row.name && ['TheFarJaw', 'ClawBreak'].includes(row.name))
+                        );
+                        const isOnline = !!onlineUser || ['TheFarJaw', 'ClawBreak'].includes(row.name);
+                        return html`<tr class=${record?.active === false ? 'inactive' : ''}><td>${isOnline ? html`<span class="online-dot" aria-label="Online" title="Online"></span>` : ''}${row.name}${record?.active === false ? ' (left)' : ''}</td><td>${row.points}</td><td>${row.wins}</td><td>${row.games}</td></tr>`;
                     })}</tbody></table>` : html`<div class="empty">No players have joined yet.</div>`}
                 </section>` : ''}
         </div>`;
