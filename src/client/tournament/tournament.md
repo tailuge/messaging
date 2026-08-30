@@ -124,9 +124,9 @@ The Arena is **client-administered**:
 
 - Clients discover available participants, select opponents, and drive the matchmaking loop.
 - Players use the existing challenge and acceptance flow to resolve who gets to play; Arena does not add a separate claim or matchmaking protocol.
-- The server/KV stores only the Arena identity/timing and participant scores.
+- The server/KV stores the Arena identity/timing, participant scores, and the bounded history of finished Arena results.
 - There is no dedicated matchmaking worker, matchmaking server, long-lived server process, or second game system.
-- For the MVP, support one active Arena at a time.
+- Support multiple concurrent Arenas, each isolated by its Arena ID.
 
 This is a plan only. Before implementation, inspect the existing challenge, table/game-result, and KV implementations and adapt their current contracts rather than creating parallel abstractions.
 
@@ -176,7 +176,16 @@ The important difference is progression: knockout tournaments are registered and
 
 ## Arena Data Model
 
-Persist only the minimum shared state in the existing KV store. The exact key layout should follow the project's current KV conventions and should be confirmed against the implementation before coding.
+Persist only the minimum shared state in the existing KV store. Arenas are addressed by ID so multiple Arenas can run concurrently. Use three namespaced working-key families plus one bounded result-history key:
+
+```text
+arena:{arenaId}          -> Arena metadata and participants
+arena:{arenaId}:scores   -> scores for that Arena
+arena:{arenaId}:scored   -> result/challenge IDs already scored for that Arena
+arena:results            -> JSON map of finished Arena ID -> final result
+```
+
+The first three are per-Arena working keys. They must be cleaned up after finalization, so finished Arenas do not leave an unbounded number of keys behind. `arena:results` retains only the ten most recent finished Arena results. This means there are three logical Arena working-key schemas, not three literal Redis keys; concurrent Arenas necessarily create separate namespaced instances.
 
 ```ts
 interface Arena {
@@ -196,7 +205,9 @@ interface ArenaPlayer {
 }
 ```
 
-The server does not retain Arena matchmaking, table, challenge, or game state. Existing challenge/table state and the authoritative game result remain responsible for the game itself. If duplicate result delivery is possible, use the existing result/challenge identity or the simplest existing persistence convention to avoid scoring the same completed game twice; do not introduce a separate Arena match system solely for this purpose.
+The server does not retain Arena matchmaking, table, challenge, or game state. Existing challenge/table state and the authoritative game result remain responsible for the game itself. If duplicate result delivery is possible, use the existing result/challenge identity in `arena:{arenaId}:scored` or the simplest existing persistence convention to avoid scoring the same completed game twice; do not introduce a separate Arena match system solely for this purpose.
+
+Each Arena is isolated by its ID: all metadata, score, and idempotency operations must use the same `arenaId`. Finished results are stored in `arena:results` as an ID-keyed JSON map. Each result should include the Arena metadata needed for history, the final leaderboard, and the final winner/podium data.
 
 The server is authoritative for Arena membership, score updates, and Arena lifecycle. Clients may discover opponents and render state, but must not award points locally.
 
@@ -204,13 +215,13 @@ The server is authoritative for Arena membership, score updates, and Arena lifec
 
 ### Creation and Scheduling
 
-Provide an Arena setup/admin path using the existing tournament UI conventions. The MVP may create or schedule one Arena with:
+Provide an Arena setup/admin path using the existing tournament UI conventions. The MVP may create or schedule multiple Arenas with:
 
 - an existing supported game type;
 - a one-hour duration;
 - `startTime`, `endTime`, and `status: "scheduled"` or `"active"` according to the existing deployment's scheduling convention.
 
-There must never be more than one active Arena in the MVP. The UI should derive countdown text from the persisted Arena timestamps, not from a client-created duration alone.
+Arenas may be created and run concurrently, and each Arena must be addressed by its own ID. The UI should derive each countdown from that Arena's persisted timestamps, not from a client-created duration alone. Arena IDs must be included in shareable URLs and every Arena API operation.
 
 At or after `startTime`, the Arena is `active`; at or after `endTime`, it is `finished`. The transition may be triggered lazily by an API request or client interaction, but it must be enforced server-side on every operation that creates a match or changes Arena state.
 
@@ -329,11 +340,18 @@ Leaderboard and participant updates should follow the application's existing rea
 
 At or after `endTime`:
 
-- transition the Arena to `finished`;
-- reject all new Arena challenges and game creation;
+- transition that Arena to `finished`;
+- reject all new challenges and game creation for that Arena;
 - allow already-started games to finish through the existing game flow;
 - apply valid results from those games exactly once;
-- calculate and display the final eligible winner from completed Arena scores.
+- calculate the final eligible winner and podium from completed Arena scores;
+- after a result-finalization grace period, write the final result into `arena:results` under the Arena ID;
+- retain only the ten most recent finished results in that map;
+- delete `arena:{arenaId}`, `arena:{arenaId}:scores`, and `arena:{arenaId}:scored`.
+
+Finalization and cleanup must be idempotent and protected against partial failures. The grace period must be long enough for already-started games and duplicate result deliveries to be handled before the idempotency key is deleted. Add a safety TTL to each Arena's working keys so failed cleanup cannot leave keys indefinitely. The retained result must contain enough data to render the finished Arena after its working keys have been deleted.
+
+Finalization and cleanup must be idempotent and protected against partial failures. The grace period must be long enough for already-started games and duplicate result deliveries to be handled before the idempotency key is deleted. Add a safety TTL to each Arena's working keys so failed cleanup cannot leave keys indefinitely. The retained result must contain enough data to render the finished Arena after its working keys have been deleted.
 
 A player must not start a new Arena game after the end time, even if their client has stale `available` state. Existing games finishing after `endTime` may update the final scores if they were claimed before the deadline, subject to the existing result rules.
 
@@ -364,6 +382,7 @@ Keep the live leaderboard visible throughout the Arena experience. Reuse the exi
 ## Arena Navigation and Page Context
 
 - The Arena page URL must identify the Arena using the existing shareable tournament identity convention.
+- Every Arena API operation must include or derive the Arena ID; no global mutable `arena`, `arena:scores`, or `arena:scored` key may be used for concurrent Arenas.
 - A player joining from `arena.html` remains associated with that Arena when redirected into an existing billiards game.
 - Returning from a completed game restores `arena.html` and resumes client-driven opponent discovery while the Arena is active.
 - The page must not require the knockout tournament page to be loaded or mounted.
@@ -372,7 +391,7 @@ Keep the live leaderboard visible throughout the Arena experience. Reuse the exi
 
 Keep the MVP small:
 
-- one active Arena;
+- multiple concurrent Arenas addressed by Arena ID;
 - one-hour duration;
 - client-driven discovery;
 - existing challenge acceptance resolves pairing;
@@ -408,4 +427,7 @@ Add focused tests after the existing implementations have been inspected. Cover:
 - completed matches release players for another game;
 - end-time enforcement blocks new Arena challenges while allowing already-started games to finish;
 - leaderboard sorting, zero-game percentages, bot eligibility, and final winner display;
-- client refresh/reconnect reconstructs the leaderboard and player status from shared state.
+- client refresh/reconnect reconstructs the leaderboard and player status from shared state;
+- concurrent Arenas remain isolated by Arena ID;
+- finalization writes an ID-keyed result to `arena:results`, retains only the ten newest results, and removes the finished Arena's working keys;
+- abandoned or failed-cleanup Arenas are eventually removed by working-key TTLs.

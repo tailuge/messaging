@@ -22,6 +22,7 @@ class ChallengeModal extends LitElement {
             rules: [
                 { id: 'eightball', label: 'Eight Ball', img: 'assets/eightball.png' },
                 { id: 'eightball', label: 'Eight Ball (Free Aim)', img: 'assets/eightball.png', options: { freeaim: 'true'} },
+                { id: 'eightball', label: 'Eight Ball Mini (Free Aim)', img: 'assets/baby.png', options: { freeaim: 'true', tableSize: '6'} },
             ],
         },
         {
@@ -31,6 +32,7 @@ class ChallengeModal extends LitElement {
             rules: [
                 { id: 'nineball', label: 'Nine Ball', img: 'assets/nineball.png' },
 		{ id: 'nineball', label: 'Nine Ball (Free Aim)', img: 'assets/nineball.png', options: { freeaim: 'true'} },
+                { id: 'nineball', label: 'Nine Ball Mini (Free Aim)', img: 'assets/baby.png', options: { freeaim: 'true', tableSize: '6'} },
             ],
         },
         {
