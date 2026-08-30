@@ -294,7 +294,7 @@ class OnlinePanel extends LitElement {
             .filter(u => u.meta?.country !== 'BOT')
             .map(u => {
                 const { meta = {}, ...user } = u;
-                const { ts: _ts, since: _since, ...restMeta } = meta;
+                const { ts: _ts, ...restMeta } = meta;
                 return { ...user, meta: restMeta };
             });
         console.log('=== USERS ===');

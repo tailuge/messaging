@@ -64,6 +64,12 @@ describe("Lobby Logic", () => {
     it("should not mark a game without freeaim", () => {
       expect(getEmoji("", "sagu", "", {})).toEqual({ emoji: "④", title: "sagu" });
     });
+
+    it("should handle origin starting with / or containing workers", () => {
+      expect(getEmoji("/lobby", "sagu")).toEqual({ emoji: "④", title: "sagu" });
+      expect(getEmoji("/lobby", "")).toEqual({ emoji: "👤", title: "vercel" });
+      expect(getEmoji("/", "")).toEqual({ emoji: "👤", title: "vercel" });
+    });
   });
 
   describe("spectateUrl", () => {

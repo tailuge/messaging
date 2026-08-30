@@ -160,9 +160,9 @@ export function getEmoji(origin = "", ruleType = "", status = "", options = {}) 
 
   // 2. Check origin patterns
 
+    if (origin.startsWith("/") || origin.includes("workers")) return { emoji: "👤", title: "vercel" };
     if (origin.includes("github")) return { emoji: "🐙", title: "github" };
     if (origin.includes("vercel")) return { emoji: "👥", title: "vercel" };
-    if (origin.includes("workers")) return { emoji: "👤", title: "vercel" };
     if (origin.includes("localhost")) return { emoji: "🏠", title: "localhost" };
 
   return ruleMap[ruleType] ?? { emoji: "🎮", title: "external" };
