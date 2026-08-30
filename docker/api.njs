@@ -3,6 +3,10 @@ function json(r, status, obj) {
     r.return(status, JSON.stringify(obj));
 }
 
+function logApi(message) {
+    ngx.log(ngx.ERR, "API: " + message);
+}
+
 async function hello(r) {
     const upstashUrl = process.env.UPSTASH_URL || "not set";
     r.headersOut['Content-Type'] = 'text/plain';
@@ -24,9 +28,11 @@ async function redis() {
     const args = Array.prototype.slice.call(arguments);
     const url = process.env.UPSTASH_REDIS_REST_URL;
     const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-    if (!url || !token) throw new Error("UPSTASH_REDIS_REST_URL/TOKEN não configurados");
-    const res = await ngx.fetch(url, {
-        method: "POST",
+    if (!url || !token) throw new Error("UPSTASH_REDIS_REST_URL/TOKEN não configurados");        if (typeof url !== "string" || !/^https?:\/\//.test(url)) {
+            throw new Error("UPSTASH_REDIS_REST_URL must start with http:// or https://");
+        }
+        const res = await ngx.fetch(url, {
+            method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify(args),
     });
@@ -36,8 +42,9 @@ async function redis() {
 }
 
 const K_RESULTS = "arena:results";
+const K_ACTIVE = "arena:active";
 const RESULT_HISTORY_LIMIT = 10;
-const SCORED_TTL_MS = 2 * 60 * 60 * 1000;
+const ARENA_DURATION_MINUTES = [10, 30];
 const WORKING_TTL_SECONDS = 4 * 60 * 60;
 
 function arenaKeys(arenaId) {
@@ -110,6 +117,24 @@ function arenaIdFromUri(r, suffix) {
     return match ? decodeURIComponent(match[1]) : null;
 }
 
+async function arenaList(r) {
+    const ids = (await redis("SMEMBERS", K_ACTIVE)) || [];
+    const arenas = [];
+    const stale = [];
+    for (let i = 0; i < ids.length; i += 1) {
+        const id = String(ids[i]);
+        const arena = await loadArena(id);
+        if (!arena || arena.status === "finished") {
+            stale.push(id);
+        } else {
+            arenas.push(arena);
+        }
+    }
+    for (let i = 0; i < stale.length; i += 1) await redis("SREM", K_ACTIVE, stale[i]);
+    arenas.sort((a, b) => b.createdAt - a.createdAt);
+    return json(r, 200, { status: "success", arenas: arenas });
+}
+
 async function arenaGet(r, arenaId) {
     const arena = await loadArena(arenaId);
     if (!arena) return json(r, 404, { error: "Nenhuma Arena criada" });
@@ -127,21 +152,37 @@ async function arenaResultsGet(r) {
 
 async function arenaCreate(r) {
     const body = await readBody(r);
-    if (!body || !body.gameType) return json(r, 400, { error: body ? "gameType obrigatório" : "JSON inválido" });
-    const start = typeof body.startTime === "number" ? body.startTime : Date.now();
-    const duration = typeof body.durationMs === "number" && body.durationMs > 0 ? body.durationMs : 60 * 60 * 1000;
+    if (!body) return json(r, 400, { error: "JSON inválido" });
+    logApi("create payload=" + JSON.stringify(body));
+    if (typeof body.ruleType !== "string" || !body.ruleType) {
+        return json(r, 400, { error: "ruleType obrigatório" });
+    }
+    if (!body.options || typeof body.options !== "object" || Array.isArray(body.options)) {
+        return json(r, 400, { error: "options obrigatório" });
+    }
+    if (typeof body.durationMinutes !== "number" || ARENA_DURATION_MINUTES.indexOf(body.durationMinutes) === -1) {
+        return json(r, 400, { error: "durationMinutes deve ser 10 ou 30" });
+    }
+    const start = Date.now();
+    const duration = body.durationMinutes * 60 * 1000;
     const id = "arena-" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
     const arena = {
         id,
-        gameType: String(body.gameType),
+        creatorId: body.creatorId ? String(body.creatorId) : "",
+        creatorName: body.creatorName ? String(body.creatorName) : "Anonymous",
+        ruleType: body.ruleType,
+        options: body.options,
+        durationMinutes: body.durationMinutes,
         startTime: start,
         endTime: start + duration,
-        status: start > Date.now() ? "scheduled" : "active",
+        status: "active",
         players: [],
-        createdAt: Date.now(),
+        createdAt: start,
     };
     const keys = arenaKeys(id);
+    logApi("creating arena " + id + " creator=" + arena.creatorName + " ruleType=" + arena.ruleType);
     await redis("SET", keys.arena, JSON.stringify(arena), "EX", String(WORKING_TTL_SECONDS), "NX");
+    await redis("SADD", K_ACTIVE, id);
     await redis("EXPIRE", keys.scores, String(WORKING_TTL_SECONDS));
     await redis("EXPIRE", keys.scored, String(WORKING_TTL_SECONDS));
     return json(r, 201, { status: "success", arena });
@@ -213,6 +254,7 @@ async function router(r) {
     try {
         if (r.uri === '/api/hello' && r.method === 'GET') return await hello(r);
         if (r.uri.startsWith('/api/usage/') && r.method === 'PUT') return await usage(r);
+            if (r.uri === '/api/arena' && r.method === 'GET') return await arenaList(r);
         if (r.uri === '/api/arena' && r.method === 'POST') return await arenaCreate(r);
         if (r.uri === '/api/arena/results' && r.method === 'GET') return await arenaResultsGet(r);
         if (r.uri.startsWith('/api/arena/') && r.method === 'GET') {
@@ -227,7 +269,8 @@ async function router(r) {
         if (resultId && validArenaId(resultId) && r.method === 'POST') return await arenaResult(r, resultId);
         return json(r, 404, { error: "Not Found", uri: r.uri, method: r.method });
     } catch (e) {
-        return json(r, 500, { error: "Internal Server Error", message: e.message });
+        logApi("request failed: " + (e && e.stack ? e.stack : e));
+        return json(r, 500, { error: "Internal Server Error", message: e && e.message ? e.message : String(e) });
     }
 }
 
