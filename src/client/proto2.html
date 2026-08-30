@@ -191,6 +191,10 @@
         },
       ];
 
+      // Every game supports the same table-size choice; keep it independent
+      // from the rule-specific variant definitions.
+      for (const game of GAMES) game.sizes = true;
+
       const ls = {
         get(k, d) { const v = localStorage.getItem(`proto2_${k}`); return v === null ? d : v; },
         set(k, v) { localStorage.setItem(`proto2_${k}`, v); },
@@ -427,6 +431,9 @@
         _selectSize(size) {
           this._size = size;
           ls.set(`size_${this._sel}`, size);
+          if (this._sel === 'snooker' && size === 'mini' && !['3', '6'].includes(this._vid[this._sel])) {
+            this._selectVariant('3');
+          }
         }
 
         _toggleFreeaim() {
@@ -436,7 +443,7 @@
 
         _confirm() {
           const opts = this._isHc ? {} : { ...this.variant.options };
-          if (this.game.sizes) opts.tableSize = this._size === 'mini' ? '5' : '12';
+          opts.tableSize = this._size === 'mini' ? '5' : '12';
           if (this.game.freeaim && this._freeaim && !opts.freeaim) opts.freeaim = 'true';
           emit(this, 'confirm', {
             mode: this.mode,
@@ -498,7 +505,9 @@
                     ${g.variants.length > 1 ? html`
                       <div class="choice-group">
                         <span class="choice-label">Rule:</span>
-                        ${g.variants.map(v => html`
+                        ${g.variants
+                          .filter(v => g.key !== 'snooker' || this._size !== 'mini' || ['3', '6'].includes(v.id))
+                          .map(v => html`
                           <button
                             class="chip ${this.variant.id === v.id ? 'selected' : ''}"
                             role="radio"
