@@ -102,12 +102,11 @@ function buildLeaderboard(arena, scores) {
     const rows = arena.players.map((rec) => ({
         playerId: rec.playerId,
         name: rec.name,
-        elo: typeof rec.elo === "number" ? rec.elo : 0,
         points: scoreFor(scores, rec.playerId).points,
         wins: scoreFor(scores, rec.playerId).wins,
         games: scoreFor(scores, rec.playerId).games,
     }));
-    rows.sort((a, b) => b.points - a.points || b.elo - a.elo ||
+    rows.sort((a, b) => b.points - a.points ||
         (a.playerId < b.playerId ? -1 : a.playerId > b.playerId ? 1 : 0));
     return rows;
 }
@@ -183,8 +182,6 @@ async function arenaCreate(r) {
         players: SEEDED_PLAYERS.map((player) => ({
             playerId: player.playerId,
             name: player.name,
-            elo: 0,
-            joinedAt: start,
             active: true,
         })),
         createdAt: start,
@@ -209,8 +206,6 @@ async function arenaJoin(r, arenaId) {
     arena.players.push({
         playerId: String(body.playerId),
         name: String(body.name || body.playerId),
-        elo: typeof body.elo === "number" ? body.elo : 0,
-        joinedAt: Date.now(),
         active: true,
     });
     const keys = arenaKeys(arenaId);

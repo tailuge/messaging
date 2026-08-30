@@ -38,6 +38,9 @@ class ArenaView extends LitElement {
         .inactive { color: var(--text-muted); opacity: .65; }
         .online-dot { display: inline-block; width: .45rem; height: .45rem; margin-right: .3rem; border-radius: 50%; background: #198754; vertical-align: middle; }
         .empty { color: var(--text-muted); text-align: center; padding: 1rem 0; }
+        .leaderboard-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
+        .leaderboard-header .title { margin: 0; }
+        .countdown { font-size: .85rem; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
     `];
 
     constructor() {
@@ -50,18 +53,43 @@ class ArenaView extends LitElement {
         this._presenceClient = null;
         this._lobby = null;
         this._error = '';
+        this._timer = null;
     }
 
     connectedCallback() {
         super.connectedCallback();
         this._load();
         this._connectPresence();
+        this._timer = setInterval(() => {
+            if (this._arena) {
+                this.requestUpdate();
+            }
+        }, 1000);
     }
 
     disconnectedCallback() {
+        if (this._timer) {
+            clearInterval(this._timer);
+            this._timer = null;
+        }
         this._lobby?.leave();
         this._presenceClient?.stop();
         super.disconnectedCallback();
+    }
+
+    _getCountdownText() {
+        if (!this._arena || !this._arena.endTime) return '';
+        const remaining = Math.max(0, this._arena.endTime - Date.now());
+        if (remaining <= 0 || this._arena.status === 'finished') return '00:00';
+        const totalSec = Math.floor(remaining / 1000);
+        const m = Math.floor(totalSec / 60);
+        const s = totalSec % 60;
+        if (m >= 60) {
+            const h = Math.floor(m / 60);
+            const remM = m % 60;
+            return `${String(h).padStart(2, '0')}:${String(remM).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     }
 
     async _connectPresence() {
@@ -148,7 +176,10 @@ class ArenaView extends LitElement {
                     </div>
                 </section>
                 <section class="panel">
-                    <h2 class="title">Leaderboard</h2>
+                    <div class="leaderboard-header">
+                        <h2 class="title">Leaderboard</h2>
+                        ${arena?.endTime ? html`<div class="countdown" aria-label="Time remaining">${this._getCountdownText()}</div>` : ''}
+                    </div>
                     ${this._leaderboard.length ? html`<table class="players"><thead><tr><th>Player</th><th>Points</th><th>Wins</th><th>Games</th></tr></thead><tbody>${this._leaderboard.map(row => {
                         const record = arena.players.find(p => p.playerId === row.playerId);
                         const onlineUser = this._onlineUsers.find(user =>
