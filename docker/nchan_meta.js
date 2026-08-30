@@ -51,12 +51,25 @@ function parseUA(ua) {
 
 function reduceUA(ua) {
   if (!ua) return "";
-  return ua
+  var reduced = ua;
+  if (/Chrome\/|Edg\//i.test(reduced)) {
+    reduced = reduced.replace(/\s*Safari\/[\d.]+/g, "");
+  }
+  return reduced
     .replace(/Mozilla\/[\d.]+/g, "")
     .replace(/AppleWebKit\/[\d.]+/g, "")
     .replace(/\(KHTML, like Gecko\)/g, "")
     .replace(/\s{2,}/g, " ")
     .trim();
+}
+
+function reduceOrigin(origin) {
+  if (!origin) return "";
+  if (origin.startsWith("https://billiards.tailuge.workers.dev") || origin.startsWith("http://billiards.tailuge.workers.dev")) {
+    var path = origin.replace(/^https?:\/\/billiards\.tailuge\.workers\.dev/, "");
+    return path.length > 0 ? path : "/";
+  }
+  return origin;
 }
 
 function createMessageId() {
@@ -65,15 +78,14 @@ function createMessageId() {
   });
 }
 
-function createMeta(r, country, city, since) {
+function createMeta(r, country, city) {
   return {
     ts: Date.now(),
     msgId: createMessageId(),
     ua: reduceUA(r.headersIn["user-agent"] || ""),
-    origin: r.headersIn.origin || "",
+    origin: reduceOrigin(r.headersIn.origin || ""),
     country: country,
     city: city || "",
-    since: since,
   };
 }
 
@@ -81,7 +93,7 @@ async function buildMeta(r) {
   const ip = getClientIp(r);
   const obfuscatedIp = obfuscateIp(ip);
   const cache = ngx.shared.ip_cache;
-  const origin = r.headersIn.origin || "";
+  const origin = reduceOrigin(r.headersIn.origin || "");
   const parsedUA = parseUA(r.headersIn["user-agent"] || "");
   const cached = cache.get(obfuscatedIp);
 
@@ -97,9 +109,8 @@ async function buildMeta(r) {
       originsArr.push(obfuscatedOrigin);
       origins = originsArr.join(",");
     }
-    const since = parseInt(parts[4]) || Date.now();
-    cache.set(obfuscatedIp, `${country}|${city}|${count + 1}|${origins}|${since}|${parsedUA.os}|${parsedUA.browser}`, 86400000);
-    return createMeta(r, country, city, since);
+    cache.set(obfuscatedIp, `${country}|${city}|${count + 1}|${origins}|${parsedUA.os}|${parsedUA.browser}`, 86400000);
+    return createMeta(r, country, city);
   }
 
   let country = "XX";
@@ -117,9 +128,8 @@ async function buildMeta(r) {
   }
 
   const obfuscatedOrigin = origin ? obfuscateOrigin(origin) : "";
-  const since = Date.now();
-  cache.set(obfuscatedIp, `${country}|${city}|1|${obfuscatedOrigin}|${since}|${parsedUA.os}|${parsedUA.browser}`, 86400000);
-  return createMeta(r, country, city, since);
+  cache.set(obfuscatedIp, `${country}|${city}|1|${obfuscatedOrigin}|${parsedUA.os}|${parsedUA.browser}`, 86400000);
+  return createMeta(r, country, city);
 }
 
 function mergeMeta(payload, meta) {

@@ -30,8 +30,7 @@ describe("Lobby - Presence Deduplication", () => {
         "origin": "https://billiards.tailuge.workers.dev",
         "country": "US",
         "city": "San Francisco",
-        "since": 1779273093068,
-        "version": "260520.06-8"
+                "version": "260520.06-8"
       }
     }
   ];

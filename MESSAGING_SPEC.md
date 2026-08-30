@@ -190,7 +190,6 @@ interface Meta {
   origin: string; // Origin header value
   method: string; // HTTP method (always POST for publish)
   country: string; // Country code from IP (e.g., "US", "GB", "XX")
-  since?: number; // First-seen time for the obfuscated client address
   version?: string; // Optional client software version
 }
 ```

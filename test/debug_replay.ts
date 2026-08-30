@@ -14,8 +14,7 @@ const messages = [
       "origin": "https://billiards.tailuge.workers.dev",
       "country": "GB",
       "city": "x",
-      "since": 1781710676329,
-      "version": "v4.37"
+            "version": "v4.37"
     }
   },
   {
@@ -30,8 +29,7 @@ const messages = [
       "origin": "https://billiards.tailuge.workers.dev",
       "country": "GB",
       "city": "x",
-      "since": 1781710676329,
-      "version": "v4.37"
+            "version": "v4.37"
     }
   }
 ];

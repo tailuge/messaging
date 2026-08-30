@@ -82,7 +82,7 @@ describe("Lobby - Sentinel Failure", () => {
         userId: "Alice-9dds3",
         userName: "Alice", 
         clientTs: 1782321463278,
-        meta: { ts: 1782321463280, origin: "http://localhost", since: 1782321463258, version: "v4.99" }
+        meta: { ts: 1782321463280, origin: "http://localhost", version: "v4.99" }
       },
       {
         messageType: "presence",
@@ -90,7 +90,7 @@ describe("Lobby - Sentinel Failure", () => {
         userId: "Bob-9dds3",
         userName: "Bob",
         clientTs: 1782321463282,
-        meta: { ts: 1782321463284, origin: "http://localhost", since: 1782321463258, version: "v4.99" }
+        meta: { ts: 1782321463284, origin: "http://localhost", version: "v4.99" }
       },
       {
         messageType: "presence",
@@ -98,7 +98,7 @@ describe("Lobby - Sentinel Failure", () => {
         userId: "Carol-9dds3", 
         userName: "Carol",
         clientTs: 1782321463295,
-        meta: { ts: 1782321463297, origin: "http://localhost", since: 1782321463258, version: "v4.99" }
+        meta: { ts: 1782321463297, origin: "http://localhost", version: "v4.99" }
       },
       // Heartbeats
       {
@@ -107,7 +107,7 @@ describe("Lobby - Sentinel Failure", () => {
         userId: "Alice-9dds3",
         userName: "Alice",
         clientTs: 1782321466285,
-        meta: { ts: 1782321466287, origin: "http://localhost", since: 1782321463258, version: "v4.99" }
+        meta: { ts: 1782321466287, origin: "http://localhost", version: "v4.99" }
       },
       {
         messageType: "presence",
@@ -115,7 +115,7 @@ describe("Lobby - Sentinel Failure", () => {
         userId: "Bob-9dds3",
         userName: "Bob", 
         clientTs: 1782321466288,
-        meta: { ts: 1782321466290, origin: "http://localhost", since: 1782321463258, version: "v4.99" }
+        meta: { ts: 1782321466290, origin: "http://localhost", version: "v4.99" }
       },
       {
         messageType: "presence",
@@ -123,7 +123,7 @@ describe("Lobby - Sentinel Failure", () => {
         userId: "Carol-9dds3",
         userName: "Carol",
         clientTs: 1782321466302,
-        meta: { ts: 1782321466303, origin: "http://localhost", since: 1782321463258, version: "v4.99" }
+        meta: { ts: 1782321466303, origin: "http://localhost", version: "v4.99" }
       },
       // Carol leaves twice (one internal, one normal)
       {
@@ -138,7 +138,7 @@ describe("Lobby - Sentinel Failure", () => {
         userId: "Carol-9dds3",
         userName: "Carol", 
         clientTs: 1782321476992,
-        meta: { ts: 1782321476998, origin: "http://localhost", since: 1782321463258, version: "v4.99" }
+        meta: { ts: 1782321476998, origin: "http://localhost", version: "v4.99" }
       }
     ];
     
