@@ -119,11 +119,12 @@ The Arena detail response must return this exact configuration so a future clien
 - When pairing starts, overlay the leaderboard with a `Pairing` state.
 - The overlay must show a ten-second countdown, starting at 10 seconds and decrementing to zero.
 - Do not select or challenge a candidate before the ten-second countdown completes.
-- When the countdown reaches zero, select one eligible candidate at random and initiate the existing challenge action for that opponent.
+- When the countdown reaches zero, select one eligible candidate at random and kick off the match according to the launch path in **Pairing launch path (bot vs human)** (direct game URL for a bot, a messaging challenge carrying `tournamentId` for a human).
 - After a candidate is selected, replace the countdown state with `Paired with <player name>` for two seconds.
 - After the two-second confirmation, return to the normal leaderboard view.
 - If no eligible candidates exist when the countdown completes, do not issue a challenge; show an appropriate no-available-opponent result and return to the normal leaderboard view.
 - Pairing must be cancellable or safely ignored if the player leaves the Arena, the Arena finishes, or the player is no longer eligible before the countdown completes.
+- If, while the pairing countdown is active, the player receives an incoming challenge offer, that offer supersedes the pairing session: cancel the pairing countdown immediately and hand off to the incoming challenge's normal accept/launch flow instead of selecting a random candidate.
 
 ### Leaderboard and history
 
@@ -134,6 +135,16 @@ The Arena detail response must return this exact configuration so a future clien
 - Retain the ten most recent finished Arena results globally.
 - History entries must be sufficient to render a finished Arena without relying on deleted working keys: Arena ID, full opaque game configuration, timing, final participants/leaderboard, and winner/result summary when scoring is later implemented.
 - The history UI should show recent finished Arenas and link to their retained result pages/details.
+
+### Pairing launch path (bot vs human)
+
+When the countdown completes and a candidate is selected, the way the match is kicked off depends on who was chosen:
+
+- **Bot opponent.** If the selected opponent is a seeded bot (`TheFarJaw` or `ClawBreak`), launch the game directly through the game URL, exactly like a challenge against a lobby bot. This is a client-side redirect to `gameUrl`, the challenger opens the game as first player, and no messaging challenge is issued or accepted.
+- **Human opponent.** If the selected opponent is a human, do not navigate to any URL on the challenger's side. Instead, issue a normal challenge over the messaging framework, identical to a challenge issued from the lobby. The only addition is the Arena's ID carried on the challenge as `tournamentId` (embedded in the game configuration, e.g. in the challenge `options`), so the resulting game page can link back to the Arena.
+- **Auto-accept.** The recipient side handles the challenge offer normally. If the recipient has joined the same Arena (i.e. is a participant in the Arena whose ID matches the challenge's `tournamentId`), the recipient auto-accepts without manual confirmation. This is the standard challenge accept flow already implemented in the lobby client; no new accept mechanism is required.
+- **Launch on accept.** When this normal challenge accept flow completes, both clients launch the game URL via the existing challenge-accept handling. No separate game-launch path is introduced for human opponents; the arena pairing simply reuses the lobby challenge/accept flow with `tournamentId` attached.
+- **Incoming challenge supersedes pairing.** If a challenge offer arrives for the current player while a pairing countdown is running, cancel the pairing session immediately. The incoming challenge takes precedence over the random selection and proceeds through its normal flow: if it carries a `tournamentId` matching an Arena the player has joined, it auto-accepts and both sides launch the game URL.
 
 ### Ties
 
@@ -177,10 +188,14 @@ The Arena detail response must return this exact configuration so a future clien
 
 1. A joined player in an active Arena activates pairing.
 2. The leaderboard is covered by a `Pairing` overlay with a ten-second countdown.
-3. At countdown completion, the client intersects Arena leaderboard participants with currently online, non-playing lobby users, excludes the current player, and chooses one eligible opponent at random.
-4. The client initiates the existing challenge action for the selected opponent.
-5. The overlay shows `Paired with <player name>` for two seconds, then returns to the leaderboard.
-6. If there is no eligible opponent, no challenge is sent and the normal leaderboard is restored.
+3. If, before the countdown completes, the player receives an incoming challenge offer, that offer supersedes pairing: cancel the countdown and continue with the incoming challenge's accept/launch flow instead of selecting a candidate at random.
+4. At countdown completion, the client intersects Arena leaderboard participants with currently online, non-playing lobby users, excludes the current player, and chooses one eligible opponent at random.
+5. The selected opponent determines how the match starts:
+   - If the opponent is a bot, the client navigates the challenger directly to the game URL.
+   - If the opponent is a human, the client issues a normal lobby challenge carrying `tournamentId`; no direct navigation happens on the challenger's side.
+6. If the selected opponent is a human who is joined to the same Arena, their client auto-accepts the offer and both clients launch the game URL through the existing challenge-accept flow.
+7. The overlay shows `Paired with <player name>` for two seconds, then returns to the leaderboard.
+8. If there is no eligible opponent, no challenge is sent and the normal leaderboard is restored.
 
 ### Finish and history
 
@@ -359,13 +374,9 @@ The current API's result endpoint may remain behind a feature boundary until aut
 
 ## Explicitly Deferred
 
-- Automatic matchmaking and opponent selection.
-- Existing challenge/acceptance integration and Arena metadata on challenges.
-- Table/game launch and return-to-Arena flow. The future flow should use Arena ID to retrieve the stored opaque configuration.
 - Authoritative result subscription/hookup.
 - Server-side point awarding and idempotent result scoring.
 - Elo sorting and final podium/medals.
-- Presence-derived availability for matchmaking.
 - Real-time push updates or polling beyond an explicit refresh button.
 - Authentication/authorization stronger than the existing identified client convention.
 - Presets or server-maintained named ruleset templates.
@@ -385,6 +396,11 @@ The current API's result endpoint may remain behind a feature boundary until aut
 - Do not challenge a user who is playing according to the latest lobby online-user state.
 - Re-evaluate pairing eligibility when the countdown completes, not only when pairing begins.
 - Ensure only one pairing countdown/challenge attempt can be active for a player at a time.
+- A bot opponent is launched directly via the game URL; it must not receive a messaging challenge.
+- A human opponent is matched via a messaging challenge carrying `tournamentId` (the Arena ID); the challenger must not navigate to a game URL directly.
+- A challenge issued by arena pairing is auto-accepted only when the recipient has joined the same Arena (`tournamentId` matches the recipient's joined Arena); recipients not in that Arena must not be force-accepted.
+- If no eligible opponent is found, no challenge is sent and the leaderboard is restored to its normal view.
+- An incoming challenge offer received during an active pairing countdown supersedes pairing: the countdown is cancelled and the incoming challenge's accept/launch flow proceeds.
 - Reject joins after lazy status transition to `finished`, even if the client displays stale `active` state.
 - Make repeated leave requests harmless or return a clear already-inactive response.
 - Ensure two Arena IDs cannot read or mutate each other's players/configuration/history.
@@ -407,6 +423,9 @@ The current API's result endpoint may remain behind a feature boundary until aut
 - Refresh reconstructs the same Arena state from the API/KV.
 - Finished Arenas reject new joins and appear in the ten-item history with their full configuration.
 - History is bounded to the ten newest finished Arenas and contains enough data for a standalone finished view.
+- Pairing launches a bot opponent directly via the game URL and issues no messaging challenge.
+- Pairing against a human reuses the lobby challenge flow with `tournamentId` (the Arena ID) attached; the recipient auto-accepts when joined to the same Arena, and both clients then launch the game URL through the existing accept flow.
+- An incoming challenge offer during an active pairing countdown supersedes the pairing session and proceeds via the challenge's accept/launch flow.
 - The knockout tournament flow remains unchanged.
 - `npm run build:all` completes successfully and the Docker/NJS configuration starts without syntax errors.
 
@@ -418,7 +437,7 @@ The current API's result endpoint may remain behind a feature boundary until aut
 4. Add join/leave validation and idempotent participant updates.
 5. Add lazy lifecycle transition and bounded history finalization.
 6. Build the independent Arena list/detail/history Lit UI with refresh-driven updates.
-7. Integrate Arena detail pairing with lobby online-user presence and the existing challenge action.
-8. Add focused tests for create/config round-tripping, list/get, join, leave, expiry/history, concurrent Arena isolation, pairing eligibility, countdown completion, random selection, and cancellation.
+7. Integrate Arena detail pairing with lobby online-user presence: bots launch directly via `gameUrl`, humans receive a lobby challenge carrying `tournamentId`, auto-accept fires for recipients joined to the same Arena, and any incoming challenge during the countdown supersedes pairing.
+8. Add focused tests for create/config round-tripping, list/get, join, leave, expiry/history, concurrent Arena isolation, pairing eligibility, countdown completion, random selection, cancellation, challenge auto-accept gating, and bot-direct vs human-challenge launch.
 9. Run `npm run build:all` and relevant tests.
-10. Specify and implement full game launch/result integration only in a later phase, using Arena ID to retrieve the stored configuration.
+10. Specify and implement authoritative result/scoring integration only in a later phase, using Arena ID to retrieve the stored configuration.

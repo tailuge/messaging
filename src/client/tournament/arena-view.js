@@ -9,8 +9,19 @@ const API_BASE = window.location.hostname === 'localhost' || window.location.hos
     : 'https://billiards-network.onrender.com';
 
 // Bot player IDs that require direct game launch rather than a lobby challenge.
-const BOT_IDS = ['arena-thefarjaw', 'arena-clawbreak'];
-const BOT_NAMES = { 'arena-thefarjaw': 'TheFarJaw', 'arena-clawbreak': 'ClawBreak' };
+// Keep the legacy IDs here too so Arenas created before the current API naming
+// convention still pair with their seeded bots correctly.
+const BOT_IDS = new Set([
+    'arena-thefarjaw', 'arena-clawbreak',
+    'bot-thefarjaw', 'bot-clawbreak',
+]);
+const BOT_NAMES = {
+    'arena-thefarjaw': 'TheFarJaw',
+    'arena-clawbreak': 'ClawBreak',
+    'bot-thefarjaw': 'TheFarJaw',
+    'bot-clawbreak': 'ClawBreak',
+};
+const isBotId = playerId => BOT_IDS.has(playerId);
 
 // Pairing countdown duration in seconds.
 const PAIRING_COUNTDOWN_SECONDS = 10;
@@ -108,6 +119,7 @@ class ArenaView extends LitElement {
         this._pairedName = '';
         this._pairingInterval = null;
         this._pairingTimeout = null;
+        this._pendingArenaChallenge = null;
     }
 
     connectedCallback() {
@@ -122,6 +134,7 @@ class ArenaView extends LitElement {
     disconnectedCallback() {
         if (this._timer) { clearInterval(this._timer); this._timer = null; }
         this._cancelPairing();
+        this._pendingArenaChallenge = null;
         this._lobby?.leave();
         this._presenceClient?.stop();
         super.disconnectedCallback();
@@ -166,9 +179,127 @@ class ArenaView extends LitElement {
                     userName: userStore.userName,
                 }];
             });
+            this._lobby.onChallenge(msg => {
+                if (msg.type === 'offer') {
+                    this._handleIncomingChallenge(msg);
+                } else {
+                    this._handleArenaChallengeMessage(msg);
+                }
+            });
         } catch (error) {
             console.error('Arena presence connection failed:', error);
         }
+    }
+
+    /**
+     * Handles an incoming challenge received over the messaging framework.
+     *
+     * Any offer addressed to the current player supersedes an active pairing
+     * countdown (per spec: an incoming challenge takes precedence over the random
+     * selection). If the offer carries a matching `tournamentId` and the current
+     * player has joined this Arena, it is auto-accepted and both sides launch the
+     * game URL through the existing challenge-accept flow.
+     */
+    async _handleIncomingChallenge(msg) {
+        if (msg.type !== 'offer' || msg.challengeeId !== userStore.clientId) return;
+
+        const wasPairing = this._pairingState === 'counting';
+        // Any incoming offer supersedes an active pairing countdown.
+        this._cancelPairing();
+
+        // Auto-accept only when the offer belongs to this Arena and we are joined & active.
+        const joinedActive = this._arena?.players?.some(p =>
+            p.playerId === userStore.clientId && p.active !== false);
+        if (!joinedActive || msg.options?.tournamentId !== this.arenaId) {
+            if (wasPairing) this.requestUpdate();
+            return;
+        }
+
+        await this._acceptArenaChallenge(msg);
+    }
+
+    /**
+     * Handles resolution messages for the human challenge initiated by this Arena.
+     * The sender must wait for an accept before launching the game, and must match
+     * the acknowledgement to the exact challenge table to avoid stale replayed
+     * accepts launching the wrong game.
+     */
+    _handleArenaChallengeMessage(msg) {
+        const pending = this._pendingArenaChallenge;
+        if (!pending) return;
+        if (msg.challengerId !== userStore.clientId || msg.challengeeId !== pending.opponentId) return;
+
+        if (msg.type === 'decline' || msg.type === 'cancel') {
+            this._pendingArenaChallenge = null;
+            return;
+        }
+        if (msg.type !== 'accept') return;
+
+        // The acknowledgement can arrive before lobby.challenge() resolves and
+        // exposes the generated tableId. Hold it until the challenge is complete.
+        if (!pending.tableId) {
+            pending.earlyAccept = msg;
+            return;
+        }
+        if (msg.tableId !== pending.tableId) return;
+
+        this._pendingArenaChallenge = null;
+        const ruleType = msg.ruleType || pending.ruleType;
+        const options = msg.options || pending.options;
+        const isFirst = msg.nextTurnId
+            ? msg.nextTurnId === userStore.clientId
+            : true;
+        const url = gameUrl({
+            tableId: msg.tableId,
+            userId: userStore.clientId,
+            userName: userStore.userName,
+            ruleType,
+            isFirst,
+            options,
+            lod: userStore.lod,
+            flip: userStore.flip,
+            opponent: { userId: pending.opponentId, userName: pending.opponentName },
+        });
+        window.location.href = url;
+    }
+
+    /**
+     * Auto-accepts an Arena challenge for which we are the recipient, then launches
+     * the game URL exactly like the existing lobby accept flow (we are the second
+     * joiner, so `isFirst` is false unless the challenger designated us first).
+     */
+    async _acceptArenaChallenge(msg) {
+        if (!this._lobby) return;
+
+        const ruleType = msg.ruleType || this._arena?.ruleType || 'nineball';
+        const options = msg.options || this._arena?.options || {};
+
+        try {
+            await this._lobby.acceptChallenge(
+                msg.challengerId,
+                ruleType,
+                msg.tableId,
+                options,
+                msg.challengerName,
+            );
+        } catch (err) {
+            console.error('Arena auto-accept failed:', err);
+            return;
+        }
+
+        const isFirst = msg.nextTurnId ? msg.nextTurnId === userStore.clientId : false;
+        const url = gameUrl({
+            tableId: msg.tableId,
+            userId: userStore.clientId,
+            userName: userStore.userName,
+            ruleType,
+            isFirst,
+            options,
+            lod: userStore.lod,
+            flip: userStore.flip,
+            opponent: { userId: msg.challengerId, userName: msg.challengerName || '' },
+        });
+        window.location.href = url;
     }
 
     // ── Arena data ────────────────────────────────────────────────────────────
@@ -219,45 +350,40 @@ class ArenaView extends LitElement {
     // ── Pairing ───────────────────────────────────────────────────────────────
 
     /**
-     * Returns the list of eligible pairing candidates, humans first then bots.
-     *
-     * Eligible means:
-     *   1. Present in the Arena leaderboard (i.e. joined the Arena).
-     *   2. The current user is excluded.
-     *   3. For human players: present in the lobby online-user list and not currently playing
-     *      (no tableId set on their presence record).
-     *   4. For seeded bots (arena-thefarjaw, arena-clawbreak): always available — they have
-     *      no real lobby presence, so they are included unconditionally when in the leaderboard.
-     *
-     * Humans are always placed before bots so that random selection from the full list
-     * naturally prefers a human when one is available.
-     *
-     * Eligibility is evaluated at call time so the countdown completion re-evaluates
-     * the freshest snapshot.
+     * Builds pairing candidates from the latest Arena and lobby snapshots.
+     * Humans are preferred as a group: bots are only returned when no eligible
+     * human is available.
      */
-    _findEligibleOpponents() {
+    _getPairingCandidates() {
         const myId = userStore.clientId;
         const humans = [];
         const bots = [];
+        const diagnostics = [];
 
         for (const row of this._leaderboard) {
             if (row.playerId === myId) continue;
 
-            if (BOT_IDS.includes(row.playerId)) {
-                bots.push(row);
-                continue;
-            }
-
-            // Human: must be online and not playing.
+            const bot = isBotId(row.playerId);
+            const record = this._arena?.players?.find(p => p.playerId === row.playerId);
             const onlineEntry = this._onlineUsers.find(u => u.userId === row.playerId);
-            if (!onlineEntry) continue;
-            if (onlineEntry.tableId) continue; // currently playing
+            const playing = !bot && Boolean(onlineEntry?.tableId);
+            const available = record?.active !== false && (bot || Boolean(onlineEntry && !playing));
+            const status = { playerId: row.playerId, name: row.name, playing, bot, available };
+            diagnostics.push(status);
 
-            humans.push(row);
+            if (!available) continue;
+            if (bot) bots.push(row);
+            else humans.push(row);
         }
 
-        // Humans first: if any humans are eligible, bots are excluded from the pool.
-        return humans.length > 0 ? humans : bots;
+        return {
+            candidates: humans.length > 0 ? humans : bots,
+            diagnostics,
+        };
+    }
+
+    _findEligibleOpponents() {
+        return this._getPairingCandidates().candidates;
     }
 
     _startPairing() {
@@ -309,15 +435,21 @@ class ArenaView extends LitElement {
      * no-opponent result and returns to the leaderboard.
      */
     async _executePairing() {
-        const candidates = this._findEligibleOpponents();
+        const { candidates, diagnostics } = this._getPairingCandidates();
 
         if (candidates.length === 0) {
+            console.log('[Arena pairing]', { candidates: diagnostics, choice: null });
             this._pairingState = 'no-opponent';
             this._pairingTimeout = setTimeout(() => this._cancelPairing(), PAIRED_DISPLAY_MS);
             return;
         }
 
         const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+        const chosenStatus = diagnostics.find(candidate => candidate.playerId === chosen.playerId);
+        console.log('[Arena pairing]', {
+            candidates: diagnostics,
+            choice: chosenStatus,
+        });
         this._pairedName = chosen.name;
         this._pairingState = 'paired';
 
@@ -341,7 +473,7 @@ class ArenaView extends LitElement {
         const options = arena?.options || {};
         const tournamentId = arena?.id || '';
 
-        if (BOT_IDS.includes(opponent.playerId)) {
+        if (isBotId(opponent.playerId)) {
             const botName = BOT_NAMES[opponent.playerId] || opponent.name;
             const tableId = 'arena-bot-' + Math.random().toString(36).slice(2, 8);
             const base = gameUrl({
@@ -366,11 +498,36 @@ class ArenaView extends LitElement {
 
         // Pass tournamentId through the options object so it travels with the challenge
         // and the game page can read it from URL params echoed back on accept.
-        await this._lobby.challenge(
-            opponent.playerId,
+        const challengeOptions = { ...options, tournamentId };
+        const pending = {
+            opponentId: opponent.playerId,
+            opponentName: opponent.name,
             ruleType,
-            { ...options, tournamentId },
-        );
+            options: challengeOptions,
+            tableId: null,
+            earlyAccept: null,
+        };
+        this._pendingArenaChallenge = pending;
+
+        try {
+            const tableId = await this._lobby.challenge(
+                opponent.playerId,
+                ruleType,
+                challengeOptions,
+            );
+            pending.tableId = tableId;
+
+            if (pending.earlyAccept) {
+                const earlyAccept = pending.earlyAccept;
+                pending.earlyAccept = null;
+                this._handleArenaChallengeMessage(earlyAccept);
+            }
+        } catch (error) {
+            if (this._pendingArenaChallenge === pending) {
+                this._pendingArenaChallenge = null;
+            }
+            throw error;
+        }
     }
 
     // ── Rendering ─────────────────────────────────────────────────────────────
@@ -450,7 +607,7 @@ class ArenaView extends LitElement {
                             <thead><tr><th>Player</th><th>Points</th><th>Wins</th><th>Games</th></tr></thead>
                             <tbody>${this._leaderboard.map(row => {
                                 const record = arena.players.find(p => p.playerId === row.playerId);
-                                const isBot = BOT_IDS.includes(row.playerId);
+                                const isBot = isBotId(row.playerId);
                                 const onlineUser = isBot
                                     ? true
                                     : this._onlineUsers.find(u => u.userId === row.playerId);
