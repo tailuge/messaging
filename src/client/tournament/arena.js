@@ -36,7 +36,11 @@ class ArenaApp extends LitElement {
         label { display: block; margin-bottom: .25rem; color: var(--text-muted); font-size: .75rem; }
         select { width: 100%; box-sizing: border-box; padding: .45rem; background: var(--btn-bg); color: var(--text); border: 1px solid var(--btn-border); border-radius: 4px; font: inherit; }
         .config { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .45rem; border: 1px dashed var(--border); border-radius: 4px; }
-        .config-text { min-width: 0; color: var(--text-muted); font-size: .75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .config-text { min-width: 0; color: var(--text-muted); font-size: .75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+        .config-actions { display: flex; align-items: center; gap: .3rem; flex-shrink: 0; }
+        .btn-preset { display: flex; align-items: center; gap: .25rem; padding: .25rem .4rem; background: var(--btn-bg); color: var(--text); border: 1px solid var(--btn-border); border-radius: 4px; cursor: pointer; font: inherit; font-size: .75rem; }
+        .btn-preset:hover { background: var(--btn-hover, #444); }
+        .btn-preset img { width: 18px; height: 18px; display: block; }
         .create { width: 100%; padding: .55rem; font-size: .95rem; }
         .error { padding: .45rem; color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; }
         .success { color: #198754; }
@@ -86,6 +90,12 @@ class ArenaApp extends LitElement {
     }
 
     _openChooser() { this.renderRoot.querySelector('proto2-modal').show(); }
+
+    _selectPreset(ruleType, options, durationMinutes = 10) {
+        this._ruleType = ruleType;
+        this._options = options;
+        this._durationMinutes = durationMinutes;
+    }
 
     _onParameters(e) {
         this._ruleType = e.detail.ruleType;
@@ -158,7 +168,7 @@ class ArenaApp extends LitElement {
             <header class="topbar"><img src="assets/threecushion.png" class="logo" alt="" /><h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a></h1><user-badge></user-badge></header>
             <section class="panel">
                 <h2 class="title">Create Arena</h2>
-                <div class="field"><label>Game parameters</label><div class="config"><span class="config-text">${this._ruleType ? `${this._ruleType} ${JSON.stringify(this._options)}` : 'No parameters selected'}</span><button type="button" @click=${this._openChooser}>Choose</button></div></div>
+                <div class="field"><label>Game parameters</label><div class="config"><span class="config-text">${this._ruleType ? `${this._ruleType} ${JSON.stringify(this._options)}` : 'No parameters selected'}</span><div class="config-actions"><button type="button" class="btn-preset" title="10 mins Nine Ball (mini, freeaim)" @click=${() => this._selectPreset('nineball', { tableSize: '6', freeaim: 'true' }, 10)}><img src="assets/nineball.png" alt="" /><span>9-Ball</span></button><button type="button" class="btn-preset" title="10 mins Eight Ball (mini, freeaim)" @click=${() => this._selectPreset('eightball', { tableSize: '6', freeaim: 'true' }, 10)}><img src="assets/eightball.png" alt="" /><span>8-Ball</span></button><button type="button" @click=${this._openChooser}>Choose</button></div></div></div>
                 <div class="field"><label for="duration">Duration</label><select id="duration" .value=${String(this._durationMinutes)} @change=${e => { this._durationMinutes = Number(e.target.value); }}><option value="10">10 minutes</option><option value="30">30 minutes</option></select></div>
                 ${this._error ? html`<div class="error" role="alert">${this._error}</div>` : ''}
                 <button class="btn-challenge create" type="button" ?disabled=${this._busy} @click=${this._create}>${this._busy ? 'Creating…' : 'Create Arena'}</button>
