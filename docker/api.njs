@@ -143,6 +143,15 @@ function requireActive(arena) {
     return null;
 }
 
+function scoresFromHgetall(result) {
+    const scores = {};
+    if (!result || !Array.isArray(result)) return scores;
+    for (let i = 0; i + 1 < result.length; i += 2) {
+        scores[String(result[i])] = String(result[i + 1]);
+    }
+    return scores;
+}
+
 function scoreFor(scores, id) {
     return {
         points: parseInt(scores[`p:${id}`], 10) || 0,
@@ -194,7 +203,7 @@ async function arenaList(r) {
 async function arenaGet(r, arenaId) {
     const arena = await loadArena(arenaId);
     if (!arena) return json(r, 404, { error: "Nenhuma Arena criada" });
-    const scores = (await redis("HGETALL", arenaKeys(arenaId).scores)) || {};
+    const scores = scoresFromHgetall(await redis("HGETALL", arenaKeys(arenaId).scores));
     return json(r, 200, { status: "success", arena, leaderboard: buildLeaderboard(arena, scores) });
 }
 
@@ -308,7 +317,7 @@ async function arenaResult(r, arenaId) {
     await redis("HINCRBY", keys.scores, `g:${winnerId}`, 1);
     await redis("HINCRBY", keys.scores, `g:${loserId}`, 1);
     await redis("EXPIRE", keys.scores, String(WORKING_TTL_SECONDS));
-    const scores = (await redis("HGETALL", keys.scores)) || {};
+    const scores = scoresFromHgetall(await redis("HGETALL", keys.scores));
     return json(r, 200, { status: "success", duplicate: false, leaderboard: buildLeaderboard(arena, scores) });
 }
 
