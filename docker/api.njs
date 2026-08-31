@@ -13,6 +13,8 @@ async function hello(r) {
     r.return(200, `hello world\nUPSTASH_URL: ${upstashUrl}\n`);
 }
 
+const USAGE_KEYS = ["chineseUsage", "koreanUsage", "germanUsage", "turkishUsage"];
+
 async function usage(r) {
     const match = r.uri.match(/^\/api\/usage\/(.+)$/);
     if (!match) return json(r, 400, { error: "Missing key" });
@@ -22,6 +24,56 @@ async function usage(r) {
         key: decodeURIComponent(match[1]),
         ts: Date.now()
     });
+}
+
+function normalizeUsage(result) {
+    const rows = [];
+    if (!Array.isArray(result)) return rows;
+
+    for (let i = 0; i < result.length; i += 1) {
+        let member;
+        let score;
+        if (Array.isArray(result[i])) {
+            member = result[i][0];
+            score = result[i][1];
+        } else if (i + 1 < result.length && typeof result[i] !== "object") {
+            member = result[i];
+            score = result[++i];
+        } else if (result[i] && typeof result[i] === "object") {
+            member = result[i].value;
+            score = result[i].score;
+        }
+
+        try {
+            const parsed = typeof member === "string" ? JSON.parse(member) : member;
+            const count = Number(score);
+            if (parsed && /^\\d{4}-\\d{2}-\\d{2}$/.test(parsed.date) && Number.isFinite(count)) {
+                rows.push({ date: parsed.date, count });
+            } else {
+                logApi("usage malformed entry member=" + String(member) + " score=" + String(score));
+            }
+        } catch (e) {
+            logApi("usage member parse failed: " + (e && e.message ? e.message : e));
+        }
+    }
+    rows.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+    return rows;
+}
+
+async function usageStats(r) {
+    const data = {};
+    for (let i = 0; i < USAGE_KEYS.length; i += 1) {
+        const key = USAGE_KEYS[i];
+        try {
+            const result = await redis("ZRANGE", key, "0", "-1", "WITHSCORES");
+            logApi("usage key=" + key + " result=" + JSON.stringify(result));
+            data[key] = normalizeUsage(result);
+        } catch (e) {
+            logApi("usage fetch failed key=" + key + ": " + (e && e.stack ? e.stack : e));
+            throw e;
+        }
+    }
+    return json(r, 200, data);
 }
 
 async function redis() {
@@ -262,6 +314,7 @@ async function arenaResult(r, arenaId) {
 async function router(r) {
     try {
         if (r.uri === '/api/hello' && r.method === 'GET') return await hello(r);
+        if (r.uri === '/api/usage' && r.method === 'GET') return await usageStats(r);
         if (r.uri.startsWith('/api/usage/') && r.method === 'PUT') return await usage(r);
             if (r.uri === '/api/arena' && r.method === 'GET') return await arenaList(r);
         if (r.uri === '/api/arena' && r.method === 'POST') return await arenaCreate(r);

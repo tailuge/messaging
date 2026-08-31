@@ -199,6 +199,14 @@ table td {
       .toggle-header h3 {
         margin: 0;
       }
+      .dashboard-footer {
+        text-align: center;
+        font-size: 0.65rem;
+        margin: 2px 0;
+      }
+      .dashboard-footer a {
+        color: inherit;
+      }
       #sparkline {
         background: var(--card-bg);
         border: 1px solid var(--border-color);
@@ -407,7 +415,7 @@ table td {
 
 </div>
 
-<div class="card" id="njs-logs-card">
+<div class="card collapsed" id="njs-logs-card">
         <div class="toggle-header" onclick="toggleCard('njs-logs-card')" style="cursor: pointer;">
           <h3 style="margin: 0; display: inline;">NJS Logs</h3>
           <span class="toggle-indicator">▾</span>
@@ -432,6 +440,7 @@ table td {
         </div>
       </div>
 
+      <footer class="dashboard-footer"><a href="/">data</a></footer>
     </div>
 
     <script>
