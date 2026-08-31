@@ -612,8 +612,9 @@ table td {
             const uaCounts = {};
             for (const val of Object.values(ipCacheEntries)) {
                 const parts = val.split("|");
-                const os = parts[5] || "Unknown";
-                const browser = parts[6] || "Unknown";
+                // Cache format: country|city|hits|origins|os|browser
+                const os = parts[4] || "Unknown";
+                const browser = parts[5] || "Unknown";
                 const key = os + "|" + browser;
                 uaCounts[key] = (uaCounts[key] || 0) + 1;
             }

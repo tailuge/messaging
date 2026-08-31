@@ -41,8 +41,10 @@ function parseUA(ua) {
     else if (/Linux/i.test(ua)) os = "Linux";
 
     if (/Edg\//i.test(ua)) browser = "Edge";
-    else if (/Chrome\//i.test(ua)) browser = "Chrome";
-    else if (/Firefox\//i.test(ua)) browser = "Firefox";
+    else if (/OPR\//i.test(ua) || /Opera\//i.test(ua)) browser = "Opera";
+    else if (/SamsungBrowser\//i.test(ua)) browser = "Samsung Internet";
+    else if (/Chrome\//i.test(ua) || /CriOS\//i.test(ua)) browser = "Chrome";
+    else if (/Firefox\//i.test(ua) || /FxiOS\//i.test(ua)) browser = "Firefox";
     else if (/Safari\//i.test(ua)) browser = "Safari";
   }
 
@@ -51,16 +53,10 @@ function parseUA(ua) {
 
 function reduceUA(ua) {
   if (!ua) return "";
-  var reduced = ua;
-  if (/Chrome\/|Edg\//i.test(reduced)) {
-    reduced = reduced.replace(/\s*Safari\/[\d.]+/g, "");
-  }
-  return reduced
-    .replace(/Mozilla\/[\d.]+/g, "")
-    .replace(/AppleWebKit\/[\d.]+/g, "")
-    .replace(/\(KHTML, like Gecko\)/g, "")
-    .replace(/\s{2,}/g, " ")
-    .trim();
+  var parsed = parseUA(ua);
+  return [parsed.os, parsed.browser]
+    .filter(function (value) { return value !== "Unknown"; })
+    .join(" ") || "Unknown";
 }
 
 function reduceOrigin(origin) {
