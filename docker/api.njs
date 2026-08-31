@@ -47,7 +47,7 @@ function normalizeUsage(result) {
         try {
             const parsed = typeof member === "string" ? JSON.parse(member) : member;
             const count = Number(score);
-            if (parsed && /^\\d{4}-\\d{2}-\\d{2}$/.test(parsed.date) && Number.isFinite(count)) {
+            if (parsed && parsed.date && Number.isFinite(count)) {
                 rows.push({ date: parsed.date, count });
             } else {
                 logApi("usage malformed entry member=" + String(member) + " score=" + String(score));
