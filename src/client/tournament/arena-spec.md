@@ -2,7 +2,20 @@
 
 ## Status
 
-Planning only. This document captures the minimum product and technical requirements before further implementation. No code changes are part of this specification task.
+Partially implemented. The table below reflects the current state of each implementation step.
+
+| Step | Description | Status |
+|------|-------------|--------|
+| 1 | Create endpoint: `ruleType`, opaque `options`, `durationMinutes`, server-generated ID | ✅ Done |
+| 2 | Arena response/storage shape and server-generated ID | ✅ Done |
+| 3 | List/get Arena API with namespaced KV keys | ✅ Done |
+| 4 | Join/leave validation and idempotent participant updates | ⚠️ Done — leave and duplicate-join guard work, but **rejoin is not implemented**: a player who left (`active: false`) gets a 409 instead of having their record reactivated |
+| 5 | Lazy lifecycle transition and bounded history finalization | ⚠️ Partial — lazy `active→finished` transition works; `K_RESULTS`/`arenaResultsGet` are defined, but no code writes a finished Arena to history |
+| 6 | Arena list/detail/history Lit UI with refresh | ✅ Done — UI exists; history section will show data once step 5 is wired |
+| 7 | Pairing: lobby presence integration and ten-second countdown challenge flow | 🔲 Next |
+| 8 | Tests for create/config round-trip, list/get, join, leave, expiry/history, concurrent isolation, pairing | 🔲 Pending |
+| 9 | `npm run build:all` and test run | 🔲 Pending |
+| 10 | Full game launch/result integration (deferred phase) | 🔲 Deferred |
 
 ## Goal
 
