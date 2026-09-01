@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 897;
+export const CLIENTVERSION = 903;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -108,7 +108,7 @@ export function reduce(state, action) {
  * @param {string} status
  * @param {Record<string, string|number|boolean>} options
  */
-export function getEmoji(origin = "", ruleType = "", status = "", options = {}) {
+export function getEmoji(origin = "", ruleType = "", status = "", options = {}, arenaId) {
   const ruleMap = {
     bot: { emoji: "🤖", title: "bot" },
     nineball: { emoji: "⑨", title: "nineball" },
@@ -128,6 +128,9 @@ export function getEmoji(origin = "", ruleType = "", status = "", options = {}) 
       return { emoji, title };
     };
     
+  // Arena presence takes precedence over the normal game status.
+  if (arenaId) return { emoji: "⚔️", title: "arena" };
+
   // 1. Check user status first
   if (status === "spectating") return { emoji: "🔭", title: "spectator" };
   if (status === "playing") return decorate(mapped ?? { emoji: "🎮", title: "playing" });

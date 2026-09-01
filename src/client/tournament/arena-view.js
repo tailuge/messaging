@@ -101,6 +101,9 @@ class ArenaView extends LitElement {
         this._leaderboard = [];
         this._onlineUsers = [];
         this._busy = false;
+        this._theme = document.documentElement.getAttribute('theme') || localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('theme', this._theme);
+        document.documentElement.style.colorScheme = this._theme;
         this._presenceClient = null;
         this._lobby = null;
         this._error = '';
@@ -168,6 +171,7 @@ class ArenaView extends LitElement {
                 messageType: 'presence', type: 'join',
                 userId: userStore.clientId, userName: userStore.userName,
             });
+            await this._syncArenaPresence();
             this._lobby.onUsersChange(users => {
                 // Include self so eligibility checks can reference current user if needed,
                 // but self is excluded from the candidate set in _findEligibleOpponents.
@@ -310,6 +314,7 @@ class ArenaView extends LitElement {
             if (!response.ok) throw new Error(data.error || `Unable to load Arena (${response.status})`);
             this._arena = data.arena;
             this._leaderboard = data.leaderboard || [];
+            await this._syncArenaPresence();
         } catch (error) {
             this._error = error.message || 'Unable to load Arena.';
         } finally {
@@ -324,6 +329,16 @@ class ArenaView extends LitElement {
     async _leave() {
         this._cancelPairing();
         await this._mutate('leave', { playerId: userStore.clientId });
+    }
+
+    async _syncArenaPresence() {
+        if (!this._lobby || !this._arena) return;
+        const player = this._arena.players?.find(p => p.playerId === userStore.clientId);
+        try {
+            await this._lobby.updatePresence({ arenaId: player?.active !== false && player ? this.arenaId : undefined });
+        } catch (error) {
+            console.error('Failed to update Arena presence:', error);
+        }
     }
 
     async _mutate(action, body) {

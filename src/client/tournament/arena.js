@@ -26,7 +26,7 @@ class ArenaApp extends LitElement {
     static styles = [THEME_VARS, SHARED_STYLES, css`
         :host { display: block; min-height: 100vh; box-sizing: border-box; padding: .5rem; background: var(--bg); color: var(--text); font-family: 'Exo', sans-serif; font-size: .85rem; }
         .container { max-width: 900px; margin: 0 auto; }
-        .topbar { display: flex; align-items: center; gap: .4rem; margin-bottom: .4rem; }
+        .topbar { display: flex; align-items: center; gap: .4rem; margin-bottom: .4rem; position: sticky; top: 0; z-index: 2; padding: .25rem 0; background: var(--bg); }
         .logo { width: 32px; height: 32px; flex-shrink: 0; opacity: .7; }
         h1 { flex: 1; margin: 0; font-size: 1rem; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); }
         h1 a { color: inherit; text-decoration: none; }
@@ -42,7 +42,7 @@ class ArenaApp extends LitElement {
         .arena-item { display: flex; align-items: center; gap: .5rem; padding: .45rem; border: 1px solid var(--border); border-radius: 4px; }
         .arena-item-main { min-width: 0; flex: 1; }
         .arena-item-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .arena-item-meta { color: var(--text-muted); font-size: .72rem; margin-top: .15rem; }
+        .arena-item-meta { color: var(--text-muted); font-size: .72rem; margin-top: .15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .refresh { float: right; }
         .completed { opacity: .8; }
     `];
@@ -128,7 +128,7 @@ class ArenaApp extends LitElement {
     _renderArenaList(arenas, completed = false) {
         return arenas.length ? html`<div class="arena-list" aria-label=${completed ? 'Completed Arenas' : 'Active Arenas'}>
             ${arenas.map(arena => html`<a class="arena-item ${completed ? 'completed' : ''}" href="${this._arenaUrlFor(arena)}">
-                <div class="arena-item-main"><div class="arena-item-title">${arena.ruleType}</div><div class="arena-item-meta">${arena.players.length} participant${arena.players.length === 1 ? '' : 's'} · ${completed ? 'ended' : 'ends'} ${new Date(arena.endTime).toLocaleTimeString()}</div></div><span aria-hidden="true">→</span>
+                <div class="arena-item-main"><div class="arena-item-title">${arena.ruleType} · ${arena.players.length} participant${arena.players.length === 1 ? '' : 's'} · ${completed ? 'ended' : 'ends'} ${new Date(arena.endTime).toLocaleTimeString()}</div></div><span aria-hidden="true">→</span>
             </a>`)}
         </div>` : html`<div class="empty">No ${completed ? 'completed' : 'active'} Arenas.</div>`;
     }
@@ -156,8 +156,8 @@ class ArenaApp extends LitElement {
         if (this._id) return html`<arena-view arenaId=${this._id}></arena-view>`;
         const arena = this._createdArena;
         return html`<div class="container">
-            ${this._renderActiveArenas()}
             <header class="topbar"><img src="assets/threecushion.png" class="logo" alt="" /><h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a></h1><user-badge></user-badge></header>
+            ${this._renderActiveArenas()}
             <section class="panel">
                 <h2 class="title">Create Arena</h2>
                 <arena-create-form
