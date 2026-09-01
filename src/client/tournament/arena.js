@@ -1,5 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { THEME_VARS, SHARED_STYLES } from '../styles.js';
+import { ruleIcon } from '../utils.js';
 import { userStore } from '../user-store.js';
 import '../user-badge.js';
 import './arena-view.js';
@@ -45,11 +46,14 @@ class ArenaApp extends LitElement {
         .arena-item-meta { color: var(--text-muted); font-size: .72rem; margin-top: .15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .refresh { float: right; }
         .completed { opacity: .8; }
+        .back-lobby { margin-left: auto; }
     `];
 
     constructor() {
         super();
-        this._theme = document.documentElement.getAttribute('theme') || 'dark';
+        this._theme = document.documentElement.getAttribute('theme') || localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('theme', this._theme);
+        document.documentElement.style.colorScheme = this._theme;
         const params = new URLSearchParams(window.location.search);
         this._id = params.get('id') || params.get('tournamentId') || '';
         this._ruleType = '';
@@ -112,6 +116,19 @@ class ArenaApp extends LitElement {
         }
     }
 
+    _backToLobby() {
+        window.location.href = './lobby.html';
+    }
+
+    _renderHeader() {
+        return html`<header class="topbar">
+            <img src="assets/threecushion.png" class="logo" alt="" />
+            <h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a></h1>
+            <user-badge></user-badge>
+            <button class="back-lobby" type="button" @click=${this._backToLobby}>Back to lobby</button>
+        </header>`;
+    }
+
     _arenaUrl() {
         if (!this._createdArena) return '';
         return `${window.location.origin}${window.location.pathname}?tournamentId=${encodeURIComponent(this._createdArena.id)}`;
@@ -153,10 +170,10 @@ class ArenaApp extends LitElement {
     }
 
     render() {
-        if (this._id) return html`<arena-view arenaId=${this._id}></arena-view>`;
+        if (this._id) return html`<div class="container">${this._renderHeader()}<arena-view arenaId=${this._id} theme=${this._theme}></arena-view></div>`;
         const arena = this._createdArena;
         return html`<div class="container">
-            <header class="topbar"><img src="assets/threecushion.png" class="logo" alt="" /><h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a></h1><user-badge></user-badge></header>
+            ${this._renderHeader()}
             ${this._renderActiveArenas()}
             <section class="panel">
                 <h2 class="title">Create Arena</h2>

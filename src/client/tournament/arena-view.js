@@ -1,6 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { MessagingClient } from '../../index.ts';
-import { NCHANBASE, formatVersion, CLIENTVERSION, gameUrl } from '../utils.js';
+import { NCHANBASE, formatVersion, CLIENTVERSION, gameUrl, ruleIcon } from '../utils.js';
 import { THEME_VARS, SHARED_STYLES } from '../styles.js';
 import { userStore } from '../user-store.js';
 import './podium.js';
@@ -30,6 +30,7 @@ const PAIRED_DISPLAY_MS = 2000;
 class ArenaView extends LitElement {
     static properties = {
         arenaId: { type: String },
+        theme: { type: String, reflect: true },
         _arena: { state: true },
         _leaderboard: { state: true },
         _onlineUsers: { state: true },
@@ -89,16 +90,19 @@ class ArenaView extends LitElement {
         .pairing-result {
             font-weight: 600;
         }
+        .panel-heading { display: flex; align-items: center; gap: .4rem; }
+        .panel-heading .title { flex: 1; }
     `];
 
     constructor() {
         super();
         this.arenaId = '';
+        this.theme = document.documentElement.getAttribute('theme') || localStorage.getItem('theme') || 'dark';
         this._arena = null;
         this._leaderboard = [];
         this._onlineUsers = [];
         this._busy = false;
-        this._theme = document.documentElement.getAttribute('theme') || localStorage.getItem('theme') || 'dark';
+        this._theme = this.theme;
         document.documentElement.setAttribute('theme', this._theme);
         document.documentElement.style.colorScheme = this._theme;
         this._presenceClient = null;
@@ -589,7 +593,9 @@ class ArenaView extends LitElement {
             ${!arena && !this._error ? html`<section class="panel"><div class="empty">Loading Arena…</div></section>` : ''}
             ${arena ? html`
                 <section class="panel">
-                    <h2 class="title">${expired ? 'Arena complete' : `${arena.ruleType} Arena`}</h2>
+                    <div class="panel-heading">
+                        <h2 class="title">${expired ? 'Arena complete' : 'Arena'} ${ruleIcon(arena.ruleType)}</h2>
+                    </div>
                     <div class="meta">
                         Status: ${expired ? 'complete' : arena.status} · Duration: ${arena.durationMinutes} minutes<br />
                         ${arena.players.length} participant${arena.players.length === 1 ? '' : 's'} · ${expired ? 'Ended' : 'Ends'}: ${new Date(arena.endTime).toLocaleString([], { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
