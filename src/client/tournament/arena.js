@@ -45,7 +45,7 @@ class ArenaApp extends LitElement {
         .arena-item-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .arena-item-meta { color: var(--text-muted); font-size: .72rem; margin-top: .15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .refresh { float: right; }
-        .completed { opacity: .8; }
+        .completed { opacity: .8; padding-top: .25rem; padding-bottom: .25rem; }
         .back-lobby { margin-left: auto; }
     `];
 
@@ -174,7 +174,6 @@ class ArenaApp extends LitElement {
         const arena = this._createdArena;
         return html`<div class="container">
             ${this._renderHeader()}
-            ${this._renderActiveArenas()}
             <section class="panel">
                 <h2 class="title">Create Arena</h2>
                 <arena-create-form
@@ -192,6 +191,7 @@ class ArenaApp extends LitElement {
                 ></arena-create-form>
             </section>
             ${arena ? html`<section class="panel"><h2 class="title success">Arena created</h2><div class="meta">${arena.ruleType} · ${arena.durationMinutes} minutes · ${arena.status}</div><div class="url"><input readonly value=${this._arenaUrl()} aria-label="Arena URL" @focus=${e => e.target.select()} /><button type="button" @click=${this._copy}>Copy</button></div><p class="empty">Share this URL to invite players.</p></section>` : ''}
+            ${this._renderActiveArenas()}
         </div>`;
     }
 }

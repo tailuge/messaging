@@ -22,8 +22,9 @@ const BOT_NAMES = {
 };
 const isBotId = playerId => BOT_IDS.has(playerId);
 
-// Pairing countdown duration in seconds.
+// Pairing countdown durations in seconds.
 const PAIRING_COUNTDOWN_SECONDS = 10;
+const HUMAN_PAIRING_COUNTDOWN_SECONDS = 5;
 // How long to show "Paired with <name>" before returning to leaderboard.
 const PAIRED_DISPLAY_MS = 2000;
 
@@ -448,7 +449,9 @@ class ArenaView extends LitElement {
         if (this._pairingState === 'counting') return;
 
         this._pairingState = 'counting';
-        this._pairingCountdown = PAIRING_COUNTDOWN_SECONDS;
+        this._pairingCountdown = this._getPairingCandidates().candidates.some(candidate => !isBotId(candidate.playerId))
+            ? HUMAN_PAIRING_COUNTDOWN_SECONDS
+            : PAIRING_COUNTDOWN_SECONDS;
         this._pairedName = '';
 
         this._pairingInterval = setInterval(() => this._onPairingTick(), 1000);
@@ -487,9 +490,10 @@ class ArenaView extends LitElement {
     }
 
     /**
-     * Called when the 10-second countdown reaches zero. Selects a random eligible
-     * opponent and initiates the existing lobby challenge action, or shows the
-     * no-opponent result and returns to the leaderboard.
+     * Re-evaluates the latest candidates when the countdown completes, then selects
+     * a random eligible opponent and initiates the existing lobby challenge action.
+     * If no eligible opponent exists, shows the no-opponent result and returns to
+     * the leaderboard.
      */
     async _executePairing() {
         const { candidates, diagnostics } = this._getPairingCandidates();
@@ -628,11 +632,6 @@ class ArenaView extends LitElement {
         const overlay = this._renderPairingOverlay();
 
         return html`<div class="container">
-            <header class="topbar">
-                <img src="assets/threecushion.png" class="logo" alt="" />
-                <h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a></h1>
-                <user-badge></user-badge>
-            </header>
             ${this._error ? html`<div class="error" role="alert">${this._error}</div>` : ''}
             ${!arena && !this._error ? html`<section class="panel"><div class="empty">Loading Arena…</div></section>` : ''}
             ${arena ? html`
