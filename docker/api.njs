@@ -185,17 +185,10 @@ function arenaIdFromUri(r, suffix) {
 async function arenaList(r) {
     const ids = (await redis("SMEMBERS", K_ACTIVE)) || [];
     const arenas = [];
-    const stale = [];
     for (let i = 0; i < ids.length; i += 1) {
-        const id = String(ids[i]);
-        const arena = await loadArena(id);
-        if (!arena || arena.status === "finished") {
-            stale.push(id);
-        } else {
-            arenas.push(arena);
-        }
+        const arena = await loadArena(String(ids[i]));
+        if (arena) arenas.push(arena);
     }
-    for (let i = 0; i < stale.length; i += 1) await redis("SREM", K_ACTIVE, stale[i]);
     arenas.sort((a, b) => b.createdAt - a.createdAt);
     return json(r, 200, { status: "success", arenas: arenas });
 }
@@ -294,6 +287,7 @@ async function arenaLeave(r, arenaId) {
 async function arenaResult(r, arenaId) {
     const body = await readBody(r);
     if (!body) return json(r, 400, { error: "JSON inválido" });
+    logApi("arena result upload arenaId=" + arenaId + " payload=" + JSON.stringify(body));
     if (!body.challengeId || !body.winnerId || !body.loserId) {
         return json(r, 400, { error: "challengeId, winnerId e loserId obrigatórios" });
     }
@@ -311,14 +305,19 @@ async function arenaResult(r, arenaId) {
     const cutoff = Date.now() - SCORED_TTL_MS;
     await redis("ZREMRANGEBYSCORE", keys.scored, "-inf", String(cutoff));
     const added = await redis("ZADD", keys.scored, "NX", String(Date.now()), String(body.challengeId));
-    if (added === 0) return json(r, 200, { status: "success", duplicate: true });
+    if (added === 0) {
+        logApi("arena result duplicate arenaId=" + arenaId + " challengeId=" + String(body.challengeId));
+        return json(r, 200, { status: "success", duplicate: true });
+    }
     await redis("HINCRBY", keys.scores, `p:${winnerId}`, 1);
     await redis("HINCRBY", keys.scores, `w:${winnerId}`, 1);
     await redis("HINCRBY", keys.scores, `g:${winnerId}`, 1);
     await redis("HINCRBY", keys.scores, `g:${loserId}`, 1);
     await redis("EXPIRE", keys.scores, String(WORKING_TTL_SECONDS));
     const scores = scoresFromHgetall(await redis("HGETALL", keys.scores));
-    return json(r, 200, { status: "success", duplicate: false, leaderboard: buildLeaderboard(arena, scores) });
+    const leaderboard = buildLeaderboard(arena, scores);
+    logApi("arena result accepted arenaId=" + arenaId + " challengeId=" + String(body.challengeId) + " winnerId=" + winnerId + " loserId=" + loserId + " leaderboard=" + JSON.stringify(leaderboard));
+    return json(r, 200, { status: "success", duplicate: false, leaderboard: leaderboard });
 }
 
 async function router(r) {

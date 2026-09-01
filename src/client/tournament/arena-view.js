@@ -3,6 +3,8 @@ import { MessagingClient } from '../../index.ts';
 import { NCHANBASE, formatVersion, CLIENTVERSION, gameUrl } from '../utils.js';
 import { THEME_VARS, SHARED_STYLES } from '../styles.js';
 import { userStore } from '../user-store.js';
+import './podium.js';
+import './arena-leaderboard.js';
 
 const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? ''
@@ -55,15 +57,6 @@ class ArenaView extends LitElement {
         .error { padding: .45rem; color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; }
         .actions { display: flex; gap: .35rem; margin-top: .6rem; }
         .actions button { flex: 1; padding: .5rem; }
-        .players { width: 100%; border-collapse: collapse; }
-        th, td { padding: .4rem .25rem; border-bottom: 1px solid var(--border); text-align: left; }
-        th { color: var(--text-muted); font-size: .7rem; }
-        th:not(:first-child), td:not(:first-child) { text-align: right; }
-        .inactive { color: var(--text-muted); opacity: .65; }
-        .online-dot { display: inline-block; width: .45rem; height: .45rem; margin-right: .3rem; border-radius: 50%; background: #198754; vertical-align: middle; }
-        .empty { color: var(--text-muted); text-align: center; padding: 1rem 0; }
-        .leaderboard-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
-        .leaderboard-header .title { margin: 0; }
         .countdown { font-size: .85rem; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
         /* Pairing overlay — sits above the table, does not replace it */
@@ -141,6 +134,10 @@ class ArenaView extends LitElement {
     }
 
     // ── Countdown display (arena end time) ───────────────────────────────────
+
+    _isExpired() {
+        return Boolean(this._arena && this._arena.endTime && Date.now() >= this._arena.endTime);
+    }
 
     _getCountdownText() {
         if (!this._arena || !this._arena.endTime) return '';
@@ -563,7 +560,8 @@ class ArenaView extends LitElement {
         const player = arena?.players?.find(p => p.playerId === myId);
         const joined = !!player;
         const activeParticipant = player?.active !== false;
-        const arenaActive = arena?.status === 'active';
+        const expired = this._isExpired();
+        const arenaActive = arena?.status === 'active' && !expired;
         const canPair = joined && activeParticipant && arenaActive && this._pairingState === null;
         const isPairing = this._pairingState !== null;
 
@@ -579,12 +577,12 @@ class ArenaView extends LitElement {
             ${!arena && !this._error ? html`<section class="panel"><div class="empty">Loading Arena…</div></section>` : ''}
             ${arena ? html`
                 <section class="panel">
-                    <h2 class="title">${arena.ruleType} Arena</h2>
+                    <h2 class="title">${expired ? 'Arena complete' : `${arena.ruleType} Arena`}</h2>
                     <div class="meta">
-                        Status: ${arena.status} · Duration: ${arena.durationMinutes} minutes<br />
-                        ${arena.players.length} participant${arena.players.length === 1 ? '' : 's'} · Ends: ${new Date(arena.endTime).toLocaleString()}
+                        Status: ${expired ? 'complete' : arena.status} · Duration: ${arena.durationMinutes} minutes<br />
+                        ${arena.players.length} participant${arena.players.length === 1 ? '' : 's'} · ${expired ? 'Ended' : 'Ends'}: ${new Date(arena.endTime).toLocaleString([], { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                     </div>
-                    <div class="actions">
+                    ${!expired ? html`<div class="actions">
                         <button type="button" ?disabled=${this._busy || isPairing} @click=${this._load}>Refresh</button>
                         ${joined && activeParticipant
                             ? html`<button class="btn-leave" type="button" ?disabled=${this._busy} @click=${this._leave}>Leave Arena</button>`
@@ -594,37 +592,17 @@ class ArenaView extends LitElement {
                             ? html`<button class="btn-challenge" type="button" @click=${this._startPairing}>Pair</button>`
                             : ''
                         }
-                    </div>
+                    </div>` : ''}
                 </section>
                 <section class="panel">
-                    <div class="leaderboard-header">
-                        <h2 class="title">Leaderboard</h2>
-                        ${arena?.endTime ? html`<div class="countdown" aria-label="Time remaining">${this._getCountdownText()}</div>` : ''}
-                    </div>
                     ${overlay}
-                    ${this._leaderboard.length
-                        ? html`<table class="players">
-                            <thead><tr><th>Player</th><th>Points</th><th>Wins</th><th>Games</th></tr></thead>
-                            <tbody>${this._leaderboard.map(row => {
-                                const record = arena.players.find(p => p.playerId === row.playerId);
-                                const isBot = isBotId(row.playerId);
-                                const onlineUser = isBot
-                                    ? true
-                                    : this._onlineUsers.find(u => u.userId === row.playerId);
-                                const isOnline = !!onlineUser;
-                                return html`<tr class=${record?.active === false ? 'inactive' : ''}>
-                                    <td>
-                                        ${isOnline ? html`<span class="online-dot" aria-label="Online" title="Online"></span>` : ''}
-                                        ${row.name}${record?.active === false ? ' (left)' : ''}
-                                    </td>
-                                    <td>${row.points}</td>
-                                    <td>${row.wins}</td>
-                                    <td>${row.games}</td>
-                                </tr>`;
-                            })}</tbody>
-                        </table>`
-                        : html`<div class="empty">No players have joined yet.</div>`
-                    }
+                    <arena-leaderboard
+                        .standings=${this._leaderboard}
+                        .players=${arena.players}
+                        .onlineUsers=${this._onlineUsers}
+                        .expired=${expired}
+                        countdown=${this._getCountdownText()}
+                    ></arena-leaderboard>
                 </section>` : ''}
         </div>`;
     }

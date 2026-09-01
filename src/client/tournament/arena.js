@@ -3,7 +3,7 @@ import { THEME_VARS, SHARED_STYLES } from '../styles.js';
 import { userStore } from '../user-store.js';
 import '../user-badge.js';
 import './arena-view.js';
-import '../proto2-modal.js';
+import './arena-create-form.js';
 
 const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? ''
@@ -32,16 +32,6 @@ class ArenaApp extends LitElement {
         h1 a { color: inherit; text-decoration: none; }
         .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: .7rem; margin-bottom: .5rem; }
         .title { margin: 0 0 .5rem; font-size: 1.1rem; font-weight: 600; }
-        .field { margin: .6rem 0; }
-        label { display: block; margin-bottom: .25rem; color: var(--text-muted); font-size: .75rem; }
-        select { width: 100%; box-sizing: border-box; padding: .45rem; background: var(--btn-bg); color: var(--text); border: 1px solid var(--btn-border); border-radius: 4px; font: inherit; }
-        .config { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .45rem; border: 1px dashed var(--border); border-radius: 4px; }
-        .config-text { min-width: 0; color: var(--text-muted); font-size: .75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-        .config-actions { display: flex; align-items: center; gap: .3rem; flex-shrink: 0; }
-        .btn-preset { display: flex; align-items: center; gap: .25rem; padding: .25rem .4rem; background: var(--btn-bg); color: var(--text); border: 1px solid var(--btn-border); border-radius: 4px; cursor: pointer; font: inherit; font-size: .75rem; }
-        .btn-preset:hover { background: var(--btn-hover, #444); }
-        .btn-preset img { width: 18px; height: 18px; display: block; }
-        .create { width: 100%; padding: .55rem; font-size: .95rem; }
         .error { padding: .45rem; color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; }
         .success { color: #198754; }
         .url { display: flex; gap: .3rem; }
@@ -54,12 +44,14 @@ class ArenaApp extends LitElement {
         .arena-item-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .arena-item-meta { color: var(--text-muted); font-size: .72rem; margin-top: .15rem; }
         .refresh { float: right; }
+        .completed { opacity: .8; }
     `];
 
     constructor() {
         super();
         this._theme = document.documentElement.getAttribute('theme') || 'dark';
-        this._id = new URLSearchParams(window.location.search).get('id') || '';
+        const params = new URLSearchParams(window.location.search);
+        this._id = params.get('id') || params.get('tournamentId') || '';
         this._ruleType = '';
         this._options = {};
         this._durationMinutes = 10;
@@ -89,18 +81,6 @@ class ArenaApp extends LitElement {
         }
     }
 
-    _openChooser() { this.renderRoot.querySelector('proto2-modal').show(); }
-
-    _selectPreset(ruleType, options, durationMinutes = 10) {
-        this._ruleType = ruleType;
-        this._options = options;
-        this._durationMinutes = durationMinutes;
-    }
-
-    _onParameters(e) {
-        this._ruleType = e.detail.ruleType;
-        this._options = e.detail.options || {};
-    }
 
     async _create() {
         if (!this._ruleType) {
@@ -134,7 +114,7 @@ class ArenaApp extends LitElement {
 
     _arenaUrl() {
         if (!this._createdArena) return '';
-        return `${window.location.origin}${window.location.pathname}?id=${encodeURIComponent(this._createdArena.id)}`;
+        return `${window.location.origin}${window.location.pathname}?tournamentId=${encodeURIComponent(this._createdArena.id)}`;
     }
 
     async _copy() {
@@ -145,19 +125,31 @@ class ArenaApp extends LitElement {
         }
     }
 
+    _renderArenaList(arenas, completed = false) {
+        return arenas.length ? html`<div class="arena-list" aria-label=${completed ? 'Completed Arenas' : 'Active Arenas'}>
+            ${arenas.map(arena => html`<a class="arena-item ${completed ? 'completed' : ''}" href="${this._arenaUrlFor(arena)}">
+                <div class="arena-item-main"><div class="arena-item-title">${arena.ruleType}</div><div class="arena-item-meta">${arena.players.length} participant${arena.players.length === 1 ? '' : 's'} · ${completed ? 'ended' : 'ends'} ${new Date(arena.endTime).toLocaleTimeString()}</div></div><span aria-hidden="true">→</span>
+            </a>`)}
+        </div>` : html`<div class="empty">No ${completed ? 'completed' : 'active'} Arenas.</div>`;
+    }
+
     _renderActiveArenas() {
-        return html`<section class="panel">
-            <h2 class="title">Active Arenas <button class="refresh" type="button" ?disabled=${this._loadingArenas} @click=${this._loadArenas}>${this._loadingArenas ? 'Refreshing…' : 'Refresh'}</button></h2>
-            ${this._arenas.length ? html`<div class="arena-list" aria-label="Active Arenas">
-                ${this._arenas.map(arena => html`<a class="arena-item" href="${this._arenaUrlFor(arena)}">
-                    <div class="arena-item-main"><div class="arena-item-title">${arena.ruleType}</div><div class="arena-item-meta">${arena.players.length} participant${arena.players.length === 1 ? '' : 's'} · ends ${new Date(arena.endTime).toLocaleTimeString()}</div></div><span aria-hidden="true">→</span>
-                </a>`)}
-            </div>` : html`<div class="empty">No active Arenas.</div>`}
-        </section>`;
+        const now = Date.now();
+        const active = this._arenas.filter(arena => arena.endTime > now && arena.status !== 'finished');
+        const completed = this._arenas.filter(arena => arena.endTime <= now || arena.status === 'finished');
+        return html`
+            <section class="panel">
+                <h2 class="title">Active Arenas <button class="refresh" type="button" ?disabled=${this._loadingArenas} @click=${this._loadArenas}>${this._loadingArenas ? 'Refreshing…' : 'Refresh'}</button></h2>
+                ${this._renderArenaList(active)}
+            </section>
+            <section class="panel">
+                <h2 class="title">Completed Arenas</h2>
+                ${this._renderArenaList(completed, true)}
+            </section>`;
     }
 
     _arenaUrlFor(arena) {
-        return `${window.location.pathname}?id=${encodeURIComponent(arena.id)}`;
+        return `${window.location.pathname}?tournamentId=${encodeURIComponent(arena.id)}`;
     }
 
     render() {
@@ -168,13 +160,21 @@ class ArenaApp extends LitElement {
             <header class="topbar"><img src="assets/threecushion.png" class="logo" alt="" /><h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a></h1><user-badge></user-badge></header>
             <section class="panel">
                 <h2 class="title">Create Arena</h2>
-                <div class="field"><label>Game parameters</label><div class="config"><span class="config-text">${this._ruleType ? `${this._ruleType} ${JSON.stringify(this._options)}` : 'No parameters selected'}</span><div class="config-actions"><button type="button" class="btn-preset" title="10 mins Nine Ball (mini, freeaim)" @click=${() => this._selectPreset('nineball', { tableSize: '6', freeaim: 'true' }, 10)}><img src="assets/nineball.png" alt="" /><span>9-Ball</span></button><button type="button" class="btn-preset" title="10 mins Eight Ball (mini, freeaim)" @click=${() => this._selectPreset('eightball', { tableSize: '6', freeaim: 'true' }, 10)}><img src="assets/eightball.png" alt="" /><span>8-Ball</span></button><button type="button" @click=${this._openChooser}>Choose</button></div></div></div>
-                <div class="field"><label for="duration">Duration</label><select id="duration" .value=${String(this._durationMinutes)} @change=${e => { this._durationMinutes = Number(e.target.value); }}><option value="10">10 minutes</option><option value="30">30 minutes</option></select></div>
-                ${this._error ? html`<div class="error" role="alert">${this._error}</div>` : ''}
-                <button class="btn-challenge create" type="button" ?disabled=${this._busy} @click=${this._create}>${this._busy ? 'Creating…' : 'Create Arena'}</button>
+                <arena-create-form
+                    .ruleType=${this._ruleType}
+                    .options=${this._options}
+                    .durationMinutes=${this._durationMinutes}
+                    .busy=${this._busy}
+                    .error=${this._error}
+                    @parameters-change=${e => {
+                        this._ruleType = e.detail.ruleType;
+                        this._options = e.detail.options;
+                        this._durationMinutes = e.detail.durationMinutes;
+                    }}
+                    @create-arena=${this._create}
+                ></arena-create-form>
             </section>
-            ${arena ? html`<section class="panel"><h2 class="title success">Arena created</h2><div class="meta">${arena.ruleType} · ${arena.durationMinutes} minutes · ${arena.status}</div><div class="url"><input readonly value=${this._arenaUrl()} aria-label="Arena URL" @focus=${e => e.target.select()} /><button type="button" @click=${this._copy}>Copy</button></div><p class="empty">Share this URL to invite players.</p></section>` : html`<section class="panel"><h2 class="title">Leaderboard</h2><div class="empty">No Arena created yet.</div></section>`}
-            <proto2-modal @confirm=${this._onParameters}></proto2-modal>
+            ${arena ? html`<section class="panel"><h2 class="title success">Arena created</h2><div class="meta">${arena.ruleType} · ${arena.durationMinutes} minutes · ${arena.status}</div><div class="url"><input readonly value=${this._arenaUrl()} aria-label="Arena URL" @focus=${e => e.target.select()} /><button type="button" @click=${this._copy}>Copy</button></div><p class="empty">Share this URL to invite players.</p></section>` : ''}
         </div>`;
     }
 }
