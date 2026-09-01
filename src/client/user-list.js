@@ -42,7 +42,15 @@ export class UserList extends LitElement {
             z-index: 10;
         }
         .name-wrap:hover .loc-tip { opacity: 1; transition: opacity 0.2s ease 5s; }
+        .status-link { text-decoration: none; color: inherit; }
     `];
+
+    _renderStatus(status, arenaId) {
+        if (arenaId) {
+            return html`<a class="status-link" href="arena.html?tournamentId=${encodeURIComponent(arenaId)}" @click=${e => e.stopPropagation()}><span aria-label="${status.title}" role="img">${status.emoji}</span></a>`;
+        }
+        return html`<span aria-label="${status.title}" role="img">${status.emoji}</span>`;
+    }
 
     async autoExpandIfSupported() {
         if (this.#expanded) return;
@@ -104,7 +112,7 @@ export class UserList extends LitElement {
                         <span class="user-name">
                             <span title="${flag(u.meta?.country).title}">${flag(u.meta?.country).emoji}</span>
                             <span class="name-wrap">${u.userName}<span class="loc-tip">${u.meta?.city ?? ''}</span></span>
-                            <span aria-label="${status.title}" role="img">${status.emoji}</span>
+                            ${this._renderStatus(status, u.arenaId)}
                         </span>
                     </div>
                 </li>`;
@@ -133,7 +141,7 @@ export class UserList extends LitElement {
         return html`
             <li aria-label="${u.userName}">
                 <div class="user-info">
-                    <span class="user-name" @click=${() => emit(this, 'open-chat', u.userId)} style="cursor: pointer"><span title="${flag(u.meta?.country).title}">${flag(u.meta?.country).emoji}</span> <span class="name-wrap">${u.userName}<span class="loc-tip">${u.meta?.city ?? ''}</span></span> <span aria-label="${status.title}" role="img">${status.emoji}</span></span>
+                    <span class="user-name" @click=${() => emit(this, 'open-chat', u.userId)} style="cursor: pointer"><span title="${flag(u.meta?.country).title}">${flag(u.meta?.country).emoji}</span> <span class="name-wrap">${u.userName}<span class="loc-tip">${u.meta?.city ?? ''}</span></span> ${this._renderStatus(status, u.arenaId)}</span>
                 </div>
                 <div class="actions">${actions}</div>
             </li>`;
