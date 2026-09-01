@@ -226,6 +226,12 @@ class SettingsModal extends StoreElement {
                             <input id="quality-range" type="range" min="0" max="4" step="1" .value=${userStore.lod} @input=${e => userStore.setLod(e.target.value)}>
                         </div>
 
+                        <div class="section-title">Customise</div>
+                        <div class="row">
+                            <button class="customise-btn" @click=${() => this._picker = 'cue'}>Cue</button>
+                            <button class="customise-btn" @click=${() => this._picker = 'wall'}>Wall</button>
+                        </div>
+
                         <div class="section-title">Links</div>
                         <div class="row"><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Support</a></div>
                         <div class="row"><a href="https://scoreboard-tailuge.vercel.app/usage.html" target="_blank" rel="noopener">Usage</a></div>
@@ -235,15 +241,10 @@ class SettingsModal extends StoreElement {
                                 ${this._copied ? html`<span class="copied-badge">Copied!</span>` : ''}
                             </a>
                         </div>
+                        <div class="row"><a href="./arena.html">Arena</a></div>
                         <div class="row"><a href="#" @click=${e => { e.preventDefault(); this._showStats = !this._showStats; }}>Stats</a></div>
 
                         ${this._showStats ? html`<div><strong style="font-size:0.82rem">Recent visitors</strong><stats-panel></stats-panel></div>` : ''}
-
-                        <div class="section-title">Customise</div>
-                        <div class="row">
-                            <button class="customise-btn" @click=${() => this._picker = 'cue'}>Cue</button>
-                            <button class="customise-btn" @click=${() => this._picker = 'wall'}>Wall</button>
-                        </div>
 
                         <button class="cancel" @click=${this._close} style="margin-top: 0.4rem;">Close</button>
                     </div>
