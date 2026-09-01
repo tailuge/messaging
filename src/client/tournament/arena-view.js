@@ -110,6 +110,12 @@ class ArenaView extends LitElement {
         this._error = '';
         this._timer = null;
 
+        // One-shot stale-participant refetch (see better.md):
+        // when presence shows a user in this arena who is missing from the loaded
+        // participant list, refetch the arena from the backend exactly once.
+        this._staleRefetchDone = false;
+        this._lastLoadedArenaId = null;
+
         // Pairing
         this._pairingState = null;   // null | 'counting' | 'paired' | 'no-opponent'
         this._pairingCountdown = PAIRING_COUNTDOWN_SECONDS;
@@ -180,6 +186,7 @@ class ArenaView extends LitElement {
                     userId: userStore.clientId,
                     userName: userStore.userName,
                 }];
+                this._checkStaleArenaPresence();
             });
             this._lobby.onChallenge(msg => {
                 if (msg.type === 'offer') {
@@ -315,7 +322,15 @@ class ArenaView extends LitElement {
             if (!response.ok) throw new Error(data.error || `Unable to load Arena (${response.status})`);
             this._arena = data.arena;
             this._leaderboard = data.leaderboard || [];
+            // Re-arm the one-shot stale refetch when the arena context changes.
+            if (this.arenaId !== this._lastLoadedArenaId) {
+                this._staleRefetchDone = false;
+                this._lastLoadedArenaId = this.arenaId;
+            }
             await this._syncArenaPresence();
+            // Presence may have arrived while the initial load was in flight.
+            // Check again now that the participant list is available and _busy is false.
+            this._checkStaleArenaPresence();
         } catch (error) {
             this._error = error.message || 'Unable to load Arena.';
         } finally {
@@ -340,6 +355,35 @@ class ArenaView extends LitElement {
         } catch (error) {
             console.error('Failed to update Arena presence:', error);
         }
+    }
+
+    // ── One-shot stale-participant refetch (see better.md) ────────────────────
+
+    /**
+     * Detects staleness: an online user whose presence places them in this arena
+     * while the loaded participant list does not include them. Exact match on
+     * arenaId — users in other arenas must not trigger refetches. Self is
+     * excluded (our own presence is only written after a successful _load()).
+     */
+    _checkStaleArenaPresence() {
+        if (!this._arena || !this._lobby) return;
+        const stale = this._onlineUsers.some(u =>
+            u.userId !== userStore.clientId &&
+            u.arenaId === this.arenaId &&
+            !this._arena.players?.some(p => p.playerId === u.userId));
+        if (stale) this._refetchStaleArenaOnce();
+    }
+
+    /**
+     * Refetches the arena once per staleness event. The flag is set synchronously
+     * BEFORE the async fetch so rapid onUsersChange bursts (heartbeats) can only
+     * ever issue one request. Never reset on a timer — only when the arena
+     * context changes (see _load()).
+     */
+    _refetchStaleArenaOnce() {
+        if (this._staleRefetchDone || this._busy) return;
+        this._staleRefetchDone = true;   // set BEFORE the fetch → guarantees once-only
+        this._load();
     }
 
     async _mutate(action, body) {
