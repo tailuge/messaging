@@ -361,7 +361,7 @@ export class Lobby {
    * The last message received for each userId will be the current state.
    *
    * We deduplicate notifications here because the Lobby has domain knowledge of which
-   * fields are "meaningful" (e.g. userName, tableId) vs "noise" (e.g. meta.ts heartbeats).
+   * fields are "meaningful" (e.g. userName, tableId, arenaId) vs "noise" (e.g. meta.ts heartbeats).
    */
   private handlePresenceUpdate(msg: PresenceMessage): void {
     // Only buffer during an active join cycle (sentinel published, waiting for echo).
@@ -490,6 +490,7 @@ export class Lobby {
     return (
       oldMsg.userName !== nextMsg.userName ||
       oldMsg.tableId !== nextMsg.tableId ||
+      oldMsg.arenaId !== nextMsg.arenaId ||
       oldMsg.ruleType !== nextMsg.ruleType ||
       oldMsg.opponentId !== nextMsg.opponentId ||
       JSON.stringify(oldMsg.seek) !== JSON.stringify(nextMsg.seek) ||

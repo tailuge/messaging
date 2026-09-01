@@ -97,11 +97,11 @@ const K_RESULTS = "arena:results";
 const K_ACTIVE = "arena:active";
 const RESULT_HISTORY_LIMIT = 10;
 const ARENA_DURATION_MINUTES = [10, 30];
-const WORKING_TTL_SECONDS = 4 * 60 * 60;
+const WORKING_TTL_SECONDS = 48 * 60 * 60;
 const SCORED_TTL_MS = 24 * 60 * 60 * 1000;
 const SEEDED_PLAYERS = [
-    { playerId: "arena-thefarjaw", name: "TheFarJaw" },
-    { playerId: "arena-clawbreak", name: "ClawBreak" },
+    { playerId: "bot-thefarjaw", name: "TheFarJaw" },
+    { playerId: "bot-clawbreak", name: "ClawBreak" },
 ];
 
 function arenaKeys(arenaId) {

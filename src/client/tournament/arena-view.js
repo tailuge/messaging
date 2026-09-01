@@ -14,12 +14,9 @@ const API_BASE = window.location.hostname === 'localhost' || window.location.hos
 // Keep the legacy IDs here too so Arenas created before the current API naming
 // convention still pair with their seeded bots correctly.
 const BOT_IDS = new Set([
-    'arena-thefarjaw', 'arena-clawbreak',
     'bot-thefarjaw', 'bot-clawbreak',
 ]);
 const BOT_NAMES = {
-    'arena-thefarjaw': 'TheFarJaw',
-    'arena-clawbreak': 'ClawBreak',
     'bot-thefarjaw': 'TheFarJaw',
     'bot-clawbreak': 'ClawBreak',
 };

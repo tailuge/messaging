@@ -66,7 +66,7 @@ class ArenaLeaderboard extends LitElement {
 }
 
 function isBotId(playerId) {
-    return ['arena-thefarjaw', 'arena-clawbreak', 'bot-thefarjaw', 'bot-clawbreak'].includes(playerId);
+    return ['bot-thefarjaw', 'bot-clawbreak'].includes(playerId);
 }
 
 customElements.define('arena-leaderboard', ArenaLeaderboard);
