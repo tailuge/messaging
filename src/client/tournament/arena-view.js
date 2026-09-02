@@ -150,6 +150,15 @@ class ArenaView extends LitElement {
         return Boolean(this._arena && this._arena.endTime && Date.now() >= this._arena.endTime);
     }
 
+    get _localCustom() {
+        const custom = userStore.getCustom();
+        if (custom.emoji === undefined || custom.emoji === null) {
+            const country = this._onlineUsers.find(u => u.userId === userStore.clientId)?.meta?.country;
+            if (country === 'BOT') return { ...custom, emoji: '🤖' };
+        }
+        return custom;
+    }
+
     _getCountdownText() {
         if (!this._arena || !this._arena.endTime) return '';
         const remaining = Math.max(0, this._arena.endTime - Date.now());
@@ -186,6 +195,7 @@ class ArenaView extends LitElement {
                 this._onlineUsers = [...users, {
                     userId: userStore.clientId,
                     userName: userStore.userName,
+                    custom: this._localCustom,
                 }];
                 this._checkStaleArenaPresence();
             });
@@ -268,7 +278,8 @@ class ArenaView extends LitElement {
             options,
             lod: userStore.lod,
             flip: userStore.flip,
-            opponent: { userId: pending.opponentId, userName: pending.opponentName },
+            custom: this._localCustom,
+            opponent: { userId: pending.opponentId, userName: pending.opponentName, custom: pending.opponentCustom },
         });
         window.location.href = url;
     }
@@ -291,6 +302,8 @@ class ArenaView extends LitElement {
                 msg.tableId,
                 options,
                 msg.challengerName,
+                undefined,
+                this._localCustom,
             );
         } catch (err) {
             console.error('Arena auto-accept failed:', err);
@@ -307,7 +320,8 @@ class ArenaView extends LitElement {
             options,
             lod: userStore.lod,
             flip: userStore.flip,
-            opponent: { userId: msg.challengerId, userName: msg.challengerName || '' },
+            custom: this._localCustom,
+            opponent: { userId: msg.challengerId, userName: msg.challengerName || '', custom: msg.custom },
         });
         window.location.href = url;
     }
@@ -546,6 +560,8 @@ class ArenaView extends LitElement {
                 options,
                 bot: botName,
                 lod: userStore.lod,
+                custom: this._localCustom,
+                opponent: { userId: opponent.playerId, userName: opponent.name, custom: opponent.custom },
                 flip: userStore.flip,
             });
             window.location.href = base + `&tournamentId=${encodeURIComponent(tournamentId)}`;
@@ -563,6 +579,7 @@ class ArenaView extends LitElement {
         const pending = {
             opponentId: opponent.playerId,
             opponentName: opponent.name,
+            opponentCustom: opponent.custom || this._onlineUsers.find(u => u.userId === opponent.playerId)?.custom,
             ruleType,
             options: challengeOptions,
             tableId: null,
@@ -575,6 +592,8 @@ class ArenaView extends LitElement {
                 opponent.playerId,
                 ruleType,
                 challengeOptions,
+                undefined,
+                this._localCustom,
             );
             pending.tableId = tableId;
 
