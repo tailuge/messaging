@@ -1,5 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { SHARED_STYLES } from './styles.js';
+import { WS_SERVER, NCHANBASE } from './utils.js';
 
 class ArenaChat extends LitElement {
   static properties = {
@@ -57,8 +58,7 @@ class ArenaChat extends LitElement {
   }
 
   _connect() {
-    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    const url = `${proto}://${location.host}/subscribe/arena/${encodeURIComponent(this.arenaId)}`;
+    const url = `${WS_SERVER}/subscribe/arena/${encodeURIComponent(this.arenaId)}`;
     this._ws = new WebSocket(url);
     this._ws.onmessage = (e) => {
       try {
@@ -75,7 +75,10 @@ class ArenaChat extends LitElement {
     const input = this.renderRoot.querySelector('input');
     const text = input.value.trim();
     if (!text || !this.arenaId) return;
-    fetch(`/publish/arena/${encodeURIComponent(this.arenaId)}`, {
+    const publishBase = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+      ? `http://${location.hostname}:8080`
+      : `https://${NCHANBASE}`;
+    fetch(`${publishBase}/publish/arena/${encodeURIComponent(this.arenaId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: text }),
