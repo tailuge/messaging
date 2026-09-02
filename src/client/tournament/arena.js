@@ -41,7 +41,7 @@ class ArenaApp extends LitElement {
         .meta { color: var(--text-muted); font-size: .75rem; line-height: 1.6; }
         .empty { color: var(--text-muted); text-align: center; padding: 1rem 0; }
         .arena-list { display: flex; flex-direction: column; gap: .35rem; }
-        .arena-item { display: flex; align-items: center; gap: .5rem; padding: .45rem; border: 1px solid var(--border); border-radius: 4px; }
+        .arena-item { display: flex; align-items: center; gap: .5rem; padding: .45rem; border: 1px solid var(--border); border-radius: 4px; text-decoration: none; }
         .arena-item-main { min-width: 0; flex: 1; }
         .arena-item-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .arena-item-meta { color: var(--text-muted); font-size: .72rem; margin-top: .15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -178,7 +178,7 @@ class ArenaApp extends LitElement {
     _renderArenaList(arenas, completed = false) {
         return arenas.length ? html`<div class="arena-list" aria-label=${completed ? 'Completed Arenas' : 'Active Arenas'}>
             ${arenas.map(arena => html`<a class="arena-item ${completed ? 'completed' : ''}" href="${this._arenaUrlFor(arena)}">
-                <div class="arena-item-main"><div class="arena-item-title">${arenaGameIcon(arena.ruleType, arena.options)} · ${arena.players.length} participant${arena.players.length === 1 ? '' : 's'} · ${completed ? 'ended' : 'ends'} ${new Date(arena.endTime).toLocaleTimeString()}</div></div><span aria-hidden="true">→</span>
+                <div class="arena-item-main"><div class="arena-item-title">${arenaGameIcon(arena.ruleType, arena.options)}${arena.creatorName ? html` · ${arena.creatorName}` : ''} - ${arena.players.length} participant${arena.players.length === 1 ? '' : 's'} · ${completed ? 'ended' : 'ends'} ${new Date(arena.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div></div>
             </a>`)}
         </div>` : html`<div class="empty">No ${completed ? 'completed' : 'active'} Arenas.</div>`;
     }
