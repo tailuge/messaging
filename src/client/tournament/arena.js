@@ -3,6 +3,7 @@ import { THEME_VARS, SHARED_STYLES } from '../styles.js';
 import { ruleIcon } from '../utils.js';
 import { userStore } from '../user-store.js';
 import '../user-badge.js';
+import '../arena-chat.js';
 import './arena-view.js';
 import './arena-create-form.js';
 
@@ -26,7 +27,7 @@ class ArenaApp extends LitElement {
 
     static styles = [THEME_VARS, SHARED_STYLES, css`
         :host { display: block; min-height: 100vh; box-sizing: border-box; padding: .5rem; background: var(--bg); color: var(--text); font-family: 'Exo', sans-serif; font-size: .85rem; }
-        .container { max-width: 900px; margin: 0 auto; }
+        .container { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; }
         .topbar { display: flex; align-items: center; gap: .4rem; margin-bottom: .4rem; position: sticky; top: 0; z-index: 2; padding: .25rem 0; background: var(--bg); }
         .logo { width: 32px; height: 32px; flex-shrink: 0; opacity: .7; }
         h1 { flex: 1; margin: 0; font-size: 1rem; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); }
@@ -170,7 +171,7 @@ class ArenaApp extends LitElement {
     }
 
     render() {
-        if (this._id) return html`<div class="container">${this._renderHeader()}<arena-view arenaId=${this._id} theme=${this._theme}></arena-view></div>`;
+        if (this._id) return html`<div class="container">${this._renderHeader()}<arena-view arenaId=${this._id} theme=${this._theme}></arena-view><arena-chat arenaId=${this._id}></arena-chat></div>`;
         const arena = this._createdArena;
         return html`<div class="container">
             ${this._renderHeader()}
