@@ -1,6 +1,5 @@
 import { LitElement, html, css } from 'lit';
 import { THEME_VARS, SHARED_STYLES } from '../styles.js';
-import { ruleIcon } from '../utils.js';
 import { userStore } from '../user-store.js';
 import '../user-badge.js';
 import '../arena-chat.js';
@@ -137,7 +136,7 @@ class ArenaApp extends LitElement {
 
     async _copy() {
         const url = this._arenaUrl();
-        try { await navigator.clipboard.writeText(url); } catch (_) {
+        try { await navigator.clipboard.writeText(url);        } catch {
             const input = this.renderRoot.querySelector('.url input');
             if (input) { input.focus(); input.select(); }
         }

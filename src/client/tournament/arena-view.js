@@ -354,7 +354,12 @@ class ArenaView extends LitElement {
     }
 
     async _join() {
-        await this._mutate('join', { playerId: userStore.clientId, name: userStore.userName || 'Anonymous' });
+        const name = (userStore.userName || '').trim();
+        if (/^(anonymous|anon)$/i.test(name)) {
+            window.alert('You must change name, Anonymous is not a valid arean name');
+            return;
+        }
+        await this._mutate('join', { playerId: userStore.clientId, name });
     }
 
     async _leave() {
