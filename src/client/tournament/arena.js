@@ -1,6 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { THEME_VARS, SHARED_STYLES } from '../styles.js';
 import { userStore } from '../user-store.js';
+import { arenaGameIcon } from '../utils.js';
 import '../user-badge.js';
 import '../arena-chat.js';
 import './arena-view.js';
@@ -64,6 +65,7 @@ class ArenaApp extends LitElement {
         this._loadingArenas = false;
         this._busy = false;
         this._error = '';
+        this._hourlyArenaPeriod = null;
     }
 
     connectedCallback() {
@@ -74,9 +76,40 @@ class ArenaApp extends LitElement {
     async _loadArenas() {
         this._loadingArenas = true;
         try {
-            const response = await fetch(`${API_BASE}/api/arena`);
-            const data = await response.json();
+            let response = await fetch(`${API_BASE}/api/arena`);
+            let data = await response.json();
             if (!response.ok) throw new Error(data.error || `Unable to load Arenas (${response.status})`);
+
+            const now = new Date();
+            const utcMinute = now.getUTCMinutes();
+            const hourlyPeriod = `${now.getUTCFullYear()}-${now.getUTCMonth()}-${now.getUTCDate()}-${now.getUTCHours()}`;
+            const hasActiveArena = (data.arenas || []).some(arena =>
+                arena.endTime > now.getTime() && arena.status !== 'finished');
+
+            if (utcMinute >= 30 && utcMinute < 55 && !hasActiveArena && this._hourlyArenaPeriod !== hourlyPeriod) {
+                this._hourlyArenaPeriod = hourlyPeriod;
+                const hourlyPresets = [
+                    { ruleType: 'threecushion', options: { raceTo: '7', tableSize: '5' } },
+                    { ruleType: 'nineball', options: { tableSize: '6', freeaim: 'true' } },
+                    { ruleType: 'eightball', options: { tableSize: '6', freeaim: 'true' } },
+                ];
+                const hourlyPreset = hourlyPresets[now.getUTCHours() % hourlyPresets.length];
+                await fetch(`${API_BASE}/api/arena`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: `arena-hourly-${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}-${String(now.getUTCHours()).padStart(2, '0')}`,
+                        creatorId: 'hourly-arena',
+                        creatorName: 'Hourly Arena',
+                        ...hourlyPreset,
+                        durationMinutes: 30,
+                    }),
+                });
+                response = await fetch(`${API_BASE}/api/arena`);
+                data = await response.json();
+                if (!response.ok) throw new Error(data.error || `Unable to reload Arenas (${response.status})`);
+            }
+
             this._arenas = (data.arenas || []).sort((a, b) => b.createdAt - a.createdAt);
         } catch (error) {
             this._error = error.message || 'Unable to load Arenas.';
@@ -145,7 +178,7 @@ class ArenaApp extends LitElement {
     _renderArenaList(arenas, completed = false) {
         return arenas.length ? html`<div class="arena-list" aria-label=${completed ? 'Completed Arenas' : 'Active Arenas'}>
             ${arenas.map(arena => html`<a class="arena-item ${completed ? 'completed' : ''}" href="${this._arenaUrlFor(arena)}">
-                <div class="arena-item-main"><div class="arena-item-title">${arena.ruleType} · ${arena.players.length} participant${arena.players.length === 1 ? '' : 's'} · ${completed ? 'ended' : 'ends'} ${new Date(arena.endTime).toLocaleTimeString()}</div></div><span aria-hidden="true">→</span>
+                <div class="arena-item-main"><div class="arena-item-title">${arenaGameIcon(arena.ruleType, arena.options)} · ${arena.players.length} participant${arena.players.length === 1 ? '' : 's'} · ${completed ? 'ended' : 'ends'} ${new Date(arena.endTime).toLocaleTimeString()}</div></div><span aria-hidden="true">→</span>
             </a>`)}
         </div>` : html`<div class="empty">No ${completed ? 'completed' : 'active'} Arenas.</div>`;
     }

@@ -223,7 +223,9 @@ async function arenaCreate(r) {
     }
     const start = Date.now();
     const duration = body.durationMinutes * 60 * 1000;
-    const id = "arena-" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
+    const id = typeof body.id === "string" && body.id.length > 0
+        ? body.id
+        : "arena-" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
     const arena = {
         id,
         creatorId: body.creatorId ? String(body.creatorId) : "",

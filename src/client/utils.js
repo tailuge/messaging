@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 924;
+export const CLIENTVERSION = 926;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -245,6 +245,14 @@ export const ruleIcon = rule => {
         ? html`<img src="assets/${name}.png" alt="${rule}" title="${rule}" width="18" height="18" style="vertical-align:middle">`
         : html`🎱`;
 };
+
+/**
+ * Renders the game icon and the relevant Arena game-option indicators.
+ * Table sizes are received as strings in the existing Arena options payload.
+ */
+export const arenaGameIcon = (rule, options = {}) => html`<span title="${rule}">
+    ${ruleIcon(rule)}${options?.freeaim ? '⌖' : ''}${Number(options?.tableSize) < 10 ? '🍼' : ''}
+</span>`;
 
 export const renderTrophy = i => ['🏆','🥈','🥉','🎖️'][i] ?? '';
 
