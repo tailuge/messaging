@@ -117,7 +117,7 @@ class ActiveArenas extends LitElement {
                         body: JSON.stringify({
                             id: `arena-hourly-${slot}`,
                             creatorId: 'hourly-arena',
-                            creatorName: `${hourlyPreset.name} ${hour}:${minute} UTC`,
+                            creatorName: hourlyPreset.name,
                             ruleType: hourlyPreset.ruleType,
                             options: hourlyPreset.options,
                             endTime,

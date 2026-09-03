@@ -20,7 +20,7 @@ class ArenaLeaderboard extends LitElement {
         th, td { padding: .4rem .25rem; border-bottom: 1px solid var(--border); text-align: left; }
         th { color: var(--text-muted); font-size: .7rem; }
         th:not(:first-child), td:not(:first-child) { text-align: right; }
-        .inactive { color: var(--text-muted); opacity: .65; }
+        .inactive { color: var(--text-muted); }
         .online-dot { display: inline-block; width: .45rem; height: .45rem; margin-right: .3rem; border-radius: 50%; background: #198754; vertical-align: middle; }
         .empty { color: var(--text-muted); text-align: center; padding: 1rem 0; }
     `];
