@@ -71,6 +71,10 @@ class ArenaView extends LitElement {
             border-radius: 6px;
             font-size: .85rem;
         }
+        .pairing-overlay.active {
+            border-color: var(--accent, #0d6efd);
+            box-shadow: 0 0 0 1px var(--accent, #0d6efd), 0 0 8px rgba(13, 110, 253, 0.25);
+        }
         .pairing-tick {
             font-size: 1.4rem;
             font-weight: 700;
@@ -514,6 +518,29 @@ class ArenaView extends LitElement {
      * If no eligible opponent exists, shows the no-opponent result and returns to
      * the leaderboard.
      */
+    _getOpponentHistory() {
+        if (!this.arenaId) return [];
+        try {
+            const raw = localStorage.getItem(`arena_opponents_${this.arenaId}`);
+            return raw ? JSON.parse(raw) : [];
+        } catch {
+            return [];
+        }
+    }
+
+    _recordOpponentHistory(opponentId) {
+        if (!this.arenaId || !opponentId) return;
+        try {
+            const history = this._getOpponentHistory();
+            history.push(opponentId);
+            // Keep a short history (e.g. max 10 entries)
+            if (history.length > 10) history.shift();
+            localStorage.setItem(`arena_opponents_${this.arenaId}`, JSON.stringify(history));
+        } catch (e) {
+            console.error('Failed to save opponent history:', e);
+        }
+    }
+
     async _executePairing() {
         const { candidates, diagnostics } = this._getPairingCandidates();
 
@@ -524,7 +551,25 @@ class ArenaView extends LitElement {
             return;
         }
 
-        const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+        const history = this._getOpponentHistory();
+        const counts = {};
+        for (const id of history) {
+            counts[id] = (counts[id] || 0) + 1;
+        }
+
+        let minCount = Infinity;
+        for (const candidate of candidates) {
+            const count = counts[candidate.playerId] || 0;
+            if (count < minCount) {
+                minCount = count;
+            }
+        }
+
+        const bestCandidates = candidates.filter(candidate => (counts[candidate.playerId] || 0) === minCount);
+        const chosen = bestCandidates[Math.floor(Math.random() * bestCandidates.length)];
+
+        this._recordOpponentHistory(chosen.playerId);
+
         const chosenStatus = diagnostics.find(candidate => candidate.playerId === chosen.playerId);
         console.log('[Arena pairing]', {
             candidates: diagnostics,
@@ -620,7 +665,7 @@ class ArenaView extends LitElement {
     _renderPairingOverlay() {
         if (this._pairingState === 'counting') {
             return html`
-                <div class="pairing-overlay" role="status" aria-live="polite">
+                <div class="pairing-overlay active" role="status" aria-live="polite">
                     <div class="pairing-tick" aria-label="Seconds remaining: ${this._pairingCountdown}">${this._pairingCountdown}</div>
                     <div class="pairing-label">Pairing…</div>
                     <div class="pairing-hint">Finding an opponent</div>
@@ -629,7 +674,7 @@ class ArenaView extends LitElement {
         }
         if (this._pairingState === 'paired') {
             return html`
-                <div class="pairing-overlay" role="status" aria-live="assertive">
+                <div class="pairing-overlay active" role="status" aria-live="assertive">
                     <div class="pairing-result">Paired with ${this._pairedName}</div>
                 </div>`;
         }
