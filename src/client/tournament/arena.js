@@ -1,7 +1,8 @@
 import { LitElement, html, css } from 'lit';
 import { THEME_VARS, SHARED_STYLES } from '../styles.js';
 import { userStore } from '../user-store.js';
-import { arenaGameIcon } from '../utils.js';
+import { ARENA_ROW_STYLES, arenaRow } from '../active-arenas.js';
+import '../active-arenas.js';
 import '../user-badge.js';
 import '../arena-chat.js';
 import './arena-view.js';
@@ -20,12 +21,11 @@ class ArenaApp extends LitElement {
         _durationMinutes: { state: true },
         _createdArena: { state: true },
         _arenas: { state: true },
-        _loadingArenas: { state: true },
         _busy: { state: true },
         _error: { state: true },
     };
 
-    static styles = [THEME_VARS, SHARED_STYLES, css`
+    static styles = [THEME_VARS, SHARED_STYLES, ARENA_ROW_STYLES, css`
         :host { display: block; min-height: 100vh; box-sizing: border-box; padding: .5rem; background: var(--bg); color: var(--text); font-family: 'Exo', sans-serif; font-size: .85rem; }
         .container { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; }
         .topbar { display: flex; align-items: center; gap: .4rem; margin-bottom: .4rem; position: sticky; top: 0; z-index: 2; padding: .25rem 0; background: var(--bg); }
@@ -39,14 +39,6 @@ class ArenaApp extends LitElement {
         .url { display: flex; gap: .3rem; }
         .url input { flex: 1; min-width: 0; padding: .35rem; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; font: inherit; font-size: .7rem; }
         .meta { color: var(--text-muted); font-size: .75rem; line-height: 1.6; }
-        .empty { color: var(--text-muted); text-align: center; padding: 1rem 0; }
-        .arena-list { display: flex; flex-direction: column; gap: .35rem; }
-        .arena-item { display: flex; align-items: center; gap: .5rem; padding: .45rem; border: 1px solid var(--border); border-radius: 4px; text-decoration: none; }
-        .arena-item-main { min-width: 0; flex: 1; }
-        .arena-item-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .arena-item-meta { color: var(--text-muted); font-size: .72rem; margin-top: .15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .refresh { float: right; }
-        .completed { opacity: .8; padding-top: .25rem; padding-bottom: .25rem; }
         .back-lobby { margin-left: auto; }
     `];
 
@@ -62,63 +54,9 @@ class ArenaApp extends LitElement {
         this._durationMinutes = 10;
         this._createdArena = null;
         this._arenas = [];
-        this._loadingArenas = false;
         this._busy = false;
         this._error = '';
-        this._hourlyArenaPeriod = null;
     }
-
-    connectedCallback() {
-        super.connectedCallback();
-        if (!this._id) this._loadArenas();
-    }
-
-    async _loadArenas() {
-        this._loadingArenas = true;
-        try {
-            let response = await fetch(`${API_BASE}/api/arena`);
-            let data = await response.json();
-            if (!response.ok) throw new Error(data.error || `Unable to load Arenas (${response.status})`);
-
-            const now = new Date();
-            const utcMinute = now.getUTCMinutes();
-            const hourlyPeriod = `${now.getUTCFullYear()}-${now.getUTCMonth()}-${now.getUTCDate()}-${now.getUTCHours()}`;
-            const hasActiveArena = (data.arenas || []).some(arena =>
-                arena.endTime > now.getTime() && arena.status !== 'finished');
-
-            if (utcMinute >= 30 && utcMinute < 55 && !hasActiveArena && this._hourlyArenaPeriod !== hourlyPeriod) {
-                this._hourlyArenaPeriod = hourlyPeriod;
-                const hourlyPresets = [
-                    { name: 'Three Cushion Mini Hourly Arena', ruleType: 'threecushion', options: { raceTo: '7', tableSize: '5' } },
-                    { name: 'Nine Ball Mini Hourly Arena', ruleType: 'nineball', options: { tableSize: '6', freeaim: 'true' } },
-                    { name: 'Eight Ball Mini Hourly Arena', ruleType: 'eightball', options: { tableSize: '6', freeaim: 'true' } },
-                ];
-                const hourlyPreset = hourlyPresets[now.getUTCHours() % hourlyPresets.length];
-                await fetch(`${API_BASE}/api/arena`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        id: `arena-hourly-${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}-${String(now.getUTCHours()).padStart(2, '0')}`,
-                        creatorId: 'hourly-arena',
-                        creatorName: hourlyPreset.name,
-                        ruleType: hourlyPreset.ruleType,
-                        options: hourlyPreset.options,
-                        durationMinutes: 30,
-                    }),
-                });
-                response = await fetch(`${API_BASE}/api/arena`);
-                data = await response.json();
-                if (!response.ok) throw new Error(data.error || `Unable to reload Arenas (${response.status})`);
-            }
-
-            this._arenas = (data.arenas || []).sort((a, b) => b.createdAt - a.createdAt);
-        } catch (error) {
-            this._error = error.message || 'Unable to load Arenas.';
-        } finally {
-            this._loadingArenas = false;
-        }
-    }
-
 
     async _create() {
         if (!this._ruleType) {
@@ -142,7 +80,7 @@ class ArenaApp extends LitElement {
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || `Create failed (${response.status})`);
             this._createdArena = data.arena;
-            await this._loadArenas();
+            await this._refreshActiveArenas();
         } catch (error) {
             this._error = error.message || 'Unable to create Arena.';
         } finally {
@@ -176,31 +114,32 @@ class ArenaApp extends LitElement {
         }
     }
 
-    _renderArenaList(arenas, completed = false) {
-        return arenas.length ? html`<div class="arena-list" aria-label=${completed ? 'Completed Arenas' : 'Active Arenas'}>
-            ${arenas.map(arena => html`<a class="arena-item ${completed ? 'completed' : ''}" href="${this._arenaUrlFor(arena)}">
-                <div class="arena-item-main"><div class="arena-item-title">${arenaGameIcon(arena.ruleType, arena.options)}${arena.creatorName ? html` · ${arena.creatorName}` : ''} - ${arena.players.length} participant${arena.players.length === 1 ? '' : 's'} · ${completed ? 'ended' : 'ends'} ${new Date(arena.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div></div>
-            </a>`)}
-        </div>` : html`<div class="empty">No ${completed ? 'completed' : 'active'} Arenas.</div>`;
+    _onArenasLoaded(event) {
+        this._arenas = event.detail.arenas || [];
     }
 
-    _renderActiveArenas() {
+    async _refreshActiveArenas() {
+        const component = this.renderRoot.querySelector('active-arenas');
+        if (component) await component.load();
+    }
+
+    _renderCompletedArenas() {
         const now = Date.now();
-        const active = this._arenas.filter(arena => arena.endTime > now && arena.status !== 'finished');
         const completed = this._arenas.filter(arena => arena.endTime <= now || arena.status === 'finished');
+        return completed.length
+            ? html`<div class="arena-list" aria-label="Completed Arenas">${completed.map(arena => arenaRow(arena, true))}</div>`
+            : html`<div class="empty">No completed Arenas.</div>`;
+    }
+
+    _renderArenaSections() {
         return html`
             <section class="panel">
-                <h2 class="title">Active Arenas <button class="refresh" type="button" ?disabled=${this._loadingArenas} @click=${this._loadArenas}>${this._loadingArenas ? 'Refreshing…' : 'Refresh'}</button></h2>
-                ${this._renderArenaList(active)}
+                <active-arenas heading="Active Arenas" @arenas-loaded=${this._onArenasLoaded}></active-arenas>
             </section>
             <section class="panel">
                 <h2 class="title">Completed Arenas</h2>
-                ${this._renderArenaList(completed, true)}
+                ${this._renderCompletedArenas()}
             </section>`;
-    }
-
-    _arenaUrlFor(arena) {
-        return `${window.location.pathname}?tournamentId=${encodeURIComponent(arena.id)}`;
     }
 
     render() {
@@ -225,7 +164,7 @@ class ArenaApp extends LitElement {
                 ></arena-create-form>
             </section>
             ${arena ? html`<section class="panel"><h2 class="title success">Arena created</h2><div class="meta">${arena.ruleType} · ${arena.durationMinutes} minutes · ${arena.status}</div><div class="url"><input readonly value=${this._arenaUrl()} aria-label="Arena URL" @focus=${e => e.target.select()} /><button type="button" @click=${this._copy}>Copy</button></div><p class="empty">Share this URL to invite players.</p></section>` : ''}
-            ${this._renderActiveArenas()}
+            ${this._renderArenaSections()}
         </div>`;
     }
 }

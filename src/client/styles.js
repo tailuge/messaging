@@ -326,7 +326,6 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     .topbar user-badge { min-width: 0; }
     .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem; overflow: hidden; }
     .panel-title { font-weight: bold; margin-bottom: 0.25rem; font-size: 0.8rem; color: var(--text-dim); text-align: center; }
-    .motd-row { display: flex; flex-direction: column; }
     .info-row { display: flex; flex-direction: column; }
     .info-row .panel { overflow: visible; }
 
@@ -341,7 +340,7 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     .solo           { grid-area: 1 / 1 / 2 / 2; }
     online-panel    { grid-area: 1 / 2 / 2 / 3; }
     online-panel.panel { overflow-y: auto; max-height: calc(100vh - 6rem); align-self: stretch; }
-    .motd-row       { grid-area: 2 / 1 / 3 / 3; }
+    .arenas-row     { grid-area: 2 / 1 / 3 / 3; }
     .info-row       { grid-area: 3 / 1 / 4 / 3; }
 
     main.has-sidebar {
@@ -356,7 +355,7 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
         align-self: stretch;
         max-height: none;
     }
-    main.has-sidebar .motd-row {
+    main.has-sidebar .arenas-row {
         grid-area: 2 / 1 / 3 / 2;
     }
     main.has-sidebar .info-row {

@@ -311,7 +311,8 @@ async function arenaResult(r, arenaId) {
         logApi("arena result duplicate arenaId=" + arenaId + " challengeId=" + String(body.challengeId));
         return json(r, 200, { status: "success", duplicate: true });
     }
-    await redis("HINCRBY", keys.scores, `p:${winnerId}`, 1);
+    const winnerPoints = body.beserk === true ? 2 : 1;
+    await redis("HINCRBY", keys.scores, `p:${winnerId}`, winnerPoints);
     await redis("HINCRBY", keys.scores, `w:${winnerId}`, 1);
     await redis("HINCRBY", keys.scores, `g:${winnerId}`, 1);
     await redis("HINCRBY", keys.scores, `g:${loserId}`, 1);

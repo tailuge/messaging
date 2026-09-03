@@ -1,0 +1,144 @@
+import { LitElement, html, css } from 'lit';
+import { arenaGameIcon } from './utils.js';
+
+const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? ''
+    : 'https://billiards-network.onrender.com';
+
+// Poll interval keeps the list fresh (arenas appear when created, drop off when
+// they end) without a manual refresh button.
+const REFRESH_MS = 30_000;
+
+const HOURLY_PRESETS = [
+    { name: 'Three Cushion Mini Hourly Arena', ruleType: 'threecushion', options: { raceTo: '7', tableSize: '5' } },
+    { name: 'Nine Ball Mini Hourly Arena', ruleType: 'nineball', options: { tableSize: '6', freeaim: 'true' } },
+    { name: 'Eight Ball Mini Hourly Arena', ruleType: 'eightball', options: { tableSize: '6', freeaim: 'true' } },
+];
+
+// Row styles shared by the Active Arenas component and the arena page's
+// Completed Arenas list, so both lists render identically.
+export const ARENA_ROW_STYLES = css`
+    .arena-list { display: flex; flex-direction: column; gap: .35rem; }
+    .arena-item { display: flex; align-items: center; gap: .5rem; padding: .45rem; border: 1px solid var(--border); border-radius: 4px; text-decoration: none; color: var(--text); }
+    .arena-item.completed { opacity: .8; padding-top: .25rem; padding-bottom: .25rem; }
+    .arena-item-main { min-width: 0; flex: 1; }
+    .arena-item-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .arena-item-name { font-weight: 400; }
+    .arena-item-meta { color: var(--text-muted); font-size: .72rem; font-weight: 400; white-space: nowrap; }
+    .arena-join { cursor: pointer; border: 1px solid var(--btn-border); border-radius: 4px; background: var(--btn-bg); color: var(--text); font: inherit; font-size: .7rem; padding: .1rem .5rem; flex-shrink: 0; }
+    .arena-join:hover { background-color: var(--btn-hover); }
+    .arena-join:active { background-color: var(--btn-active); }
+    .arena-join:focus-visible { outline: 2px solid #007bff; outline-offset: 1px; }
+    .empty { color: var(--text-muted); text-align: center; padding: .5rem 0; }
+`;
+
+export const arenaRow = (arena, completed = false) => html`<a class="arena-item ${completed ? 'completed' : ''}" href="arena.html?tournamentId=${encodeURIComponent(arena.id)}">
+    <div class="arena-item-main"><div class="arena-item-title"><span class="arena-item-name">${arenaGameIcon(arena.ruleType, arena.options)}${arena.creatorName ? html` · ${arena.creatorName}` : ''}</span><span class="arena-item-meta"> 👥\uFE0E ${arena.players.length} · ⏰\uFE0E ${completed ? 'ended' : 'ends'} ${new Date(arena.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span></div></div>
+    ${completed ? '' : html`<button class="arena-join" type="button">Join</button>`}
+</a>`;
+
+class ActiveArenas extends LitElement {
+    static properties = {
+        // Optional panel heading. The arena page passes "Active Arenas"; the
+        // lobby strip passes nothing so no title is rendered.
+        heading: { type: String },
+        _arenas: { state: true },
+        _error: { state: true },
+    };
+
+    static styles = [ARENA_ROW_STYLES, css`
+        :host { display: block; }
+        h2.title { margin: 0 0 .5rem; font-size: 1.1rem; font-weight: 600; }
+        .error { color: var(--text-muted); font-size: .75rem; text-align: center; padding: .5rem 0; }
+    `];
+
+    constructor() {
+        super();
+        this.heading = '';
+        this._arenas = [];
+        this._error = '';
+        this._hourlyArenaPeriod = null;
+        this._timer = null;
+    }
+
+    connectedCallback() {
+        super.connectedCallback();
+        this._load();
+        this._timer = setInterval(() => this._load(), REFRESH_MS);
+    }
+
+    disconnectedCallback() {
+        if (this._timer) { clearInterval(this._timer); this._timer = null; }
+        super.disconnectedCallback();
+    }
+
+    async load() {
+        await this._load();
+    }
+
+    async _load() {
+        try {
+            let response = await fetch(`${API_BASE}/api/arena`);
+            let data = await response.json();
+            if (!response.ok) throw new Error(data.error || `Unable to load Arenas (${response.status})`);
+
+            // Hourly seeding: if we are inside the seeding window (minutes 30-55)
+            // and no arena is currently active, create the preset hourly arena
+            // once per UTC hour.
+            const now = new Date();
+            const utcMinute = now.getUTCMinutes();
+            const hourlyPeriod = `${now.getUTCFullYear()}-${now.getUTCMonth()}-${now.getUTCDate()}-${now.getUTCHours()}`;
+            const hasActiveArena = (data.arenas || []).some(arena =>
+                arena.endTime > now.getTime() && arena.status !== 'finished');
+
+            if (utcMinute >= 30 && utcMinute < 55 && !hasActiveArena && this._hourlyArenaPeriod !== hourlyPeriod) {
+                this._hourlyArenaPeriod = hourlyPeriod;
+                const hourlyPreset = HOURLY_PRESETS[now.getUTCHours() % HOURLY_PRESETS.length];
+                await fetch(`${API_BASE}/api/arena`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: `arena-hourly-${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}-${String(now.getUTCHours()).padStart(2, '0')}`,
+                        creatorId: 'hourly-arena',
+                        creatorName: hourlyPreset.name,
+                        ruleType: hourlyPreset.ruleType,
+                        options: hourlyPreset.options,
+                        durationMinutes: 30,
+                    }),
+                });
+                response = await fetch(`${API_BASE}/api/arena`);
+                data = await response.json();
+                if (!response.ok) throw new Error(data.error || `Unable to reload Arenas (${response.status})`);
+            }
+
+            this._arenas = (data.arenas || []).sort((a, b) => b.createdAt - a.createdAt);
+            this._error = '';
+            this.dispatchEvent(new CustomEvent('arenas-loaded', {
+                detail: { arenas: this._arenas },
+                bubbles: true,
+                composed: true,
+            }));
+        } catch (error) {
+            this._error = error.message || 'Unable to load Arenas.';
+        }
+    }
+
+    get _activeArenas() {
+        const now = Date.now();
+        return this._arenas.filter(arena => arena.endTime > now && arena.status !== 'finished');
+    }
+
+    render() {
+        const active = this._activeArenas;
+        return html`
+            ${this.heading ? html`<h2 class="title">${this.heading}</h2>` : ''}
+            ${this._error && !active.length
+                ? html`<div class="error">Could not load arenas.</div>`
+                : active.length
+                    ? html`<div class="arena-list" aria-label="Active Arenas">${active.map(arena => arenaRow(arena))}</div>`
+                    : html`<div class="empty">No active Arenas.</div>`}
+        `;
+    }
+}
+
+customElements.define('active-arenas', ActiveArenas);
