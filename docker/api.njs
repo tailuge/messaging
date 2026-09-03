@@ -80,7 +80,7 @@ async function redis() {
     const args = Array.prototype.slice.call(arguments);
     const url = process.env.UPSTASH_REDIS_REST_URL;
     const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-    if (!url || !token) throw new Error("UPSTASH_REDIS_REST_URL/TOKEN não configurados");        if (typeof url !== "string" || !/^https?:\/\//.test(url)) {
+    if (!url || !token) throw new Error("UPSTASH_REDIS_REST_URL/TOKEN not configured");        if (typeof url !== "string" || !/^https?:\/\//.test(url)) {
             throw new Error("UPSTASH_REDIS_REST_URL must start with http:// or https://");
         }
         const res = await ngx.fetch(url, {
@@ -129,7 +129,7 @@ async function loadArena(arenaId) {
     const raw = await redis("GET", keys.arena);
     if (!raw) return null;
     let arena;
-    try { arena = JSON.parse(raw); } catch (e) { throw new Error("Arena corrompida no KV"); }
+    try { arena = JSON.parse(raw); } catch (e) { throw new Error("Arena data corrupted in KV"); }
     const before = arena.status;
     transition(arena);
     if (arena.status !== before) await redis("SET", keys.arena, JSON.stringify(arena));
@@ -137,9 +137,9 @@ async function loadArena(arenaId) {
 }
 
 function requireActive(arena) {
-    if (!arena) return "Nenhuma Arena criada";
-    if (arena.status === "scheduled") return "Arena ainda não começou";
-    if (arena.status === "finished") return "Arena já encerrada";
+    if (!arena) return "No arena found";
+    if (arena.status === "scheduled") return "Arena has not started yet";
+    if (arena.status === "finished") return "Arena has already ended";
     return null;
 }
 
@@ -195,7 +195,7 @@ async function arenaList(r) {
 
 async function arenaGet(r, arenaId) {
     const arena = await loadArena(arenaId);
-    if (!arena) return json(r, 404, { error: "Nenhuma Arena criada" });
+    if (!arena) return json(r, 404, { error: "No arena found" });
     const scores = scoresFromHgetall(await redis("HGETALL", arenaKeys(arenaId).scores));
     return json(r, 200, { status: "success", arena, leaderboard: buildLeaderboard(arena, scores) });
 }
@@ -204,19 +204,19 @@ async function arenaResultsGet(r) {
     const raw = await redis("GET", K_RESULTS);
     if (!raw) return json(r, 200, { status: "success", results: {} });
     let results;
-    try { results = JSON.parse(raw); } catch (e) { throw new Error("Histórico de Arenas corrompido no KV"); }
+    try { results = JSON.parse(raw); } catch (e) { throw new Error("Arena history corrupted in KV"); }
     return json(r, 200, { status: "success", results });
 }
 
 async function arenaCreate(r) {
     const body = await readBody(r);
-    if (!body) return json(r, 400, { error: "JSON inválido" });
+    if (!body) return json(r, 400, { error: "Invalid JSON" });
     logApi("create payload=" + JSON.stringify(body));
     if (typeof body.ruleType !== "string" || !body.ruleType) {
-        return json(r, 400, { error: "ruleType obrigatório" });
+        return json(r, 400, { error: "ruleType is required" });
     }
     if (!body.options || typeof body.options !== "object" || Array.isArray(body.options)) {
-        return json(r, 400, { error: "options obrigatório" });
+        return json(r, 400, { error: "options is required" });
     }
     const start = Date.now();
     let endTime;
@@ -226,13 +226,13 @@ async function arenaCreate(r) {
         // hour / half-hour. The arena may run shorter than 30 minutes to
         // reach the next boundary.
         if (body.endTime <= start || body.endTime > start + 30 * 60 * 1000) {
-            return json(r, 400, { error: "endTime deve estar entre agora e +30 minutos" });
+            return json(r, 400, { error: "endTime must be between now and +30 minutes" });
         }
         durationMinutes = Math.max(1, Math.round((body.endTime - start) / 60000));
         endTime = body.endTime;
     } else {
         if (typeof body.durationMinutes !== "number" || ARENA_DURATION_MINUTES.indexOf(body.durationMinutes) === -1) {
-            return json(r, 400, { error: "durationMinutes deve ser 10 ou 30" });
+            return json(r, 400, { error: "durationMinutes must be 10 or 30" });
         }
         durationMinutes = body.durationMinutes;
         endTime = start + durationMinutes * 60 * 1000;
@@ -268,17 +268,25 @@ async function arenaCreate(r) {
 
 async function arenaJoin(r, arenaId) {
     const body = await readBody(r);
-    if (!body) return json(r, 400, { error: "JSON inválido" });
-    if (!body.playerId) return json(r, 400, { error: "playerId obrigatório" });
+    if (!body) return json(r, 400, { error: "Invalid JSON" });
+    if (!body.playerId) return json(r, 400, { error: "playerId is required" });
     const arena = await loadArena(arenaId);
     const err = requireActive(arena);
     if (err) return json(r, 409, { error: err });
-    if (arena.players.some((p) => p.playerId === String(body.playerId))) return json(r, 409, { error: "Já participante" });
-    arena.players.push({
-        playerId: String(body.playerId),
-        name: String(body.name || body.playerId),
-        active: true,
-    });
+    const playerId = String(body.playerId);
+    const existing = arena.players.find((p) => p.playerId === playerId);
+    if (existing) {
+        if (existing.active) return json(r, 409, { error: "Already a participant" });
+        // Rejoin after leaving: reactivate the existing record rather than duplicating it
+        existing.active = true;
+        existing.name = String(body.name || existing.name || playerId);
+    } else {
+        arena.players.push({
+            playerId: playerId,
+            name: String(body.name || playerId),
+            active: true,
+        });
+    }
     const keys = arenaKeys(arenaId);
     await redis("SET", keys.arena, JSON.stringify(arena), "EX", String(WORKING_TTL_SECONDS));
     return json(r, 200, { status: "success", arena });
@@ -286,15 +294,12 @@ async function arenaJoin(r, arenaId) {
 
 async function arenaLeave(r, arenaId) {
     const body = await readBody(r);
-    if (!body) return json(r, 400, { error: "JSON inválido" });
+    if (!body) return json(r, 400, { error: "Invalid JSON" });
     const arena = await loadArena(arenaId);
-    if (!arena) return json(r, 404, { error: "Nenhuma Arena criada" });
+    if (!arena) return json(r, 404, { error: "No arena found" });
     const playerId = String(body.playerId);
     const rec = arena.players.find((p) => p.playerId === playerId);
-    if (!rec) return json(r, 404, { error: "Não participante" });
-    if (SEEDED_PLAYERS.some((player) => player.playerId === playerId)) {
-        return json(r, 409, { error: "Participante fixo não pode sair" });
-    }
+    if (!rec) return json(r, 404, { error: "Not a participant" });
     rec.active = false;
     await redis("SET", arenaKeys(arenaId).arena, JSON.stringify(arena), "EX", String(WORKING_TTL_SECONDS));
     return json(r, 200, { status: "success" });
@@ -302,19 +307,19 @@ async function arenaLeave(r, arenaId) {
 
 async function arenaResult(r, arenaId) {
     const body = await readBody(r);
-    if (!body) return json(r, 400, { error: "JSON inválido" });
+    if (!body) return json(r, 400, { error: "Invalid JSON" });
     logApi("arena result upload arenaId=" + arenaId + " payload=" + JSON.stringify(body));
     if (!body.challengeId || !body.winnerId || !body.loserId) {
-        return json(r, 400, { error: "challengeId, winnerId e loserId obrigatórios" });
+        return json(r, 400, { error: "challengeId, winnerId and loserId are required" });
     }
-    if (String(body.winnerId) === String(body.loserId)) return json(r, 400, { error: "winnerId e loserId devem diferir" });
+    if (String(body.winnerId) === String(body.loserId)) return json(r, 400, { error: "winnerId and loserId must differ" });
     const arena = await loadArena(arenaId);
     const err = requireActive(arena);
     if (err) return json(r, 409, { error: err });
     const winnerId = String(body.winnerId);
     const loserId = String(body.loserId);
     if (!arena.players.some((p) => p.playerId === winnerId) || !arena.players.some((p) => p.playerId === loserId)) {
-        return json(r, 404, { error: "Participante não está na Arena" });
+        return json(r, 404, { error: "Participant is not in the Arena" });
     }
     const keys = arenaKeys(arenaId);
     await redis("EXPIRE", keys.scored, String(WORKING_TTL_SECONDS));
