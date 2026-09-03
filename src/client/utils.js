@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 931;
+export const CLIENTVERSION = 935;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -215,7 +215,7 @@ export const soloUrl = (g, userId, userName, lod, flip, custom) => {
     return g.url ? url : appendOptions(url, g.options);
 };
 
-export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options, bot, lod, flip, custom, opponent }) => {
+export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options, localOptions, bot, lod, flip, custom, opponent }) => {
     let url = `${BASE}?websocketserver=${WS_SERVER}`
         + `&userName=${encodeURIComponent(userName)}&userId=${userId}&ruletype=${ruleType}`;
     if (!bot) url += `&tableId=${tableId}`;
@@ -224,6 +224,7 @@ export const gameUrl = ({ tableId, userId, userName, ruleType, isFirst, options,
     if (lod !== undefined) url += `&lod=${lod}`;
     if (flip) url += '&flip=true';
     url = appendOptions(url, options);
+    url = appendOptions(url, localOptions);
     url = appendCustom(url, custom, 'custom');
     if (opponent?.userId) {
         url += `&opponent.userId=${encodeURIComponent(opponent.userId)}&opponent.userName=${encodeURIComponent(opponent.userName || '')}`;

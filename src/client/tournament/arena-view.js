@@ -41,6 +41,7 @@ class ArenaView extends LitElement {
         _pairingState: { state: true },
         _pairingCountdown: { state: true },
         _pairedName: { state: true },
+        _beserk: { state: true },
     };
 
     static styles = [THEME_VARS, SHARED_STYLES, css`
@@ -95,6 +96,20 @@ class ArenaView extends LitElement {
         .pairing-result {
             font-weight: 600;
         }
+        .pairing-beserk {
+            flex: 0 0 auto;
+            padding: .35rem .5rem;
+        }
+        .pairing-beserk[aria-pressed="true"] {
+            background: #fd7e14;
+            border-color: #fd7e14;
+            color: #fff;
+            box-shadow: 0 0 0 1px rgba(253, 126, 20, 0.35);
+        }
+        .pairing-beserk[aria-pressed="true"]:hover {
+            background: #e96b02;
+            border-color: #e96b02;
+        }
         .panel-heading { display: flex; align-items: center; gap: .4rem; }
         .panel-heading .title { flex: 1; }
     `];
@@ -125,6 +140,7 @@ class ArenaView extends LitElement {
         this._pairingState = null;   // null | 'counting' | 'paired' | 'no-opponent'
         this._pairingCountdown = PAIRING_COUNTDOWN_SECONDS;
         this._pairedName = '';
+        this._beserk = false;
         this._pairingInterval = null;
         this._pairingTimeout = null;
         this._pendingArenaChallenge = null;
@@ -280,6 +296,7 @@ class ArenaView extends LitElement {
             ruleType,
             isFirst,
             options,
+            localOptions: pending.beserk ? { beserk: 'true' } : undefined,
             lod: userStore.lod,
             flip: userStore.flip,
             custom: this._localCustom,
@@ -322,6 +339,7 @@ class ArenaView extends LitElement {
             ruleType,
             isFirst,
             options,
+            localOptions: this._beserk ? { beserk: 'true' } : undefined,
             lod: userStore.lod,
             flip: userStore.flip,
             custom: this._localCustom,
@@ -486,6 +504,8 @@ class ArenaView extends LitElement {
         this._pairingState = null;
         this._pairingCountdown = PAIRING_COUNTDOWN_SECONDS;
         this._pairedName = '';
+        // Berserk is a per-match choice; the next pairing starts off disabled.
+        this._beserk = false;
     }
 
     _onPairingTick() {
@@ -542,6 +562,10 @@ class ArenaView extends LitElement {
     }
 
     async _executePairing() {
+        // Capture the choice before clearing it for the next pairing. Human
+        // challenge acknowledgements can arrive after this method returns.
+        const beserk = this._beserk;
+        this._beserk = false;
         const { candidates, diagnostics } = this._getPairingCandidates();
 
         if (candidates.length === 0) {
@@ -579,7 +603,7 @@ class ArenaView extends LitElement {
         this._pairingState = 'paired';
 
         try {
-            await this._initiateChallenge(chosen);
+            await this._initiateChallenge(chosen, beserk);
         } catch (err) {
             console.error('Pairing challenge failed:', err);
         }
@@ -592,7 +616,7 @@ class ArenaView extends LitElement {
      * Bots go directly to gameUrl; humans get a lobby challenge offer.
      * Both include &tournamentId so the game page can link back to the Arena.
      */
-    async _initiateChallenge(opponent) {
+    async _initiateChallenge(opponent, beserk = this._beserk) {
         const arena = this._arena;
         const ruleType = arena?.ruleType || 'nineball';
         const options = arena?.options || {};
@@ -613,6 +637,7 @@ class ArenaView extends LitElement {
                 custom: this._localCustom,
                 opponent: { userId: opponent.playerId, userName: opponent.name, custom: opponent.custom },
                 flip: userStore.flip,
+                localOptions: beserk ? { beserk: 'true' } : undefined,
             });
             window.location.href = base + `&tournamentId=${encodeURIComponent(tournamentId)}`;
             return;
@@ -632,6 +657,7 @@ class ArenaView extends LitElement {
             opponentCustom: opponent.custom || this._onlineUsers.find(u => u.userId === opponent.playerId)?.custom,
             ruleType,
             options: challengeOptions,
+            beserk,
             tableId: null,
             earlyAccept: null,
         };
@@ -669,6 +695,7 @@ class ArenaView extends LitElement {
                     <div class="pairing-tick" aria-label="Seconds remaining: ${this._pairingCountdown}">${this._pairingCountdown}</div>
                     <div class="pairing-label">Pairing…</div>
                     <div class="pairing-hint">Finding an opponent</div>
+                    <button class="pairing-beserk" type="button" aria-pressed=${this._beserk} @click=${() => { this._beserk = !this._beserk; }}>Beserk 🚀</button>
                     <button type="button" @click=${this._cancelPairing}>Cancel</button>
                 </div>`;
         }

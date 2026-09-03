@@ -89,9 +89,9 @@ class ArenaApp extends LitElement {
             if (utcMinute >= 30 && utcMinute < 55 && !hasActiveArena && this._hourlyArenaPeriod !== hourlyPeriod) {
                 this._hourlyArenaPeriod = hourlyPeriod;
                 const hourlyPresets = [
-                    { ruleType: 'threecushion', options: { raceTo: '7', tableSize: '5' } },
-                    { ruleType: 'nineball', options: { tableSize: '6', freeaim: 'true' } },
-                    { ruleType: 'eightball', options: { tableSize: '6', freeaim: 'true' } },
+                    { name: 'Three Cushion Mini Hourly Arena', ruleType: 'threecushion', options: { raceTo: '7', tableSize: '5' } },
+                    { name: 'Nine Ball Mini Hourly Arena', ruleType: 'nineball', options: { tableSize: '6', freeaim: 'true' } },
+                    { name: 'Eight Ball Mini Hourly Arena', ruleType: 'eightball', options: { tableSize: '6', freeaim: 'true' } },
                 ];
                 const hourlyPreset = hourlyPresets[now.getUTCHours() % hourlyPresets.length];
                 await fetch(`${API_BASE}/api/arena`, {
@@ -100,8 +100,9 @@ class ArenaApp extends LitElement {
                     body: JSON.stringify({
                         id: `arena-hourly-${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}-${String(now.getUTCHours()).padStart(2, '0')}`,
                         creatorId: 'hourly-arena',
-                        creatorName: 'Hourly Arena',
-                        ...hourlyPreset,
+                        creatorName: hourlyPreset.name,
+                        ruleType: hourlyPreset.ruleType,
+                        options: hourlyPreset.options,
                         durationMinutes: 30,
                     }),
                 });

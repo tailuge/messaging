@@ -23,6 +23,16 @@ const param = (url: string, key: string) => new URL(url, "http://x").searchParam
 const build = (args: Record<string, unknown>) => gameUrl(args as any);
 
 describe("gameUrl custom flattening", () => {
+    it("passes local player options separately from shared game options", () => {
+        const url = build({
+            ...BASE,
+            options: { raceTo: "7" },
+            localOptions: { beserk: "true" },
+        });
+        expect(param(url, "raceTo")).toBe("7");
+        expect(param(url, "beserk")).toBe("true");
+    });
+
     it("keeps flat custom values backwards compatible", () => {
         const url = build({ ...BASE, custom: { cue: "1", skin: "red" } });
         expect(param(url, "custom.cue")).toBe("1");

@@ -103,7 +103,7 @@ class ArenaChat extends LitElement {
           ${this._messages.map((m) => html`<div class="msg">${m}</div>`)}
         </div>
         <div class="input-row ${this._hidden ? 'hidden' : ''}">
-          <input maxlength="20" placeholder="message…" @keydown=${this._onKeydown} />
+          <input maxlength="120" placeholder="message…" @keydown=${this._onKeydown} />
           <button @click=${this._send}>send</button>
         </div>
       </div>
