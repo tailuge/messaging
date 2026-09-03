@@ -9,10 +9,23 @@ const API_BASE = window.location.hostname === 'localhost' || window.location.hos
 // they end) without a manual refresh button.
 const REFRESH_MS = 30_000;
 
+// Seed only when there is at least this much time left to the next UTC
+// :00/:30 boundary; below it the sprint would be noise (or born finished) and
+// the poll right after the boundary creates the normal 30-minute slot instead.
+const MIN_SEED_MINUTES = 5;
+const BOUNDARY_MS = 30 * 60 * 1000; // UTC slots: on the hour and half past
+
+// Next UTC :00/:30 boundary strictly after `now` (epoch ms). Epoch-aligned so
+// boundaries are exact multiples of 30 minutes.
+const nextUtcBoundary = (now) => (Math.floor(now / BOUNDARY_MS) + 1) * BOUNDARY_MS;
+
 const HOURLY_PRESETS = [
     { name: 'Three Cushion Mini Hourly Arena', ruleType: 'threecushion', options: { raceTo: '7', tableSize: '5' } },
     { name: 'Nine Ball Mini Hourly Arena', ruleType: 'nineball', options: { tableSize: '6', freeaim: 'true' } },
     { name: 'Eight Ball Mini Hourly Arena', ruleType: 'eightball', options: { tableSize: '6', freeaim: 'true' } },
+    { name: 'Nine Ball Hourly Arena', ruleType: 'nineball', options: {} },
+    { name: 'Eight Ball Hourly Arena', ruleType: 'eightball', options: {} },
+    { name: 'Snooker Mini Hourly Arena', ruleType: 'snooker', options: { tableSize: '6', reds: '3', freeaim: 'true' } },        
 ];
 
 // Row styles shared by the Active Arenas component and the arena page's
@@ -57,7 +70,6 @@ class ActiveArenas extends LitElement {
         this.heading = '';
         this._arenas = [];
         this._error = '';
-        this._hourlyArenaPeriod = null;
         this._timer = null;
     }
 
@@ -82,33 +94,39 @@ class ActiveArenas extends LitElement {
             let data = await response.json();
             if (!response.ok) throw new Error(data.error || `Unable to load Arenas (${response.status})`);
 
-            // Hourly seeding: if we are inside the seeding window (minutes 30-55)
-            // and no arena is currently active, create the preset hourly arena
-            // once per UTC hour.
-            const now = new Date();
-            const utcMinute = now.getUTCMinutes();
-            const hourlyPeriod = `${now.getUTCFullYear()}-${now.getUTCMonth()}-${now.getUTCDate()}-${now.getUTCHours()}`;
+            // Hourly seeding: whenever no arena is currently active, create the
+            // preset hourly arena ending exactly on the next UTC :00/:30 boundary.
+            // Mid-slot seeds run shorter than 30 minutes to reach that boundary;
+            // user-created arenas are never touched.
+            const now = Date.now();
             const hasActiveArena = (data.arenas || []).some(arena =>
-                arena.endTime > now.getTime() && arena.status !== 'finished');
+                arena.endTime > now && arena.status !== 'finished');
 
-            if (utcMinute >= 30 && utcMinute < 55 && !hasActiveArena && this._hourlyArenaPeriod !== hourlyPeriod) {
-                this._hourlyArenaPeriod = hourlyPeriod;
-                const hourlyPreset = HOURLY_PRESETS[now.getUTCHours() % HOURLY_PRESETS.length];
-                await fetch(`${API_BASE}/api/arena`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        id: `arena-hourly-${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}-${String(now.getUTCHours()).padStart(2, '0')}`,
-                        creatorId: 'hourly-arena',
-                        creatorName: hourlyPreset.name,
-                        ruleType: hourlyPreset.ruleType,
-                        options: hourlyPreset.options,
-                        durationMinutes: 30,
-                    }),
-                });
-                response = await fetch(`${API_BASE}/api/arena`);
-                data = await response.json();
-                if (!response.ok) throw new Error(data.error || `Unable to reload Arenas (${response.status})`);
+            if (!hasActiveArena) {
+                const endTime = nextUtcBoundary(now);
+                const minutesToBoundary = Math.floor((endTime - now) / 60000);
+                if (minutesToBoundary >= MIN_SEED_MINUTES) {
+                    const boundary = new Date(endTime);
+                    const hour = String(boundary.getUTCHours()).padStart(2, '0');
+                    const minute = String(boundary.getUTCMinutes()).padStart(2, '0');
+                    const slot = `${boundary.getUTCFullYear()}${String(boundary.getUTCMonth() + 1).padStart(2, '0')}${String(boundary.getUTCDate()).padStart(2, '0')}-${hour}${minute}`;
+                    const hourlyPreset = HOURLY_PRESETS[boundary.getUTCHours() % HOURLY_PRESETS.length];
+                    await fetch(`${API_BASE}/api/arena`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            id: `arena-hourly-${slot}`,
+                            creatorId: 'hourly-arena',
+                            creatorName: `${hourlyPreset.name} ${hour}:${minute} UTC`,
+                            ruleType: hourlyPreset.ruleType,
+                            options: hourlyPreset.options,
+                            endTime,
+                        }),
+                    });
+                    response = await fetch(`${API_BASE}/api/arena`);
+                    data = await response.json();
+                    if (!response.ok) throw new Error(data.error || `Unable to reload Arenas (${response.status})`);
+                }
             }
 
             this._arenas = (data.arenas || []).sort((a, b) => b.createdAt - a.createdAt);

@@ -218,11 +218,25 @@ async function arenaCreate(r) {
     if (!body.options || typeof body.options !== "object" || Array.isArray(body.options)) {
         return json(r, 400, { error: "options obrigatório" });
     }
-    if (typeof body.durationMinutes !== "number" || ARENA_DURATION_MINUTES.indexOf(body.durationMinutes) === -1) {
-        return json(r, 400, { error: "durationMinutes deve ser 10 ou 30" });
-    }
     const start = Date.now();
-    const duration = body.durationMinutes * 60 * 1000;
+    let endTime;
+    let durationMinutes;
+    if (typeof body.endTime === "number") {
+        // Hourly-seed path: exact end time so auto arenas end on the UTC
+        // hour / half-hour. The arena may run shorter than 30 minutes to
+        // reach the next boundary.
+        if (body.endTime <= start || body.endTime > start + 30 * 60 * 1000) {
+            return json(r, 400, { error: "endTime deve estar entre agora e +30 minutos" });
+        }
+        durationMinutes = Math.max(1, Math.round((body.endTime - start) / 60000));
+        endTime = body.endTime;
+    } else {
+        if (typeof body.durationMinutes !== "number" || ARENA_DURATION_MINUTES.indexOf(body.durationMinutes) === -1) {
+            return json(r, 400, { error: "durationMinutes deve ser 10 ou 30" });
+        }
+        durationMinutes = body.durationMinutes;
+        endTime = start + durationMinutes * 60 * 1000;
+    }
     const id = typeof body.id === "string" && body.id.length > 0
         ? body.id
         : "arena-" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
@@ -232,9 +246,9 @@ async function arenaCreate(r) {
         creatorName: body.creatorName ? String(body.creatorName) : "Anonymous",
         ruleType: body.ruleType,
         options: body.options,
-        durationMinutes: body.durationMinutes,
+        durationMinutes: durationMinutes,
         startTime: start,
-        endTime: start + duration,
+        endTime: endTime,
         status: "active",
         players: SEEDED_PLAYERS.map((player) => ({
             playerId: player.playerId,
