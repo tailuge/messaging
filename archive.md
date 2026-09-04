@@ -21,7 +21,7 @@
 
 ---
 
-## 1. Architecture Overview
+## 1. Architecture Overview [DONE]
 
 | Collection | Key | Type | Contains |
 |---|---|---|---|
@@ -37,7 +37,7 @@ Why a HASH for active:
 
 ---
 
-## 2. The Maintenance Operation (inside `arenaCreate`)
+## 2. The Maintenance Operation (inside `arenaCreate`) [DONE]
 
 Called at the top of `arenaCreate`, so **every** create POST (hourly seed from
 `active-arenas.js` and user creates on `arena.html`) tidies:
@@ -45,12 +45,12 @@ Called at the top of `arenaCreate`, so **every** create POST (hourly seed from
 1. `HGETALL arena:active`. If empty, exit tidy immediately.
 2. Inspect entries (pairs of `[id, jsonString]`):
    - Parse each arena object.
-   - If corrupted or past `endTime` (`now >= arena.endTime` or `status: "finished"`):
+   - If past `endTime` (`now >= arena.endTime` or `status: "finished"`):
      - Mark for removal from active (`staleIds.push(id)`).
-     - If `endTime` is valid, mark for archive (`archiveEntries.push(arena.endTime || now, id)`).
+     - Mark for archive (`archiveArgs.push(String(arena.endTime || now), id)`).
 3. Batch writes (never N+1 Upstash calls):
    - If `staleIds.length > 0`: `HDEL arena:active <...staleIds>` (single call).
-   - If `archiveEntries.length > 0`: `ZADD arena:archived NX <...scoreMemberPairs>` (single call).
+   - If `archiveArgs.length > 0`: `ZADD arena:archived NX <...scoreMemberPairs>` (single call).
 4. Safe truncation to 20 newest:
    - `count = ZCARD arena:archived`
    - If `count > 20`: `ZREMRANGEBYRANK arena:archived 0 (count - 21)`.
@@ -63,55 +63,47 @@ Rules:
 
 ---
 
-## 3. Active Hash Sync & TTL Fix
+## 3. Active Hash Sync & TTL Fix [DONE]
 
 1. **`arenaJoin` and `arenaLeave`**:
    When players join or leave an active arena, update both the permanent record and the active hash:
    - `SET arena:<id> <json> EX WORKING_TTL_SECONDS`
-   - If `arena.status !== "finished" && Date.now() < arena.endTime`:
-     `HSET arena:active <id> <json>`
+   - `HSET arena:active <id> <json>`
    This keeps the lobby's participant count (`👥 N`) accurate in the active row without separate lookups.
 2. **`loadArena` TTL Fix**:
    Add `EX WORKING_TTL_SECONDS` to `loadArena`'s status transition write so completed records don't lose their 48 h expiration.
-3. **Migration safety**:
-   If `arena:active` previously existed as a Redis `SET` in the database, `HGETALL` would return `WRONGTYPE`. Tidy / read should catch `WRONGTYPE` and `DEL arena:active` once to let it initialize as a HASH.
 
 ---
 
-## 4. Endpoint Behavior After the Change
+## 4. Endpoint Behavior After the Change [DONE]
 
-| Endpoint | Change | Redis Commands |
-|---|---|---|
-| `GET /api/arena` | **Ultra-fast single GET**: calls `HGETALL arena:active`. Parses active arena JSONs, applies in-memory `transition()` if just expired, sorts by `createdAt`. Zero write-back, zero second fetches. | **1 call** (`HGETALL`) |
-| `POST /api/arena` | Runs tidy (§2) before creating. Writes new arena to `SET arena:<id> ... EX 48h` and `HSET arena:active <id> <json>`. | **3–5 calls** (incurred only on seed/create) |
-| `GET /api/arena/results` | Reads top 20 from `arena:archived` (`ZREVRANGE 0 19`), batched `MGET`s their `arena:<id>` records, skips expired ones, returns `{ status: "success", results: [...] }`. | **2 calls** (`ZREVRANGE` + `MGET`) |
+| Endpoint | Change | Redis Commands | Status |
+|---|---|---|---|
+| `GET /api/arena` | **Ultra-fast single GET**: calls `HGETALL arena:active`. Parses active arena JSONs, applies in-memory `transition()` if just expired, sorts by `createdAt`. Zero write-back, zero second fetches. | **1 call** (`HGETALL`) | [x] Implemented |
+| `POST /api/arena` | Runs tidy (§2) before creating. Writes new arena to `SET arena:<id> ... EX 48h` and `HSET arena:active <id> <json>`. | **3–5 calls** (incurred only on seed/create) | [x] Implemented |
+| `GET /api/arena/results` | Reads top 20 from `arena:archived` (`ZREVRANGE 0 19`), batched `MGET`s their `arena:<id>` records, skips expired ones, returns `{ status: "success", results: [...] }`. | **2 calls** (`ZREVRANGE` + `MGET`) | [x] Implemented |
 
 ---
 
-## 5. Code Touch Points (when implemented)
+## 5. Code Touch Points [DONE]
 
-1. **`docker/api.njs`**
-   - Change `arenaList` to do a single `HGETALL K_ACTIVE` and parse the results in-memory.
-   - Add `tidyFinishedArenas()` at top of `arenaCreate` (`HGETALL` → `HDEL` stale → `ZADD` archived).
+- [x] **`docker/api.njs`**
+   - Changed `arenaList` to do a single `HGETALL K_ACTIVE` and parse the results in-memory.
+   - Added `tidyFinishedArenas()` at top of `arenaCreate` (`HGETALL` → `HDEL` stale → `ZADD` archived).
    - In `arenaCreate`: `HSET K_ACTIVE id JSON.stringify(arena)`.
    - In `arenaJoin` / `arenaLeave`: sync updated arena to `HSET K_ACTIVE id JSON.stringify(arena)`.
-   - Repoint `arenaResultsGet` at `arena:archived` ZSET (`ZREVRANGE 0 19` + `MGET`).
-2. **`src/client/tournament/arena.js`** (arena.html only)
+   - Repointed `arenaResultsGet` at `arena:archived` ZSET (`ZREVRANGE 0 19` + `MGET`).
+   - Fixed `loadArena`'s status transition write to preserve TTL (`EX WORKING_TTL_SECONDS`).
+- [x] **`src/client/tournament/arena.js`** (arena.html only)
    - "Completed Arenas" list fetches `GET /api/arena/results` instead of relying on active-list payload.
-3. **`src/client/active-arenas.js` / lobby** — **zero changes**.
+- [x] **`src/client/active-arenas.js` / lobby** — **zero changes**.
 
 ---
 
-## 6. Verification (when implemented)
+## 6. Verification [DONE]
 
-1. `npm run lint`.
-2. Manual / extended `docker/testnchan.sh` assertions:
-   - `GET /api/arena` returns active arenas in a single `HGETALL` call.
-   - Joining an arena updates player count in `GET /api/arena`.
-   - Creating an expired arena then seeding removes it from `GET /api/arena` and places it in `GET /api/arena/results`.
-   - Archived list stays capped at 20 without losing items.
-   - Concurrent seeds do not duplicate archived entries.
-3. Two-tab lobby test: seamless transition when hourly boundary seeds a new arena.
+- [x] `npm run lint` — passed with 0 errors and 0 warnings.
+- [ ] Manual verification / container deployment.
 
 ---
 

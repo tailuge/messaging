@@ -19,6 +19,7 @@ class ArenaApp extends LitElement {
         _durationMinutes: { state: true },
         _createdArena: { state: true },
         _arenas: { state: true },
+        _completedArenas: { state: true },
         _busy: { state: true },
         _error: { state: true },
     };
@@ -58,8 +59,26 @@ class ArenaApp extends LitElement {
         this._durationMinutes = 10;
         this._createdArena = null;
         this._arenas = [];
+        this._completedArenas = [];
         this._busy = false;
         this._error = '';
+    }
+
+    connectedCallback() {
+        super.connectedCallback();
+        this._loadCompletedArenas();
+    }
+
+    async _loadCompletedArenas() {
+        try {
+            const response = await fetch(`${API_BASE}/api/arena/results`);
+            const data = await response.json();
+            if (response.ok && Array.isArray(data.results)) {
+                this._completedArenas = data.results;
+            }
+        } catch {
+            this._completedArenas = [];
+        }
     }
 
     async _create() {
@@ -85,6 +104,7 @@ class ArenaApp extends LitElement {
             if (!response.ok) throw new Error(data.error || `Create failed (${response.status})`);
             this._createdArena = data.arena;
             await this._refreshActiveArenas();
+            await this._loadCompletedArenas();
         } catch (error) {
             this._error = error.message || 'Unable to create Arena.';
         } finally {
@@ -122,6 +142,7 @@ class ArenaApp extends LitElement {
 
     _onArenasLoaded(event) {
         this._arenas = event.detail.arenas || [];
+        this._loadCompletedArenas();
     }
 
     async _refreshActiveArenas() {
@@ -130,10 +151,8 @@ class ArenaApp extends LitElement {
     }
 
     _renderCompletedArenas() {
-        const now = Date.now();
-        const completed = this._arenas.filter(arena => arena.endTime <= now || arena.status === 'finished');
-        return completed.length
-            ? html`<div class="arena-list" aria-label="Completed Arenas">${completed.map(arena => arenaRow(arena, true))}</div>`
+        return this._completedArenas.length
+            ? html`<div class="arena-list" aria-label="Completed Arenas">${this._completedArenas.map(arena => arenaRow(arena, true))}</div>`
             : html`<div class="empty">No completed Arenas.</div>`;
     }
 
