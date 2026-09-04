@@ -45,7 +45,7 @@ class UserStore extends EventTarget {
         }
 
         this.userName = urlName || this.userName || storedName || 'Anonymous';
-        this.lod = localStorage.getItem('lod') || '2';
+        this.lod = localStorage.getItem('lod') || '4';
         this.flip = localStorage.getItem('flip') === 'true';
         this.useProxy = localStorage.getItem('useProxy') === 'true';
         try { this.custom = JSON.parse(localStorage.getItem('custom')) || {}; } catch { this.custom = {}; }

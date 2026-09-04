@@ -110,7 +110,13 @@ class ActiveArenas extends LitElement {
                     const hour = String(boundary.getUTCHours()).padStart(2, '0');
                     const minute = String(boundary.getUTCMinutes()).padStart(2, '0');
                     const slot = `${boundary.getUTCFullYear()}${String(boundary.getUTCMonth() + 1).padStart(2, '0')}${String(boundary.getUTCDate()).padStart(2, '0')}-${hour}${minute}`;
-                    const hourlyPreset = HOURLY_PRESETS[boundary.getUTCHours() % HOURLY_PRESETS.length];
+                    // Alternate the preset on the :00 and :30 boundaries: each
+                    // half-hour slot of the day maps to its own index, so a full
+                    // preset rotation spans 3 hours instead of repeating the same
+                    // preset twice within one hour.
+                    const halfHourIndex = boundary.getUTCMinutes() >= 30 ? 1 : 0;
+                    const slotIndex = (2 * boundary.getUTCHours() + halfHourIndex) % HOURLY_PRESETS.length;
+                    const hourlyPreset = HOURLY_PRESETS[slotIndex];
                     await fetch(`${API_BASE}/api/arena`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
