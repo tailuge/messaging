@@ -38,16 +38,16 @@ export const ARENA_ROW_STYLES = css`
     .arena-item-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .arena-item-name { font-weight: 400; }
     .arena-item-meta { color: var(--text-muted); font-size: .72rem; font-weight: 400; white-space: nowrap; }
-    .arena-join { cursor: pointer; border: 1px solid var(--btn-border); border-radius: 4px; background: var(--btn-bg); color: var(--text); font: inherit; font-size: .7rem; padding: .1rem .5rem; flex-shrink: 0; }
-    .arena-join:hover { background-color: var(--btn-hover); }
-    .arena-join:active { background-color: var(--btn-active); }
+    .arena-join { cursor: pointer; border: 1px solid #0d6efd; border-radius: 4px; background: #0d6efd; color: #fff; font: inherit; font-size: .75rem; padding: .15rem .4rem; flex-shrink: 0; }
+    .arena-join:hover { background-color: #0b5ed7; border-color: #0a58ca; }
+    .arena-join:active { background-color: #0a58ca; }
     .arena-join:focus-visible { outline: 2px solid #007bff; outline-offset: 1px; }
     .empty { color: var(--text-muted); text-align: center; padding: .5rem 0; }
 `;
 
 export const arenaRow = (arena, completed = false) => html`<a class="arena-item ${completed ? 'completed' : ''}" href="arena.html?tournamentId=${encodeURIComponent(arena.id)}">
     <div class="arena-item-main"><div class="arena-item-title"><span class="arena-item-name">${arenaGameIcon(arena.ruleType, arena.options)}${arena.creatorName ? html` · ${arena.creatorName}` : ''}</span><span class="arena-item-meta"> 👥\uFE0E ${arena.players.length} · ⏰\uFE0E ${completed ? 'ended' : 'ends'} ${new Date(arena.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span></div></div>
-    ${completed ? '' : html`<button class="arena-join" type="button">Join</button>`}
+    ${completed ? '' : html`<button class="arena-join btn-challenge" type="button">Join</button>`}
 </a>`;
 
 class ActiveArenas extends LitElement {
