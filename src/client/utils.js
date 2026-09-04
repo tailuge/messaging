@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 947;
+export const CLIENTVERSION = 948;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -108,7 +108,7 @@ export function reduce(state, action) {
  * @param {string} status
  * @param {Record<string, string|number|boolean>} options
  */
-export function getEmoji(origin = "", ruleType = "", status = "", options = {}, arenaId) {
+export function getEmoji(origin = "", ruleType = "", status = "", options = {}, arenaId = undefined) {
   const ruleMap = {
     bot: { emoji: "🤖", title: "bot" },
     nineball: { emoji: "⑨", title: "nineball" },

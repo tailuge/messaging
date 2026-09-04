@@ -45,10 +45,7 @@ export class UserList extends LitElement {
         .status-link { text-decoration: none; color: inherit; }
     `];
 
-    _renderStatus(status, arenaId) {
-        if (arenaId) {
-            return html`<a class="status-link" href="arena.html?tournamentId=${encodeURIComponent(arenaId)}" @click=${e => e.stopPropagation()}><span aria-label="${status.title}" role="img">${status.emoji}</span></a>`;
-        }
+    _renderStatus(status) {
         return html`<span aria-label="${status.title}" role="img">${status.emoji}</span>`;
     }
 
@@ -112,7 +109,7 @@ export class UserList extends LitElement {
                         <span class="user-name">
                             <span title="${flag(u.meta?.country).title}">${flag(u.meta?.country).emoji}</span>
                             <span class="name-wrap">${u.userName}<span class="loc-tip">${u.meta?.city ?? ''}</span></span>
-                            ${this._renderStatus(status, u.arenaId)}
+                            ${this._renderStatus(status)}
                         </span>
                     </div>
                 </li>`;
@@ -141,7 +138,7 @@ export class UserList extends LitElement {
         return html`
             <li aria-label="${u.userName}">
                 <div class="user-info">
-                    <span class="user-name" @click=${() => emit(this, 'open-chat', u.userId)} style="cursor: pointer"><span title="${flag(u.meta?.country).title}">${flag(u.meta?.country).emoji}</span> <span class="name-wrap">${u.userName}<span class="loc-tip">${u.meta?.city ?? ''}</span></span> ${this._renderStatus(status, u.arenaId)}</span>
+                    <span class="user-name" @click=${() => emit(this, 'open-chat', u.userId)} style="cursor: pointer"><span title="${flag(u.meta?.country).title}">${flag(u.meta?.country).emoji}</span> <span class="name-wrap">${u.userName}<span class="loc-tip">${u.meta?.city ?? ''}</span></span> ${this._renderStatus(status)}</span>
                 </div>
                 <div class="actions">${actions}</div>
             </li>`;

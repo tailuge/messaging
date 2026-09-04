@@ -4,8 +4,6 @@ import { userStore } from '../user-store.js';
 import { ARENA_ROW_STYLES, arenaRow } from '../active-arenas.js';
 import '../active-arenas.js';
 import '../user-badge.js';
-import '../arena-chat.js';
-import './arena-view.js';
 import './arena-create-form.js';
 
 const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -48,7 +46,11 @@ class ArenaApp extends LitElement {
         document.documentElement.setAttribute('theme', this._theme);
         document.documentElement.style.colorScheme = this._theme;
         const params = new URLSearchParams(window.location.search);
-        this._id = params.get('id') || params.get('tournamentId') || '';
+        const id = params.get('id') || params.get('tournamentId');
+        if (id) {
+            window.location.replace(`../lobby.html?tournamentId=${encodeURIComponent(id)}`);
+            return;
+        }
         this._ruleType = '';
         this._options = {};
         this._durationMinutes = 10;
@@ -103,7 +105,9 @@ class ArenaApp extends LitElement {
 
     _arenaUrl() {
         if (!this._createdArena) return '';
-        return `${window.location.origin}${window.location.pathname}?tournamentId=${encodeURIComponent(this._createdArena.id)}`;
+        const origin = window.location.origin;
+        const basePath = window.location.pathname.replace(/\/tournament\/[^/]*$/, '/lobby.html');
+        return `${origin}${basePath}?tournamentId=${encodeURIComponent(this._createdArena.id)}`;
     }
 
     async _copy() {
@@ -143,7 +147,6 @@ class ArenaApp extends LitElement {
     }
 
     render() {
-        if (this._id) return html`<div class="container">${this._renderHeader()}<arena-view arenaId=${this._id} theme=${this._theme}></arena-view><arena-chat arenaId=${this._id}></arena-chat></div>`;
         const arena = this._createdArena;
         return html`<div class="container">
             ${this._renderHeader()}

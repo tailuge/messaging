@@ -6,12 +6,15 @@ import './online-panel.js';
 import './user-badge.js';
 import './settings-modal.js';
 import './active-arenas.js';
+import './arena-panel.js';
 import { CLIENTVERSION, formatVersion } from './utils.js';
 
 class LobbyApp extends LitElement {
     static properties = {
         _theme: { type: String, reflect: true, attribute: 'theme' },
         _sidebarOpen: { type: Boolean },
+        _activeArenaId: { state: true },
+        _lobby: { state: true },
     };
     static styles = LOBBY_APP_STYLES;
 
@@ -21,8 +24,17 @@ class LobbyApp extends LitElement {
         console.log("Search params:", Object.fromEntries(new URLSearchParams(window.location.search)));
         this._theme = document.documentElement.getAttribute('theme') || 'light';
         this._sidebarOpen = false;
+        const params = new URLSearchParams(window.location.search);
+        this._activeArenaId = params.get('tournamentId') || params.get('arenaId') || params.get('arena') || null;
+        this._lobby = null;
         this.addEventListener('user-list-toggle', e => {
             this._sidebarOpen = e.detail.expanded;
+        });
+        this.addEventListener('arena-select', e => {
+            this._activeArenaId = e.detail.arenaId;
+        });
+        this.addEventListener('lobby-ready', e => {
+            this._lobby = e.detail;
         });
     }
 
@@ -47,7 +59,17 @@ class LobbyApp extends LitElement {
                         </div>
                     </div>
                     <online-panel class="panel"></online-panel>
-                    <div class="arenas-row panel"><active-arenas></active-arenas></div>
+                    <div class="arenas-row panel">
+                        ${this._activeArenaId
+                            ? html`<arena-panel
+                                .arenaId=${this._activeArenaId}
+                                .lobby=${this._lobby || this._ctrl?.lobby}
+                                .theme=${this._theme}
+                                @close=${() => { this._activeArenaId = null; }}
+                              ></arena-panel>`
+                            : html`<active-arenas></active-arenas>`
+                        }
+                    </div>
                     <div class="info-row"><info-panel></info-panel></div>
                 </main>
                 <footer style="text-align:center;font-size:0.7rem;opacity:0.7;padding:0.5rem 0">

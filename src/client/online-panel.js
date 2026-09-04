@@ -194,6 +194,8 @@ class OnlinePanel extends LitElement {
         return custom;
     }
 
+    get lobby() { return this.#lobby; }
+
     get #slots() { return this.#slotManager.getSlots(); }
 
     async     _connect() {
@@ -202,6 +204,7 @@ class OnlinePanel extends LitElement {
             messageType: 'presence', type: 'join',
             userId: this.#myId, userName: this.#myName,
         });
+        this.dispatchEvent?.(new CustomEvent('lobby-ready', { detail: this.#lobby, bubbles: true, composed: true }));
         this.dispatch({ type: 'CONNECTED', payload: true });
         this.#settled = false;
         this.dispatch({ type: 'SETTLED', payload: false });
@@ -211,6 +214,7 @@ class OnlinePanel extends LitElement {
             this.dispatch({ type: 'USERS_UPDATE', payload: users });
         });
         this.#lobby.onChallenge(msg => {
+            if (msg.options?.tournamentId) return;
             this.dispatch({ type: 'CHALLENGE_MSG', payload: msg });
             if (this.#lobby.settled && msg.type === 'offer' && msg.challengeeId === this.#myId && document.hidden && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
                 new Notification('Challenge received!', { body: `${msg.challengerName} challenged you to ${msg.ruleType}`, icon: 'assets/threecushion.png' });

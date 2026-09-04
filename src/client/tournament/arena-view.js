@@ -1,6 +1,5 @@
 import { LitElement, html, css } from 'lit';
-import { MessagingClient } from '../../index.ts';
-import { NCHANBASE, formatVersion, CLIENTVERSION, gameUrl, ruleIcon } from '../utils.js';
+import { gameUrl, ruleIcon } from '../utils.js';
 import { THEME_VARS, SHARED_STYLES } from '../styles.js';
 import { userStore } from '../user-store.js';
 import './podium.js';
@@ -31,6 +30,7 @@ const PAIRED_DISPLAY_MS = 2000;
 class ArenaView extends LitElement {
     static properties = {
         arenaId: { type: String },
+        lobby: { type: Object },
         theme: { type: String, reflect: true },
         _arena: { state: true },
         _leaderboard: { state: true },
@@ -117,6 +117,7 @@ class ArenaView extends LitElement {
     constructor() {
         super();
         this.arenaId = '';
+        this.lobby = null;
         this.theme = document.documentElement.getAttribute('theme') || localStorage.getItem('theme') || 'dark';
         this._arena = null;
         this._leaderboard = [];
@@ -125,8 +126,8 @@ class ArenaView extends LitElement {
         this._theme = this.theme;
         document.documentElement.setAttribute('theme', this._theme);
         document.documentElement.style.colorScheme = this._theme;
-        this._presenceClient = null;
         this._lobby = null;
+        this._lobbyWired = false;
         this._error = '';
         this._timer = null;
 
@@ -149,18 +150,26 @@ class ArenaView extends LitElement {
     connectedCallback() {
         super.connectedCallback();
         this._load();
-        this._connectPresence();
+        if (this.lobby) this._setupLobby();
         this._timer = setInterval(() => {
             if (this._arena) this.requestUpdate();
         }, 1000);
+    }
+
+    updated(changedProperties) {
+        if (changedProperties.has('lobby') && this.lobby) {
+            this._setupLobby();
+        }
+        if (changedProperties.has('arenaId') && this.arenaId && this.arenaId !== this._lastLoadedArenaId) {
+            this._load();
+        }
     }
 
     disconnectedCallback() {
         if (this._timer) { clearInterval(this._timer); this._timer = null; }
         this._cancelPairing();
         this._pendingArenaChallenge = null;
-        this._lobby?.leave();
-        this._presenceClient?.stop();
+        this._lobbyWired = false;
         super.disconnectedCallback();
     }
 
@@ -196,39 +205,28 @@ class ArenaView extends LitElement {
 
     // ── Presence / lobby connection ───────────────────────────────────────────
 
-    async _connectPresence() {
-        const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-        const baseUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-            ? `${protocol}//${window.location.host}`
-            : `https://${NCHANBASE}`;
-        this._presenceClient = new MessagingClient({ baseUrl });
-        this._presenceClient.setVersion(formatVersion(CLIENTVERSION));
-        try {
-            this._lobby = await this._presenceClient.joinLobby({
-                messageType: 'presence', type: 'join',
-                userId: userStore.clientId, userName: userStore.userName,
-            });
-            await this._syncArenaPresence();
-            this._lobby.onUsersChange(users => {
-                // Include self so eligibility checks can reference current user if needed,
-                // but self is excluded from the candidate set in _findEligibleOpponents.
-                this._onlineUsers = [...users, {
-                    userId: userStore.clientId,
-                    userName: userStore.userName,
-                    custom: this._localCustom,
-                }];
-                this._checkStaleArenaPresence();
-            });
-            this._lobby.onChallenge(msg => {
-                if (msg.type === 'offer') {
-                    this._handleIncomingChallenge(msg);
-                } else {
-                    this._handleArenaChallengeMessage(msg);
-                }
-            });
-        } catch (error) {
-            console.error('Arena presence connection failed:', error);
-        }
+    _setupLobby() {
+        if (!this.lobby || this._lobbyWired) return;
+        this._lobby = this.lobby;
+        this._lobbyWired = true;
+        this._syncArenaPresence();
+        this._lobby.onUsersChange(users => {
+            // Include self so eligibility checks can reference current user if needed,
+            // but self is excluded from the candidate set in _findEligibleOpponents.
+            this._onlineUsers = [...users, {
+                userId: userStore.clientId,
+                userName: userStore.userName,
+                custom: this._localCustom,
+            }];
+            this._checkStaleArenaPresence();
+        });
+        this._lobby.onChallenge(msg => {
+            if (msg.type === 'offer') {
+                this._handleIncomingChallenge(msg);
+            } else {
+                this._handleArenaChallengeMessage(msg);
+            }
+        });
     }
 
     /**
@@ -386,6 +384,13 @@ class ArenaView extends LitElement {
 
     async _leave() {
         this._cancelPairing();
+        if (this._lobby) {
+            try {
+                await this._lobby.updatePresence({ arenaId: undefined });
+            } catch (err) {
+                console.error('Failed to clear arena presence:', err);
+            }
+        }
         await this._mutate('leave', { playerId: userStore.clientId });
     }
 

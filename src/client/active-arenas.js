@@ -45,10 +45,19 @@ export const ARENA_ROW_STYLES = css`
     .empty { color: var(--text-muted); text-align: center; padding: .5rem 0; }
 `;
 
-export const arenaRow = (arena, completed = false) => html`<a class="arena-item ${completed ? 'completed' : ''}" href="arena.html?tournamentId=${encodeURIComponent(arena.id)}">
-    <div class="arena-item-main"><div class="arena-item-title"><span class="arena-item-name">${arenaGameIcon(arena.ruleType, arena.options)}${arena.creatorName ? html` · ${arena.creatorName}` : ''}</span><span class="arena-item-meta"> 👥\uFE0E ${arena.players.length} · ⏰\uFE0E ${completed ? 'ended' : 'ends'} ${new Date(arena.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span></div></div>
-    ${completed ? '' : html`<button class="arena-join btn-challenge" type="button">Join</button>`}
-</a>`;
+export const arenaRow = (arena, completed = false, onSelect = null) => {
+    const handleJoin = (e) => {
+        if (onSelect) {
+            e.preventDefault();
+            e.stopPropagation();
+            onSelect(arena.id);
+        }
+    };
+    return html`<a class="arena-item ${completed ? 'completed' : ''}" href="lobby.html?tournamentId=${encodeURIComponent(arena.id)}" @click=${handleJoin}>
+        <div class="arena-item-main"><div class="arena-item-title"><span class="arena-item-name">${arenaGameIcon(arena.ruleType, arena.options)}${arena.creatorName ? html` · ${arena.creatorName}` : ''}</span><span class="arena-item-meta"> 👥\uFE0E ${arena.players.length} · ⏰\uFE0E ${completed ? 'ended' : 'ends'} ${new Date(arena.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span></div></div>
+        ${completed ? '' : html`<button class="arena-join btn-challenge" type="button" @click=${handleJoin}>Join</button>`}
+    </a>`;
+};
 
 class ActiveArenas extends LitElement {
     static properties = {
@@ -152,6 +161,14 @@ class ActiveArenas extends LitElement {
         return this._arenas.filter(arena => arena.endTime > now && arena.status !== 'finished');
     }
 
+    _onSelect(arenaId) {
+        this.dispatchEvent(new CustomEvent('arena-select', {
+            detail: { arenaId },
+            bubbles: true,
+            composed: true,
+        }));
+    }
+
     render() {
         const active = this._activeArenas;
         return html`
@@ -159,7 +176,7 @@ class ActiveArenas extends LitElement {
             ${this._error && !active.length
                 ? html`<div class="error">Could not load arenas.</div>`
                 : active.length
-                    ? html`<div class="arena-list" aria-label="Active Arenas">${active.map(arena => arenaRow(arena))}</div>`
+                    ? html`<div class="arena-list" aria-label="Active Arenas">${active.map(arena => arenaRow(arena, false, id => this._onSelect(id)))}</div>`
                     : html`<div class="empty">No active Arenas.</div>`}
         `;
     }
