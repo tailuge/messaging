@@ -45,7 +45,7 @@ class ArenaView extends LitElement {
     };
 
     static styles = [THEME_VARS, SHARED_STYLES, css`
-        :host { display: block; box-sizing: border-box; background: var(--bg); color: var(--text); font-family: 'Exo', sans-serif; font-size: .85rem; }
+        :host { display: block; box-sizing: border-box; background: var(--surface); color: var(--text); font-family: 'Exo', sans-serif; font-size: .85rem; }
         .container { max-width: 900px; margin: 0 auto; }
         .topbar { display: flex; align-items: center; gap: .4rem; margin-bottom: .4rem; }
         .logo { width: 32px; height: 32px; opacity: .7; }

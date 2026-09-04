@@ -97,7 +97,7 @@ class LobbyApp extends LitElement {
                                 .theme=${this._theme}
                                 @close=${this._closeArenaPanel}
                               ></arena-panel>`
-                            : html`<active-arenas></active-arenas>`
+                            : html`<active-arenas selectable></active-arenas>`
                         }
                     </div>
                     <div class="info-row"><info-panel></info-panel></div>

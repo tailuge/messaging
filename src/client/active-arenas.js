@@ -45,17 +45,21 @@ export const ARENA_ROW_STYLES = css`
     .empty { color: var(--text-muted); text-align: center; padding: .5rem 0; }
 `;
 
-export const arenaRow = (arena, completed = false, onSelect = null) => {
+export const arenaRow = (arena, completed = false, onSelect = null, showAction = true) => {
+    const href = `lobby.html?tournamentId=${encodeURIComponent(arena.id)}`;
     const handleJoin = (e) => {
         if (onSelect) {
             e.preventDefault();
             e.stopPropagation();
             onSelect(arena.id);
+        } else if (e.currentTarget instanceof HTMLButtonElement) {
+            e.preventDefault();
+            window.location.href = e.currentTarget.closest('a').href;
         }
     };
-    return html`<a class="arena-item ${completed ? 'completed' : ''}" href="lobby.html?tournamentId=${encodeURIComponent(arena.id)}" @click=${handleJoin}>
+    return html`<a class="arena-item ${completed ? 'completed' : ''}" href=${href} @click=${handleJoin}>
         <div class="arena-item-main"><div class="arena-item-title"><span class="arena-item-name">${arenaGameIcon(arena.ruleType, arena.options)}${arena.creatorName ? html` · ${arena.creatorName}` : ''}</span><span class="arena-item-meta"> 👥\uFE0E ${arena.players.length} · ⏰\uFE0E ${completed ? 'ended' : 'ends'} ${new Date(arena.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span></div></div>
-        ${completed ? '' : html`<button class="arena-join btn-challenge" type="button" @click=${handleJoin}>Join</button>`}
+        ${completed || !showAction ? '' : html`<button class="arena-join btn-challenge" type="button" @click=${handleJoin}>Open</button>`}
     </a>`;
 };
 
@@ -66,6 +70,7 @@ class ActiveArenas extends LitElement {
         heading: { type: String },
         _arenas: { state: true },
         _error: { state: true },
+        selectable: { type: Boolean },
     };
 
     static styles = [ARENA_ROW_STYLES, css`
@@ -79,6 +84,7 @@ class ActiveArenas extends LitElement {
         this.heading = '';
         this._arenas = [];
         this._error = '';
+        this.selectable = false;
         this._timer = null;
     }
 
@@ -176,7 +182,7 @@ class ActiveArenas extends LitElement {
             ${this._error && !active.length
                 ? html`<div class="error">Could not load arenas.</div>`
                 : active.length
-                    ? html`<div class="arena-list" aria-label="Active Arenas">${active.map(arena => arenaRow(arena, false, id => this._onSelect(id)))}</div>`
+                    ? html`<div class="arena-list" aria-label="Active Arenas">${active.map(arena => arenaRow(arena, false, this.selectable ? id => this._onSelect(id) : null))}</div>`
                     : html`<div class="empty">No active Arenas.</div>`}
         `;
     }
