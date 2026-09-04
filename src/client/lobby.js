@@ -32,10 +32,40 @@ class LobbyApp extends LitElement {
         });
         this.addEventListener('arena-select', e => {
             this._activeArenaId = e.detail.arenaId;
+            const url = new URL(window.location.href);
+            url.searchParams.set('tournamentId', e.detail.arenaId);
+            window.history.replaceState({}, '', url.pathname + url.search);
+            this.updateComplete.then(() => {
+                this.shadowRoot.querySelector('.arenas-row')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            });
         });
         this.addEventListener('lobby-ready', e => {
             this._lobby = e.detail;
         });
+        window.addEventListener('popstate', () => {
+            const p = new URLSearchParams(window.location.search);
+            const id = p.get('tournamentId') || p.get('arenaId') || p.get('arena') || null;
+            if (id !== this._activeArenaId) {
+                this._activeArenaId = id;
+            }
+        });
+    }
+
+    firstUpdated() {
+        if (this._activeArenaId) {
+            this.shadowRoot.querySelector('.arenas-row')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    _closeArenaPanel = () => {
+        this._activeArenaId = null;
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('tournamentId') || url.searchParams.has('arenaId') || url.searchParams.has('arena')) {
+            url.searchParams.delete('tournamentId');
+            url.searchParams.delete('arenaId');
+            url.searchParams.delete('arena');
+            window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+        }
     }
 
     get _ctrl() {
@@ -65,7 +95,7 @@ class LobbyApp extends LitElement {
                                 .arenaId=${this._activeArenaId}
                                 .lobby=${this._lobby || this._ctrl?.lobby}
                                 .theme=${this._theme}
-                                @close=${() => { this._activeArenaId = null; }}
+                                @close=${this._closeArenaPanel}
                               ></arena-panel>`
                             : html`<active-arenas></active-arenas>`
                         }

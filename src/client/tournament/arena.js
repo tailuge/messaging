@@ -48,7 +48,9 @@ class ArenaApp extends LitElement {
         const params = new URLSearchParams(window.location.search);
         const id = params.get('id') || params.get('tournamentId');
         if (id) {
-            window.location.replace(`../lobby.html?tournamentId=${encodeURIComponent(id)}`);
+            const target = new URL('./lobby.html', window.location.href);
+            target.searchParams.set('tournamentId', id);
+            window.location.replace(target.href);
             return;
         }
         this._ruleType = '';

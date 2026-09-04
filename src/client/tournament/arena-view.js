@@ -349,6 +349,7 @@ class ArenaView extends LitElement {
     // ── Arena data ────────────────────────────────────────────────────────────
 
     async _load() {
+        if (!this.arenaId) return;
         this._busy = true;
         this._error = '';
         try {
