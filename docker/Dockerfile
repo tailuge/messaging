@@ -55,6 +55,7 @@ COPY --from=builder /build/ngx_http_js_module.so /etc/nginx/modules/
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY nchan.conf /etc/nginx/conf.d/default.conf
 COPY cors.conf /etc/nginx/cors.conf
+COPY arena-cors.conf /etc/nginx/arena-cors.conf
 COPY metadata_headers.conf /etc/nginx/metadata_headers.conf
 COPY nchan_meta.js /etc/nginx/nchan_meta.js
 COPY api.njs /etc/nginx/api.njs
