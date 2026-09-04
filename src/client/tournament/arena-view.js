@@ -51,12 +51,12 @@ class ArenaView extends LitElement {
         .logo { width: 32px; height: 32px; opacity: .7; }
         h1 { flex: 1; margin: 0; font-size: 1rem; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); }
         h1 a { color: inherit; text-decoration: none; }
-        .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: .7rem; margin-bottom: .5rem; }
-        .title { margin: 0 0 .5rem; font-size: 1.1rem; font-weight: 600; }
-        .meta { color: var(--text-muted); font-size: .75rem; line-height: 1.7; }
+        .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: .35rem; margin-bottom: .25rem; }
+        .title { margin: 0 0 .25rem; font-size: .8rem; font-weight: 600; }
+        .meta { color: var(--text-muted); font-size: .75rem; line-height: 1.7; white-space: nowrap; }
         .error { padding: .45rem; color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; }
-        .actions { display: flex; gap: .35rem; margin-top: .6rem; }
-        .actions button { flex: 1; padding: .5rem; }
+        .actions { display: flex; gap: .25rem; margin-top: .3rem; }
+        .actions button { flex: 1; padding: .25rem; }
         .countdown { font-size: .85rem; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
         /* Pairing overlay — sits above the table, does not replace it */
@@ -742,8 +742,7 @@ class ArenaView extends LitElement {
                         <h2 class="title">${expired ? 'Arena complete' : 'Arena'} ${ruleIcon(arena.ruleType)}</h2>
                     </div>
                     <div class="meta">
-                        Status: ${expired ? 'complete' : arena.status} · Duration: ${arena.durationMinutes} minutes<br />
-                        ${arena.players.length} participant${arena.players.length === 1 ? '' : 's'} · ${expired ? 'Ended' : 'Ends'}: ${new Date(arena.endTime).toLocaleString([], { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                        Status: ${expired ? 'complete' : arena.status} · ${arena.durationMinutes} minutes · ${arena.players.length} participant${arena.players.length === 1 ? '' : 's'} · ${expired ? 'Ended' : 'Ends'}: ${new Date(arena.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                     </div>
                     ${!expired ? html`<div class="actions">
                         <button type="button" ?disabled=${this._busy || isPairing} @click=${this._load}>Refresh</button>

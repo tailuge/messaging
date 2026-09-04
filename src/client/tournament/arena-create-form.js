@@ -12,15 +12,15 @@ class ArenaCreateForm extends LitElement {
 
     static styles = css`
         :host { display: block; color: var(--text); }
-        .field { margin: .6rem 0; }
+        .field { margin: .3rem 0; }
         label { display: block; margin-bottom: .25rem; color: var(--text-muted); font-size: .75rem; }
-        select { width: 100%; box-sizing: border-box; padding: .45rem; background: var(--btn-bg); color: var(--text); border: 1px solid var(--btn-border); border-radius: 4px; font: inherit; }
-        .config { display: flex; align-items: center; justify-content: center; gap: .3rem; padding: .45rem; border: 1px dashed var(--border); border-radius: 4px; }
+        select { width: 100%; box-sizing: border-box; padding: .25rem; background: var(--btn-bg); color: var(--text); border: 1px solid var(--btn-border); border-radius: 4px; font: inherit; }
+        .config { display: flex; align-items: center; justify-content: center; gap: .3rem; padding: .25rem; border: 1px dashed var(--border); border-radius: 4px; }
         .config-actions { display: flex; align-items: center; gap: .3rem; flex-shrink: 0; }
         .btn-preset { display: flex; align-items: center; gap: .25rem; padding: .25rem .4rem; background: var(--btn-bg); color: var(--text); border: 1px solid var(--btn-border); border-radius: 4px; cursor: pointer; font: inherit; font-size: .75rem; }
         .btn-preset:hover { background: var(--btn-hover, #444); }
         .btn-preset img { width: 18px; height: 18px; display: block; }
-        .create { width: 100%; padding: .55rem; font-size: .95rem; }
+        .create { width: 100%; padding: .35rem; font-size: .9rem; }
         .error { padding: .45rem; color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; }
     `;
 

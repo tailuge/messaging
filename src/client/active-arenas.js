@@ -31,8 +31,8 @@ const HOURLY_PRESETS = [
 // Row styles shared by the Active Arenas component and the arena page's
 // Completed Arenas list, so both lists render identically.
 export const ARENA_ROW_STYLES = css`
-    .arena-list { display: flex; flex-direction: column; gap: .35rem; }
-    .arena-item { display: flex; align-items: center; gap: .5rem; padding: .45rem; border: 1px solid var(--border); border-radius: 4px; text-decoration: none; color: var(--text); }
+    .arena-list { display: flex; flex-direction: column; gap: .2rem; }
+    .arena-item { display: flex; align-items: center; gap: .35rem; padding: .25rem; border: 1px solid var(--border); border-radius: 4px; text-decoration: none; color: var(--text); }
     .arena-item.completed { opacity: .8; padding-top: .25rem; padding-bottom: .25rem; }
     .arena-item-main { min-width: 0; flex: 1; }
     .arena-item-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -75,7 +75,7 @@ class ActiveArenas extends LitElement {
 
     static styles = [ARENA_ROW_STYLES, css`
         :host { display: block; }
-        h2.title { margin: 0 0 .5rem; font-size: 1.1rem; font-weight: 600; }
+        h2.title { margin: 0 0 .25rem; font-size: .8rem; font-weight: 600; }
         .error { color: var(--text-muted); font-size: .75rem; text-align: center; padding: .5rem 0; }
     `];
 

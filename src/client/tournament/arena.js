@@ -31,8 +31,8 @@ class ArenaApp extends LitElement {
         .logo { width: 32px; height: 32px; flex-shrink: 0; opacity: .7; }
         h1 { flex: 1; margin: 0; font-size: 1rem; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); }
         h1 a { color: inherit; text-decoration: none; }
-        .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: .7rem; margin-bottom: .5rem; }
-        .title { margin: 0 0 .5rem; font-size: 1.1rem; font-weight: 600; }
+        .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: .4rem; margin-bottom: .25rem; }
+        .title { margin: 0 0 .25rem; font-size: .8rem; font-weight: 600; }
         .error { padding: .45rem; color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; }
         .success { color: #198754; }
         .url { display: flex; gap: .3rem; }

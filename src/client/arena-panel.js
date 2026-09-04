@@ -16,18 +16,17 @@ export class ArenaPanel extends LitElement {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding-bottom: .5rem;
-            margin-bottom: .5rem;
-            border-bottom: 1px solid var(--border);
+            padding-bottom: .25rem;
+            margin-bottom: .25rem;
         }
         .bar-left {
             display: flex;
             align-items: center;
-            gap: .5rem;
+            gap: .35rem;
         }
         .panel-heading {
             margin: 0;
-            font-size: 1.1rem;
+            font-size: .8rem;
             font-weight: 600;
         }
         .manage-link {
@@ -45,7 +44,7 @@ export class ArenaPanel extends LitElement {
             border-radius: 4px;
             color: var(--text);
             cursor: pointer;
-            padding: .25rem .5rem;
+            padding: .15rem .4rem;
             font: inherit;
             font-size: .8rem;
         }
@@ -55,7 +54,7 @@ export class ArenaPanel extends LitElement {
         .content {
             display: flex;
             flex-direction: column;
-            gap: .5rem;
+            gap: .25rem;
         }
     `];
 

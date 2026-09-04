@@ -13,12 +13,12 @@ class ArenaChat extends LitElement {
     SHARED_STYLES,
     css`
       :host { display: block; font-size: 0.8rem; }
-      .chat { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem; display: flex; flex-direction: column; gap: 0.3rem; }
+      .chat { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.25rem; display: flex; flex-direction: column; gap: 0.2rem; }
       .header { display: flex; justify-content: space-between; align-items: center; }
       .title { margin: 0 0 .5rem; font-size: 1.1rem; font-weight: 600; color: var(--text); }
       .messages {
         display: flex; flex-direction: column; gap: 2px;
-        height: calc(5 * 1.4rem); overflow-y: auto;
+        height: calc(2.5 * 1.4rem); overflow-y: auto;
         scrollbar-width: thin; scrollbar-color: var(--border) transparent;
       }
       .messages::-webkit-scrollbar { width: 4px; }
@@ -94,7 +94,6 @@ class ArenaChat extends LitElement {
     return html`
       <div class="chat">
         <div class="header">
-          <h2 class="title">Chat</h2>
           <button @click=${() => (this._hidden = !this._hidden)} aria-label="toggle chat">
             ${this._hidden ? '▸' : '▾'}
           </button>
