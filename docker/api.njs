@@ -13,7 +13,7 @@ async function hello(r) {
     r.return(200, `hello world\nUPSTASH_URL: ${upstashUrl}\n`);
 }
 
-const USAGE_KEYS = ["chineseUsage", "koreanUsage", "germanUsage", "turkishUsage"];
+const USAGE_KEYS = ["chineseUsage", "koreanUsage", "germanUsage", "turkishUsage", "vietnameseUsage"];
 
 async function usage(r) {
     const match = r.uri.match(/^\/api\/usage\/(.+)$/);
