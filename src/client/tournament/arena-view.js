@@ -51,11 +51,12 @@ class ArenaView extends LitElement {
         .logo { width: 32px; height: 32px; opacity: .7; }
         h1 { flex: 1; margin: 0; font-size: 1rem; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); }
         h1 a { color: inherit; text-decoration: none; }
-        .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: .35rem; margin-bottom: .25rem; }
-        .title { margin: 0 0 .25rem; font-size: .8rem; font-weight: 600; }
+        .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px; margin-bottom: 2px; }
+        .container > .panel:last-child { margin-bottom: 0; }
+        .title { margin: 0 0 2px; font-size: .8rem; font-weight: 600; }
         .meta { color: var(--text-muted); font-size: .75rem; line-height: 1.7; white-space: nowrap; }
-        .error { padding: .45rem; color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; }
-        .actions { display: flex; gap: .25rem; margin-top: .3rem; }
+        .error { padding: 2px; color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; }
+        .actions { display: flex; gap: 2px; margin-top: 2px; }
         .actions button { flex: 1; padding: .25rem; }
         .countdown { font-size: .85rem; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
@@ -64,9 +65,9 @@ class ArenaView extends LitElement {
             display: flex;
             flex-direction: row;
             align-items: center;
-            gap: .75rem;
-            padding: .45rem .6rem;
-            margin-bottom: .5rem;
+            gap: 2px;
+            padding: 2px;
+            margin-bottom: 2px;
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 6px;
@@ -110,7 +111,7 @@ class ArenaView extends LitElement {
             background: #e96b02;
             border-color: #e96b02;
         }
-        .panel-heading { display: flex; align-items: center; gap: .4rem; }
+        .panel-heading { display: flex; align-items: center; gap: 2px; }
         .panel-heading .title { flex: 1; }
     `];
 
@@ -377,7 +378,7 @@ class ArenaView extends LitElement {
     async _join() {
         const name = (userStore.userName || '').trim();
         if (/^(anonymous|anon)$/i.test(name)) {
-            window.alert('You must change name, Anonymous is not a valid arean name');
+            window.alert('You must change name, Anonymous is not a valid arena name');
             return;
         }
         await this._mutate('join', { playerId: userStore.clientId, name });

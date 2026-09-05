@@ -341,6 +341,7 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     online-panel    { grid-area: 1 / 2 / 2 / 3; }
     online-panel.panel { overflow-y: auto; max-height: calc(100vh - 6rem); align-self: stretch; }
     .arenas-row     { grid-area: 2 / 1 / 3 / 3; }
+    .arenas-row.arena-details { padding: 2px; }
     .info-row       { grid-area: 3 / 1 / 4 / 3; }
 
     main.has-sidebar {

@@ -13,7 +13,7 @@ class ArenaChat extends LitElement {
     SHARED_STYLES,
     css`
       :host { display: block; font-size: 0.8rem; }
-      .chat { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.25rem; display: flex; flex-direction: column; gap: 0.2rem; }
+      .chat { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px; display: flex; flex-direction: column; gap: 2px; }
       .header { display: flex; justify-content: space-between; align-items: center; }
       .title { margin: 0 0 .5rem; font-size: 1.1rem; font-weight: 600; color: var(--text); }
       .messages {
@@ -25,7 +25,7 @@ class ArenaChat extends LitElement {
       .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
       .messages.hidden { display: none; }
       .msg { color: var(--text); white-space: pre-wrap; word-break: break-word; line-height: 1.4; }
-      .input-row { display: flex; gap: 0.3rem; }
+      .input-row { display: flex; gap: 2px; }
       .input-row.hidden { display: none; }
       input { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font: inherit; font-size: 0.8rem; padding: 0.15rem 0.3rem; }
       input:focus { outline: 2px solid #007bff; outline-offset: 1px; }

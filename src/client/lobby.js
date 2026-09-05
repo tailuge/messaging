@@ -89,7 +89,7 @@ class LobbyApp extends LitElement {
                         </div>
                     </div>
                     <online-panel class="panel"></online-panel>
-                    <div class="arenas-row panel">
+                    <div class="arenas-row panel ${this._activeArenaId ? 'arena-details' : ''}">
                         ${this._activeArenaId
                             ? html`<arena-panel
                                 .arenaId=${this._activeArenaId}

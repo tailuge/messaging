@@ -16,18 +16,8 @@ export class ArenaPanel extends LitElement {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding-bottom: .25rem;
-            margin-bottom: .25rem;
-        }
-        .bar-left {
-            display: flex;
-            align-items: center;
-            gap: .35rem;
-        }
-        .panel-heading {
-            margin: 0;
-            font-size: .8rem;
-            font-weight: 600;
+            padding-bottom: 0;
+            margin-bottom: 2px;
         }
         .manage-link {
             font-size: .75rem;
@@ -54,7 +44,7 @@ export class ArenaPanel extends LitElement {
         .content {
             display: flex;
             flex-direction: column;
-            gap: .25rem;
+            gap: 2px;
         }
     `];
 
@@ -72,10 +62,7 @@ export class ArenaPanel extends LitElement {
     render() {
         return html`
             <div class="panel-bar">
-                <div class="bar-left">
-                    <h2 class="panel-heading">Arena</h2>
-                    <a class="manage-link" href="arena.html">Manage Arenas ↗</a>
-                </div>
+                <a class="manage-link" href="arena.html">Manage Arenas ↗</a>
                 <button type="button" class="btn-close" @click=${this._close} aria-label="Close Arena">✕ Close</button>
             </div>
             <div class="content">
