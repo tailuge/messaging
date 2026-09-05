@@ -38,6 +38,7 @@ export const ARENA_ROW_STYLES = css`
     .arena-item-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .arena-item-name { font-weight: 400; }
     .arena-item-meta { color: var(--text-muted); font-size: .72rem; font-weight: 400; white-space: nowrap; }
+    .arena-winner { margin-left: auto; max-width: 35%; overflow: hidden; text-overflow: ellipsis; color: var(--text-muted); font-size: .72rem; white-space: nowrap; flex-shrink: 0; }
     .arena-join { cursor: pointer; border: 1px solid #0d6efd; border-radius: 4px; background: #0d6efd; color: #fff; font: inherit; font-size: .75rem; padding: .15rem .4rem; flex-shrink: 0; }
     .arena-join:hover { background-color: #0b5ed7; border-color: #0a58ca; }
     .arena-join:active { background-color: #0a58ca; }
@@ -59,6 +60,7 @@ export const arenaRow = (arena, completed = false, onSelect = null, showAction =
     };
     return html`<a class="arena-item ${completed ? 'completed' : ''}" href=${href} @click=${handleJoin}>
         <div class="arena-item-main"><div class="arena-item-title"><span class="arena-item-name">${arenaGameIcon(arena.ruleType, arena.options)}${arena.creatorName ? html` · ${arena.creatorName}` : ''}</span><span class="arena-item-meta"> 👥\uFE0E ${arena.players.length} · ⏰\uFE0E ${completed ? 'ended' : 'ends'} ${new Date(arena.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span></div></div>
+        ${completed && arena.winner ? html`<span class="arena-winner" title="Winner: ${arena.winner}">🏆 ${arena.winner}</span>` : ''}
         ${completed || !showAction ? '' : html`<button class="arena-join btn-challenge" type="button" @click=${handleJoin}>Open</button>`}
     </a>`;
 };

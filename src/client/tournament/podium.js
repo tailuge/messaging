@@ -29,7 +29,7 @@ class ArenaPodium extends LitElement {
     render() {
         const places = [this.standings[1], this.standings[0], this.standings[2]];
         const classes = ['silver', 'gold', 'bronze'];
-        const medals = ['🥈', '🥇', '🥉'];
+        const medals = ['🥈', '🏆', '🥉'];
 
         if (!this.standings.length) return html`<div class="empty">No final standings available.</div>`;
 

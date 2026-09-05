@@ -219,6 +219,20 @@ async function tidyFinishedArenas() {
             if (!arena || arena.status === "finished" || (typeof arena.endTime === "number" && now >= arena.endTime)) {
                 staleIds.push(id);
                 const score = (arena && typeof arena.endTime === "number") ? arena.endTime : now;
+                if (arena) {
+                    transition(arena);
+                    const scores = scoresFromHgetall(await redis("HGETALL", arenaKeys(id).scores));
+                    const leaderboard = buildLeaderboard(arena, scores);
+                    const winner = leaderboard.find((row) => row.points > 0);
+                    if (winner) {
+                        arena.winner = winner.name;
+                        arena.winnerId = winner.playerId;
+                    } else {
+                        delete arena.winner;
+                        delete arena.winnerId;
+                    }
+                    await redis("SET", arenaKeys(id).arena, JSON.stringify(arena), "EX", String(WORKING_TTL_SECONDS));
+                }
                 archiveArgs.push(String(score), id);
             }
         }
@@ -264,6 +278,7 @@ async function arenaGet(r, arenaId) {
 }
 
 async function arenaResultsGet(r) {
+    await tidyFinishedArenas();
     const ids = (await redis("ZREVRANGE", K_ARCHIVED, "0", String(RESULT_HISTORY_LIMIT - 1))) || [];
     if (!Array.isArray(ids) || ids.length === 0) {
         return json(r, 200, { status: "success", results: [] });
