@@ -1,82 +1,96 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Usage Stats</title>
-    <style>
-      body { font: 14px system-ui, sans-serif; margin: 1rem; }
-      main { max-width: 900px; }
-      canvas { max-height: 420px; }
-    </style>
-  </head>
-  <body>
-    <main>
-      <h1>Usage Stats</h1>
-      <nav aria-label="Language pages">
-        <a href="https://billiards.tailuge.workers.dev/chinese.html">Chinese</a> |
-        <a href="https://billiards.tailuge.workers.dev/korean.html">Korean</a> |
-        <a href="https://billiards.tailuge.workers.dev/german.html">German</a> |
-        <a href="https://billiards.tailuge.workers.dev/turkish.html">Turkish</a> |
-        <a href="https://billiards.tailuge.workers.dev/vietnamese.html">Vietnamese</a>
-      </nav>
-      <p id="status">Loading...</p>
-      <canvas id="usage-chart" aria-label="Usage by language and date"></canvas>
-    </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0"></script>
-    <script>
-      const series = [
-        ["chineseUsage", "Chinese", "#d33"],
-        ["koreanUsage", "Korean", "#36c"],
-        ["germanUsage", "German", "#393"],
-        ["turkishUsage", "Turkish", "#c83"],
-        ["vietnameseUsage", "Vietnamese", "#93c"]
-      ];
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Usage Stats</title>
+  <style>
+    body {
+      font: 14px system-ui, sans-serif;
+      margin: 1rem;
+    }
 
-      function valuesByDate(values) {
-        return Object.fromEntries(values.map(item => [item.date, item.count]));
+    main {
+      max-width: 900px;
+    }
+
+    canvas {
+      max-height: 420px;
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <h1>Usage Stats</h1>
+    <nav aria-label="Language pages">
+      <a href="https://billiards.tailuge.workers.dev/chinese.html">Chinese</a> |
+      <a href="https://billiards.tailuge.workers.dev/korean.html">Korean</a> |
+      <a href="https://billiards.tailuge.workers.dev/german.html">German</a> |
+      <a href="https://billiards.tailuge.workers.dev/turkish.html">Turkish</a> |
+      <a href="https://billiards.tailuge.workers.dev/vietnamese.html">Vietnamese</a> |
+      <a href="https://billiards.tailuge.workers.dev/japanese.html">Japanese</a>
+    </nav>
+    <p id="status">Loading...</p>
+    <canvas id="usage-chart" aria-label="Usage by language and date"></canvas>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0"></script>
+  <script>
+    const series = [
+      ["chineseUsage", "Chinese", "#d33"],
+      ["koreanUsage", "Korean", "#36c"],
+      ["germanUsage", "German", "#393"],
+      ["turkishUsage", "Turkish", "#c83"],
+      ["vietnameseUsage", "Vietnamese", "#93c"],
+      ["japaneseUsage", "Japanese", "#653"]
+    ];
+
+    function valuesByDate(values) {
+      return Object.fromEntries(values.map(item => [item.date, item.count]));
+    }
+
+    async function loadUsage() {
+      const status = document.getElementById("status");
+      try {
+        const response = await fetch("/api/usage");
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        const dates = [...new Set(series.flatMap(([key]) =>
+          Array.isArray(data[key]) ? data[key].map(item => item.date) : []
+        ))].sort();
+
+        new Chart(document.getElementById("usage-chart"), {
+          type: "line",
+          data: {
+            labels: dates,
+            datasets: series.map(([key, label, color]) => {
+              const values = valuesByDate(Array.isArray(data[key]) ? data[key] : []);
+              return {
+                label,
+                data: dates.map(date => values[date] || 0),
+                borderColor: color,
+                backgroundColor: color,
+                pointRadius: 2,
+                tension: 0
+              };
+            })
+          },
+          options: {
+            animation: false,
+            responsive: true,
+            scales: { y: { beginAtZero: true } }
+          }
+        });
+        status.textContent = `${dates.length} day${dates.length === 1 ? "" : "s"}`;
+      } catch (error) {
+        status.textContent = `Could not load usage: ${error.message}`;
       }
+    }
 
-      async function loadUsage() {
-        const status = document.getElementById("status");
-        try {
-          const response = await fetch("/api/usage");
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          const data = await response.json();
-          const dates = [...new Set(series.flatMap(([key]) =>
-            Array.isArray(data[key]) ? data[key].map(item => item.date) : []
-          ))].sort();
+    loadUsage();
+  </script>
+</body>
 
-          new Chart(document.getElementById("usage-chart"), {
-            type: "line",
-            data: {
-              labels: dates,
-              datasets: series.map(([key, label, color]) => {
-                const values = valuesByDate(Array.isArray(data[key]) ? data[key] : []);
-                return {
-                  label,
-                  data: dates.map(date => values[date] || 0),
-                  borderColor: color,
-                  backgroundColor: color,
-                  pointRadius: 2,
-                  tension: 0
-                };
-              })
-            },
-            options: {
-              animation: false,
-              responsive: true,
-              scales: { y: { beginAtZero: true } }
-            }
-          });
-          status.textContent = `${dates.length} day${dates.length === 1 ? "" : "s"}`;
-        } catch (error) {
-          status.textContent = `Could not load usage: ${error.message}`;
-        }
-      }
-
-      loadUsage();
-    </script>
-  </body>
 </html>
