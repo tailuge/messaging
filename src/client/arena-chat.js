@@ -55,6 +55,16 @@ class ArenaChat extends LitElement {
       this._messages = [];
       this._connect();
     }
+    // Keep the newest message in view when new ones arrive or the chat is opened.
+    if (changed.has('_messages') || (changed.has('_hidden') && !this._hidden)) {
+      this._scrollToBottom();
+    }
+  }
+
+  _scrollToBottom() {
+    if (this._hidden) return;
+    const messages = this.renderRoot.querySelector('.messages');
+    if (messages) messages.scrollTop = messages.scrollHeight;
   }
 
   _connect() {
@@ -90,6 +100,11 @@ class ArenaChat extends LitElement {
     if (e.key === 'Enter') this._send();
   }
 
+  _onInput() {
+    // While composing, drop back to the bottom so the latest message stays visible.
+    this._scrollToBottom();
+  }
+
   render() {
     return html`
       <div class="chat">
@@ -102,7 +117,7 @@ class ArenaChat extends LitElement {
           ${this._messages.map((m) => html`<div class="msg">${m}</div>`)}
         </div>
         <div class="input-row ${this._hidden ? 'hidden' : ''}">
-          <input maxlength="120" placeholder="message…" @keydown=${this._onKeydown} />
+          <input maxlength="120" placeholder="message…" @keydown=${this._onKeydown} @input=${this._onInput} />
           <button @click=${this._send}>send</button>
         </div>
       </div>

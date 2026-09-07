@@ -1,13 +1,9 @@
 import { LitElement, html, css } from 'lit';
-import { gameUrl, ruleIcon } from '../utils.js';
+import { gameUrl, ruleIcon, API_BASE } from '../utils.js';
 import { THEME_VARS, SHARED_STYLES } from '../styles.js';
 import { userStore } from '../user-store.js';
 import './podium.js';
 import './arena-leaderboard.js';
-
-const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? ''
-    : 'https://billiards-network.onrender.com';
 
 // Bot player IDs that require direct game launch rather than a lobby challenge.
 // Keep the legacy IDs here too so Arenas created before the current API naming
@@ -243,6 +239,10 @@ class ArenaView extends LitElement {
         if (msg.type !== 'offer' || msg.challengeeId !== userStore.clientId) return;
 
         const wasPairing = this._pairingState === 'counting';
+        // Capture the armed berserk choice before the incoming offer cancels the
+        // pairing countdown. Berserk only ever applies to our own game URL, so it
+        // must survive the accept path but never be sent to the challenger.
+        const beserk = this._beserk;
         // Any incoming offer supersedes an active pairing countdown.
         this._cancelPairing();
 
@@ -254,7 +254,7 @@ class ArenaView extends LitElement {
             return;
         }
 
-        await this._acceptArenaChallenge(msg);
+        await this._acceptArenaChallenge(msg, beserk);
     }
 
     /**
@@ -309,7 +309,7 @@ class ArenaView extends LitElement {
      * the game URL exactly like the existing lobby accept flow (we are the second
      * joiner, so `isFirst` is false unless the challenger designated us first).
      */
-    async _acceptArenaChallenge(msg) {
+    async _acceptArenaChallenge(msg, beserk = this._beserk) {
         if (!this._lobby) return;
 
         const ruleType = msg.ruleType || this._arena?.ruleType || 'nineball';
@@ -338,7 +338,7 @@ class ArenaView extends LitElement {
             ruleType,
             isFirst,
             options,
-            localOptions: this._beserk ? { beserk: 'true' } : undefined,
+            localOptions: beserk ? { beserk: 'true' } : undefined,
             lod: userStore.lod,
             flip: userStore.flip,
             custom: this._localCustom,

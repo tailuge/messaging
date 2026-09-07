@@ -2,13 +2,10 @@ import { LitElement, html, css } from 'lit';
 import { THEME_VARS, SHARED_STYLES } from '../styles.js';
 import { userStore } from '../user-store.js';
 import { ARENA_ROW_STYLES, arenaRow } from '../active-arenas.js';
+import { API_BASE } from '../utils.js';
 import '../active-arenas.js';
 import '../user-badge.js';
 import './arena-create-form.js';
-
-const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? ''
-    : 'https://billiards-network.onrender.com';
 
 class ArenaApp extends LitElement {
     static properties = {

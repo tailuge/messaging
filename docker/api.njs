@@ -97,7 +97,6 @@ const K_ACTIVE = "arena:active";
 const K_ARCHIVED = "arena:archived";
 const RESULT_HISTORY_LIMIT = 20;
 const ARENA_DURATION_MINUTES = [10, 30];
-const WORKING_TTL_SECONDS = 48 * 60 * 60;
 const SCORED_TTL_MS = 24 * 60 * 60 * 1000;
 const SEEDED_PLAYERS = [
     { playerId: "bot-thefarjaw", name: "TheFarJaw" },
@@ -132,7 +131,7 @@ async function loadArena(arenaId) {
     try { arena = JSON.parse(raw); } catch (e) { throw new Error("Arena data corrupted in KV"); }
     const before = arena.status;
     transition(arena);
-    if (arena.status !== before) await redis("SET", keys.arena, JSON.stringify(arena), "EX", String(WORKING_TTL_SECONDS));
+    if (arena.status !== before) await redis("SET", keys.arena, JSON.stringify(arena));
     return arena;
 }
 
@@ -205,7 +204,6 @@ async function tidyFinishedArenas() {
         const entries = parseHashEntries(raw);
         if (entries.length === 0) return;
 
-        const now = Date.now();
         const staleIds = [];
         const archiveArgs = [];
 
@@ -216,11 +214,10 @@ async function tidyFinishedArenas() {
                 arena = typeof entries[i][1] === "string" ? JSON.parse(entries[i][1]) : entries[i][1];
             } catch (e) {}
 
-            if (!arena || arena.status === "finished" || (typeof arena.endTime === "number" && now >= arena.endTime)) {
+            if (!arena || arena.status === "finished") {
                 staleIds.push(id);
-                const score = (arena && typeof arena.endTime === "number") ? arena.endTime : now;
-                if (arena) {
-                    transition(arena);
+                const activeCount = arena ? arena.players.filter((p) => p.active).length : 0;
+                if (arena && activeCount > 2) {
                     const scores = scoresFromHgetall(await redis("HGETALL", arenaKeys(id).scores));
                     const leaderboard = buildLeaderboard(arena, scores);
                     const winner = leaderboard.find((row) => row.points > 0);
@@ -231,9 +228,12 @@ async function tidyFinishedArenas() {
                         delete arena.winner;
                         delete arena.winnerId;
                     }
-                    await redis("SET", arenaKeys(id).arena, JSON.stringify(arena), "EX", String(WORKING_TTL_SECONDS));
+                    archiveArgs.push(String(0), id);
+                } else {
+                    // Too few participants - delete the arena's Redis keys without archiving
+                    const keys = arenaKeys(id);
+                    await redis("DEL", keys.arena, keys.scores, keys.scored);
                 }
-                archiveArgs.push(String(score), id);
             }
         }
 
@@ -298,7 +298,6 @@ async function arenaResultsGet(r) {
 }
 
 async function arenaCreate(r) {
-    await tidyFinishedArenas();
     const body = await readBody(r);
     if (!body) return json(r, 400, { error: "Invalid JSON" });
     logApi("create payload=" + JSON.stringify(body));
@@ -349,10 +348,8 @@ async function arenaCreate(r) {
     };
     const keys = arenaKeys(id);
     logApi("creating arena " + id + " creator=" + arena.creatorName + " ruleType=" + arena.ruleType);
-    await redis("SET", keys.arena, JSON.stringify(arena), "EX", String(WORKING_TTL_SECONDS), "NX");
+    await redis("SET", keys.arena, JSON.stringify(arena), "NX");
     await redis("HSET", K_ACTIVE, id, JSON.stringify(arena));
-    await redis("EXPIRE", keys.scores, String(WORKING_TTL_SECONDS));
-    await redis("EXPIRE", keys.scored, String(WORKING_TTL_SECONDS));
     return json(r, 201, { status: "success", arena });
 }
 
@@ -378,7 +375,7 @@ async function arenaJoin(r, arenaId) {
         });
     }
     const keys = arenaKeys(arenaId);
-    await redis("SET", keys.arena, JSON.stringify(arena), "EX", String(WORKING_TTL_SECONDS));
+    await redis("SET", keys.arena, JSON.stringify(arena));
     await redis("HSET", K_ACTIVE, arenaId, JSON.stringify(arena));
     return json(r, 200, { status: "success", arena });
 }
@@ -392,7 +389,7 @@ async function arenaLeave(r, arenaId) {
     const rec = arena.players.find((p) => p.playerId === playerId);
     if (!rec) return json(r, 404, { error: "Not a participant" });
     rec.active = false;
-    await redis("SET", arenaKeys(arenaId).arena, JSON.stringify(arena), "EX", String(WORKING_TTL_SECONDS));
+    await redis("SET", arenaKeys(arenaId).arena, JSON.stringify(arena));
     await redis("HSET", K_ACTIVE, arenaId, JSON.stringify(arena));
     return json(r, 200, { status: "success" });
 }
@@ -414,7 +411,7 @@ async function arenaResult(r, arenaId) {
         return json(r, 404, { error: "Participant is not in the Arena" });
     }
     const keys = arenaKeys(arenaId);
-    await redis("EXPIRE", keys.scored, String(WORKING_TTL_SECONDS));
+    await redis("EXPIRE", keys.scored, String(SCORED_TTL_MS / 1000));
     const cutoff = Date.now() - SCORED_TTL_MS;
     await redis("ZREMRANGEBYSCORE", keys.scored, "-inf", String(cutoff));
     const added = await redis("ZADD", keys.scored, "NX", String(Date.now()), String(body.challengeId));
@@ -427,7 +424,7 @@ async function arenaResult(r, arenaId) {
     await redis("HINCRBY", keys.scores, `w:${winnerId}`, 1);
     await redis("HINCRBY", keys.scores, `g:${winnerId}`, 1);
     await redis("HINCRBY", keys.scores, `g:${loserId}`, 1);
-    await redis("EXPIRE", keys.scores, String(WORKING_TTL_SECONDS));
+    await redis("EXPIRE", keys.scores, String(SCORED_TTL_MS / 1000));
     const scores = scoresFromHgetall(await redis("HGETALL", keys.scores));
     const leaderboard = buildLeaderboard(arena, scores);
     logApi("arena result accepted arenaId=" + arenaId + " challengeId=" + String(body.challengeId) + " winnerId=" + winnerId + " loserId=" + loserId + " leaderboard=" + JSON.stringify(leaderboard));

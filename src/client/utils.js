@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 965;
+export const CLIENTVERSION = 969;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -12,6 +12,8 @@ export const NCHANBASE = (typeof localStorage !== 'undefined' && localStorage.ge
 const _localhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 export const WS_SERVER = _localhost ? `ws://${window.location.hostname}:80` : `wss://${NCHANBASE}`;
 export const ACTIVE_PAGE = _localhost ? './active.html' : 'https://billiards-network.onrender.com/active.html';
+
+export const API_BASE = _localhost ? '' : 'https://billiards-network.onrender.com';
 export const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel');
 
 export const timeAgo = ts => {

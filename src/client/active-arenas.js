@@ -1,9 +1,5 @@
 import { LitElement, html, css } from 'lit';
-import { arenaGameIcon } from './utils.js';
-
-const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? ''
-    : 'https://billiards-network.onrender.com';
+import { arenaGameIcon, API_BASE } from './utils.js';
 
 // Poll interval keeps the list fresh (arenas appear when created, drop off when
 // they end) without a manual refresh button.
@@ -20,7 +16,6 @@ const BOUNDARY_MS = 30 * 60 * 1000; // UTC slots: on the hour and half past
 const nextUtcBoundary = (now) => (Math.floor(now / BOUNDARY_MS) + 1) * BOUNDARY_MS;
 
 const HOURLY_PRESETS = [
-    { name: 'Three Cushion Mini Hourly Arena', ruleType: 'threecushion', options: { raceTo: '7', tableSize: '5' } },
     { name: 'Nine Ball Mini Hourly Arena', ruleType: 'nineball', options: { tableSize: '6', freeaim: 'true' } },
     { name: 'Eight Ball Mini Hourly Arena', ruleType: 'eightball', options: { tableSize: '6', freeaim: 'true' } },
     { name: 'Nine Ball Hourly Arena', ruleType: 'nineball', options: {} },
