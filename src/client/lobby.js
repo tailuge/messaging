@@ -83,10 +83,8 @@ class LobbyApp extends LitElement {
         return html`
             <div class="container">
                 <header class="topbar">
-                    <a href="/lobby" class="topbrand" aria-label="Billiards">
-                        <img src="assets/threecushion.png" class="logo" alt="">
-                        <h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a><span class="version">${formatVersion(CLIENTVERSION)}</span></h1>
-                    </a>
+                    <a href="/lobby" class="topbrand" aria-label="Billiards lobby"><img src="assets/threecushion.png" class="logo" alt=""></a>
+                    <h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a><span class="version">${formatVersion(CLIENTVERSION)}</span></h1>
                     <user-badge></user-badge>
                     <settings-modal @theme-changed=${e => { this._theme = e.detail; }}></settings-modal>
                 </header>

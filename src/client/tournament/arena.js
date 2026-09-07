@@ -118,10 +118,8 @@ class ArenaApp extends LitElement {
 
     _renderHeader() {
         return html`<header class="topbar">
-            <a href="/lobby" class="topbrand" aria-label="Billiards">
-                <img src="assets/threecushion.png" class="logo" alt="" />
-                <h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a></h1>
-            </a>
+            <a href="/lobby" class="topbrand" aria-label="Billiards lobby"><img src="assets/threecushion.png" class="logo" alt="" /></a>
+            <h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a></h1>
             <user-badge></user-badge>
             <button class="back-lobby" type="button" @click=${this._backToLobby}>Back to lobby</button>
         </header>`;
