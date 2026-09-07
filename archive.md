@@ -16,15 +16,14 @@
 >    recent. Work is strictly incurred during a results request.
 > 4. **No TTL on arena records** — `arena:<id>`, `arena:<id>:scores`, and
 >    `arena:<id>:scored` are written without an `EX` ttl. The only cleanup path is
->    `tidyFinishedArenas()`: finished arenas are moved out of `arena:active` and into
->    `arena:archived` when a client fetches `/api/arena/results`. The toss-up is that if no client
->    ever hits that endpoint, finished arenas remain in `arena:active` until a player next goes
->    online and triggers the tidy; the lobby already hides them via `endTime`/`status` filtering
+>    `tidyFinishedArenas()`: expired arenas are moved out of `arena:active` and into
+>    `arena:archived` when a client fetches `/api/arena/results`. Expiry is determined from
+>    `endTime`, not only the persisted status field. If no client ever hits that endpoint,
+>    expired arenas remain in `arena:active`; the lobby hides them via `endTime`/`status` filtering
 >    in the meantime. The 20-entry archive cap keeps the archive set small once populated.
-> 5. **`arena:archived` stays a ZSET of IDs** — finished arenas are moved to `arena:archived`
->    (score = `0` for finished-at-archive-time, member = `id`), keeping the archive collection
->    lightweight. The archive is capped at 20 and trimmed by `tidyFinishedArenas()` when it grows
->    beyond that.
+> 5. **`arena:archived` stores complete snapshots** — finished arenas are stored as complete
+>    JSON members scored by `endTime`, so the completed list needs no follow-up record lookup.
+>    The archive is capped at 20 and trimmed by `tidyFinishedArenas()` when it grows beyond that.
 
 ---
 
@@ -33,7 +32,7 @@
 | Collection | Key | Type | Contains |
 |---|---|---|---|
 | **Active** | `arena:active` | HASH (`id` → arena JSON) | The handful of currently running arenas. Gives `GET /api/arena` everything in 1 call. |
-| **Archived** | `arena:archived` | ZSET (score = `endTime`, member = id) | Finished arena ids, capped at the 20 most recent. |
+| **Archived** | `arena:archived` | ZSET (score = `endTime`, member = complete arena JSON) | Finished arena snapshots, capped at the 20 most recent. |
 | **Records** | `arena:<id>`, `arena:<id>:scores`, `arena:<id>:scored` | — | Full arena data & score hashes; no `EX` ttl, cleaned only by `tidyFinishedArenas()`. |
 
 Why a HASH for active:
@@ -46,7 +45,7 @@ Why a HASH for active:
 
 ## 2. The Maintenance Operation (`tidyFinishedArenas`) [DONE]
 
-`tidyFinishedArenas()` moves finished arenas out of `arena:active` and into
+`tidyFinishedArenas()` moves expired arenas out of `arena:active` and into
 `arena:archived`, then trims the archive to the 20 most recent entries. It is
 called when clients fetch the completed list (`GET /api/arena/results`), not on
 arena creation. This keeps the create path minimal and shifts housekeeping to the
@@ -55,23 +54,22 @@ client-driven read path.
 1. `HGETALL arena:active`. If empty, exit tidy immediately.
 2. Inspect entries (pairs of `[id, jsonString]`):
    - Parse each arena object.
-   - If `status === "finished"`:
-     - Mark for removal from active (`staleIds.push(id)`).
-     - Build the leaderboard and either set `winner`/`winnerId` or delete them.
-     - Add `archiveArgs.push("0", id)` (score `0` so the arena is placed at the
-       bottom of the archive with a stable sort).
-3. Batch writes (never N+1 Upstash calls):
-   - If `staleIds.length > 0`: `HDEL arena:active <...staleIds>` (single call).
-   - If `archiveArgs.length > 0`: `ZADD arena:archived NX <...scoreMemberPairs>` (single call).
-4. Safe truncation to 20 newest:
+   - Treat `endTime` as authoritative (`status === "finished"` is also accepted).
+   - Count entrants from `players.length`; a player who leaves remains an entrant.
+   - For an eligible arena, build the final leaderboard, set `status: "finished"`,
+     and store the complete JSON snapshot as the sorted-set member scored by `endTime`.
+3. Batch writes:
+   - If eligible snapshots exist: `ZADD arena:archived NX <...endTime-json-pairs>`.
+   - Remove processed entries from `arena:active` with one `HDEL`.
+4. When a new snapshot was added, trim to the 20 newest:
    - `count = ZCARD arena:archived`
    - If `count > 20`: `ZREMRANGEBYRANK arena:archived 0 (count - 21)`.
-   *(Avoids the Redis behavior where negative offsets like `0 -21` on small sets delete rank 0).*
+   *(Rank 0 is the oldest because members are scored by end time.)*
 
 Rules:
 - **Best-effort**: wrapped in try/catch + `logApi` — housekeeping failure must never fail a results request.
 - **Idempotent**: safe under concurrent calls (`ZADD NX`, `HDEL`).
-- **Bounded**: tidy takes 2–4 Redis calls total on a results request, off the fast lobby `GET` read path.
+- **Bounded**: tidy uses a single active scan, batched archive writes/removal, and one trim check when needed; it remains off the fast lobby `GET` read path.
 
 ---
 
@@ -94,7 +92,7 @@ Rules:
 |---|---|---|---|
 | `GET /api/arena` | **Ultra-fast single GET**: calls `HGETALL arena:active`. Parses active arena JSONs, applies in-memory `transition()` if just expired, sorts by `createdAt`. Zero write-back, zero second fetches. | **1 call** (`HGETALL`) | [x] Implemented |
 | `POST /api/arena` | Writes new arena to `SET arena:<id> ... EX 2h` and `HSET arena:active <id> <json>`. No tidy on create. | **2 calls** (incurred only on seed/create) | [x] Implemented |
-| `GET /api/arena/results` | Reads top 20 from `arena:archived` (`ZREVRANGE 0 19`), runs `tidyFinishedArenas()`, batched `MGET`s their `arena:<id>` records, skips expired ones, returns `{ status: "success", results: [...] }`. | **3–4 calls** (tidy + ZREVRANGE + MGET) | [x] Implemented |
+| `GET /api/arena/results` | Runs `tidyFinishedArenas()`, then reads the top 20 complete snapshots from `arena:archived` (`ZREVRANGE 0 19`) and parses them directly. | **2–3 calls** (tidy + ZREVRANGE, plus archive trim when needed) | [x] Implemented |
 
 ---
 
@@ -105,7 +103,7 @@ Rules:
 
    - In `arenaCreate`: `HSET K_ACTIVE id JSON.stringify(arena)`.
    - In `arenaJoin` / `arenaLeave`: sync updated arena to `HSET K_ACTIVE id JSON.stringify(arena)`.
-   - Repointed `arenaResultsGet` at `arena:archived` ZSET (`ZREVRANGE 0 19` + `MGET`).
+   - Repointed `arenaResultsGet` at complete snapshots in `arena:archived` (`ZREVRANGE 0 19`, no `MGET`).
    - Replaced the 48 h `WORKING_TTL_SECONDS` with `ARENA_ACTIVE_TTL_SECONDS` (2 h) on
      every arena record write (`SET`/`EXPIRE`).
    - Removed `tidyFinishedArenas()` from the arena creation path and added it to
@@ -130,7 +128,7 @@ Rules:
   fetches `/api/arena/results` (or its 2 h TTL expires and Redis drops the record). The lobby
   already hides finished arenas via `endTime`/`status` filtering, and the hourly seed will
   eventually trigger a tidy on the next create.
-- **Archive is best-effort, no fallbacks**: If a client never visits the results page, finished
+- **Archive is best-effort, no fallbacks**: If a client never visits the results page, expired
   arenas are not moved to the archive. This is intentional — the archive exists for the arena
   management page only. Lobby correctness does not depend on it.
 - **No record TTL**: Arena records (`arena:<id>`, `arena:<id>:scores`,
@@ -139,8 +137,8 @@ Rules:
   ever fetches `/api/arena/results`, finished arenas remain in `arena:active` indefinitely; the lobby
   already hides them via `endTime`/`status` filtering, and the next player going online triggers
   the tidy.
-- **Archive TTL fade**: Completed arenas in `arena:archived` do not carry a ttl either. The archive
-  is capped at 20 entries and trimmed by `tidyFinishedArenas()`. Old entries only leave when a newer
-  finished arena pushes them past the 20-entry window.
+- **Archive TTL fade**: Completed snapshots in `arena:archived` do not carry a ttl either. The
+  archive is capped at 20 entries and trimmed by `tidyFinishedArenas()`. Old entries leave when a
+  newer snapshot pushes them past the 20-entry window.
 - **Zero background timers**: No server timers. Arena records expire via TTL; archive rotation
   happens only when a client triggers `tidyFinishedArenas()`.

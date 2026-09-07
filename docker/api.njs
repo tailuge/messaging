@@ -210,6 +210,7 @@ async function tidyFinishedArenas() {
 
         const staleIds = [];
         const archiveArgs = [];
+        const now = Date.now();
 
         for (let i = 0; i < entries.length; i += 1) {
             const id = entries[i][0];
@@ -224,49 +225,73 @@ async function tidyFinishedArenas() {
                 continue;
             }
 
-            if (arena.status !== "finished") {
+            // The active-hash copy is not necessarily transitioned by the lobby
+            // read path. endTime is therefore authoritative here; status is only
+            // an additional signal for already-finalized records.
+            const ended = arena.status === "finished" ||
+                (typeof arena.endTime === "number" && now >= arena.endTime);
+            if (!ended) {
                 continue;
             }
 
             staleIds.push(id);
-            const activeCount = arena.players ? arena.players.filter((p) => p.active).length : 0;
-            logApi("tidy finished id=" + id + " activeCount=" + activeCount + " totalPlayers=" + (arena.players ? arena.players.length : 0));
+            const players = Array.isArray(arena.players) ? arena.players : [];
+            const entrantCount = players.length;
+            const activeEntrantCount = players.filter((p) => p.active).length;
+            logApi("tidy finished id=" + id + " entrantCount=" + entrantCount +
+                " activeEntrantCount=" + activeEntrantCount + " endTime=" + arena.endTime);
 
-            if (arena && activeCount > 2) {
+            // An entrant remains an entrant even after leaving. The two seeded
+            // players are part of players, so a real join makes this count > 2.
+            if (entrantCount > 2) {
+                arena.status = "finished";
+                arena.entrantCount = entrantCount;
+                arena.activeEntrantCount = activeEntrantCount;
                 const scores = scoresFromHgetall(await redis("HGETALL", arenaKeys(id).scores));
                 const leaderboard = buildLeaderboard(arena, scores);
                 const winner = leaderboard.find((row) => row.points > 0);
                 if (winner) {
                     arena.winner = winner.name;
                     arena.winnerId = winner.playerId;
-                    logApi("tidy archiving id=" + id + " winner=" + winner.name);
+                    logApi("tidy archiving id=" + id + " winner=" + winner.name +
+                        " entrantCount=" + entrantCount);
                 } else {
                     delete arena.winner;
                     delete arena.winnerId;
-                    logApi("tidy archiving id=" + id + " no winner");
+                    logApi("tidy archiving id=" + id + " no winner entrantCount=" + entrantCount);
                 }
-                archiveArgs.push(String(0), id);
+
+                // The sorted-set member is the complete final snapshot. Its
+                // score preserves end-time order, so results need no MGET.
+                archiveArgs.push(String(Number(arena.endTime) || now), JSON.stringify(arena));
             } else {
-                logApi("tidy skipping archive id=" + id + " activeCount=" + activeCount + " <= 2 -- deleting keys");
+                logApi("tidy skipping archive id=" + id + " entrantCount=" + entrantCount +
+                    " <= 2 -- deleting keys");
                 const keys = arenaKeys(id);
                 await redis("DEL", keys.arena, keys.scores, keys.scored);
             }
         }
 
-        if (staleIds.length > 0) {
-            await redis.apply(null, ["HDEL", K_ACTIVE].concat(staleIds));
-            logApi("tidy removed " + staleIds.length + " from active");
-        }
+        // Archive first, then remove the active-hash entries. If cleanup is
+        // interrupted, a later tidy can safely retry the same final snapshot.
         if (archiveArgs.length > 0) {
             await redis.apply(null, ["ZADD", K_ARCHIVED, "NX"].concat(archiveArgs));
             logApi("tidy archived " + (archiveArgs.length / 2) + " arenas");
         }
+        if (staleIds.length > 0) {
+            await redis.apply(null, ["HDEL", K_ACTIVE].concat(staleIds));
+            logApi("tidy removed " + staleIds.length + " from active");
+        }
 
-        const count = Number(await redis("ZCARD", K_ARCHIVED)) || 0;
-        logApi("tidy archive size after run=" + count);
-        if (count > RESULT_HISTORY_LIMIT) {
-            await redis("ZREMRANGEBYRANK", K_ARCHIVED, "0", String(count - RESULT_HISTORY_LIMIT - 1));
-            logApi("tidy trimmed archive to " + RESULT_HISTORY_LIMIT);
+        // Keep the newest 20 snapshots. Rank 0 is the oldest because archive
+        // scores are end times; remove the oldest entries when over the limit.
+        if (archiveArgs.length > 0) {
+            const count = Number(await redis("ZCARD", K_ARCHIVED)) || 0;
+            logApi("tidy archive size after run=" + count);
+            if (count > RESULT_HISTORY_LIMIT) {
+                await redis("ZREMRANGEBYRANK", K_ARCHIVED, "0", String(count - RESULT_HISTORY_LIMIT - 1));
+                logApi("tidy trimmed archive to " + RESULT_HISTORY_LIMIT);
+            }
         }
     } catch (e) {
         logApi("tidyFinishedArenas error: " + (e && e.message ? e.message : e));
@@ -299,21 +324,24 @@ async function arenaGet(r, arenaId) {
 
 async function arenaResultsGet(r) {
     await tidyFinishedArenas();
-    const ids = (await redis("ZREVRANGE", K_ARCHIVED, "0", String(RESULT_HISTORY_LIMIT - 1))) || [];
-    if (!Array.isArray(ids) || ids.length === 0) {
+    const snapshots = (await redis("ZREVRANGE", K_ARCHIVED, "0", String(RESULT_HISTORY_LIMIT - 1))) || [];
+    if (!Array.isArray(snapshots) || snapshots.length === 0) {
+        logApi("results archiveSnapshots=0 results=0");
         return json(r, 200, { status: "success", results: [] });
     }
-    const keys = ids.map((id) => arenaKeys(id).arena);
-    const records = (await redis.apply(null, ["MGET"].concat(keys))) || [];
+
+    // Archive members are complete finalized arena snapshots, already returned
+    // in newest-first order. Do not hydrate them through arena:<id> keys.
     const results = [];
-    for (let i = 0; i < records.length; i += 1) {
-        if (!records[i]) continue;
+    for (let i = 0; i < snapshots.length; i += 1) {
         try {
-            const arena = JSON.parse(records[i]);
-            transition(arena);
-            results.push(arena);
-        } catch (e) {}
+            const arena = JSON.parse(snapshots[i]);
+            if (arena && typeof arena === "object") results.push(arena);
+        } catch (e) {
+            // Ignore legacy ID-only members left by the previous archive format.
+        }
     }
+    logApi("results archiveSnapshots=" + snapshots.length + " results=" + results.length);
     return json(r, 200, { status: "success", results });
 }
 

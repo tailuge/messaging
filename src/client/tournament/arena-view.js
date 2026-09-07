@@ -739,9 +739,6 @@ class ArenaView extends LitElement {
             ${!arena && !this._error ? html`<section class="panel"><div class="empty">Loading Arena…</div></section>` : ''}
             ${arena ? html`
                 <section class="panel">
-                    <div class="panel-heading">
-                        <h2 class="title">${expired ? 'Arena complete' : 'Arena'} ${ruleIcon(arena.ruleType)}</h2>
-                    </div>
                     <div class="meta">
                         Status: ${expired ? 'complete' : arena.status} · ${arena.durationMinutes} minutes · ${arena.players.length} participant${arena.players.length === 1 ? '' : 's'} · ${expired ? 'Ended' : 'Ends'}: ${new Date(arena.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                     </div>
