@@ -202,7 +202,11 @@ async function tidyFinishedArenas() {
     try {
         const raw = await redis("HGETALL", K_ACTIVE);
         const entries = parseHashEntries(raw);
-        if (entries.length === 0) return;
+        logApi("tidy start activeCount=" + entries.length);
+        if (entries.length === 0) {
+            logApi("tidy no active arenas, skipping");
+            return;
+        }
 
         const staleIds = [];
         const archiveArgs = [];
@@ -214,39 +218,55 @@ async function tidyFinishedArenas() {
                 arena = typeof entries[i][1] === "string" ? JSON.parse(entries[i][1]) : entries[i][1];
             } catch (e) {}
 
-            if (!arena || arena.status === "finished") {
+            if (!arena) {
+                logApi("tidy no-arena id=" + id + " removing from active");
                 staleIds.push(id);
-                const activeCount = arena ? arena.players.filter((p) => p.active).length : 0;
-                if (arena && activeCount > 2) {
-                    const scores = scoresFromHgetall(await redis("HGETALL", arenaKeys(id).scores));
-                    const leaderboard = buildLeaderboard(arena, scores);
-                    const winner = leaderboard.find((row) => row.points > 0);
-                    if (winner) {
-                        arena.winner = winner.name;
-                        arena.winnerId = winner.playerId;
-                    } else {
-                        delete arena.winner;
-                        delete arena.winnerId;
-                    }
-                    archiveArgs.push(String(0), id);
+                continue;
+            }
+
+            if (arena.status !== "finished") {
+                continue;
+            }
+
+            staleIds.push(id);
+            const activeCount = arena.players ? arena.players.filter((p) => p.active).length : 0;
+            logApi("tidy finished id=" + id + " activeCount=" + activeCount + " totalPlayers=" + (arena.players ? arena.players.length : 0));
+
+            if (arena && activeCount > 2) {
+                const scores = scoresFromHgetall(await redis("HGETALL", arenaKeys(id).scores));
+                const leaderboard = buildLeaderboard(arena, scores);
+                const winner = leaderboard.find((row) => row.points > 0);
+                if (winner) {
+                    arena.winner = winner.name;
+                    arena.winnerId = winner.playerId;
+                    logApi("tidy archiving id=" + id + " winner=" + winner.name);
                 } else {
-                    // Too few participants - delete the arena's Redis keys without archiving
-                    const keys = arenaKeys(id);
-                    await redis("DEL", keys.arena, keys.scores, keys.scored);
+                    delete arena.winner;
+                    delete arena.winnerId;
+                    logApi("tidy archiving id=" + id + " no winner");
                 }
+                archiveArgs.push(String(0), id);
+            } else {
+                logApi("tidy skipping archive id=" + id + " activeCount=" + activeCount + " <= 2 -- deleting keys");
+                const keys = arenaKeys(id);
+                await redis("DEL", keys.arena, keys.scores, keys.scored);
             }
         }
 
         if (staleIds.length > 0) {
             await redis.apply(null, ["HDEL", K_ACTIVE].concat(staleIds));
+            logApi("tidy removed " + staleIds.length + " from active");
         }
         if (archiveArgs.length > 0) {
             await redis.apply(null, ["ZADD", K_ARCHIVED, "NX"].concat(archiveArgs));
+            logApi("tidy archived " + (archiveArgs.length / 2) + " arenas");
         }
 
         const count = Number(await redis("ZCARD", K_ARCHIVED)) || 0;
+        logApi("tidy archive size after run=" + count);
         if (count > RESULT_HISTORY_LIMIT) {
             await redis("ZREMRANGEBYRANK", K_ARCHIVED, "0", String(count - RESULT_HISTORY_LIMIT - 1));
+            logApi("tidy trimmed archive to " + RESULT_HISTORY_LIMIT);
         }
     } catch (e) {
         logApi("tidyFinishedArenas error: " + (e && e.message ? e.message : e));
