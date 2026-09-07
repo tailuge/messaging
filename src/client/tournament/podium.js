@@ -1,12 +1,12 @@
 import { LitElement, html, css } from 'lit';
-import { THEME_VARS, SHARED_STYLES } from '../styles.js';
+import { SHARED_STYLES } from '../styles.js';
 
 class ArenaPodium extends LitElement {
     static properties = {
         standings: { attribute: false },
     };
 
-    static styles = [THEME_VARS, SHARED_STYLES, css`
+    static styles = [SHARED_STYLES, css`
         :host { display: block; }
         .podium { display: flex; align-items: flex-end; justify-content: center; gap: .35rem; height: 148px; padding: .25rem .5rem 0; }
         .step { min-width: 0; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }

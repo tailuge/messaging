@@ -1,5 +1,4 @@
 import { LitElement, html, css } from 'lit';
-import { THEME_VARS } from '../styles.js';
 
 class ArenaLeaderboard extends LitElement {
     static properties = {
@@ -10,17 +9,17 @@ class ArenaLeaderboard extends LitElement {
         countdown: { type: String },
     };
 
-    static styles = [THEME_VARS, css`
+    static styles = [css`
         :host { display: block; }
         .leaderboard-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .25rem; }
         .title { margin: 0; font-size: .8rem; font-weight: 600; }
-        .meta { color: var(--text-muted); font-size: .75rem; line-height: 1.7; }
-        .countdown { font-size: .85rem; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+        .meta { color: var(--text-dim); font-size: .75rem; line-height: 1.7; }
+        .countdown { font-size: .85rem; font-weight: 600; color: var(--text-dim); font-variant-numeric: tabular-nums; }
         .players-scroll { max-height: 14.85rem; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
         .players { width: 100%; border-collapse: collapse; }
         thead { position: sticky; top: 0; background: transparent; z-index: 1; }
         th, td { height: 1.35rem; box-sizing: border-box; padding: .15rem .25rem; border-bottom: none; line-height: 1.2; text-align: right; }
-        th { color: var(--text-muted); font-size: .7rem; }
+        th { color: var(--text); font-size: .7rem; }
         th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
         th:first-child, td:first-child { width: 2rem; }
         .online-dot { display: inline-block; width: .45rem; height: .45rem; margin-right: .3rem; border-radius: 50%; background: #198754; vertical-align: middle; }
@@ -54,7 +53,7 @@ class ArenaLeaderboard extends LitElement {
                         return html`<tr>
                             <td>#${index + 1}</td>
                             <td>
-                                ${online ? html`<span class="online-dot" aria-label="Online" title="Online"></span>` : ''}
+                                ${online ? html`<span class="online-dot" role="img" aria-label="Online" title="Online"></span>` : ''}
                                 ${row.name}${record?.active === false ? ' (left)' : ''}
                             </td>
                             <td>${row.points}</td>

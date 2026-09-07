@@ -16,9 +16,11 @@ class ArenaChat extends LitElement {
       .chat { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px; display: flex; flex-direction: column; gap: 2px; }
       .header { display: flex; justify-content: space-between; align-items: center; }
       .title { margin: 0 0 .5rem; font-size: 1.1rem; font-weight: 600; color: var(--text); }
+      .chat { contain: layout style; }
       .messages {
         display: flex; flex-direction: column; gap: 2px;
-        height: calc(2.5 * 1.4rem); overflow-y: auto;
+        flex: 1 1 auto; min-height: 5rem; max-height: 10rem;
+        overflow-y: auto;
         scrollbar-width: thin; scrollbar-color: var(--border) transparent;
       }
       .messages::-webkit-scrollbar { width: 4px; }
@@ -44,11 +46,6 @@ class ArenaChat extends LitElement {
     super.connectedCallback();
   }
 
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    this._ws?.close();
-  }
-
   updated(changed) {
     if (changed.has('arenaId') && this.arenaId) {
       this._ws?.close();
@@ -56,15 +53,34 @@ class ArenaChat extends LitElement {
       this._connect();
     }
     // Keep the newest message in view when new ones arrive or the chat is opened.
+    // Defer the scroll to the next frame so the browser has laid out the new
+    // messages first — avoids a forced reflow from reading scrollHeight.
     if (changed.has('_messages') || (changed.has('_hidden') && !this._hidden)) {
-      this._scrollToBottom();
+      this._scheduleScrollToBottom();
     }
+  }
+
+  _scheduleScrollToBottom() {
+    if (this._scrollRaf) return;
+    this._scrollRaf = requestAnimationFrame(() => {
+      this._scrollRaf = 0;
+      this._scrollToBottom();
+    });
   }
 
   _scrollToBottom() {
     if (this._hidden) return;
     const messages = this.renderRoot.querySelector('.messages');
     if (messages) messages.scrollTop = messages.scrollHeight;
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._ws?.close();
+    if (this._scrollRaf) {
+      cancelAnimationFrame(this._scrollRaf);
+      this._scrollRaf = 0;
+    }
   }
 
   _connect() {

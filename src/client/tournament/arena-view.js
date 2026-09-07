@@ -50,11 +50,11 @@ class ArenaView extends LitElement {
         .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px; margin-bottom: 2px; }
         .container > .panel:last-child { margin-bottom: 0; }
         .title { margin: 0 0 2px; font-size: .8rem; font-weight: 600; }
-        .meta { color: var(--text-muted); font-size: .75rem; line-height: 1.7; white-space: nowrap; }
+        .meta { color: var(--text-dim); font-size: .75rem; line-height: 1.7; white-space: nowrap; }
         .error { padding: 2px; color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; }
         .actions { display: flex; gap: 2px; margin-top: 2px; }
         .actions button { flex: 1; padding: .25rem; }
-        .countdown { font-size: .85rem; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+        .countdown { font-size: .85rem; font-weight: 600; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 
         /* Pairing overlay — sits above the table, does not replace it */
         .pairing-overlay {

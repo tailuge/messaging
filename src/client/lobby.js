@@ -35,9 +35,7 @@ class LobbyApp extends LitElement {
             const url = new URL(window.location.href);
             url.searchParams.set('tournamentId', e.detail.arenaId);
             window.history.replaceState({}, '', url.pathname + url.search);
-            this.updateComplete.then(() => {
-                this.shadowRoot.querySelector('.arenas-row')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            });
+            this._scrollToArenaPanel('nearest');
         });
         this.addEventListener('lobby-ready', e => {
             this._lobby = e.detail;
@@ -52,9 +50,18 @@ class LobbyApp extends LitElement {
     }
 
     firstUpdated() {
+        super.firstUpdated();
         if (this._activeArenaId) {
-            this.shadowRoot.querySelector('.arenas-row')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            this._scrollToArenaPanel('start');
         }
+    }
+
+    _scrollToArenaPanel(block) {
+        // Defer to the next frame so the browser has finished laying out the
+        // new DOM before we query geometry — avoids a forced reflow.
+        requestAnimationFrame(() => {
+            this.shadowRoot.querySelector('.arenas-row')?.scrollIntoView({ behavior: 'smooth', block });
+        });
     }
 
     _closeArenaPanel = () => {
@@ -76,8 +83,8 @@ class LobbyApp extends LitElement {
         return html`
             <div class="container">
                 <header class="topbar">
-                    <a href="/lobby" class="topbrand">
-                        <img src="assets/threecushion.png" class="logo" alt="Billiards Logo">
+                    <a href="/lobby" class="topbrand" aria-label="Billiards">
+                        <img src="assets/threecushion.png" class="logo" alt="">
                         <h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a><span class="version">${formatVersion(CLIENTVERSION)}</span></h1>
                     </a>
                     <user-badge></user-badge>

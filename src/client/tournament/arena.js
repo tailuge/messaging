@@ -118,7 +118,7 @@ class ArenaApp extends LitElement {
 
     _renderHeader() {
         return html`<header class="topbar">
-            <a href="/lobby" class="topbrand">
+            <a href="/lobby" class="topbrand" aria-label="Billiards">
                 <img src="assets/threecushion.png" class="logo" alt="" />
                 <h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a></h1>
             </a>
