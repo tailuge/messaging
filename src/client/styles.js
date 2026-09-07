@@ -321,6 +321,9 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     h1 .version { font-size: 0.65rem; color: var(--text-dim); margin-left: 0.25rem; vertical-align: super; font-weight: 200; }
     .topbar { display: flex; align-items: center; flex-shrink: 0; gap: 0.4rem; }
     .topbar .logo { width: 32px; height: 32px; flex-shrink: 0; filter: grayscale(100%); opacity: 0.7; }
+    .topbrand { display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none; color: inherit; flex-shrink: 0; }
+    .topbrand:hover { opacity: 0.85; }
+    .topbrand .logo { filter: none; opacity: 1; transition: opacity 0.2s; }
     .topbar h1 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;}
     .topbar settings-modal { flex-shrink: 0; }
     .topbar user-badge { min-width: 0; }

@@ -19,7 +19,7 @@
 |---|---|---|
 | **Active Arenas Row** | `src/client/active-arenas.js` | Renders the active arena row; clicking Join dispatches `arena-select` with `{ arenaId }`. |
 | **Arena Panel** | `src/client/arena-panel.js` *(new)* | Simple wrapper composing `<arena-view>` + `<arena-chat>` with a "✕ Close" button and "Manage Arenas ↗" link. |
-| **Arena View** | `src/client/tournament/arena-view.js` | Receives `.lobby` from the lobby page. Handles leaderboard, Join/Leave, Pairing (with countdown/beserk), and auto-accepting arena challenges. |
+| **Arena View** | `src/client/tournament/arena-view.js` | Receives `.lobby` from the lobby page. Handles leaderboard, Join/Leave, Pairing (with countdown/berserk), and auto-accepting arena challenges. |
 | **Arena Chat** | `src/client/arena-chat.js` | Connects directly to `/subscribe/arena/:arenaId` (unchanged). |
 | **Main Lobby** | `src/client/lobby.js` | Holds `_activeArenaId` state; switches between `<active-arenas>` and `<arena-panel>`; listens for `arena-select` and `lobby-ready`. |
 | **Online Panel** | `src/client/online-panel.js` | Owns the single `Lobby` connection; exposes `get lobby()`; ignores offers where `options.tournamentId` is present. |

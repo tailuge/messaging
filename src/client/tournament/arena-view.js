@@ -37,7 +37,7 @@ class ArenaView extends LitElement {
         _pairingState: { state: true },
         _pairingCountdown: { state: true },
         _pairedName: { state: true },
-        _beserk: { state: true },
+        _berserk: { state: true },
     };
 
     static styles = [THEME_VARS, SHARED_STYLES, css`
@@ -93,17 +93,17 @@ class ArenaView extends LitElement {
         .pairing-result {
             font-weight: 600;
         }
-        .pairing-beserk {
+        .pairing-berserk {
             flex: 0 0 auto;
             padding: .35rem .5rem;
         }
-        .pairing-beserk[aria-pressed="true"] {
+        .pairing-berserk[aria-pressed="true"] {
             background: #fd7e14;
             border-color: #fd7e14;
             color: #fff;
             box-shadow: 0 0 0 1px rgba(253, 126, 20, 0.35);
         }
-        .pairing-beserk[aria-pressed="true"]:hover {
+        .pairing-berserk[aria-pressed="true"]:hover {
             background: #e96b02;
             border-color: #e96b02;
         }
@@ -138,7 +138,7 @@ class ArenaView extends LitElement {
         this._pairingState = null;   // null | 'counting' | 'paired' | 'no-opponent'
         this._pairingCountdown = PAIRING_COUNTDOWN_SECONDS;
         this._pairedName = '';
-        this._beserk = false;
+        this._berserk = false;
         this._pairingInterval = null;
         this._pairingTimeout = null;
         this._pendingArenaChallenge = null;
@@ -242,7 +242,7 @@ class ArenaView extends LitElement {
         // Capture the armed berserk choice before the incoming offer cancels the
         // pairing countdown. Berserk only ever applies to our own game URL, so it
         // must survive the accept path but never be sent to the challenger.
-        const beserk = this._beserk;
+        const berserk = this._berserk;
         // Any incoming offer supersedes an active pairing countdown.
         this._cancelPairing();
 
@@ -254,7 +254,7 @@ class ArenaView extends LitElement {
             return;
         }
 
-        await this._acceptArenaChallenge(msg, beserk);
+        await this._acceptArenaChallenge(msg, berserk);
     }
 
     /**
@@ -295,7 +295,7 @@ class ArenaView extends LitElement {
             ruleType,
             isFirst,
             options,
-            localOptions: pending.beserk ? { beserk: 'true' } : undefined,
+            localOptions: pending.berserk ? { berserk: 'true' } : undefined,
             lod: userStore.lod,
             flip: userStore.flip,
             custom: this._localCustom,
@@ -309,7 +309,7 @@ class ArenaView extends LitElement {
      * the game URL exactly like the existing lobby accept flow (we are the second
      * joiner, so `isFirst` is false unless the challenger designated us first).
      */
-    async _acceptArenaChallenge(msg, beserk = this._beserk) {
+    async _acceptArenaChallenge(msg, berserk = this._berserk) {
         if (!this._lobby) return;
 
         const ruleType = msg.ruleType || this._arena?.ruleType || 'nineball';
@@ -338,7 +338,7 @@ class ArenaView extends LitElement {
             ruleType,
             isFirst,
             options,
-            localOptions: beserk ? { beserk: 'true' } : undefined,
+            localOptions: berserk ? { berserk: 'true' } : undefined,
             lod: userStore.lod,
             flip: userStore.flip,
             custom: this._localCustom,
@@ -512,7 +512,7 @@ class ArenaView extends LitElement {
         this._pairingCountdown = PAIRING_COUNTDOWN_SECONDS;
         this._pairedName = '';
         // Berserk is a per-match choice; the next pairing starts off disabled.
-        this._beserk = false;
+        this._berserk = false;
     }
 
     _onPairingTick() {
@@ -571,8 +571,8 @@ class ArenaView extends LitElement {
     async _executePairing() {
         // Capture the choice before clearing it for the next pairing. Human
         // challenge acknowledgements can arrive after this method returns.
-        const beserk = this._beserk;
-        this._beserk = false;
+        const berserk = this._berserk;
+        this._berserk = false;
         const { candidates, diagnostics } = this._getPairingCandidates();
 
         if (candidates.length === 0) {
@@ -610,7 +610,7 @@ class ArenaView extends LitElement {
         this._pairingState = 'paired';
 
         try {
-            await this._initiateChallenge(chosen, beserk);
+            await this._initiateChallenge(chosen, berserk);
         } catch (err) {
             console.error('Pairing challenge failed:', err);
         }
@@ -623,7 +623,7 @@ class ArenaView extends LitElement {
      * Bots go directly to gameUrl; humans get a lobby challenge offer.
      * Both include &tournamentId so the game page can link back to the Arena.
      */
-    async _initiateChallenge(opponent, beserk = this._beserk) {
+    async _initiateChallenge(opponent, berserk = this._berserk) {
         const arena = this._arena;
         const ruleType = arena?.ruleType || 'nineball';
         const options = arena?.options || {};
@@ -644,7 +644,7 @@ class ArenaView extends LitElement {
                 custom: this._localCustom,
                 opponent: { userId: opponent.playerId, userName: opponent.name, custom: opponent.custom },
                 flip: userStore.flip,
-                localOptions: beserk ? { beserk: 'true' } : undefined,
+                localOptions: berserk ? { berserk: 'true' } : undefined,
             });
             window.location.href = base + `&tournamentId=${encodeURIComponent(tournamentId)}`;
             return;
@@ -664,7 +664,7 @@ class ArenaView extends LitElement {
             opponentCustom: opponent.custom || this._onlineUsers.find(u => u.userId === opponent.playerId)?.custom,
             ruleType,
             options: challengeOptions,
-            beserk,
+            berserk,
             tableId: null,
             earlyAccept: null,
         };
@@ -702,7 +702,7 @@ class ArenaView extends LitElement {
                     <div class="pairing-tick" aria-label="Seconds remaining: ${this._pairingCountdown}">${this._pairingCountdown}</div>
                     <div class="pairing-label">Pairing…</div>
                     <div class="pairing-hint">Finding an opponent</div>
-                    <button class="pairing-beserk" type="button" aria-pressed=${this._beserk} @click=${() => { this._beserk = !this._beserk; }}>Beserk 🚀</button>
+                    <button class="pairing-berserk" type="button" aria-pressed=${this._berserk} @click=${() => { this._berserk = !this._berserk; }}>Berserk 🚀</button>
                     <button type="button" @click=${this._cancelPairing}>Cancel</button>
                 </div>`;
         }

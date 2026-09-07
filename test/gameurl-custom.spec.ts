@@ -27,10 +27,10 @@ describe("gameUrl custom flattening", () => {
         const url = build({
             ...BASE,
             options: { raceTo: "7" },
-            localOptions: { beserk: "true" },
+            localOptions: { berserk: "true" },
         });
         expect(param(url, "raceTo")).toBe("7");
-        expect(param(url, "beserk")).toBe("true");
+        expect(param(url, "berserk")).toBe("true");
     });
 
     it("keeps flat custom values backwards compatible", () => {
