@@ -233,15 +233,17 @@ class SettingsModal extends StoreElement {
                         </div>
 
                         <div class="section-title">Links</div>
-                        <div class="row"><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Support</a></div>
-                        <div class="row"><a href="https://scoreboard-tailuge.vercel.app/usage.html" target="_blank" rel="noopener">Usage</a></div>
+                        <div class="row"><a href="https://github.com/tailuge/wbilliards/releases/latest" target="_blank" rel="noopener">Download for Android</a></div>
+                        <div class="row"><a href="https://github.com/tailuge/tbilliards/releases/latest" target="_blank" rel="noopener">Download for Mac / Windows / Linux</a></div>
                         <div class="row">
                             <a href="#" @click=${e => { e.preventDefault(); this._share(); }}>
                                 Share
                                 ${this._copied ? html`<span class="copied-badge">Copied!</span>` : ''}
                             </a>
                         </div>
-                        <div class="row"><a href="./arena.html">Arena</a></div>
+                        <div class="row"><a href="./arena.html">Arenas</a></div>
+                        <div class="row"><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Support</a></div>
+                        <div class="row"><a href="https://scoreboard-tailuge.vercel.app/usage.html" target="_blank" rel="noopener">Usage</a></div>
                         <div class="row"><a href="#" @click=${e => { e.preventDefault(); this._showStats = !this._showStats; }}>Stats</a></div>
 
                         ${this._showStats ? html`<div><strong style="font-size:0.82rem">Recent visitors</strong><stats-panel></stats-panel></div>` : ''}
