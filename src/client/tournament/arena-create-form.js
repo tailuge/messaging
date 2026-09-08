@@ -1,5 +1,5 @@
 import { LitElement, html, css } from 'lit';
-import '../proto2-modal.js';
+import '../selector-modal.js';
 
 class ArenaCreateForm extends LitElement {
     static properties = {
@@ -33,7 +33,7 @@ class ArenaCreateForm extends LitElement {
         this.error = '';
     }
 
-    _openChooser() { this.renderRoot.querySelector('proto2-modal').show(); }
+    _openChooser() { this.renderRoot.querySelector('selector-modal').show(); }
 
     _selectPreset(ruleType, options, durationMinutes = 10) {
         this.ruleType = ruleType;
@@ -68,7 +68,7 @@ class ArenaCreateForm extends LitElement {
     }
 
     render() {
-        return html`<div class="field"><label for="duration">Duration</label><select id="duration" .value=${String(this.durationMinutes)} @change=${this._onDurationChange}><option value="10">10 minutes</option><option value="30">30 minutes</option></select></div><div class="field"><label>Game type</label><div class="config"><div class="config-actions"><button type="button" class="btn-preset" title="10 mins Three Cushion (mini, race to 7)" @click=${() => this._selectPreset('threecushion', { raceTo: '7', tableSize: '5' }, 10)}><img src="assets/threecushion.png" alt="" /><span>3-Cushion</span></button><button type="button" class="btn-preset" title="10 mins Nine Ball (mini, freeaim)" @click=${() => this._selectPreset('nineball', { tableSize: '6', freeaim: 'true' }, 10)}><img src="assets/nineball.png" alt="" /><span>9-Ball</span></button><button type="button" class="btn-preset" title="10 mins Eight Ball (mini, freeaim)" @click=${() => this._selectPreset('eightball', { tableSize: '6', freeaim: 'true' }, 10)}><img src="assets/eightball.png" alt="" /><span>8-Ball</span></button><button type="button" class="btn-preset" @click=${this._openChooser}>Custom</button></div></div></div>${this.error ? html`<div class="error" role="alert">${this.error}</div>` : ''}<proto2-modal @confirm=${this._onParameters}></proto2-modal>`;
+        return html`<div class="field"><label for="duration">Duration</label><select id="duration" .value=${String(this.durationMinutes)} @change=${this._onDurationChange}><option value="10">10 minutes</option><option value="30">30 minutes</option></select></div><div class="field"><label>Game type</label><div class="config"><div class="config-actions"><button type="button" class="btn-preset" title="10 mins Three Cushion (mini, race to 7)" @click=${() => this._selectPreset('threecushion', { raceTo: '7', tableSize: '5' }, 10)}><img src="assets/threecushion.png" alt="" /><span>3-Cushion</span></button><button type="button" class="btn-preset" title="10 mins Nine Ball (mini, freeaim)" @click=${() => this._selectPreset('nineball', { tableSize: '6', freeaim: 'true' }, 10)}><img src="assets/nineball.png" alt="" /><span>9-Ball</span></button><button type="button" class="btn-preset" title="10 mins Eight Ball (mini, freeaim)" @click=${() => this._selectPreset('eightball', { tableSize: '6', freeaim: 'true' }, 10)}><img src="assets/eightball.png" alt="" /><span>8-Ball</span></button><button type="button" class="btn-preset" @click=${this._openChooser}>Custom</button></div></div></div>${this.error ? html`<div class="error" role="alert">${this.error}</div>` : ''}<selector-modal @confirm=${this._onParameters}></selector-modal>`;
     }
 }
 

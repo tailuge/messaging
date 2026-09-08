@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Proto2 — Variant Selection Modal</title>
+    <title>Selector — Variant Selection Modal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Exo:wght@200;600&display=swap" rel="stylesheet" />
@@ -117,7 +117,7 @@
   </head>
   <body>
     <div class="page-head">
-      <h1>Proto2 · Variant Selection Modal</h1>
+      <h1>Selector · Variant Selection Modal</h1>
       <button class="toggle" id="themeToggle">🌙 Dark</button>
     </div>
 
@@ -128,12 +128,12 @@
 
     <div class="launch-log" id="log">Last confirm will appear here…</div>
 
-    <proto2-modal id="modalSolo" mode="solo"></proto2-modal>
-    <proto2-modal id="modalChal" mode="challenge" opponent="Alice"></proto2-modal>
+    <selector-modal id="modalSolo" mode="solo"></selector-modal>
+    <selector-modal id="modalChal" mode="challenge" opponent="Alice"></selector-modal>
 
     <script type="module">
       import { LitElement, html, css } from 'lit';
-      import { proto2Strings } from './proto2-strings.js';
+      import { selectorStrings } from './selector-strings.js';
 
       const GAMES = [
         {
@@ -197,14 +197,14 @@
       for (const game of GAMES) game.sizes = true;
 
       const ls = {
-        get(k, d) { const v = localStorage.getItem(`proto2_${k}`); return v === null ? d : v; },
-        set(k, v) { localStorage.setItem(`proto2_${k}`, v); },
+        get(k, d) { const v = localStorage.getItem(`selector_${k}`); return v === null ? d : v; },
+        set(k, v) { localStorage.setItem(`selector_${k}`, v); },
       };
 
       const emit = (el, type, detail) =>
         el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
 
-      class Proto2Modal extends LitElement {
+      class SelectorModal extends LitElement {
         static properties = {
           mode: { type: String },
           opponent: { type: String },
@@ -216,7 +216,7 @@
           _lang: { state: true },
         };
 
-        #strings = proto2Strings;
+        #strings = selectorStrings;
         #unsubLang;
 
         static styles = css`
@@ -600,7 +600,7 @@
         }
       }
 
-      customElements.define('proto2-modal', Proto2Modal);
+      customElements.define('selector-modal', SelectorModal);
 
       document.getElementById('themeToggle')?.addEventListener('click', (e) => {
         const root = document.documentElement;

@@ -1,5 +1,5 @@
 /**
- * Minimal i18n for the Proto2 variant-selection modal.
+ * Minimal i18n for the selector variant-selection modal.
  *
  * Design: English strings ARE the keys. A language dictionary maps each
  * English key to its translation; `t()` falls back to the key itself, so
@@ -121,7 +121,7 @@ const TRANSLATIONS = {
   },
 };
 
-const STORAGE_KEY = 'proto2_lang';
+const STORAGE_KEY = 'selector_lang';
 
 function detectLanguage() {
   // 1) Explicit user choice from a previous visit.
@@ -146,7 +146,7 @@ function detectLanguage() {
   return 'en';
 }
 
-export class Proto2Strings {
+export class SelectorStrings {
   #lang = 'en';
   #listeners = new Set();
 
@@ -190,4 +190,4 @@ export class Proto2Strings {
   }
 }
 
-export const proto2Strings = new Proto2Strings();
+export const selectorStrings = new SelectorStrings();

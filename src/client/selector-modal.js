@@ -8,7 +8,7 @@ const GAMES = [
   { key: 'sagu', label: 'Sagu', img: 'assets/sagu.png', variants: [{ id: '5', label: 'Race to 5', options: { raceTo: '5' } }, { id: '11', label: 'Race to 11', options: { raceTo: '11' } }] },
 ];
 
-class Proto2Modal extends LitElement {
+class SelectorModal extends LitElement {
   static properties = { open: { type: Boolean, reflect: true }, _game: { state: true }, _variant: { state: true }, _size: { state: true }, _freeaim: { state: true } };
   static styles = css`
     :host { display: block; color: var(--text, #e0e0e0); font-family: 'Exo', sans-serif; }
@@ -49,4 +49,4 @@ class Proto2Modal extends LitElement {
   }
 }
 
-customElements.define('proto2-modal', Proto2Modal);
+customElements.define('selector-modal', SelectorModal);
