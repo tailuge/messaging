@@ -50,6 +50,7 @@ const TRANSLATIONS = {
     'Race to 25': '25점 선취',
     'Race to 5': '5점 선취',
     'Race to 11': '11점 선취',
+    'Use these parameters': '이 설정으로 시작',
   },
   ja: {
     'Play Solo': 'ひとりでプレイ',
@@ -84,6 +85,7 @@ const TRANSLATIONS = {
     'Race to 25': '25点先取',
     'Race to 5': '5点先取',
     'Race to 11': '11点先取',
+    'Use these parameters': 'この設定で開始',
   },
   tr: {
     'Play Solo': 'Tek Oyna',
@@ -118,6 +120,7 @@ const TRANSLATIONS = {
     'Race to 25': '25 Sayıya',
     'Race to 5': '5 Sayıya',
     'Race to 11': '11 Sayıya',
+    'Use these parameters': 'Bu ayarlarla başla',
   },
 };
 
