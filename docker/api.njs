@@ -95,6 +95,7 @@ async function redis() {
 
 const K_ACTIVE = "arena:active";
 const K_ARCHIVED = "arena:archived";
+const K_WINNERS = "arena:winners";
 const RESULT_HISTORY_LIMIT = 20;
 const ARENA_DURATION_MINUTES = [10, 30];
 const SCORED_TTL_MS = 24 * 60 * 60 * 1000;
@@ -210,6 +211,7 @@ async function tidyFinishedArenas() {
 
         const staleIds = [];
         const archiveArgs = [];
+        const winnerNames = [];
         const now = Date.now();
 
         for (let i = 0; i < entries.length; i += 1) {
@@ -253,6 +255,7 @@ async function tidyFinishedArenas() {
                 if (winner) {
                     arena.winner = winner.name;
                     arena.winnerId = winner.playerId;
+                    winnerNames.push(arena.winner);
                     logApi("tidy archiving id=" + id + " winner=" + winner.name +
                         " entrantCount=" + entrantCount);
                 } else {
@@ -277,6 +280,14 @@ async function tidyFinishedArenas() {
         if (archiveArgs.length > 0) {
             await redis.apply(null, ["ZADD", K_ARCHIVED, "NX"].concat(archiveArgs));
             logApi("tidy archived " + (archiveArgs.length / 2) + " arenas");
+            // Mirror the archive with a bounded winner-name list for the
+            // front-end top-winners view: newest first, no-winner arenas
+            // skipped, trimmed to the same 20-entry window. LPUSH+LTRIM, so
+            // the list can never exceed RESULT_HISTORY_LIMIT.
+            if (winnerNames.length > 0) {
+                await redis.apply(null, ["LPUSH", K_WINNERS].concat(winnerNames));
+                await redis("LTRIM", K_WINNERS, "0", String(RESULT_HISTORY_LIMIT - 1));
+            }
         }
         if (staleIds.length > 0) {
             await redis.apply(null, ["HDEL", K_ACTIVE].concat(staleIds));
@@ -296,6 +307,13 @@ async function tidyFinishedArenas() {
     } catch (e) {
         logApi("tidyFinishedArenas error: " + (e && e.message ? e.message : e));
     }
+}
+
+async function arenaWinnersGet(r) {
+    // Plain LRANGE read: no tidy, no parsing, no compute. The list is bounded
+    // by LPUSH+LTRIM at write time and already ordered newest-first.
+    const winners = (await redis("LRANGE", K_WINNERS, "0", String(RESULT_HISTORY_LIMIT - 1))) || [];
+    return json(r, 200, { status: "success", winners: Array.isArray(winners) ? winners : [] });
 }
 
 async function arenaList(r) {
@@ -487,6 +505,7 @@ async function router(r) {
             if (r.uri === '/api/arena' && r.method === 'GET') return await arenaList(r);
         if (r.uri === '/api/arena' && r.method === 'POST') return await arenaCreate(r);
         if (r.uri === '/api/arena/results' && r.method === 'GET') return await arenaResultsGet(r);
+        if (r.uri === '/api/arena/winners' && r.method === 'GET') return await arenaWinnersGet(r);
         if (r.uri.startsWith('/api/arena/') && r.method === 'GET') {
             const id = r.uri.substring('/api/arena/'.length);
             if (id && validArenaId(id)) return await arenaGet(r, decodeURIComponent(id));

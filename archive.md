@@ -33,6 +33,7 @@
 |---|---|---|---|
 | **Active** | `arena:active` | HASH (`id` → arena JSON) | The handful of currently running arenas. Gives `GET /api/arena` everything in 1 call. |
 | **Archived** | `arena:archived` | ZSET (score = `endTime`, member = complete arena JSON) | Finished arena snapshots, capped at the 20 most recent. |
+| **Winners** | `arena:winners` | LIST (winner names, newest first) | Bounded mirror of the archive: winner names only, no-winner arenas skipped, trimmed to the last 20 (`LPUSH`+`LTRIM` at archive time). Serves `GET /api/arena/winners` as a plain `LRANGE` with zero compute. Not backfilled from existing snapshots. |
 | **Records** | `arena:<id>`, `arena:<id>:scores`, `arena:<id>:scored` | — | Full arena data & score hashes; no `EX` ttl, cleaned only by `tidyFinishedArenas()`. |
 
 Why a HASH for active:

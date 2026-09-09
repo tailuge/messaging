@@ -18,8 +18,6 @@ const nextUtcBoundary = (now) => (Math.floor(now / BOUNDARY_MS) + 1) * BOUNDARY_
 const HOURLY_PRESETS = [
     { name: 'Nine Ball Mini Hourly Arena', ruleType: 'nineball', options: { tableSize: '6', freeaim: 'true' } },
     { name: 'Eight Ball Mini Hourly Arena', ruleType: 'eightball', options: { tableSize: '6', freeaim: 'true' } },
-    { name: 'Nine Ball Hourly Arena', ruleType: 'nineball', options: {} },
-    { name: 'Eight Ball Hourly Arena', ruleType: 'eightball', options: {} },
     { name: 'Snooker Mini Hourly Arena', ruleType: 'snooker', options: { tableSize: '6', reds: '3', freeaim: 'true' } },        
 ];
 

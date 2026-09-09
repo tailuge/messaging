@@ -19,7 +19,7 @@ class ArenaChat extends LitElement {
       .chat { contain: layout style; }
       .messages {
         display: flex; flex-direction: column; gap: 2px;
-        flex: 1 1 auto; min-height: 5rem; max-height: 10rem;
+        flex: 1 1 auto; min-height: 3rem; max-height: 10rem;
         overflow-y: auto;
         scrollbar-width: thin; scrollbar-color: var(--border) transparent;
       }

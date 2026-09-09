@@ -31,10 +31,12 @@ class InfoPanel extends StoreElement {
         if (!this._data) return html`<span class="loading">Connecting to server…</span>`;
         const { hiscores, topPlayers, recentMatches } = this._data;
         const games = Object.keys(hiscores);
+        // HiScore tables only: eightball and sagu are excluded from the panel.
+        const hiscoreGames = games.filter(game => game !== 'eightball' && game !== 'sagu');
         return html`
             <div class="group hiscores">
                 <div class="group-body">
-                    ${games.map(game => html`
+                    ${hiscoreGames.map(game => html`
                         <div class="tbl${game === 'sagu' ? ' sagu-hi' : ''}"><table><caption><a href="${SCOREBOARD_URL}/leaderboard" target="_blank" rel="noopener" style="font-weight:200;font-size:0.75rem">${ruleIcon(game)} HiScore</a></caption>
                         <tr><th>Name</th><th></th></tr>
                             ${hiscores[game].slice(0, 4).map((s, i) => html`<tr><td>${renderTrophy(i)} ${s.name}</td><td><replay-button url="${replayUrl(`${SCOREBOARD_URL}/api/rank/${s.id}?ruletype=${game}&lod=${userStore.lod}`, userStore.clientId, userStore.userName)}" label="${s.score}"></replay-button></td></tr>`)}
