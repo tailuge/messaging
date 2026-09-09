@@ -2,7 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { THEME_VARS, SHARED_STYLES } from '../styles.js';
 import { userStore } from '../user-store.js';
 import { ARENA_ROW_STYLES, arenaRow } from '../active-arenas.js';
-import { API_BASE } from '../utils.js';
+import { API_BASE, CLIENTVERSION, formatVersion } from '../utils.js';
 import '../active-arenas.js';
 import '../user-badge.js';
 import './arena-create-form.js';
@@ -118,8 +118,8 @@ class ArenaApp extends LitElement {
 
     _renderHeader() {
         return html`<header class="topbar">
-            <a href="/lobby" class="topbrand" aria-label="Billiards lobby"><img src="assets/threecushion.png" class="logo" alt="" /></a>
-            <h1><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Billiards</a></h1>
+            <a href="https://billiards.tailuge.workers.dev/lobby" class="topbrand" aria-label="Billiards lobby"><img src="assets/threecushion.png" class="logo" alt="" /></a>
+            <h1><a href="https://billiards.tailuge.workers.dev/lobby">Billiards</a><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener" class="version">${formatVersion(CLIENTVERSION)}</a></h1>
             <user-badge></user-badge>
             <button class="back-lobby" type="button" @click=${this._backToLobby}>Back to lobby</button>
         </header>`;
