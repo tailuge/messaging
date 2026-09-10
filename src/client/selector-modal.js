@@ -62,6 +62,11 @@ const GAMES = [
 // from the rule-specific variant definitions.
 for (const game of GAMES) game.sizes = true;
 
+// Shot clock (seconds). Matches the `shotClock` option key used by the
+// challenge flows and the game URL parameters.
+const SHOT_CLOCKS = ['10', '20', '60'];
+const DEFAULT_SHOT_CLOCK = '20';
+
 const ls = {
   get(k, d) { const v = localStorage.getItem(`selector_${k}`); return v === null ? d : v; },
   set(k, v) { localStorage.setItem(`selector_${k}`, v); },
@@ -98,6 +103,7 @@ class SelectorModal extends LitElement {
     _freeaim: { state: true },
     _vid: { state: true },
     _size: { state: true },
+    _shotClock: { state: true },
     _lang: { state: true },
   };
 
@@ -266,6 +272,8 @@ class SelectorModal extends LitElement {
     this.heading = '';
     this.actionLabel = '';
     this._size = ls.get('size', 'full');
+    const storedShotClock = ls.get('shotClock', DEFAULT_SHOT_CLOCK);
+    this._shotClock = SHOT_CLOCKS.includes(storedShotClock) ? storedShotClock : DEFAULT_SHOT_CLOCK;
     this._sel = ls.get('game', 'threecushion');
     if (!GAMES.some(g => g.key === this._sel)) this._sel = 'threecushion';
     this.#loadGame(this._sel);
@@ -321,6 +329,11 @@ class SelectorModal extends LitElement {
     }
   }
 
+  _selectShotClock(seconds) {
+    this._shotClock = seconds;
+    ls.set('shotClock', seconds);
+  }
+
   _toggleFreeaim() {
     this._freeaim = !this._freeaim;
     ls.set('freeaim', String(this._freeaim));
@@ -334,6 +347,7 @@ class SelectorModal extends LitElement {
       opts.tableSize = '12';
     }
     if (this.game.freeaim && this._freeaim) opts.freeaim = 'true';
+    opts.shotClock = this._shotClock;
     emit(this, 'confirm', {
       mode: this.mode,
       ruleType: this.game.key,
@@ -403,6 +417,17 @@ class SelectorModal extends LitElement {
                   >${this.#t('Mini')}</button>
                 </div>
               ` : ''}
+              <div class="choice-group">
+                <span class="choice-label">${this.#t('Shot time:')}</span>
+                ${SHOT_CLOCKS.map(secs => html`
+                  <button
+                    class="chip ${this._shotClock === secs ? 'selected' : ''}"
+                    role="radio"
+                    aria-checked=${this._shotClock === secs}
+                    @click=${() => this._selectShotClock(secs)}
+                  >${secs}s</button>
+                `)}
+              </div>
               ${g.variants.length > 1 ? html`
                 <div class="choice-group">
                   <span class="choice-label">${this.#t('Rule:')}</span>
