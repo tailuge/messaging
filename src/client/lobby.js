@@ -4,6 +4,7 @@ import './solo-panel.js';
 import './info-panel.js';
 import './online-panel.js';
 import './user-badge.js';
+import './trophy.js';
 import './settings-modal.js';
 import './active-arenas.js';
 import './arena-panel.js';
@@ -93,6 +94,7 @@ class LobbyApp extends LitElement {
                 <header class="topbar">
                     <a href="https://billiards.tailuge.workers.dev/lobby" class="topbrand" aria-label="Billiards lobby"><img src="assets/threecushion.png" class="logo" alt=""></a>
                     <h1><a href="https://billiards.tailuge.workers.dev/lobby">Billiards</a><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener" class="version">${formatVersion(CLIENTVERSION)}</a></h1>
+                    <trophy-item></trophy-item>
                     <user-badge></user-badge>
                     <settings-modal @theme-changed=${e => { this._theme = e.detail; }}></settings-modal>
                 </header>
