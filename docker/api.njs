@@ -255,7 +255,7 @@ async function tidyFinishedArenas() {
                 if (winner) {
                     arena.winner = winner.name;
                     arena.winnerId = winner.playerId;
-                    winnerEntries.push({ userName: arena.winner, arenaId: id });
+                    winnerEntries.push({ userName: arena.winner, arenaId: id, endTime: arena.endTime });
                     logApi("tidy archiving id=" + id + " winner=" + winner.name +
                         " entrantCount=" + entrantCount);
                 } else {
@@ -285,8 +285,15 @@ async function tidyFinishedArenas() {
             // skipped, trimmed to the same 20-entry window. LPUSH+LTRIM, so
             // the list can never exceed RESULT_HISTORY_LIMIT.
             // Each entry is a JSON-encoded {userName, arenaId} object.
+            // Multi-value LPUSH reverses the argument order, so sort by end
+            // time ascending and push oldest-first: the newest winner ends up
+            // at the head of the list even when several arenas finish in one
+            // tidy pass.
             if (winnerEntries.length > 0) {
-                const serialised = winnerEntries.map(function(e) { return JSON.stringify(e); });
+                winnerEntries.sort((a, b) => (a.endTime || 0) - (b.endTime || 0));
+                const serialised = winnerEntries.map(function(e) {
+                    return JSON.stringify({ userName: e.userName, arenaId: e.arenaId });
+                });
                 await redis.apply(null, ["LPUSH", K_WINNERS].concat(serialised));
                 await redis("LTRIM", K_WINNERS, "0", String(RESULT_HISTORY_LIMIT - 1));
             }
@@ -338,6 +345,11 @@ async function arenaWinnersGet(r) {
 }
 
 async function arenaList(r) {
+    // Tidy before listing so an arena the client is about to see as ended is
+    // archived and its winner written to arena:winners in the same round trip
+    // that triggers the seed of the next tournament. Client-driven, matching
+    // the poll cadence of active-arenas (30s) with no server timers.
+    await tidyFinishedArenas();
     const raw = await redis("HGETALL", K_ACTIVE);
     const entries = parseHashEntries(raw);
     const arenas = [];
