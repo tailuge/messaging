@@ -227,29 +227,97 @@ class ArenaView extends LitElement {
     }
 
     /**
+     * True when this page load came from a game-page accept redirect: the game
+     * echoed our own return URL, which carries the opponent params plus the
+     * Arena id (see online-panel.js, which leaves those params untouched).
+     */
+    _isArenaReturnRedirect() {
+        const p = new URLSearchParams(window.location.search);
+        if (!p.get('opponent.userId')) return false;
+        return Boolean(p.get('tournamentId') || p.get('arenaId') || p.get('arena'));
+    }
+
+    /**
      * Handles an incoming challenge received over the messaging framework.
      *
      * Any offer addressed to the current player supersedes an active pairing
      * countdown (per spec: an incoming challenge takes precedence over the random
-     * selection). If the offer carries a matching `tournamentId` and the current
-     * player has joined this Arena, it is auto-accepted and both sides launch the
-     * game URL through the existing challenge-accept flow.
+     * selection). If the offer carries a matching `tournamentId`, it is
+     * auto-accepted and both sides launch the game URL through the existing
+     * challenge-accept flow.
+     *
+     * Accept-in-game path: a player who accepted an Arena challenge from a game
+     * page is redirected here (opponent.userId + tournamentId in the URL, see
+     * _isArenaReturnRedirect). The game page does not publish the accept itself,
+     * so the original offer is still buffered by Nchan and replayed to this fresh
+     * connection — it is handled exactly like an in-lobby offer, except that a
+     * returning player is auto-joined first if they have not rejoined the Arena
+     * in this browser session yet.
      */
     async _handleIncomingChallenge(msg) {
         if (msg.type !== 'offer' || msg.challengeeId !== userStore.clientId) return;
 
+        // Berserk: normally captured from an active pairing countdown. On the
+        // accept-in-game path it is restored from localStorage, persisted by the
+        // previous lobby session's accept (see _acceptArenaChallenge). Consumed
+        // on read so it can only apply to the single redirect it belongs to.
+        let berserk = this._berserk;
+        const returningFromGame = this._isArenaReturnRedirect();
+        if (returningFromGame) {
+            try {
+                if (!berserk) berserk = localStorage.getItem('arenaBerserk') === 'true';
+                localStorage.removeItem('arenaBerserk');
+            } catch (_e) { /* unavailable */ }
+        }
+
         const wasPairing = this._pairingState === 'counting';
-        // Capture the armed berserk choice before the incoming offer cancels the
-        // pairing countdown. Berserk only ever applies to our own game URL, so it
-        // must survive the accept path but never be sent to the challenger.
-        const berserk = this._berserk;
         // Any incoming offer supersedes an active pairing countdown.
         this._cancelPairing();
 
-        // Auto-accept only when the offer belongs to this Arena and we are joined & active.
+        // Auto-accept only when the offer belongs to this Arena.
+        if (msg.options?.tournamentId !== this.arenaId) {
+            if (wasPairing) this.requestUpdate();
+            return;
+        }
+
+        // Fallback for the accept-in-game path: the player accepted an Arena
+        // challenge from a game page, which redirected back here carrying
+        // opponent.userId + tournamentId. A player returning that way may not
+        // have rejoined the Arena in this browser session yet (participants
+        // persist server-side), so auto-join to become eligible before accepting.
+        // Players who never joined this Arena are still ignored, as before.
         const joinedActive = this._arena?.players?.some(p =>
             p.playerId === userStore.clientId && p.active !== false);
-        if (!joinedActive || msg.options?.tournamentId !== this.arenaId) {
+        if (!joinedActive && returningFromGame) {
+            // The offer replay can arrive before this view's initial _load()
+            // resolves (_arena still null). Fetch first so we don't issue a
+            // duplicate join that the backend rejects with 409.
+            if (!this._arena) await this._load();
+            const joined = this._arena?.players?.some(p =>
+                p.playerId === userStore.clientId && p.active !== false);
+            if (!joined) {
+                const name = (userStore.userName || '').trim();
+                if (!name || /^(anonymous|anon)$/i.test(name)) {
+                    if (wasPairing) this.requestUpdate();
+                    return;
+                }
+                try {
+                    await this._mutate('join', { playerId: userStore.clientId, name });
+                } catch (err) {
+                    console.error('Arena auto-join failed:', err);
+                    if (wasPairing) this.requestUpdate();
+                    return;
+                }
+                // _mutate refetches the arena on success; on rejection it sets
+                // _error without throwing, so re-check membership to be sure.
+                const joinedNow = this._arena?.players?.some(p =>
+                    p.playerId === userStore.clientId && p.active !== false);
+                if (!joinedNow) {
+                    if (wasPairing) this.requestUpdate();
+                    return;
+                }
+            }
+        } else if (!joinedActive) {
             if (wasPairing) this.requestUpdate();
             return;
         }
@@ -314,6 +382,16 @@ class ArenaView extends LitElement {
 
         const ruleType = msg.ruleType || this._arena?.ruleType || 'nineball';
         const options = msg.options || this._arena?.options || {};
+
+        // Persist the berserk choice before launching so it survives the
+        // accept-in-game round trip: when this accept was triggered by the
+        // redirect (opponent.userId + tournamentId in the URL), the game page
+        // echoes our own return URL without a berserk param, and the next lobby
+        // load restores the choice from here (see _handleIncomingChallenge).
+        try {
+            if (berserk) localStorage.setItem('arenaBerserk', 'true');
+            else localStorage.removeItem('arenaBerserk');
+        } catch (_e) { /* localStorage unavailable — berserk simply won't persist */ }
 
         try {
             await this._lobby.acceptChallenge(

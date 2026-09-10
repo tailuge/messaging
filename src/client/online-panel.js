@@ -39,7 +39,13 @@ class OnlinePanel extends LitElement {
 
         const p = new URLSearchParams(location.search);
         const opponentId = p.get('opponent.userId');
-        if (opponentId) {
+        // An opponent param combined with an arena param means the player accepted
+        // an Arena challenge while in a game page and was redirected back here.
+        // The arena panel (opened by lobby.js for tournamentId) replays the original
+        // offer and auto-accepts it through the arena flow, so a fresh regular
+        // challenge must not be sent and the params are left for the arena view.
+        const arenaParam = p.get('tournamentId') || p.get('arenaId') || p.get('arena');
+        if (opponentId && !arenaParam) {
             const options = {};
             const tableSize = p.get('tableSize') || p.get('tablesize');
             if (tableSize) options.tableSize = tableSize;

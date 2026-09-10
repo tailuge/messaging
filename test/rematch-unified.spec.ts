@@ -269,5 +269,23 @@ describe("Unified Rematch Scenarios (newspec.md)", () => {
             expect(urlObj.searchParams.get('reds')).toBeNull();
             expect(urlObj.searchParams.get('freeaim')).toBeNull();
         });
+
+        it("should NOT auto-challenge when an arena (tournamentId) param is present — accept-in-game arena path", async () => {
+            mockChallengeFn.mockClear();
+            (window.history.replaceState as jest.Mock).mockClear();
+            (window.location as any).href = 'http://localhost/?opponent.userId=bob&opponent.userName=Bob&ruletype=eightball&tournamentId=arena-hourly-20260910-0800';
+            (window.location as any).search = '?opponent.userId=bob&opponent.userName=Bob&ruletype=eightball&tournamentId=arena-hourly-20260910-0800';
+
+            await import("../src/client/online-panel.js" as any);
+            const panel = new (customElements.get('online-panel') as any)();
+
+            await panel._connect();
+            await new Promise((resolve) => setTimeout(resolve, 30));
+
+            // The arena return must not send a fresh regular challenge...
+            expect(mockChallengeFn).not.toHaveBeenCalled();
+            // ...and must leave the handoff params for the arena view to consume.
+            expect(window.history.replaceState).not.toHaveBeenCalled();
+        });
     });
 });

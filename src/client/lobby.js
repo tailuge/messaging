@@ -71,6 +71,14 @@ class LobbyApp extends LitElement {
             url.searchParams.delete('tournamentId');
             url.searchParams.delete('arenaId');
             url.searchParams.delete('arena');
+            // Drop the accept-in-game handoff params too (an active regular-challenge
+            // redirect never coexists with an arena param — online-panel consumes and
+            // strips those immediately), so a later reload cannot be misread as a
+            // fresh non-arena challenge.
+            url.searchParams.delete('opponent.userId');
+            url.searchParams.delete('opponent.userName');
+            url.searchParams.delete('ruletype');
+            url.searchParams.delete('nextTurnId');
             window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
         }
     }
