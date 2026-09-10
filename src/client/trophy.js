@@ -107,7 +107,11 @@ class TrophyItem extends StoreElement {
         if (!name || !this._winners) { this._hasTrophy = false; return; }
         if (this._trophyCheckedFor === name) return;
         this._trophyCheckedFor = name;
-        this._hasTrophy = this._winners.some(w => typeof w === 'string' && w.trim() === name);
+        const hasTrophy = this._winners.some(w => typeof w === 'string' && w.trim() === name);
+        if (hasTrophy !== this._hasTrophy) {
+            this._hasTrophy = hasTrophy;
+            this.requestUpdate();
+        }
     }
 
     willUpdate() {
