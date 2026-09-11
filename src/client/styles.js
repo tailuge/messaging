@@ -81,9 +81,6 @@ export const USER_LIST_STYLES = css`
     :host { display: block; }
     ul {
         list-style: none; margin: 0; padding: 1px;
-        /* border-box so the scrollHeight assigned to --ul-expanded-height
-           (which includes padding) maps exactly onto max-height. */
-        box-sizing: border-box;
         max-height: 148px;
         display: flex; flex-direction: column;
         row-gap: 2px;
@@ -289,6 +286,10 @@ export const INFO_PANEL_STYLES = css`
     .group-title { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); padding: 0.1rem 0.25rem; text-align: center; }
     .group-body { display: flex; flex-wrap: wrap; justify-content: space-evenly; }
     .bottom-row { display: flex; align-items: flex-start; gap: 0.1rem; }
+    /* The bottom-row groups are the last thing in the panel; their .group
+       margin-bottom left a ~2px gap that made the stretched online-panel
+       appear to protrude below them. */
+    .bottom-row .group { margin-bottom: 0; }
     .bottom-row .recent { flex: 65; min-width: 0; height: 408px; overflow-y: auto; scrollbar-width: none; }
     .bottom-row .recent::-webkit-scrollbar { display: none; }
     .bottom-row .top-players { flex: 35; min-width: 0; height: 408px; overflow-y: auto; scrollbar-width: none; }
