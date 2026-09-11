@@ -348,8 +348,8 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     online-panel    { grid-area: 1 / 2 / 2 / 3; }
     online-panel.panel { overflow-y: auto; max-height: calc(100vh - 6rem); align-self: stretch; }
     .arenas-row     { grid-area: 2 / 1 / 3 / 3; display: grid; grid-template-columns: minmax(0, 230px) minmax(0, 1fr); column-gap: 0.1rem; align-items: stretch; }
-    .arenas-row .cabinet-col, .arenas-row .arena-col { min-width: 0; }
-    .arenas-row.arena-details .arena-col { padding: 2px; }
+    .arenas-row .cabinet-col, .arenas-row .arena-col { min-width: 0; padding: 3px; }
+    .arenas-row.arena-details .arena-col { padding: 3px; }
     .info-row       { grid-area: 3 / 1 / 4 / 3; }
 
     @media (max-width: 640px) {
