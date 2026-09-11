@@ -37,16 +37,21 @@ const trophyLayout = total => {
 };
 
 // Aggregate the winners list ([{userName, arenaId}]) into a leaderboard of the
-// most decorated names, highest first.
+// most decorated names, highest first. Each holder keeps the winning arenaIds
+// (newest first) so every trophy can link back to the arena it was won in.
 const topHolders = winners => {
-    const counts = new Map();
+    const byName = new Map();
     for (const winner of winners) {
         const name = String(winner.userName).trim();
-        if (name) counts.set(name, (counts.get(name) || 0) + 1);
+        if (!name) continue;
+        const holder = byName.get(name) || { name, count: 0, arenaIds: [] };
+        holder.count += 1;
+        if (winner.arenaId) holder.arenaIds.push(String(winner.arenaId));
+        byName.set(name, holder);
     }
-    return [...counts.entries()]
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    return [...byName.values()].sort(
+        (a, b) => b.count - a.count || a.name.localeCompare(b.name)
+    );
 };
 
 /**
@@ -70,6 +75,7 @@ class TrophyCabinet extends LitElement {
         .cabinet-name { flex: 0 1 auto; max-width: 45%; font-size: 0.75rem; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .cabinet-trophies { display: flex; align-items: center; justify-content: flex-end; flex: 1 1 auto; min-width: 0; overflow: hidden; }
         .trophy { line-height: 1; user-select: none; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); transition: transform 0.15s ease, filter 0.15s ease, opacity 0.15s ease; }
+        a.trophy { text-decoration: none; cursor: pointer; }
         .trophy + .trophy { margin-left: -0.35em; }
         .trophy:hover { transform: translateY(-2px) scale(1.25); filter: none !important; opacity: 1 !important; z-index: 100 !important; }
         .empty { color: var(--text-muted); text-align: center; padding: 0.5rem 0; font-size: 0.75rem; }
@@ -102,11 +108,20 @@ class TrophyCabinet extends LitElement {
                     ${holders.map(holder => html`
                         <div class="cabinet-row" title="${holder.name}: ${holder.count} arena ${holder.count === 1 ? 'win' : 'wins'}">
                             <span class="cabinet-name">${holder.name}</span>
-                            <span class="cabinet-trophies" aria-hidden="true">
-                                ${trophyLayout(holder.count).map(t => html`<span
-                                    class="trophy"
-                                    style="font-size:${t.size};z-index:${t.zIndex};filter:${t.filter};opacity:${t.opacity}"
-                                >🏆</span>`)}
+                            <span class="cabinet-trophies">
+                                ${trophyLayout(holder.count).map(t => {
+                                    const arenaId = holder.arenaIds[t.rank - 1];
+                                    const style = `font-size:${t.size};z-index:${t.zIndex};filter:${t.filter};opacity:${t.opacity}`;
+                                    return arenaId
+                                        ? html`<a
+                                            class="trophy"
+                                            style="${style}"
+                                            href="lobby?tournamentId=${encodeURIComponent(arenaId)}"
+                                            title="Arena winner (${arenaId})"
+                                            aria-label="Arena trophy - view arena ${arenaId}"
+                                        >🏆</a>`
+                                        : html`<span class="trophy" style="${style}">🏆</span>`;
+                                })}
                             </span>
                         </div>`)}
                 </div>`
