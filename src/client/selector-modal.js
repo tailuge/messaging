@@ -116,152 +116,210 @@ class SelectorModal extends LitElement {
       font-family: 'Exo', sans-serif;
       font-weight: 200;
       color: var(--text);
+      /* Accent matches the lobby's semantic buttons (.btn-challenge). */
+      --accent: #0d6efd;
+      --accent-hover: #0b5ed7;
+      --accent-active: #0a58ca;
     }
     :host(:not([open])) { display: none; }
-    button { font: inherit; cursor: pointer; border-radius: 4px; box-sizing: border-box; }
-    button:focus-visible, input:focus-visible {
-      outline: 2px solid var(--accent, #4a9eff);
+
+    /* Button baseline mirrors SHARED_STYLES: flat, 4px radius, --btn-* tokens.
+       Only the touch target is enlarged for mobile comfort. */
+    button {
+      font: inherit;
+      cursor: pointer;
+      border-radius: 4px;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      user-select: none;
+      background: var(--btn-bg);
+      border: 1px solid var(--btn-border);
+      color: var(--text);
+      transition: background-color 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s;
+    }
+    button:hover { background-color: var(--btn-hover); }
+    button:active { background-color: var(--btn-active); }
+    button:focus-visible, input:focus-visible, a:focus-visible {
+      outline: 2px solid #007bff;
       outline-offset: 2px;
+    }
+    /* Semantic accent buttons follow .btn-challenge's hover/active ramp. */
+    .action, .chip.selected, .chip.toggle.on {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .action:hover, .chip.selected:hover, .chip.toggle.on:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-active);
+    }
+    .action:active, .chip.selected:active, .chip.toggle.on:active {
+      background: var(--accent-active);
+      border-color: var(--accent-active);
     }
 
     .backdrop {
       position: fixed; inset: 0;
       background: rgba(0, 0, 0, 0.3);
       backdrop-filter: blur(1px);
+      -webkit-backdrop-filter: blur(1px);
       display: flex; align-items: center; justify-content: center;
       z-index: 100;
+      padding: 0.75rem;
+      overflow-y: auto;
+      overscroll-behavior: contain;
     }
     .modal {
       box-sizing: border-box;
-      background: var(--modal-bg, #2a2a2a);
+      background: var(--modal-bg);
       color: var(--text);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 0.65rem 0.75rem;
-      width: 320px;
+      padding: 0.75rem 0.9rem;
+      width: min(340px, 100%);
       max-width: calc(100vw - 1.5rem);
-      display: flex; flex-direction: column; gap: 6px;
+      max-height: calc(100dvh - 1.5rem);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      display: flex; flex-direction: column; gap: 0.5rem;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+      animation: modalIn 0.16s ease-out;
     }
-    h3 { margin: 0 0 2px; font-size: 0.9rem; text-align: center; font-weight: 600; }
+    .modal::-webkit-scrollbar { width: 6px; }
+    .modal::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    @keyframes modalIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .modal { animation: none; }
+    }
+    h3 {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-align: center;
+      color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
 
-    .tiles { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+    .tiles {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0.25rem;
+    }
     .tile {
       position: relative;
-      width: 54px;
-      padding: 3px 3px 2px;
-      background: var(--btn-bg);
-      border: 1px solid var(--btn-border);
-      transition: border-color 0.12s, box-shadow 0.12s, transform 0.12s;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      padding: 0.35rem 0.2rem 0.3rem;
+      min-height: 32px;
+      border-radius: 6px;
     }
-    .tile:hover { background: var(--btn-hover); transform: translateY(-1px); }
-    .tile.selected { border-color: var(--accent, #4a9eff); box-shadow: 0 0 0 1px var(--accent, #4a9eff); }
-    .tile img { display: block; width: 46px; height: 46px; object-fit: contain; }
+    .tile.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+    .tile img { display: block; width: 42px; height: 42px; object-fit: contain; }
     .tile .tile-label {
       display: block;
-      font-size: 0.53rem;
+      font-size: 0.58rem;
+      line-height: 1.1;
       text-align: center;
       color: var(--text-muted);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 100%;
     }
-    .tile.selected .tile-label { color: var(--accent, #4a9eff); font-weight: 600; }
+    .tile.selected .tile-label { color: var(--accent); font-weight: 600; }
+
     .variants {
-      display: flex; flex-wrap: wrap; gap: 3px;
-      justify-content: center;
-      min-height: 22px;
+      display: flex; flex-direction: column; gap: 0.3rem;
+      padding: 0.4rem;
+      background: var(--table-head);
+      border: 1px solid var(--border-light);
+      border-radius: 6px;
     }
-    .choice-group {
-      width: 100%;
+    .choice-group, .aim-group {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
-      justify-content: center;
-      gap: 3px;
+      gap: 0.25rem;
     }
     .choice-label {
       color: var(--text-muted);
-      font-size: 0.66rem;
-      margin-right: 2px;
+      font-size: 0.68rem;
+      min-width: 56px;
+      line-height: 1;
     }
     .chip {
-      min-height: 22px;
-      padding: 1px 9px;
-      font-size: 0.72rem;
-      background: var(--btn-bg);
-      border: 1px solid var(--btn-border);
-      color: var(--text);
-      transition: all 0.1s;
+      min-height: 32px;
+      min-width: 32px;
+      padding: 0 0.5rem;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 0.75rem;
+      line-height: 1;
     }
-    .chip:hover { background: var(--btn-hover); border-color: var(--accent, #4a9eff); }
-    .chip.selected {
-      background: var(--accent, #4a9eff);
-      border-color: var(--accent, #4a9eff);
-      color: #fff;
-      font-weight: 600;
-    }
-    .chip.toggle { font-size: 0.66rem; }
-    .aim-group {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 3px;
-    }
-    .chip.toggle.on { background: var(--accent, #4a9eff); border-color: var(--accent, #4a9eff); color: #fff; }
+    .chip.toggle { min-width: 46px; }
 
     .hint {
       text-align: center;
       font-size: 0.62rem;
       color: var(--text-muted);
       min-height: 1em;
+      line-height: 1.3;
     }
     .languages {
-      text-align: center;
-      font-size: 0.62rem;
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 0 0.3rem;
+      padding-top: 0.35rem;
+      border-top: 1px solid var(--border-light);
+      font-size: 0.66rem;
     }
     .languages a {
       color: var(--text-muted);
       text-decoration: underline;
       cursor: pointer;
-      margin: 0 0.2rem;
+      padding: 0.4rem 0.15rem;
     }
-    .languages a.active {
-      color: var(--accent, #4a9eff);
-      font-weight: 600;
-      text-decoration: none;
-    }
+    .languages a:hover { color: var(--text); }
+    .languages a.active { color: var(--accent); font-weight: 600; text-decoration: none; }
 
     .action {
       width: 100%;
-      min-height: 42px;
+      min-height: 40px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      background: var(--accent, #4a9eff);
-      border: none;
-      color: #fff;
-      font-size: 1.25rem;
-      font-weight: 200;
-      letter-spacing: 0.12em;
-      transition: background 0.12s, transform 0.05s;
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
-    .action:hover { background: var(--accent-hover, var(--accent, #4a9eff)); }
-    .action:active { transform: scale(0.985); }
 
-    .footer { display: flex; gap: 4px; }
+    .footer { display: flex; gap: 0.25rem; align-items: stretch; }
     .footer .msg-btn {
       flex-shrink: 0;
-      min-width: 30px;
-      background: var(--btn-bg);
-      border: 1px solid var(--btn-border);
+      min-width: 40px; min-height: 40px;
+      padding: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+      line-height: 1;
     }
-    .footer .msg-btn:hover { background: var(--btn-hover); }
     .footer .cancel {
       flex: 1;
-      background: var(--modal-cancel, #3a3a3a);
-      color: var(--text);
-      border: 1px solid var(--btn-border);
+      min-height: 40px;
+      background: var(--modal-cancel);
+      font-size: 0.8rem;
     }
-    .footer .cancel:hover { background: var(--btn-hover); }
+
+    @media (max-width: 380px) {
+      .modal { padding: 0.65rem 0.7rem; }
+      .tile { padding: 0.3rem 0.15rem; }
+      .tile img { width: 38px; height: 38px; }
+      .choice-label { min-width: 48px; font-size: 0.64rem; }
+      .chip { padding: 0 0.4rem; }
+    }
   `;
 
   constructor() {

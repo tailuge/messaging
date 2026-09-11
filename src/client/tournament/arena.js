@@ -5,6 +5,7 @@ import { ARENA_ROW_STYLES, arenaRow } from '../active-arenas.js';
 import { API_BASE, CLIENTVERSION, formatVersion } from '../utils.js';
 import '../active-arenas.js';
 import '../user-badge.js';
+import '../trophy.js';
 import './arena-create-form.js';
 
 class ArenaApp extends LitElement {
@@ -25,12 +26,14 @@ class ArenaApp extends LitElement {
         :host { display: block; min-height: 100vh; box-sizing: border-box; padding: .5rem; background: var(--bg); color: var(--text); font-family: 'Exo', sans-serif; font-size: .85rem; }
         .container { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; }
         .topbar { display: flex; align-items: center; gap: .4rem; margin-bottom: .4rem; position: sticky; top: 0; z-index: 2; padding: .25rem 0; background: var(--bg); }
-        .logo { width: 32px; height: 32px; flex-shrink: 0; opacity: .7; }
+        .topbar .logo { width: 32px; height: 32px; flex-shrink: 0; filter: grayscale(100%); opacity: 0.7; }
         .topbrand { display: inline-flex; align-items: center; gap: .4rem; text-decoration: none; color: inherit; flex-shrink: 0; }
         .topbrand:hover { opacity: 0.85; }
         .topbrand .logo { opacity: 1; transition: opacity 0.2s; }
         h1 { flex: 1; margin: 0; font-size: 1rem; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); }
         h1 a { color: inherit; text-decoration: none; }
+        h1 a:hover { text-decoration: underline; }
+        h1 .version { font-size: 0.65rem; color: var(--text-dim); margin-left: 0.25rem; vertical-align: super; font-weight: 200; }
         .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: .4rem; margin-bottom: .25rem; }
         .title { margin: 0 0 .25rem; font-size: .8rem; font-weight: 600; }
         .error { padding: .45rem; color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; }
@@ -120,6 +123,7 @@ class ArenaApp extends LitElement {
         return html`<header class="topbar">
             <a href="https://billiards.tailuge.workers.dev/lobby" class="topbrand" aria-label="Billiards lobby"><img src="assets/threecushion.png" class="logo" alt="" /></a>
             <h1><a href="https://billiards.tailuge.workers.dev/lobby">Billiards</a><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener" class="version">${formatVersion(CLIENTVERSION)}</a></h1>
+            <trophy-item></trophy-item>
             <user-badge></user-badge>
             <button class="back-lobby" type="button" @click=${this._backToLobby}>Back to lobby</button>
         </header>`;
