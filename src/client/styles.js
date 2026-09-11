@@ -81,6 +81,9 @@ export const USER_LIST_STYLES = css`
     :host { display: block; }
     ul {
         list-style: none; margin: 0; padding: 1px;
+        /* border-box so the scrollHeight assigned to --ul-expanded-height
+           (which includes padding) maps exactly onto max-height. */
+        box-sizing: border-box;
         max-height: 148px;
         display: flex; flex-direction: column;
         row-gap: 2px;
@@ -265,12 +268,12 @@ export const SOLO_PANEL_STYLES = css`
 
 export const INFO_PANEL_STYLES = css`
     :host { display: block; overflow-y: hidden; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.75rem; color: var(--text); max-height: 40px; opacity: 0; transition: max-height 1s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.6s ease-out 0.15s; }
-    :host(.loaded) { max-height: 640px; opacity: 1; }
+    :host(.loaded) { max-height: 540px; opacity: 1; }
     .tbl { display: inline-block; vertical-align: top; border-radius: 4px; margin: 0.0625rem; overflow: hidden; }
     table { border-collapse: collapse; width: auto; }
     th, td { border-bottom: 1px solid var(--border); padding: 0.05rem 0.15rem; text-align: left; }
     th { display: none; }
-    caption { font-size: 1.4rem; font-weight: 600; text-align: center; padding: 0.0rem 0; color: var(--text-dim); }
+    caption { font-size: 0.8rem; line-height: 1.1; font-weight: 600; text-align: center; padding: 0; color: var(--text-dim); }
     a { color: var(--link); text-decoration: none; }
     .ago { text-align: right; font-size: 0.65em; color: var(--text-muted); white-space: nowrap; width: 1%; }
     .city-col { font-size: 0.65em; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 5rem; }
@@ -286,9 +289,9 @@ export const INFO_PANEL_STYLES = css`
     .group-title { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); padding: 0.1rem 0.25rem; text-align: center; }
     .group-body { display: flex; flex-wrap: wrap; justify-content: space-evenly; }
     .bottom-row { display: flex; align-items: flex-start; gap: 0.1rem; }
-    .bottom-row .recent { flex: 65; min-width: 0; height: 508px; overflow-y: auto; scrollbar-width: none; }
+    .bottom-row .recent { flex: 65; min-width: 0; height: 408px; overflow-y: auto; scrollbar-width: none; }
     .bottom-row .recent::-webkit-scrollbar { display: none; }
-    .bottom-row .top-players { flex: 35; min-width: 0; height: 508px; overflow-y: auto; scrollbar-width: none; }
+    .bottom-row .top-players { flex: 35; min-width: 0; height: 408px; overflow-y: auto; scrollbar-width: none; }
     .bottom-row .top-players::-webkit-scrollbar { display: none; }
     .bottom-row .recent .tbl, .bottom-row .recent table { width: 100%; }
     .bottom-row .top-players .group-body { flex-direction: column; }
@@ -343,9 +346,14 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     .solo           { grid-area: 1 / 1 / 2 / 2; }
     online-panel    { grid-area: 1 / 2 / 2 / 3; }
     online-panel.panel { overflow-y: auto; max-height: calc(100vh - 6rem); align-self: stretch; }
-    .arenas-row     { grid-area: 2 / 1 / 3 / 3; }
-    .arenas-row.arena-details { padding: 2px; }
+    .arenas-row     { grid-area: 2 / 1 / 3 / 3; display: grid; grid-template-columns: minmax(0, 230px) minmax(0, 1fr); column-gap: 0.1rem; align-items: stretch; }
+    .arenas-row .cabinet-col, .arenas-row .arena-col { min-width: 0; }
+    .arenas-row.arena-details .arena-col { padding: 2px; }
     .info-row       { grid-area: 3 / 1 / 4 / 3; }
+
+    @media (max-width: 640px) {
+        .arenas-row { grid-template-columns: minmax(0, 1fr); row-gap: 0.1rem; }
+    }
 
     main.has-sidebar {
         grid-template-columns: 1fr 250px;

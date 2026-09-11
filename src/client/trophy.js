@@ -7,7 +7,7 @@ import { API_BASE, isVercel } from './utils.js';
 // later reconnect can retry.
 let winnersPromise = null;
 
-const fetchWinners = () => {
+export const fetchWinners = () => {
     if (!winnersPromise) {
         winnersPromise = fetch(`${API_BASE}/api/arena/winners`)
             .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))

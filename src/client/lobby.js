@@ -7,6 +7,7 @@ import './user-badge.js';
 import './trophy.js';
 import './settings-modal.js';
 import './active-arenas.js';
+import './cabinate.js';
 import './arena-panel.js';
 import { CLIENTVERSION, formatVersion } from './utils.js';
 
@@ -106,16 +107,19 @@ class LobbyApp extends LitElement {
                         </div>
                     </div>
                     <online-panel class="panel"></online-panel>
-                    <div class="arenas-row panel ${this._activeArenaId ? 'arena-details' : ''}">
-                        ${this._activeArenaId
-                            ? html`<arena-panel
-                                .arenaId=${this._activeArenaId}
-                                .lobby=${this._lobby || this._ctrl?.lobby}
-                                .theme=${this._theme}
-                                @close=${this._closeArenaPanel}
-                              ></arena-panel>`
-                            : html`<active-arenas selectable></active-arenas>`
-                        }
+                    <div class="arenas-row ${this._activeArenaId ? 'arena-details' : ''}">
+                        <div class="cabinet-col panel"><trophy-cabinet .limit=${this._activeArenaId ? 8 : 3}></trophy-cabinet></div>
+                        <div class="arena-col panel">
+                            ${this._activeArenaId
+                                ? html`<arena-panel
+                                    .arenaId=${this._activeArenaId}
+                                    .lobby=${this._lobby || this._ctrl?.lobby}
+                                    .theme=${this._theme}
+                                    @close=${this._closeArenaPanel}
+                                  ></arena-panel>`
+                                : html`<active-arenas selectable></active-arenas>`
+                            }
+                        </div>
                     </div>
                     <div class="info-row"><info-panel></info-panel></div>
                 </main>
