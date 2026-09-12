@@ -274,7 +274,7 @@ afterAll(async () => {
 
 ```bash
 # Start Docker Nchan manually (optional - Jest can handle it)
-npm run docker:nchan start
+npm run docker:start
 
 # Run all tests (Jest spawns container via testcontainers)
 npm run test
@@ -309,12 +309,97 @@ These are **application-level** tests, not library tests.
 
 ---
 
+## Local Browser Investigation (Chromium + Docker)
+
+Most client work (layout, presence, challenge flows) can be checked with a headless Chromium driven
+by Playwright, without clicking around the lobby. Two things are worth knowing first.
+
+### 1. The lobby is served by Docker, not a dev server
+
+- `docker/Dockerfile` does `COPY html/ /usr/share/nginx/html/`, so **client changes are baked into
+the image**. Editing `src/client/*` is not visible on the page until the image is rebuilt and the
+container restarted.
+- `scripts/docker-nchan.sh` builds image `tailuge/billiards-network` and runs container
+  `nchan-test-client` with `-p 80:8080`, so the lobby is at `http://localhost/lobby.html`
+  (health check: `http://localhost/basic_status`). Logs: `bash scripts/docker-nchan.sh logs`.
+
+```bash
+npm run build:all                  # clientbump + tsc + lit bundles + build & start Docker
+# or, to skip the version bump and library build while iterating on the client:
+npm run build:lit && npm run docker:start
+```
+
+Jest (`npm run test`) does **not** use this container — `testcontainers` starts its own.
+
+### 2. Use the cached Chromium binary
+
+Playwright's bundled browsers here are older than the installed Playwright package
+(`npx playwright install --dry-run` wants chromium v1243 / webkit v2359; the cache has v1234 /
+v2336). So `npm run test:debug` and `npm run screenshot:iphone` fail until you either run
+`npx playwright install` (large download) or point Playwright at the cached browser.
+
+Use the cached Chromium — and note that `channel: 'chrome'` does **not** work here: the
+`google-chrome` on PATH (`~/.local/bin/google-chrome`) is a wrapper that rejects Chrome's flags
+(`error: unknown flag 'disable-field-trial-config'`).
+
+```bash
+ls -d ~/.cache/ms-playwright/chromium-*/chrome-linux*/chrome   # find the binary
+```
+
+### 3. Probe the layout, don't just screenshot
+
+The client is a tree of shadow roots, so `querySelector`/`textContent`/`querySelectorAll` do not
+cross shadow boundaries — step through each `shadowRoot` (`lobby-app` → `info-panel` →
+`trophy-cabinet`) and compare `getBoundingClientRect()` numbers. Geometry is more useful than a
+picture for layout work: `top`/`bottom`/`x` prove borders line up and panels span the width.
+
+A throwaway probe script (delete it afterwards — none is committed):
+
+```js
+// CHROME_BIN=~/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome node probe.mjs
+import { chromium } from 'playwright';
+
+const browser = await chromium.launch({ executablePath: process.env.CHROME_BIN });
+const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+await page.goto('http://localhost/lobby.html', { waitUntil: 'load', timeout: 30000 });
+await page.waitForSelector('lobby-app', { timeout: 15000 });
+// the scoreboard summary arrives asynchronously; wait for the panel to fade in
+await page.waitForFunction(
+    () => document.querySelector('lobby-app')?.shadowRoot?.querySelector('info-panel')?.classList.contains('loaded'),
+    { timeout: 15000 }
+);
+await page.waitForTimeout(1500);
+
+const result = await page.evaluate(() => {
+    const panel = document.querySelector('lobby-app').shadowRoot.querySelector('info-panel');
+    const sr = panel.shadowRoot; // info-panel renders the cabinet, HiScores and history itself
+    const box = el => {
+        const r = el.getBoundingClientRect();
+        return { x: Math.round(r.x), top: Math.round(r.y), bottom: Math.round(r.bottom), w: Math.round(r.width) };
+    };
+    return {
+        cabinet: box(sr.querySelector('.top-row > .group.cabinet')),
+        hiscores: box(sr.querySelector('.top-row > .group.hiscores')),
+        bottomRow: box(sr.querySelector('.bottom-row')),
+        // trophy-cabinet has its own shadow root for its rows and trophies
+        cabinetRows: sr.querySelector('trophy-cabinet').shadowRoot.querySelectorAll('.cabinet-row').length,
+    };
+});
+console.log(JSON.stringify(result, null, 2));
+await browser.close();
+```
+
+For a picture instead of numbers, see the screenshot workflow in `AGENTS.md` (`npm run build:all`
+then `npm run screenshot:iphone`).
+
+---
+
 ## CI / Development Workflow
 
 1. **Local development:**
 
    ```bash
-   npm run docker:nchan start   # Start Nchan
+   npm run docker:start         # Build the image and start Nchan on port 80
    npm run test                 # Run Jest (spawns container if needed)
    ```
 

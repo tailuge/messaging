@@ -1,5 +1,5 @@
 import { LitElement, html, css } from 'lit';
-import { gameUrl, ruleIcon, API_BASE } from '../utils.js';
+import { gameUrl, API_BASE } from '../utils.js';
 import { THEME_VARS, SHARED_STYLES } from '../styles.js';
 import { userStore } from '../user-store.js';
 import './podium.js';
@@ -267,7 +267,7 @@ class ArenaView extends LitElement {
             try {
                 if (!berserk) berserk = localStorage.getItem('arenaBerserk') === 'true';
                 localStorage.removeItem('arenaBerserk');
-            } catch (_e) { /* unavailable */ }
+            } catch { /* unavailable */ }
         }
 
         const wasPairing = this._pairingState === 'counting';
@@ -391,7 +391,7 @@ class ArenaView extends LitElement {
         try {
             if (berserk) localStorage.setItem('arenaBerserk', 'true');
             else localStorage.removeItem('arenaBerserk');
-        } catch (_e) { /* localStorage unavailable — berserk simply won't persist */ }
+        } catch { /* localStorage unavailable — berserk simply won't persist */ }
 
         try {
             await this._lobby.acceptChallenge(

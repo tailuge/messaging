@@ -18,7 +18,7 @@
 | Component | File | Role in Simplified Design |
 |---|---|---|
 | **Active Arenas Row** | `src/client/active-arenas.js` | Renders the active arena row; clicking Join dispatches `arena-select` with `{ arenaId }`. |
-| **Trophy Cabinet** | `src/client/cabinate.js` | Small panel left of the arena row showing the top 3 trophy holders. Reuses the winners fetch exported by `trophy.js` (`.panel-title` styling matches the other lobby panels). |
+| **Trophy Cabinet** | `src/client/cabinate.js` | Small panel left of the HiScore group showing the top 3 trophy holders. Reuses the winners fetch exported by `trophy.js` (`.panel-title` styling matches the other lobby panels). |
 | **Arena Panel** | `src/client/arena-panel.js` *(new)* | Simple wrapper composing `<arena-view>` + `<arena-chat>` with a "✕ Close" button and "Manage Arenas ↗" link. |
 | **Arena View** | `src/client/tournament/arena-view.js` | Receives `.lobby` from the lobby page. Handles leaderboard, Join/Leave, Pairing (with countdown/berserk), and auto-accepting arena challenges. |
 | **Arena Chat** | `src/client/arena-chat.js` | Connects directly to `/subscribe/arena/:arenaId` (unchanged). |
@@ -108,7 +108,7 @@
   - In `render()`:
     - If `_activeArenaId` is set: render `<arena-panel .arenaId=${this._activeArenaId} .lobby=${this._lobby} @close=${() => this._activeArenaId = null}>`.
     - Otherwise: render `<active-arenas>`.
-  - The arena row is a 2-column grid: `<trophy-cabinet>` (230px, matching the online panel) on the left and the arena list/panel on the right.
+  - The arena row holds the arena list/panel full width. `<info-panel>` renders the `<trophy-cabinet>` itself (75% of the 230px column) in its top row, to the left of the HiScore group; the match-history/rankings row below still spans the full width.
 
 ### Step 5: `src/client/user-list.js`
 - Update ⚔️ status link to emit `arena-select` with `arenaId` so clicking a user's arena badge opens the in-lobby panel.

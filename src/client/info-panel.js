@@ -3,6 +3,7 @@ import { INFO_PANEL_STYLES } from './styles.js';
 import { SCOREBOARD_URL, timeAgo, flag, ruleIcon, renderTrophy, replayUrl, isVercel } from './utils.js';
 import { userStore, StoreElement } from './user-store.js';
 import './replay-button.js';
+import './cabinate.js';
 
 class InfoPanel extends StoreElement {
     static styles = INFO_PANEL_STYLES;
@@ -27,23 +28,38 @@ class InfoPanel extends StoreElement {
     }
     render() {
         if (isVercel) return html`<span class="loading">We have moved <a href="https://billiards.tailuge.workers.dev/lobby">Play online here</a></span>`;
-        if (this._err) return html`<span class="loading">Could not load scores.</span>`;
-        if (!this._data) return html`<span class="loading">Connecting to server…</span>`;
-        const { hiscores, topPlayers, recentMatches } = this._data;
-        const games = Object.keys(hiscores);
-        // HiScore tables only: eightball and sagu are excluded from the panel.
-        const hiscoreGames = games.filter(game => game !== 'eightball' && game !== 'sagu');
+        // The trophy cabinet sits to the left of the HiScore group; the bottom
+        // row (match history, rankings) still spans the full panel width.
         return html`
-            <div class="group hiscores">
-                <div class="group-body">
-                    ${hiscoreGames.map(game => html`
-                        <div class="tbl${game === 'sagu' ? ' sagu-hi' : ''}"><table><caption><a href="${SCOREBOARD_URL}/leaderboard" target="_blank" rel="noopener" style="font-weight:200;font-size:0.75rem">${ruleIcon(game)} HiScore</a></caption>
-                        <tr><th>Name</th><th></th></tr>
-                            ${hiscores[game].slice(0, 4).map((s, i) => html`<tr><td>${renderTrophy(i)} ${s.name}</td><td><replay-button url="${replayUrl(`${SCOREBOARD_URL}/api/rank/${s.id}?ruletype=${game}&lod=${userStore.lod}`, userStore.clientId, userStore.userName)}" label="${s.score}"></replay-button></td></tr>`)}
-                        </table></div>
-                    `)}
+            <div class="top-row">
+                <div class="group cabinet"><trophy-cabinet></trophy-cabinet></div>
+                <div class="group hiscores">
+                    <div class="group-body">${this._hiscores()}</div>
                 </div>
             </div>
+            ${this._bottomRow()}`;
+    }
+
+    // HiScore tables only: eightball and sagu are excluded from the panel.
+    _hiscores() {
+        if (this._err) return html`<span class="loading">Could not load scores.</span>`;
+        if (!this._data) return html`<span class="loading">Connecting to server…</span>`;
+        const { hiscores } = this._data;
+        const hiscoreGames = Object.keys(hiscores).filter(game => game !== 'eightball' && game !== 'sagu');
+        return hiscoreGames.map(game => html`
+            <div class="tbl${game === 'sagu' ? ' sagu-hi' : ''}"><table><caption><a href="${SCOREBOARD_URL}/leaderboard" target="_blank" rel="noopener" style="font-weight:200;font-size:0.75rem">${ruleIcon(game)} HiScore</a></caption>
+            <tr><th>Name</th><th></th></tr>
+                ${hiscores[game].slice(0, 4).map((s, i) => html`<tr><td>${renderTrophy(i)} ${s.name}</td><td><replay-button url="${replayUrl(`${SCOREBOARD_URL}/api/rank/${s.id}?ruletype=${game}&lod=${userStore.lod}`, userStore.clientId, userStore.userName)}" label="${s.score}"></replay-button></td></tr>`)}
+            </table></div>
+        `);
+    }
+
+    // Nothing to show under the HiScores until the summary has loaded.
+    _bottomRow() {
+        if (this._err || !this._data) return '';
+        const { hiscores, topPlayers, recentMatches } = this._data;
+        const games = Object.keys(hiscores);
+        return html`
             <div class="bottom-row">
                 <div class="group recent">
                     <div class="group-body">

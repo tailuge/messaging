@@ -9,10 +9,12 @@ npm run lint           # Type check + lint
 npm run format         # Prettier format
 npm run build:example  # Bundle the example client
 npm run example        # Start local http-server for example
-npm run docker:nchan   # Build and start Nchan in Docker
+npm run docker:start   # Build the image and start the Nchan container on port 80
 npm run docker:stop    # Stop the Nchan Docker container
-npm run docker:restart # Rebuild and restart the container
-npm run docker:build   # Build the Nchan Docker image
+npm run docker:logs    # Tail the container logs
+npm run docker:build   # Alias for build:all (client bump + build + start Docker)
+npm run build:all      # Bundle client + build & start Docker (serves the lobby on port 80)
+npm run screenshot:iphone # Screenshot the locally served lobby
 ```
 
 ## Project Overview
@@ -26,8 +28,26 @@ This project consists of two parts:
 The project is a stateful messaging library designed to handle presence and real-time synchronization using Nchan as the transport layer.
 
 ### Local Development
-- **Transport**: Requires a running Nchan instance. Use `npm run docker:nchan` to start one locally.
+- **Transport**: Requires a running Nchan instance. Use `npm run docker:start` to build and start one locally (container `nchan-test-client`, lobby on `http://localhost/lobby.html`, logs via `npm run docker:logs`).
 - **Example**: The example client in `example/` demonstrates presence and challenge flows. Run it with `npm run example`.
+
+### Screenshots
+
+To look at the client (lobby UI), serve it and take a screenshot:
+
+```bash
+npm run build:all         # bundle the client, build the image, start Nchan on port 80
+npm run screenshot:iphone # writes screenshots/lobby-iphone.png
+```
+
+`npm run build:all` is what fires up Docker, so run it first — `screenshot:iphone` only loads the
+page and does not start anything. It runs `scripts/screenshot-webkit.mjs`, which opens
+`http://localhost/lobby.html` in Playwright's WebKit at iPhone 15 size and writes a full-page PNG
+(requires the WebKit browser: `npx playwright install --with-deps webkit`).
+
+Overrides via env vars: `URL` (default `http://localhost/lobby.html`), `OUT` (default
+`screenshots/lobby-iphone.png`), `DEVICE` (default `iPhone 15`). `scripts/screenshot.mjs` is the
+same idea for arbitrary pages/devices and takes `url out device selector` as arguments.
 
 ### Nchan Configuration
 The library interacts with the following Nchan endpoints:
@@ -53,7 +73,7 @@ src/
 ```
 src/client/
   lobby.js           # Main lobby component
-  info-panel.js      # Scoreboard and stats panel
+  info-panel.js      # Lower stats panel: trophy cabinet, HiScores, history, rankings
   online-panel.js    # Active users panel
   user-store.js      # User state management
   styles.js          # Shared CSS

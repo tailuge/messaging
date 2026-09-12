@@ -110,6 +110,12 @@ class SelectorModal extends LitElement {
   #strings = selectorStrings;
   #unsubLang;
 
+  // Escape closes the dialog, matching the lobby's settings modal. Bound as a
+  // field so the same reference can be removed on disconnect.
+  #onKeydown = (e) => {
+    if (e.key === 'Escape' && this.open) this.hide();
+  };
+
   static styles = css`
     :host {
       display: block;
@@ -120,6 +126,7 @@ class SelectorModal extends LitElement {
       --accent: #0d6efd;
       --accent-hover: #0b5ed7;
       --accent-active: #0a58ca;
+      --accent-tint: rgba(13, 110, 253, 0.12);
     }
     :host(:not([open])) { display: none; }
 
@@ -136,7 +143,8 @@ class SelectorModal extends LitElement {
       background: var(--btn-bg);
       border: 1px solid var(--btn-border);
       color: var(--text);
-      transition: background-color 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s;
+      transition: background-color 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s,
+        transform 0.15s ease, box-shadow 0.2s;
     }
     button:hover { background-color: var(--btn-hover); }
     button:active { background-color: var(--btn-active); }
@@ -169,6 +177,7 @@ class SelectorModal extends LitElement {
       padding: 0.75rem;
       overflow-y: auto;
       overscroll-behavior: contain;
+      animation: backdropIn 0.16s ease-out;
     }
     .modal {
       box-sizing: border-box;
@@ -186,23 +195,33 @@ class SelectorModal extends LitElement {
       scrollbar-color: var(--border) transparent;
       display: flex; flex-direction: column; gap: 0.5rem;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-      animation: modalIn 0.16s ease-out;
+      animation: modalIn 0.18s cubic-bezier(0.2, 0.9, 0.3, 1);
     }
     .modal::-webkit-scrollbar { width: 6px; }
     .modal::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-    @keyframes modalIn {
+    @keyframes backdropIn {
       from { opacity: 0; }
       to   { opacity: 1; }
     }
-    @media (prefers-reduced-motion: reduce) {
-      .modal { animation: none; }
+    /* The dialog rises a hair instead of popping; at this size a plain fade
+       reads as a flicker. */
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(6px) scale(0.98); }
+      to   { opacity: 1; transform: none; }
     }
+    @media (prefers-reduced-motion: reduce) {
+      .backdrop, .modal { animation: none; }
+    }
+    /* Title mirrors the lobby's uppercase, letterspaced headings and its
+       muted .panel-title colour, so the dialog reads as part of the shell. */
     h3 {
       margin: 0;
-      font-size: 0.95rem;
+      font-size: 0.85rem;
       font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
       text-align: center;
-      color: var(--text);
+      color: var(--text-dim);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
 
@@ -218,14 +237,19 @@ class SelectorModal extends LitElement {
       min-height: 32px;
       border-radius: 6px;
     }
+    /* A single accent border over a soft tint, rather than the old border +
+       ring (which drew a 2px double line). */
     .tile.selected {
       border-color: var(--accent);
-      box-shadow: 0 0 0 1px var(--accent);
+      background: var(--accent-tint);
+    }
+    @media (hover: hover) {
+      .tile:not(.selected):hover { transform: translateY(-1px); }
     }
     .tile img { display: block; width: 42px; height: 42px; object-fit: contain; }
     .tile .tile-label {
       display: block;
-      font-size: 0.58rem;
+      font-size: 0.6rem;
       line-height: 1.1;
       text-align: center;
       color: var(--text-muted);
@@ -235,8 +259,8 @@ class SelectorModal extends LitElement {
     .tile.selected .tile-label { color: var(--accent); font-weight: 600; }
 
     .variants {
-      display: flex; flex-direction: column; gap: 0.3rem;
-      padding: 0.4rem;
+      display: flex; flex-direction: column; gap: 0.35rem;
+      padding: 0.45rem 0.4rem;
       background: var(--table-head);
       border: 1px solid var(--border-light);
       border-radius: 6px;
@@ -247,10 +271,19 @@ class SelectorModal extends LitElement {
       align-items: center;
       gap: 0.25rem;
     }
+    /* Hairline between option rows keeps the dense stack legible without
+       introducing a second nested card. */
+    .choice-group + .choice-group,
+    .choice-group + .aim-group {
+      padding-top: 0.35rem;
+      border-top: 1px solid var(--border-light);
+    }
+    /* Right-aligned so chips start at a common x and the rows line up. */
     .choice-label {
       color: var(--text-muted);
       font-size: 0.68rem;
       min-width: 56px;
+      text-align: right;
       line-height: 1;
     }
     .chip {
@@ -263,27 +296,22 @@ class SelectorModal extends LitElement {
     }
     .chip.toggle { min-width: 46px; }
 
-    .hint {
-      text-align: center;
-      font-size: 0.62rem;
-      color: var(--text-muted);
-      min-height: 1em;
-      line-height: 1.3;
-    }
     .languages {
       display: flex; flex-wrap: wrap; justify-content: center; gap: 0 0.3rem;
       padding-top: 0.35rem;
       border-top: 1px solid var(--border-light);
       font-size: 0.66rem;
     }
+    /* Same link treatment as the lobby's settings modal (--link, underline
+       only on hover). */
     .languages a {
-      color: var(--text-muted);
-      text-decoration: underline;
+      color: var(--link);
+      text-decoration: none;
       cursor: pointer;
       padding: 0.4rem 0.15rem;
     }
-    .languages a:hover { color: var(--text); }
-    .languages a.active { color: var(--accent); font-weight: 600; text-decoration: none; }
+    .languages a:hover { text-decoration: underline; }
+    .languages a.active { color: var(--accent); font-weight: 600; }
 
     .action {
       width: 100%;
@@ -295,6 +323,11 @@ class SelectorModal extends LitElement {
       font-weight: 600;
       letter-spacing: 0.1em;
       text-transform: uppercase;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+    }
+    @media (hover: hover) {
+      .action:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(13, 110, 253, 0.28); }
+      .action:active { transform: none; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18); }
     }
 
     .footer { display: flex; gap: 0.25rem; align-items: stretch; }
@@ -340,8 +373,14 @@ class SelectorModal extends LitElement {
     this.#unsubLang = this.#strings.onChange((lang) => { this._lang = lang; });
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    window.addEventListener('keydown', this.#onKeydown);
+  }
+
   disconnectedCallback() {
     super.disconnectedCallback();
+    window.removeEventListener('keydown', this.#onKeydown);
     this.#unsubLang?.();
   }
 

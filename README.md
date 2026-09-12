@@ -10,9 +10,9 @@ npm install
 ```
 
 ### 2. Run Nchan Server (Docker)
-The library requires an Nchan server for transport. You can start the local development server using:
+The library requires an Nchan server for transport. You can build the image and start the local development server using:
 ```bash
-npm run docker:nchan
+npm run docker:start
 ```
 To stop the server:
 ```bash
@@ -53,7 +53,7 @@ npm run test:debug
 A suite of `curl`-based tests to verify that the Nchan server endpoints and metadata enrichment are working correctly.
 ```bash
 # Ensure local docker is running first
-npm run docker:nchan
+npm run docker:start
 ./docker/testnchan.sh
 ```
 

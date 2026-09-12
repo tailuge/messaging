@@ -7,7 +7,6 @@ import './user-badge.js';
 import './trophy.js';
 import './settings-modal.js';
 import './active-arenas.js';
-import './cabinate.js';
 import './arena-panel.js';
 import { CLIENTVERSION, formatVersion } from './utils.js';
 
@@ -107,8 +106,7 @@ class LobbyApp extends LitElement {
                         </div>
                     </div>
                     <online-panel class="panel"></online-panel>
-                    <div class="arenas-row ${this._activeArenaId ? 'arena-details' : ''}">
-                        <div class="cabinet-col panel"><trophy-cabinet .limit=${this._activeArenaId ? 8 : 3}></trophy-cabinet></div>
+                    <div class="arenas-row">
                         <div class="arena-col panel">
                             ${this._activeArenaId
                                 ? html`<arena-panel

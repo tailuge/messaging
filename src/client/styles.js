@@ -285,6 +285,16 @@ export const INFO_PANEL_STYLES = css`
     .group { margin-bottom: 0.14rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.2rem; }
     .group-title { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); padding: 0.1rem 0.25rem; text-align: center; }
     .group-body { display: flex; flex-wrap: wrap; justify-content: space-evenly; }
+    /* The trophy cabinet and the HiScore tables share the top row; stretch keeps
+       their bottom borders level. The match history / rankings row below spans
+       the full width. */
+    .top-row { display: flex; align-items: stretch; gap: 0.1rem; }
+    .top-row .cabinet { flex: 0 0 calc(230px * 0.75); min-width: 0; }
+    .top-row .hiscores { flex: 1 1 auto; min-width: 0; }
+    @media (max-width: 640px) {
+        .top-row { flex-direction: column; }
+        .top-row .cabinet { flex: 0 0 auto; }
+    }
     .bottom-row { display: flex; align-items: flex-start; gap: 0.1rem; }
     /* The bottom-row groups are the last thing in the panel; their .group
        margin-bottom left a ~2px gap that made the stretched online-panel
@@ -347,13 +357,12 @@ export const LOBBY_APP_STYLES = [THEME_VARS, css`
     .solo           { grid-area: 1 / 1 / 2 / 2; }
     online-panel    { grid-area: 1 / 2 / 2 / 3; }
     online-panel.panel { overflow-y: auto; max-height: calc(100vh - 6rem); align-self: stretch; }
-    .arenas-row     { grid-area: 2 / 1 / 3 / 3; display: grid; grid-template-columns: minmax(0, 230px) minmax(0, 1fr); column-gap: 0.1rem; align-items: stretch; }
-    .arenas-row .cabinet-col, .arenas-row .arena-col { min-width: 0; padding: 3px; }
-    .arenas-row.arena-details .arena-col { padding: 3px; }
+    .arenas-row     { grid-area: 2 / 1 / 3 / 3; display: flex; flex-direction: column; }
+    .arenas-row .arena-col { min-width: 0; padding: 3px; }
     .info-row       { grid-area: 3 / 1 / 4 / 3; }
 
     @media (max-width: 640px) {
-        .arenas-row { grid-template-columns: minmax(0, 1fr); row-gap: 0.1rem; }
+        .info-row { flex-direction: column; }
     }
 
     main.has-sidebar {

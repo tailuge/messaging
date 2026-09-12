@@ -57,8 +57,8 @@ const topHolders = winners => {
 /**
  * <trophy-cabinet> — the most decorated arena trophy holders, one per row.
  * Reuses the shared winners fetch from trophy.js, so it costs no extra network
- * request. Hosts set `limit` to control how many holders are listed (the lobby
- * widens the cabinet from 3 to 8 rows while an arena is open).
+ * request. Rendered by info-panel to the left of the HiScore group; `limit`
+ * sets how many holders are listed (default 3).
  */
 class TrophyCabinet extends LitElement {
     static properties = {
@@ -76,7 +76,7 @@ class TrophyCabinet extends LitElement {
         .cabinet-trophies { display: flex; align-items: center; justify-content: flex-end; flex: 1 1 auto; min-width: 0; overflow: hidden; }
         .trophy { line-height: 1; user-select: none; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); transition: transform 0.15s ease, filter 0.15s ease, opacity 0.15s ease; }
         a.trophy { text-decoration: none; cursor: pointer; }
-        .trophy + .trophy { margin-left: -0.35em; }
+        .trophy + .trophy { margin-left: calc(-0.35em - 1px); }
         .trophy:hover { transform: translateY(-2px) scale(1.25); filter: none !important; opacity: 1 !important; z-index: 100 !important; }
         .empty { color: var(--text-muted); text-align: center; padding: 0.5rem 0; font-size: 0.75rem; }
     `;
