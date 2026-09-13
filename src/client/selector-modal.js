@@ -185,7 +185,9 @@ class SelectorModal extends LitElement {
       color: var(--text);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 0.75rem 0.9rem;
+      /* Side padding is kept minimal so the tiles, option rows and the action
+         button run nearly the full width of the dialog. */
+      padding: 2px;
       width: min(340px, 100%);
       max-width: calc(100vw - 1.5rem);
       max-height: calc(100dvh - 1.5rem);
@@ -260,7 +262,9 @@ class SelectorModal extends LitElement {
 
     .variants {
       display: flex; flex-direction: column; gap: 0.35rem;
-      padding: 0.45rem 0.4rem;
+      /* Minimal inset, matching the dialog's own padding, so the option rows
+         run the full width of the panel instead of floating inside it. */
+      padding: 2px;
       background: var(--table-head);
       border: 1px solid var(--border-light);
       border-radius: 6px;
@@ -281,10 +285,11 @@ class SelectorModal extends LitElement {
     /* Right-aligned so chips start at a common x and the rows line up. */
     .choice-label {
       color: var(--text-muted);
-      font-size: 0.68rem;
-      min-width: 56px;
+      font-size: 0.75rem;
+      min-width: 62px;
       text-align: right;
       line-height: 1;
+      white-space: nowrap;
     }
     .chip {
       min-height: 32px;
@@ -295,12 +300,15 @@ class SelectorModal extends LitElement {
       line-height: 1;
     }
     .chip.toggle { min-width: 46px; }
+    /* Chips grow to fill whatever space is left in their row, so every row
+       ends flush at the right: rows with more options get narrower buttons. */
+    .choice-group .chip, .aim-group .chip { flex: 1 1 auto; }
 
     .languages {
       display: flex; flex-wrap: wrap; justify-content: center; gap: 0 0.3rem;
       padding-top: 0.35rem;
       border-top: 1px solid var(--border-light);
-      font-size: 0.66rem;
+      font-size: 0.72rem;
     }
     /* Same link treatment as the lobby's settings modal (--link, underline
        only on hover). */
@@ -319,8 +327,9 @@ class SelectorModal extends LitElement {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      /* Uppercase + letterspacing already give the label weight; the button
+         text stays at the modal's inherited weight rather than bold. */
       font-size: 0.95rem;
-      font-weight: 600;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
@@ -347,10 +356,9 @@ class SelectorModal extends LitElement {
     }
 
     @media (max-width: 380px) {
-      .modal { padding: 0.65rem 0.7rem; }
       .tile { padding: 0.3rem 0.15rem; }
       .tile img { width: 38px; height: 38px; }
-      .choice-label { min-width: 48px; font-size: 0.64rem; }
+      .choice-label { min-width: 56px; font-size: 0.72rem; }
       .chip { padding: 0 0.4rem; }
     }
   `;
