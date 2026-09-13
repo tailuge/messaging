@@ -30,7 +30,7 @@ class ReplayButton extends LitElement {
             border: 1px solid var(--btn-replay-border, rgba(255, 255, 255, 0.1));
             background-color: var(--btn-replay-bg, #4a90d9);
             margin: 0;
-            padding: 0 4px;
+            padding: 0 3px;
             font-size: 0.7rem;
             color: white;
             font-family: inherit;

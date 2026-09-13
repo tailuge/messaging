@@ -296,6 +296,18 @@ export const INFO_PANEL_STYLES = css`
     @media (max-width: 640px) {
         .top-row .cabinet { flex: 0 0 calc(230px * 0.5 - 10px); }
     }
+    /* The HiScore tables must always sit three-across. A wrapping flex line
+       breaks each item at its max-content width, which varies by engine (table
+       intrinsic sizing, emoji advances) and by reload (the names are live), so
+       the third table randomly folds under on Blink/WebKit. A fixed 3-column
+       grid decides the count up front instead of leaving it to measurement. */
+    .top-row .hiscores .group-body { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .top-row .hiscores .tbl { min-width: 0; margin: 0.0625rem 0.05rem; }
+    /* Fixed layout lets the columns shrink to the grid track instead of forcing
+       the table out to its max-content width; the name column then ellipsises. */
+    .top-row .hiscores .tbl table { width: 100%; table-layout: fixed; }
+    .top-row .hiscores td:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .top-row .hiscores td:last-child { width: 40px; }
     .bottom-row { display: flex; align-items: flex-start; gap: 0.1rem; }
     /* The bottom-row groups are the last thing in the panel; their .group
        margin-bottom left a ~2px gap that made the stretched online-panel
