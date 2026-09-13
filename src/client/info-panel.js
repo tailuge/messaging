@@ -13,18 +13,33 @@ class InfoPanel extends StoreElement {
             this.classList.add('loaded');
             return;
         }
+        // Hold the reveal until Exo is available. With font-display: swap the
+        // fallback face is painted first, and swapping it in afterwards re-measures
+        // the HiScore tables - on a narrow screen that is enough to re-wrap one
+        // onto its own row.
+        const fontsReady = this._fontsReady();
+        const reveal = () => fontsReady.then(() => {
+            this.classList.add('loaded');
+            this.requestUpdate();
+        });
         fetch(`${SCOREBOARD_URL}/api/summary`, { mode: 'cors' })
             .then(r => r.json())
             .then(d => {
                 this._data = d;
-                this.classList.add('loaded');
-                this.requestUpdate();
+                reveal();
             })
             .catch(() => {
                 this._err = true;
-                this.classList.add('loaded');
-                this.requestUpdate();
+                reveal();
             });
+    }
+
+    // Resolves once the two Exo weights the panel uses have been fetched; never
+    // rejects, so a font failure cannot leave the panel hidden.
+    _fontsReady() {
+        const fonts = document.fonts;
+        if (!fonts?.load) return Promise.resolve();
+        return Promise.all([fonts.load("200 1rem 'Exo'"), fonts.load("600 1rem 'Exo'")]).catch(() => {});
     }
     render() {
         if (isVercel) return html`<span class="loading">We have moved <a href="https://billiards.tailuge.workers.dev/lobby">Play online here</a></span>`;

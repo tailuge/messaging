@@ -282,19 +282,19 @@ export const INFO_PANEL_STYLES = css`
         .city-col { display: none; }
     }
     .loading { color: var(--text-muted); text-align: center; display: block; width: 100%; }
-    .group { margin-bottom: 0.14rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.2rem; }
+    .group { margin-bottom: 0.14rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.1rem; }
     .group-title { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); padding: 0.1rem 0.25rem; text-align: center; }
     .group-body { display: flex; flex-wrap: wrap; justify-content: space-evenly; }
     /* The trophy cabinet and the HiScore tables share the top row; stretch keeps
        their bottom borders level. The match history / rankings row below spans
        the full width. */
     .top-row { display: flex; align-items: stretch; gap: 0.1rem; }
-    .top-row .cabinet { flex: 0 0 calc(230px * 0.75); min-width: 0; }
+    .top-row .cabinet { flex: 0 0 calc(230px * 0.75 - 10px); min-width: 0; }
     .top-row .hiscores { flex: 1 1 auto; min-width: 0; }
     /* Narrow screens keep the cabinet beside the HiScores rather than stacking
        it above; the cabinet shrinks so the tables still get room. */
     @media (max-width: 640px) {
-        .top-row .cabinet { flex: 0 0 calc(230px * 0.5); }
+        .top-row .cabinet { flex: 0 0 calc(230px * 0.5 - 10px); }
     }
     .bottom-row { display: flex; align-items: flex-start; gap: 0.1rem; }
     /* The bottom-row groups are the last thing in the panel; their .group
@@ -328,7 +328,7 @@ export const PLAYER_PANEL_STYLES = css`
 `;
 
 export const LOBBY_APP_STYLES = [THEME_VARS, css`
-    :host { display: flex; flex-direction: column; min-height: 100%; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.85rem; box-sizing: border-box; padding: 0.5rem; gap: 0.2rem; background: var(--bg); color: var(--text); overflow-y: auto; scrollbar-width: none; }
+    :host { display: flex; flex-direction: column; min-height: 100%; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.85rem; box-sizing: border-box; padding: 0.25rem; gap: 0.2rem; background: var(--bg); color: var(--text); overflow-y: auto; scrollbar-width: none; }
     :host::-webkit-scrollbar { display: none; }
     h1 { font-size: 1.0rem; color: var(--text-dim); text-align: left; margin: 0; letter-spacing: 0.1em; text-transform: uppercase; flex-shrink: 0; }
     h1 a { color: inherit; text-decoration: none; }
