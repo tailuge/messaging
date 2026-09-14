@@ -66,7 +66,6 @@ async function usageStats(r) {
         const key = USAGE_KEYS[i];
         try {
             const result = await redis("ZRANGE", key, "0", "-1", "WITHSCORES");
-            logApi("usage key=" + key + " result=" + JSON.stringify(result));
             data[key] = normalizeUsage(result);
         } catch (e) {
             logApi("usage fetch failed key=" + key + ": " + (e && e.stack ? e.stack : e));
