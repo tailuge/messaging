@@ -76,7 +76,7 @@ class TrophyCabinet extends LitElement {
         .cabinet-trophies { display: flex; align-items: center; justify-content: flex-end; flex: 1 1 auto; min-width: 0; overflow: hidden; }
         .trophy { line-height: 1; user-select: none; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); transition: transform 0.15s ease, filter 0.15s ease, opacity 0.15s ease; }
         a.trophy { text-decoration: none; cursor: pointer; }
-        .trophy + .trophy { margin-left: calc(-0.35em - 2px); }
+        .trophy + .trophy { margin-left: calc(-0.35em - 3px); }
         .trophy:hover { transform: translateY(-2px) scale(1.25); filter: none !important; opacity: 1 !important; z-index: 100 !important; }
         .empty { color: var(--text-muted); text-align: center; padding: 0.5rem 0; font-size: 0.75rem; }
     `;

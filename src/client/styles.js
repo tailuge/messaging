@@ -302,7 +302,7 @@ export const INFO_PANEL_STYLES = css`
        the third table randomly folds under on Blink/WebKit. A fixed 3-column
        grid decides the count up front instead of leaving it to measurement. */
     .top-row .hiscores .group-body { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .top-row .hiscores .tbl { min-width: 0; margin: 0.0625rem 0.05rem; }
+    .top-row .hiscores .tbl { min-width: 0; max-width: 110px; margin: 0.0625rem 0.05rem; }
     /* Fixed layout lets the columns shrink to the grid track instead of forcing
        the table out to its max-content width; the name column then ellipsises. */
     .top-row .hiscores .tbl table { width: 100%; table-layout: fixed; }

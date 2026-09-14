@@ -203,7 +203,6 @@ async function tidyFinishedArenas() {
     try {
         const raw = await redis("HGETALL", K_ACTIVE);
         const entries = parseHashEntries(raw);
-        logApi("tidy start activeCount=" + entries.length);
         if (entries.length === 0) {
             logApi("tidy no active arenas, skipping");
             return;
