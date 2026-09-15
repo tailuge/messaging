@@ -121,9 +121,6 @@ class LobbyApp extends LitElement {
                     </div>
                     <div class="info-row"><info-panel></info-panel></div>
                 </main>
-                <footer style="text-align:center;font-size:0.7rem;opacity:0.7;padding:0.5rem 0">
-                    Thanks for playing at <a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener" style="color:inherit">tailuge/billiards</a>. Stick around and challenge online for a free game or two.
-                </footer>
             </div>
         `;
     }

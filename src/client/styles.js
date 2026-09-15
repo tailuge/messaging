@@ -340,7 +340,9 @@ export const PLAYER_PANEL_STYLES = css`
 `;
 
 export const LOBBY_APP_STYLES = [THEME_VARS, css`
-    :host { display: flex; flex-direction: column; min-height: 100%; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.85rem; box-sizing: border-box; padding: 0.25rem; gap: 0.2rem; background: var(--bg); color: var(--text); overflow-y: auto; scrollbar-width: none; }
+    /* No min-height: 100%: the app hugs its content so the site-links line in
+       lobby.html sits directly under it instead of below a full-viewport box. */
+    :host { display: flex; flex-direction: column; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.85rem; box-sizing: border-box; padding: 0.25rem; gap: 0.2rem; background: var(--bg); color: var(--text); overflow-y: auto; scrollbar-width: none; }
     :host::-webkit-scrollbar { display: none; }
     h1 { font-size: 1.0rem; color: var(--text-dim); text-align: left; margin: 0; letter-spacing: 0.1em; text-transform: uppercase; flex-shrink: 0; }
     h1 a { color: inherit; text-decoration: none; }
