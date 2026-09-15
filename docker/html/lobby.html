@@ -161,13 +161,39 @@
         content: " ▴";
       }
 
-      /* Panel spreads sideways so it never becomes a tall wall */
+      /* Panel spreads sideways so it never becomes a tall wall. Pinned to two
+         columns: entries carry descriptive copy, and narrower columns would
+         wrap it into a ragged stack. */
+      .site-links-more {
+        width: 100%;
+        max-width: min(52rem, calc(100vw - 2rem));
+      }
+
       .site-links-panel {
-        column-width: 13rem;
-        max-width: min(56rem, calc(100vw - 2rem));
+        column-count: 2;
         text-align: left;
         white-space: normal;
         padding: 0.75rem;
+      }
+
+      @media (max-width: 30rem) {
+        .site-links-panel {
+          column-count: 1;
+        }
+      }
+
+      /* Spans both columns so the intro reads as an opening paragraph rather
+         than as the first item of the first column. */
+      .site-links-intro {
+        column-span: all;
+        margin: 0 0 0.6rem;
+        color: #757575;
+        font-size: 0.75rem;
+        line-height: 1.4;
+      }
+
+      html[theme="dark"] .site-links-intro {
+        color: #999999;
       }
 
       .site-links-panel h2 {
@@ -180,6 +206,27 @@
         margin: 0 0 0.75rem;
         padding-left: 1rem;
         list-style: none;
+      }
+
+      /* One entry per link: the anchor on its own line with its descriptive
+         copy hanging underneath, so entries stay separable as copy grows. */
+      .site-links-panel li {
+        margin-bottom: 0.45rem;
+        break-inside: avoid;
+      }
+
+      .site-links-panel li > a {
+        display: block;
+      }
+
+      .site-links-desc {
+        display: block;
+        margin-left: 0.7rem;
+        color: #757575;
+      }
+
+      html[theme="dark"] .site-links-desc {
+        color: #999999;
       }
     </style>
     <script>
@@ -213,9 +260,22 @@
         <summary>Thanks for playing at tailuge/billiards. Stick around and challenge online for a free game or two.</summary>
 
         <div class="site-links-panel">
+          <p class="site-links-intro">
+            A free, <a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">open source</a> billiards simulator that runs entirely in the browser — nothing to download or install. Play snooker, 9-ball, 8-ball, three-cushion carom and Korean four-ball on a physics engine built to reproduce real ball–cushion behaviour: solo practice, two players sharing one device, or a live game against someone else in the lobby. Guides are also published in eight other languages.
+          </p>
+
           <h2>Play</h2>
           <ul>
-            <li><a href="./snooker.html">Free online snooker</a></li>
+            <li>
+              <a href="./snooker.html">Free online snooker</a>
+              <span class="site-links-desc">
+                Play snooker online for free, a credible alternative to
+                <a href="https://www.shooterspool.net/" target="_blank" rel="noopener">ShootersPool</a>,
+                <a href="https://www.flashsnooker.com/" target="_blank" rel="noopener">Flash Snooker</a>
+                and
+                <a href="https://realsnooker.club/" target="_blank" rel="noopener">RealSnooker.Club</a>.
+              </span>
+            </li>
             <li><a href="./multi.html">Multiplayer game modes</a></li>
             <li><a href="./practice.html">Practice mode</a></li>
             <li><a href="./2p.html">Two-player on one device</a></li>
@@ -233,7 +293,10 @@
 
           <h2>Physics and maths</h2>
           <ul>
-            <li><a href="./diagrams/three.html">Three-cushion physics diagrams</a></li>
+            <li>
+              <a href="./diagrams/three.html">Three-cushion physics diagrams</a>
+              <span class="site-links-desc">Shot lines plotted from the published ball–cushion research — the Mathavan high-speed-imaging study of real snooker impacts and Stronge's inelastic impact model — with the geometry worked through for two and three cushions.</span>
+            </li>
             <li><a href="./diagrams/mathavan.html">Mathavan cushion model</a></li>
             <li><a href="./diagrams/diamond.html">Three-cushion diamond system</a></li>
             <li><a href="./diagrams/stronge.html">Stronge ball-cushion model</a></li>
