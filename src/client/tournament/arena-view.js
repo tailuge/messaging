@@ -780,7 +780,7 @@ class ArenaView extends LitElement {
                     <div class="pairing-tick" aria-label="Seconds remaining: ${this._pairingCountdown}">${this._pairingCountdown}</div>
                     <div class="pairing-label">Pairing…</div>
                     <div class="pairing-hint">Finding an opponent</div>
-                    <button class="pairing-berserk" type="button" aria-pressed=${this._berserk} @click=${() => { this._berserk = !this._berserk; }}>Berserk 🚀</button>
+                    <button class="pairing-berserk" type="button" title="Half shot time for DOUBLE points" aria-pressed=${this._berserk} @click=${() => { this._berserk = !this._berserk; }}>Berserk 🚀</button>
                     <button type="button" @click=${this._cancelPairing}>Cancel</button>
                 </div>`;
         }
@@ -824,10 +824,10 @@ class ArenaView extends LitElement {
                         <button type="button" ?disabled=${this._busy || isPairing} @click=${this._load}>Refresh</button>
                         ${joined && activeParticipant
                             ? html`<button class="btn-leave" type="button" ?disabled=${this._busy} @click=${this._leave}>Leave Arena</button>`
-                            : html`<button class="btn-accept" type="button" ?disabled=${this._busy || !arenaActive} @click=${this._join}>Join Arena</button>`
+                            : html`<button class="btn-accept" type="button" ?disabled=${this._busy || !arenaActive} title="Joining arena makes you available for pairing" @click=${this._join}>Join Arena</button>`
                         }
                         ${canPair
-                            ? html`<button class="btn-challenge" type="button" @click=${this._startPairing}>Pair</button>`
+                            ? html`<button class="btn-challenge" type="button" title="Seek available opponent" @click=${this._startPairing}>Pair</button>`
                             : ''
                         }
                     </div>` : ''}

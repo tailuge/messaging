@@ -4,6 +4,34 @@ import { SHARED_STYLES, CHALLENGE_MODAL_STYLES } from './styles.js';
 const emit = (el, type, detail) =>
     el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
 
+// Explicit schemes only: keeps bare text like "example.com" or "e.g." as plain text
+// and means a javascript:/data: URI can never be matched.
+const TRAILING_PUNCTUATION = /[.,!?;:)\]}'"»]+$/;
+
+/**
+ * Splits chat text into Lit fragments, turning http(s):// and www. URLs into links
+ * that open in a new tab. Text fragments keep a normal text binding so Lit escapes
+ * them — message text comes from other players, so it is never fed to unsafeHTML.
+ */
+const linkify = (text = '') => {
+    const src = String(text);
+    const parts = [];
+    // Fresh regex per call so the global lastIndex never leaks between messages.
+    const pattern = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;
+    let last = 0;
+    let m;
+    while ((m = pattern.exec(src)) !== null) {
+        // Trailing sentence punctuation belongs to the message, not the URL.
+        const url = m[0].replace(TRAILING_PUNCTUATION, '');
+        if (m.index > last) parts.push(src.slice(last, m.index));
+        parts.push(html`<a href=${/^www\./i.test(url) ? `https://${url}` : url} target="_blank" rel="noopener noreferrer">${url}</a>`);
+        parts.push(src.slice(m.index + url.length, m.index + m[0].length));
+        last = m.index + m[0].length;
+    }
+    if (last < src.length) parts.push(src.slice(last));
+    return parts;
+};
+
 /**
  * message-modal — self-contained chat window.
  *
@@ -31,6 +59,10 @@ class MessageModal extends LitElement {
         .msg { font-size: 0.82rem; padding: 0.25rem 0.5rem; border-radius: 6px; max-width: 85%; word-break: break-word; }
         .msg.mine { align-self: flex-end; background: #0d6efd; color: #fff; }
         .msg.theirs { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+        .msg a { text-decoration: underline; overflow-wrap: anywhere; }
+        .msg.theirs a { color: var(--link); }
+        /* The "mine" bubble is solid blue, so it needs its own link colour for contrast. */
+        .msg.mine a { color: #cfe3ff; }
         .compose {
             display: flex;
             align-items: center;
@@ -145,7 +177,7 @@ class MessageModal extends LitElement {
                     <div class="thread">
                         ${thread.length === 0
                             ? html`<div class="empty">No messages yet</div>`
-                            : thread.map(m => html`<div class="msg ${m.senderId === myId ? 'mine' : 'theirs'}">${m.text}</div>`)}
+                            : thread.map(m => html`<div class="msg ${m.senderId === myId ? 'mine' : 'theirs'}">${linkify(m.text)}</div>`)}
                     </div>
                     <form class="compose" @submit=${this._send}>
                         <input type="text" name="message" placeholder="Message…" autocomplete="off" aria-label="Message text">
