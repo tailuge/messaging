@@ -266,9 +266,9 @@ export const SOLO_PANEL_STYLES = css`
 export const INFO_PANEL_STYLES = css`
     :host { display: block; overflow-y: hidden; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.75rem; color: var(--text); max-height: 40px; opacity: 0; transition: max-height 1s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.6s ease-out 0.15s; }
     /* Capped rather than auto so the reveal can animate. Must clear the tallest
-       layout (a 393px phone: 166px cabinet/HiScore row + 21px MOTD + 413px
-       history/rankings), otherwise the bottom of the match history boxes is cut
-       off by overflow-y: hidden. */
+       layout (a 393px phone: 108px cabinet/HiScore row + 26px MOTD + 413px
+       history/rankings = 547px), otherwise the bottom of the match history
+       boxes is cut off by overflow-y: hidden. */
     :host(.loaded) { max-height: 640px; opacity: 1; }
     .tbl { display: inline-block; vertical-align: top; border-radius: 4px; margin: 0.0625rem; overflow: hidden; }
     table { border-collapse: collapse; width: auto; }
@@ -311,12 +311,14 @@ export const INFO_PANEL_STYLES = css`
        the table out to its max-content width. On a 393px phone each table is
        88px, so once the trophy emoji and the 40px score column (sized for three
        digits) have taken their share the name has ~39px - not enough for "AOM"
-       beside a trophy. Clipping those names ("AnO…") hides who scored, so the
-       name wraps onto a second line instead; a taller row beats a cut-off name.
-       vertical-align stays middle so the name and its medal sit level with the
-       score pill, which is what the cell default gives for a single-line row. */
+       beside a trophy. Rows must stay on one line whatever the name, so the
+       name is left to run a few pixels into the score pill instead of wrapping;
+       the pill paints over the overlap, and the .tbl radius clip trims only a
+       very long name. vertical-align stays middle so the name and its medal sit
+       level with the score pill, which is what the cell default gives for a
+       single-line row. */
     .top-row .hiscores .tbl table { width: 100%; table-layout: fixed; }
-    .top-row .hiscores td:first-child { white-space: normal; overflow-wrap: anywhere; vertical-align: middle; }
+    .top-row .hiscores td:first-child { white-space: nowrap; vertical-align: middle; }
     .top-row .hiscores td:last-child { width: 40px; }
     /* Message of the day, full width under the cabinet and HiScore groups. A
        touch more vertical padding than .group so a single line of text does not

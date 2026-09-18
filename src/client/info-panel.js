@@ -6,6 +6,15 @@ import './replay-button.js';
 import './cabinate.js';
 import './motd-panel.js';
 
+// The replay pill shows only a play icon, so it needs a text alternative: without
+// one every pill is an unnamed "link" in a screen reader's link list, and the
+// different match URLs look like identical links with different destinations.
+const replayLabel = m => {
+    const score = v => v != null ? ` ${v}` : '';
+    return `Replay ${m.ruleType} match: ${m.winner}${score(m.winnerScore)}`
+        + (m.loser ? ` vs ${m.loser}${score(m.loserScore)}` : '');
+};
+
 class InfoPanel extends StoreElement {
     static styles = INFO_PANEL_STYLES;
     connectedCallback() {
@@ -67,7 +76,7 @@ class InfoPanel extends StoreElement {
         return hiscoreGames.map(game => html`
             <div class="tbl${game === 'sagu' ? ' sagu-hi' : ''}"><table><caption><a href="${SCOREBOARD_URL}/leaderboard" target="_blank" rel="noopener" style="font-weight:200;font-size:0.75rem">${ruleIcon(game)} HiScore</a></caption>
             <tr><th>Name</th><th></th></tr>
-                ${hiscores[game].slice(0, 4).map((s, i) => html`<tr><td>${renderTrophy(i)} ${s.name}</td><td><replay-button url="${replayUrl(`${SCOREBOARD_URL}/api/rank/${s.id}?ruletype=${game}&lod=${userStore.lod}`, userStore.clientId, userStore.userName)}" label="${s.score}"></replay-button></td></tr>`)}
+                ${hiscores[game].slice(0, 4).map((s, i) => html`<tr><td>${renderTrophy(i)} ${s.name}</td><td><replay-button url="${replayUrl(`${SCOREBOARD_URL}/api/rank/${s.id}?ruletype=${game}&lod=${userStore.lod}`, userStore.clientId, userStore.userName)}" label="${s.score}" .ariaLabel=${`Replay ${game} HiScore: ${s.name} ${s.score}`}></replay-button></td></tr>`)}
             </table></div>
         `);
     }
@@ -89,7 +98,7 @@ class InfoPanel extends StoreElement {
                                 <td class="city-col">${m.locationCity ?? ''}</td>
 <td class="replay-col">
                                     ${m.hasReplay
-                                        ? html`<replay-button prefix="${flag(m.locationCountry).emoji}" prefixTitle="${flag(m.locationCountry).title}" url="${replayUrl(`${SCOREBOARD_URL}/api/match-replay?id=${m.id}&lod=${userStore.lod}`, userStore.clientId, userStore.userName)}"></replay-button>`
+                                        ? html`<replay-button prefix="${flag(m.locationCountry).emoji}" prefixTitle="${flag(m.locationCountry).title}" .ariaLabel=${replayLabel(m)} url="${replayUrl(`${SCOREBOARD_URL}/api/match-replay?id=${m.id}&lod=${userStore.lod}`, userStore.clientId, userStore.userName)}"></replay-button>`
                                         : flag(m.locationCountry).emoji}
                                 </td>
                             </tr>`)}
@@ -100,7 +109,7 @@ class InfoPanel extends StoreElement {
                     <div class="group-body">
                         ${games.map(game => html`
                             <div class="tbl"><table><caption><a href="${SCOREBOARD_URL}/elo" target="_blank" rel="noopener">${ruleIcon(game)} <span style="font-size:0.75rem;font-weight:200">Rankings</span></a></caption>
-                             <tr><th>Name</th><th>Score</th><th>W</th><th>L</th></tr>
+                             <tr><th>Name</th><th>Score</th></tr>
                                  ${topPlayers[game].slice(0, 4).map((p, i) => html`<tr>
                                      <td><a href="${SCOREBOARD_URL}/player/${encodeURIComponent(p.name)}?ruleType=${game}">${renderTrophy(i)} ${p.name}</a></td>
                                      <td>${Math.round(p.conservativeRating)}</td>

@@ -6,7 +6,8 @@ class ReplayButton extends LitElement {
         color: { type: String },
         label: { type: String },
         prefix: { type: String },
-        prefixTitle: { type: String }
+        prefixTitle: { type: String },
+        ariaLabel: { type: String }
     };
 
     static styles = css`
@@ -66,6 +67,7 @@ class ReplayButton extends LitElement {
             <a
                 class="pill"
                 href=${this.url}
+                aria-label=${this.ariaLabel}
                 style=${style}>
                 ${prefixSpan}
                 ${this.label ? html`<span>${this.label}</span>` : ''}
