@@ -265,7 +265,11 @@ export const SOLO_PANEL_STYLES = css`
 
 export const INFO_PANEL_STYLES = css`
     :host { display: block; overflow-y: hidden; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.75rem; color: var(--text); max-height: 40px; opacity: 0; transition: max-height 1s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.6s ease-out 0.15s; }
-    :host(.loaded) { max-height: 540px; opacity: 1; }
+    /* Capped rather than auto so the reveal can animate. Must clear the tallest
+       layout (a 393px phone: 166px cabinet/HiScore row + 21px MOTD + 413px
+       history/rankings), otherwise the bottom of the match history boxes is cut
+       off by overflow-y: hidden. */
+    :host(.loaded) { max-height: 640px; opacity: 1; }
     .tbl { display: inline-block; vertical-align: top; border-radius: 4px; margin: 0.0625rem; overflow: hidden; }
     table { border-collapse: collapse; width: auto; }
     th, td { border-bottom: 1px solid var(--border); padding: 0.05rem 0.15rem; text-align: left; }
@@ -314,6 +318,10 @@ export const INFO_PANEL_STYLES = css`
     .top-row .hiscores .tbl table { width: 100%; table-layout: fixed; }
     .top-row .hiscores td:first-child { white-space: normal; overflow-wrap: anywhere; vertical-align: middle; }
     .top-row .hiscores td:last-child { width: 40px; }
+    /* Message of the day, full width under the cabinet and HiScore groups. A
+       touch more vertical padding than .group so a single line of text does not
+       sit against the border. */
+    .motd-row { padding: 0.25rem 0.4rem; }
     .bottom-row { display: flex; align-items: flex-start; gap: 0.1rem; }
     /* The bottom-row groups are the last thing in the panel; their .group
        margin-bottom left a ~2px gap that made the stretched online-panel

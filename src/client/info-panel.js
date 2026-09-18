@@ -4,6 +4,7 @@ import { SCOREBOARD_URL, timeAgo, flag, ruleIcon, renderTrophy, replayUrl, isVer
 import { userStore, StoreElement } from './user-store.js';
 import './replay-button.js';
 import './cabinate.js';
+import './motd-panel.js';
 
 class InfoPanel extends StoreElement {
     static styles = INFO_PANEL_STYLES;
@@ -43,7 +44,8 @@ class InfoPanel extends StoreElement {
     }
     render() {
         if (isVercel) return html`<span class="loading">We have moved <a href="https://billiards.tailuge.workers.dev/lobby">Play online here</a></span>`;
-        // The trophy cabinet sits to the left of the HiScore group; the bottom
+        // The trophy cabinet sits to the left of the HiScore group, the
+        // message of the day spans the width under that pair, and the bottom
         // row (match history, rankings) still spans the full panel width.
         return html`
             <div class="top-row">
@@ -52,6 +54,7 @@ class InfoPanel extends StoreElement {
                     <div class="group-body">${this._hiscores()}</div>
                 </div>
             </div>
+            <div class="group motd-row"><motd-panel></motd-panel></div>
             ${this._bottomRow()}`;
     }
 
