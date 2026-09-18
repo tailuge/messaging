@@ -304,9 +304,15 @@ export const INFO_PANEL_STYLES = css`
     .top-row .hiscores .group-body { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); justify-content: space-evenly; justify-items: center; }
     .top-row .hiscores .tbl { min-width: 0; max-width: 120px; margin: 0.0625rem 0.05rem; }
     /* Fixed layout lets the columns shrink to the grid track instead of forcing
-       the table out to its max-content width; the name column then ellipsises. */
+       the table out to its max-content width. On a 393px phone each table is
+       88px, so once the trophy emoji and the 40px score column (sized for three
+       digits) have taken their share the name has ~39px - not enough for "AOM"
+       beside a trophy. Clipping those names ("AnO…") hides who scored, so the
+       name wraps onto a second line instead; a taller row beats a cut-off name.
+       vertical-align stays middle so the name and its medal sit level with the
+       score pill, which is what the cell default gives for a single-line row. */
     .top-row .hiscores .tbl table { width: 100%; table-layout: fixed; }
-    .top-row .hiscores td:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .top-row .hiscores td:first-child { white-space: normal; overflow-wrap: anywhere; vertical-align: middle; }
     .top-row .hiscores td:last-child { width: 40px; }
     .bottom-row { display: flex; align-items: flex-start; gap: 0.1rem; }
     /* The bottom-row groups are the last thing in the panel; their .group

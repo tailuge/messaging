@@ -1,9 +1,10 @@
 import { LitElement, html, css } from 'lit';
 import { fetchWinners } from './trophy.js';
 
-// The cabinet lives in the narrow lobby column, so cap the trophies it draws
-// (a runaway winner cannot stretch the panel).
-const MAX_TROPHIES = 20;
+// The cabinet lives in the narrow lobby column, so cap the trophies it draws at
+// six cups per row (a runaway winner cannot stretch the panel). The row title
+// still reports the holder's full win count.
+const MAX_TROPHIES = 6;
 const DEFAULT_HOLDERS = 3;
 
 // Trophies start at the same 0.95rem used by trophy.js and step down 1px per
