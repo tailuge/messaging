@@ -100,6 +100,10 @@ export class ArenaPanel extends LitElement {
                     const name = arena.creatorName ? html`${arenaGameIcon(arena.ruleType, arena.options)} ${arena.creatorName}` : 'Arena';
                     this._arenaName = name;
                 }
+            } else {
+                // Finished arenas are deleted once they roll out of the archive,
+                // so an old link (trophy cabinet, shared URL) can 404 for good.
+                this._arenaName = 'Arena no longer available';
             }
         } catch (e) {
             console.error('Failed to load arena name:', e);

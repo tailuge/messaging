@@ -97,7 +97,11 @@ const K_ARCHIVED = "arena:archived";
 const K_WINNERS = "arena:winners";
 const RESULT_HISTORY_LIMIT = 20;
 const ARENA_DURATION_MINUTES = [10, 30];
-const SCORED_TTL_MS = 24 * 60 * 60 * 1000;
+// Duplicate-result guard: a challengeId older than this is pruned from the
+// per-arena scored set. This is the only place a clock is involved — arena keys
+// (record, scores, scored) carry no TTL at all. They are deleted wholesale when
+// the arena is evicted from the 20-snapshot archive (see tidyFinishedArenas).
+const RESULT_DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000;
 const SEEDED_PLAYERS = [
     { playerId: "bot-thefarjaw", name: "TheFarJaw" },
     { playerId: "bot-clawbreak", name: "ClawBreak" },
@@ -301,14 +305,46 @@ async function tidyFinishedArenas() {
             logApi("tidy removed " + staleIds.length + " from active");
         }
 
-        // Keep the newest 20 snapshots. Rank 0 is the oldest because archive
-        // scores are end times; remove the oldest entries when over the limit.
+        // Keep the newest 20 snapshots — a rolling history of finished arenas.
+        // Rank 0 is the oldest because archive scores are end times, so the
+        // entries evicted by a roll are the lowest ranked ones. Eviction owns the
+        // whole lifecycle of an arena's KV: `arena:<id>`, `:scores` and `:scored`
+        // have no TTL, so they live exactly as long as the snapshot that
+        // represents them. Only a pass that added a snapshot can push the archive
+        // over the limit, so the count check stays behind the same guard and the
+        // quiet path keeps its call budget.
         if (archiveArgs.length > 0) {
             const count = Number(await redis("ZCARD", K_ARCHIVED)) || 0;
             logApi("tidy archive size after run=" + count);
             if (count > RESULT_HISTORY_LIMIT) {
-                await redis("ZREMRANGEBYRANK", K_ARCHIVED, "0", String(count - RESULT_HISTORY_LIMIT - 1));
-                logApi("tidy trimmed archive to " + RESULT_HISTORY_LIMIT);
+                const evictCount = count - RESULT_HISTORY_LIMIT;
+                // ZPOPMIN returns [member, score, ...] — the flat pair shape
+                // parseHashEntries already walks — and removes the entries in the
+                // same call. Removing before deleting is deliberate: if the work
+                // is interrupted, the only possible outcome is invisible orphan
+                // keys, never an archived arena listed with its records gone.
+                const evicted = parseHashEntries(await redis("ZPOPMIN", K_ARCHIVED, String(evictCount)));
+                const delKeys = [];
+                for (let i = 0; i < evicted.length; i += 1) {
+                    let evictedId = null;
+                    try {
+                        const parsed = JSON.parse(evicted[i][0]);
+                        evictedId = parsed && parsed.id ? String(parsed.id) : null;
+                    } catch (e) {
+                        // Legacy id-only member from the pre-snapshot format.
+                        evictedId = validArenaId(evicted[i][0]) ? String(evicted[i][0]) : null;
+                    }
+                    if (evictedId) {
+                        const keys = arenaKeys(evictedId);
+                        delKeys.push(keys.arena, keys.scores, keys.scored);
+                    } else {
+                        logApi("tidy evicted unidentifiable snapshot, keys cannot be deleted");
+                    }
+                }
+                if (delKeys.length > 0) {
+                    await redis.apply(null, ["DEL"].concat(delKeys));
+                    logApi("tidy evicted " + (delKeys.length / 3) + " arenas and deleted their keys");
+                }
             }
         }
     } catch (e) {
@@ -508,8 +544,7 @@ async function arenaResult(r, arenaId) {
         return json(r, 404, { error: "Participant is not in the Arena" });
     }
     const keys = arenaKeys(arenaId);
-    await redis("EXPIRE", keys.scored, String(SCORED_TTL_MS / 1000));
-    const cutoff = Date.now() - SCORED_TTL_MS;
+    const cutoff = Date.now() - RESULT_DEDUPE_WINDOW_MS;
     await redis("ZREMRANGEBYSCORE", keys.scored, "-inf", String(cutoff));
     const added = await redis("ZADD", keys.scored, "NX", String(Date.now()), String(body.challengeId));
     if (added === 0) {
@@ -521,7 +556,6 @@ async function arenaResult(r, arenaId) {
     await redis("HINCRBY", keys.scores, `w:${winnerId}`, 1);
     await redis("HINCRBY", keys.scores, `g:${winnerId}`, 1);
     await redis("HINCRBY", keys.scores, `g:${loserId}`, 1);
-    await redis("EXPIRE", keys.scores, String(SCORED_TTL_MS / 1000));
     const scores = scoresFromHgetall(await redis("HGETALL", keys.scores));
     const leaderboard = buildLeaderboard(arena, scores);
     logApi("arena result accepted arenaId=" + arenaId + " challengeId=" + String(body.challengeId) + " winnerId=" + winnerId + " loserId=" + loserId + " leaderboard=" + JSON.stringify(leaderboard));
