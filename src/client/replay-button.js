@@ -67,6 +67,7 @@ class ReplayButton extends LitElement {
             <a
                 class="pill"
                 href=${this.url}
+                rel="nofollow"
                 aria-label=${this.ariaLabel}
                 style=${style}>
                 ${prefixSpan}
