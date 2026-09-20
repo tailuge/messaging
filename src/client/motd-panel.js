@@ -4,7 +4,7 @@ import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 const EN_MESSAGES = [
     'This game is free to play and open source on <a href="https://github.com/tailuge/billiards" target="_blank">GitHub</a>',
     'Choose graphics settings in options menu top right.',
-    'Masse trick shot replay: <a href="https://scoreboard-tailuge.vercel.app/api/replay/534?lod=4">here</a>.',
+    'Masse trick shot replay: <a href="https://scoreboard-tailuge.vercel.app/api/replay/534?lod=4" rel="nofollow">here</a>.',
     'You can change your name by clicking on your user badge at the top right of the screen.',
     'You can flip aim direction in options menu top right.',
     'Invite a friend to play, share link in settings panel.',
