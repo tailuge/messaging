@@ -23,7 +23,9 @@ class ArenaApp extends LitElement {
     };
 
     static styles = [THEME_VARS, SHARED_STYLES, ARENA_ROW_STYLES, css`
-        :host { display: block; min-height: 100vh; box-sizing: border-box; padding: .5rem; background: var(--bg); color: var(--text); font-family: 'Exo', sans-serif; font-size: .85rem; }
+        /* No min-height: 100vh: the app hugs its content so the site-links line in
+           arena.html sits directly under it instead of below a full-viewport box. */
+        :host { display: block; box-sizing: border-box; padding: .5rem; background: var(--bg); color: var(--text); font-family: 'Exo', sans-serif; font-size: .85rem; }
         .container { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; }
         .topbar { display: flex; align-items: center; gap: .4rem; margin-bottom: .4rem; position: sticky; top: 0; z-index: 2; padding: .25rem 0; background: var(--bg); }
         .topbar .logo { width: 32px; height: 32px; flex-shrink: 0; filter: grayscale(100%); opacity: 0.7; }
