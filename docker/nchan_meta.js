@@ -34,18 +34,21 @@ function parseUA(ua) {
   var browser = "Unknown";
 
   if (ua) {
-    if (/Android/i.test(ua)) os = "Android";
+    if (/Tauri/i.test(ua)) { os = "Tauri"; browser = "Tauri"; }
+    else if (/Android/i.test(ua)) os = "Android";
     else if (/iPhone|iPad|iPod/i.test(ua)) os = "iOS";
     else if (/Windows NT/i.test(ua)) os = "Windows";
     else if (/Mac OS X|Macintosh/i.test(ua)) os = "macOS";
     else if (/Linux/i.test(ua)) os = "Linux";
 
-    if (/Edg\//i.test(ua)) browser = "Edge";
-    else if (/OPR\//i.test(ua) || /Opera\//i.test(ua)) browser = "Opera";
-    else if (/SamsungBrowser\//i.test(ua)) browser = "Samsung Internet";
-    else if (/Chrome\//i.test(ua) || /CriOS\//i.test(ua)) browser = "Chrome";
-    else if (/Firefox\//i.test(ua) || /FxiOS\//i.test(ua)) browser = "Firefox";
-    else if (/Safari\//i.test(ua)) browser = "Safari";
+    if (browser === "Unknown") {
+      if (/Edg\//i.test(ua)) browser = "Edge";
+      else if (/OPR\//i.test(ua) || /Opera\//i.test(ua)) browser = "Opera";
+      else if (/SamsungBrowser\//i.test(ua)) browser = "Samsung Internet";
+      else if (/Chrome\//i.test(ua) || /CriOS\//i.test(ua)) browser = "Chrome";
+      else if (/Firefox\//i.test(ua) || /FxiOS\//i.test(ua)) browser = "Firefox";
+      else if (/Safari\//i.test(ua)) browser = "Safari";
+    }
   }
 
   return { os: os, browser: browser };
@@ -54,9 +57,10 @@ function parseUA(ua) {
 function reduceUA(ua) {
   if (!ua) return "";
   var parsed = parseUA(ua);
-  return [parsed.os, parsed.browser]
+  var summary = [parsed.os, parsed.browser]
     .filter(function (value) { return value !== "Unknown"; })
-    .join(" ") || "Unknown";
+    .join(" ");
+  return summary || ua;
 }
 
 function reduceOrigin(origin) {
