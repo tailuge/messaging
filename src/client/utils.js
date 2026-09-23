@@ -249,6 +249,25 @@ export const revealGameUrl = ({ imageUrl, userId, userName, lod, flip, custom })
     return url;
 };
 
+/**
+ * Replay link for a completed Pot & Reveal game.
+ *
+ * On success the game returns the whole-game replay state as `?state=` (a crushed,
+ * URI-encoded replay) alongside `?image=`. Store that state on the card and rebuild the
+ * same link the game itself uses for replays:
+ *
+ *   https://billiards.tailuge.workers.dev/?ruletype=reveal&state=<state>
+ *
+ * `imageUrl` is echoed as well so the game can re-render the hidden picture during playback.
+ * Returns '' when there is no state, so callers can fall back (Wikipedia link, muted icon).
+ */
+export const revealReplayUrl = ({ imageUrl, state }) => {
+    if (!state) return '';
+    let url = `${BASE}?ruletype=reveal&state=${encodeURIComponent(state)}`;
+    if (imageUrl) url += `&image=${encodeURIComponent(imageUrl)}`;
+    return url;
+};
+
 const RULE_ASSETS = { eightball: 'eightball', snooker: 'snooker', threecushion: 'threecushion', nineball: 'nineball', sagu: 'sagu' };
 export const ruleIcon = rule => {
     const name = RULE_ASSETS[rule];

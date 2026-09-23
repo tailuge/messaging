@@ -2,7 +2,7 @@ import { LitElement, html, css } from "lit";
 import { MessagingClient } from "../../index.ts";
 import { THEME_VARS, SHARED_STYLES } from "../styles.js";
 import { userStore } from "../user-store.js";
-import { revealGameUrl, formatVersion, CLIENTVERSION, NCHANBASE } from "../utils.js";
+import { revealGameUrl, revealReplayUrl, formatVersion, CLIENTVERSION, NCHANBASE } from "../utils.js";
 import "../user-badge.js";
 import "../trophy.js";
 import "../settings-modal.js";
@@ -564,25 +564,26 @@ class RevealApp extends LitElement {
       this._challenges.find((c) => decodeURIComponent(c.imageUrl) === decoded);
     if (!match) {
       console.log("reveal: ?image= did not match any challenge, ignoring", decoded.slice(0, 120));
-      // Strip param so refresh doesn't re-evaluate, but don't persist
-      params.delete("image");
-      const next = params.toString();
-      history.replaceState(null, "", location.pathname + (next ? `?${next}` : "") + location.hash);
+      // Strip params so refresh doesn't re-evaluate, but don't persist
+      this._stripReturnParams();
       return;
     }
     const id = idForChallenge(match);
-    // Already completed? Move to front and strip param
+    // The game returns the whole-game replay state alongside the image on success
+    const state = params.get("state") || "";
+    // Already completed? Move to front, refresh the replay state if one was returned
     if (this._completedIds.has(id)) {
       console.log("reveal: already completed", id);
-      params.delete("image");
-      const next = params.toString();
-      history.replaceState(null, "", location.pathname + (next ? `?${next}` : "") + location.hash);
-      // Still reorder so it becomes most recent favourite
+      this._stripReturnParams();
       const col = loadCollection();
       const idx = col.findIndex((e) => e.id === id);
-      if (idx > 0) {
+      if (idx >= 0) {
         const [entry] = col.splice(idx, 1);
         entry.completedAt = Date.now();
+        if (state) {
+          entry.state = state;
+          entry.replayUrl = revealReplayUrl({ imageUrl: entry.imageUrl, state });
+        }
         col.unshift(entry);
         saveCollection(col);
         this._collection = col;
@@ -596,9 +597,7 @@ class RevealApp extends LitElement {
       thumb = await imageToThumbDataUrl(match.imageUrl);
     } catch (e) {
       console.log("reveal: thumb generation failed, card stays unsolved", e);
-      params.delete("image");
-      const next = params.toString();
-      history.replaceState(null, "", location.pathname + (next ? `?${next}` : "") + location.hash);
+      this._stripReturnParams();
       return;
     }
     const entry = {
@@ -608,7 +607,9 @@ class RevealApp extends LitElement {
       wikipediaUrl: match.wikipediaUrl,
       thumb,
       completedAt: Date.now(),
-      replayUrl: params.get("replay") || params.get("replayUrl") || "",
+      // Whole-game replay state — source of the card's replay/share link
+      state,
+      replayUrl: revealReplayUrl({ imageUrl: match.imageUrl, state }),
     };
     const col = loadCollection();
     col.unshift(entry);
@@ -616,13 +617,31 @@ class RevealApp extends LitElement {
     saveCollection(col);
     this._collection = col;
     this._completedIds = new Set(col.map((e) => e.id));
+    this._stripReturnParams();
+    this.requestUpdate();
+  }
+
+  // Drop the return params so a refresh cannot re-award the card
+  _stripReturnParams() {
+    const params = new URLSearchParams(window.location.search);
     params.delete("image");
-    // Also strip replay if present
-    params.delete("replay");
-    params.delete("replayUrl");
+    params.delete("state");
     const next = params.toString();
     history.replaceState(null, "", location.pathname + (next ? `?${next}` : "") + location.hash);
-    this.requestUpdate();
+  }
+
+  _entryFor(ch) {
+    const id = idForChallenge(ch);
+    return this._collection.find((en) => en.id === id || en.imageUrl === ch.imageUrl);
+  }
+
+  // Replay link for the game, derived from the stored state (`` when unavailable)
+  _replayUrlFor(entry) {
+    if (!entry) return "";
+    return (
+      entry.replayUrl ||
+      (entry.state ? revealReplayUrl({ imageUrl: entry.imageUrl, state: entry.state }) : "")
+    );
   }
 
   _onFlip(ch) {
@@ -646,12 +665,10 @@ class RevealApp extends LitElement {
 
   _onShare(e, ch) {
     e.stopPropagation();
-    const entry = this._collection.find(
-      (en) => en.id === idForChallenge(ch) || en.imageUrl === ch.imageUrl,
-    );
-    const shareUrl = entry?.replayUrl || ch.wikipediaUrl || ch.imageUrl;
+    // Sharing a reveal shares the game replay link (state included), not the collection
+    const shareUrl = this._replayUrlFor(this._entryFor(ch)) || ch.wikipediaUrl || ch.imageUrl;
     if (!shareUrl) return;
-    // Prefer clipboard, fall back to prompt-ish: just try write
+    // Prefer clipboard, fall back to logging for manual copy
     if (navigator.clipboard?.writeText) {
       navigator.clipboard
         .writeText(shareUrl)
@@ -663,11 +680,8 @@ class RevealApp extends LitElement {
 
   _onReplay(e, ch) {
     e.stopPropagation();
-    const entry = this._collection.find(
-      (en) => en.id === idForChallenge(ch) || en.imageUrl === ch.imageUrl,
-    );
-    const url = entry?.replayUrl;
-    if (!url) return; // muted/disabled until game returns replay
+    const url = this._replayUrlFor(this._entryFor(ch));
+    if (!url) return; // muted for cards completed before the game returned a state
     window.open(url, "_blank", "noopener");
   }
 
@@ -691,7 +705,7 @@ class RevealApp extends LitElement {
       .filter(Boolean)
       .join(" ");
     if (isCompleted) {
-      const hasReplay = !!completedEntry.replayUrl;
+      const hasReplay = !!this._replayUrlFor(completedEntry);
       return html`
         <div class="${classes}" role="listitem" aria-label="${ch.name} — completed">
           <div class="thumb-wrap">
