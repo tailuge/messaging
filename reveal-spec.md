@@ -399,11 +399,15 @@ Algorithm on load (`reveal.js` → `_handleReturnParam()`):
    `entry.state` + `entry.replayUrl`. Then strip the params and stop.
 5. Otherwise `fetch`/decode the image **once** (already hot/CDN-cached from the game) with
    `crossOrigin="anonymous"` (Wikimedia sends `Access-Control-Allow-Origin:*`), draw to an offscreen
-   `<canvas>` at small size, export `canvas.toDataURL('image/webp', 0.6)` (fallback `image/jpeg`).
-6. Persist the completed card including the verbatim `state` (§10.5). On any failure (fetch error,
-   taint, quota) → **return the card to unsolved** (do not persist), `console.log` the cause, **no
-   fuss, no user-visible notification**.
-7. `history.replaceState` to strip `?image=` **and** `?state=` so refresh does not re-award.
+   `<canvas>` at small size, export `canvas.toDataURL('image/webp', 0.6)` (fallback `image/jpeg`).6. Persist the completed card including the verbatim `state` (§10.5). On any failure (fetch error,
+     taint, quota) → **return the card to unsolved** (do not persist), `console.log` the cause, **no
+     fuss, no user-visible notification**.
+7. `history.replaceState` to strip `?image=` **and** `?state=`. This happens **up front**, as soon
+     as the two params have been read (steps 1–3) and before the fetch/canvas work of steps 4–6:
+     the return URL is single-use and copyable, so it must not sit in the address bar during the
+     async thumbnail generation (or indefinitely, if that image request never settles). Everything
+     the later steps need is held in memory, so stripping first does not affect whether the card is
+     awarded. Refresh (and a copied URL) therefore cannot re-award, on success or on failure.
 
 If the game ever adds further params alongside these (e.g. a different replay identifier), read and
 store them on the card rather than changing the two-param success contract.
@@ -613,7 +617,7 @@ seeding beyond this list, no randomization.
 | Case | Behaviour |
 |---|---|
 | `?image=` absent on return | No persistence, no thumb, no message. |
-| `?image=` present but matches no embedded entry | Ignore — no card minted, console log, no UI. Matching stays exact so a bad param cannot create a phantom card. |
+| `?image=` present but matches no embedded entry | Ignore — no card minted, console log, no UI (params are still stripped from the URL). Matching stays exact so a bad param cannot create a phantom card. |
 | `?state=` absent alongside a valid `?image=` | Card is still completed (thumbnail + name); `state`/`replayUrl` are empty, Replay stays muted, Share falls back to the Wikipedia link. |
 | `?state=` present but `?image=` missing | Nothing happens — `image` is the success signal. |
 | Thumbnail generation fails (CORS taint, network, decode) | Return card to unsolved, `console.log`, no toast/banner. |
@@ -661,7 +665,9 @@ seeding beyond this list, no randomization.
   `/reveal/reveal.js` all answer 200, and the page's `../lobby.html` / `../assets/…` links resolve.
 - Return flow: opening `…/reveal/index.html?image=<encoded seed url>&state=<crushed state>` mints a
   card, stores `state` + a `replayUrl` of the form `${BASE}?ruletype=reveal&state=…&image=…`, and
-  leaves the URL with both params stripped (refresh does not re-award).
+  clears both params from the address bar immediately (before the card is minted), so the URL is
+  never there to copy and refresh does not re-award. A `?image=` that matches no seed entry is also
+  stripped.
 - Replay opens that link; Share copies it.
 - `npm run lint` + `npx oxfmt` / `npm run prettify` pass.
 - `npm run screenshot:iphone` / Playwright: header matches `arena.html` (logo + version + trophy +

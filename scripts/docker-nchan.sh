@@ -15,7 +15,12 @@ start() {
 
     echo "Starting nchan container..."
     docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
-    docker run -d --user root \
+    # Local run only (Render builds the image itself). Runs as the image's
+    # unprivileged nginx user, not root: nginx listens on 8080 and owns its pid,
+    # temp paths and logs, so no root and no capabilities are required.
+    docker run -d \
+        --cap-drop ALL \
+        --security-opt no-new-privileges \
         -p "$PORT":8080 \
         --env-file "$PROJECT_ROOT/.env" \
         --name "$CONTAINER_NAME" "$DOCKER_IMAGE"

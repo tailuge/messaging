@@ -480,6 +480,12 @@ class RevealApp extends LitElement {
     const params = new URLSearchParams(window.location.search);
     const rawImage = params.get("image");
     if (!rawImage) return;
+    // The return URL is single-use: it identifies the completed picture and carries the
+    // whole-game replay state, so anyone it is copied to would be awarded the card. Strip
+    // both params from the address bar now — before the async thumbnail work and before
+    // persistence — so there is no window where the URL can be copied. Everything needed
+    // below is held in memory (params/match/state), not re-read from the URL.
+    this._stripReturnParams();
     let decoded;
     try {
       decoded = decodeURIComponent(rawImage);
@@ -495,8 +501,7 @@ class RevealApp extends LitElement {
       this._challenges.find((c) => decodeURIComponent(c.imageUrl) === decoded);
     if (!match) {
       console.log("reveal: ?image= did not match any challenge, ignoring", decoded.slice(0, 120));
-      // Strip params so refresh doesn't re-evaluate, but don't persist
-      this._stripReturnParams();
+      // Params already stripped — no card minted, nothing persisted
       return;
     }
     const id = idForChallenge(match);
@@ -505,7 +510,6 @@ class RevealApp extends LitElement {
     // Already completed? Move to front, refresh the replay state if one was returned
     if (this._completedIds.has(id)) {
       console.log("reveal: already completed", id);
-      this._stripReturnParams();
       const col = loadCollection();
       const idx = col.findIndex((e) => e.id === id);
       if (idx >= 0) {
@@ -528,7 +532,6 @@ class RevealApp extends LitElement {
       thumb = await imageToThumbDataUrl(match.imageUrl);
     } catch (e) {
       console.log("reveal: thumb generation failed, card stays unsolved", e);
-      this._stripReturnParams();
       return;
     }
     const entry = {
@@ -548,11 +551,10 @@ class RevealApp extends LitElement {
     saveCollection(col);
     this._collection = col;
     this._completedIds = new Set(col.map((e) => e.id));
-    this._stripReturnParams();
     this.requestUpdate();
   }
 
-  // Drop the return params so a refresh cannot re-award the card
+  // Drop the single-use return params so the URL cannot be copied or refreshed into a re-award
   _stripReturnParams() {
     const params = new URLSearchParams(window.location.search);
     params.delete("image");
