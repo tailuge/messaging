@@ -75,8 +75,8 @@ as the lobby does.
 
 **Below the fold (tight, semantic, crawlable):**
 
-3. Explanatory prose — `How to play` / `About Pot & Reveal` / `FAQ` / attribution. Concise (2–3
-   short paragraphs + 4–5 FAQ items) and kept vertically tight.
+3. Explanatory prose — `How to play` / `FAQ` / attribution, in **one** two-column panel (no `About`
+   section, no duplicate copy). 4 how-to steps + 5 short FAQs, kept vertically tight.
 4. Shared `site-links` footer (as in `arena.html`/`lobby.html`, outside `<reveal-app>` so crawlers
    see it).
 
@@ -103,27 +103,33 @@ The former `challenges.xml` design is **superseded**: the 47 seed entries are em
 
 ### 5.2 Build — same strategy as `lobby`
 
-`package.json:build:lit` already bundles reveal alongside lobby/arena and copies the page:
+`package.json:build:lit` bundles reveal alongside lobby/arena and emits it in the **directory form**
+`reveal/index.html` + `reveal/reveal.js`, which is exactly what the game returns to
+(`./reveal/index.html`):
 
 ```sh
-npx esbuild src/client/reveal/reveal.js --bundle --minify --outfile=docker/html/reveal.js
-cp src/client/reveal/index.html docker/html/reveal.html
+rm -f docker/html/reveal.html docker/html/reveal.js   # drop the old flat form
+npx esbuild src/client/reveal/reveal.js --bundle --minify --outfile=docker/html/reveal/reveal.js
+cp src/client/reveal/index.html docker/html/reveal/index.html
 ```
 
 Docker: `docker/Dockerfile` already `COPY html/ /usr/share/nginx/html/` and
-`location / { root …; index index.html; }` — no nginx change.
+`nginx location / { root …; index index.html; }` — no nginx change. `/reveal/index.html`, `/reveal/`
+(directory index) and `/reveal/reveal.js` all resolve.
 
-`crossdeploy` mirrors the same artifacts into the sister game repo `../billiards`:
+`crossdeploy` mirrors the same **directory form** into the sister game repo `../billiards`:
 
 ```sh
-npx esbuild src/client/reveal/reveal.js --bundle --minify --outfile=../billiards/dist/reveal.js
-cp src/client/reveal/index.html ../billiards/dist/reveal.html
+rm -f ../billiards/dist/reveal.html ../billiards/dist/reveal.js
+npx esbuild src/client/reveal/reveal.js --bundle --minify --outfile=../billiards/dist/reveal/reveal.js
+cp src/client/reveal/index.html ../billiards/dist/reveal/index.html
 ```
 
-> **Open item (§18.1):** the game's own return URL is `./reveal/index.html` (directory form), while
-> the build currently emits the flat `reveal.html`. One of the two must move before deploy — either
-> keep the flat page and change the game, or emit `reveal/index.html` + `reveal/reveal.js` and
-> adjust the page's relative links (`./lobby.html`, `../assets/…`). Not a `state`-contract issue.
+The page therefore lives one level below the site root, so its relative links are written for that
+depth: the scripts bundle is `reveal.js` (same directory), the icon/logo is `../assets/…`, and the
+header's lobby links are `../lobby.html` (they were `./lobby.html` while the page was flat). All
+targets are emitted by the same build, so `../assets/threecushion.png` and `../lobby.html` resolve in
+both `docker/html` and `../billiards/dist`.
 
 `.gitignore` (`docker/html/*`) means `docker/html` is ephemeral — acceptable while deployment flows
 through `crossdeploy` + Docker build.
@@ -214,9 +220,11 @@ Reuse the site's existing header chrome, not a bespoke one:
 - Typography: **Exo 200 throughout**; Google Fonts `wght@200;600`, `600` used for panel titles to
   keep hierarchy parity (`arena-view` uses the same split).
 - Why: crawlers and users see the same brand chrome as everywhere else, and dark mode comes free.
-- `<reveal-app>` renders the header inside shadow; the outer `index.html` still includes the same
+- `<reveal-app>` renders the header inside shadow; the outer `index.html` still includes the
   `<nav class="site-links">` footer outside the app (light DOM) as `arena.html`/`lobby.html` do for
   crawlers.
+- The explanatory prose is **not** rendered by the Lit app: it lives once in the light DOM (below),
+  styled by `index.html`'s own `<style>`. Rendering it in both places duplicated it on screen.
 
 ---
 
@@ -241,21 +249,26 @@ Reuse the site's existing header chrome, not a bespoke one:
 <body>
   <h1 hidden>Pot & Reveal — billiards picture-reveal game</h1>
   <reveal-app></reveal-app>
-  <!-- SEO fallback below the grid — real HTML, view-source/crawler visible, no JS needed -->
+  <!-- Explanatory prose below the grid — real HTML, view-source/crawler visible, no JS needed.
+       The single copy: <reveal-app> renders the grid above and no prose below. -->
   <section class="seo-fallback" aria-label="How to play and FAQ">
-    <h2>How to play</h2>
-    <ol>
-      <li>Choose a mystery picture.</li>
-      <li>Flip the card and tap Play.</li>
-      <li>Pot balls to progressively reveal the photograph.</li>
-      <li>Complete the challenge to keep the picture in your collection.</li>
-    </ol>
-    <h2>About Pot & Reveal</h2>
-    <p>Free online billiards that progressively reveals photographs as you play. Runs in the browser, no download.</p>
-    <h2>FAQ</h2>
-    <h3>What is Pot & Reveal?</h3><p>…</p>
-    <!-- 4–5 concise FAQs total -->
-    <p class="attribution">Images from <a href="https://commons.wikimedia.org/">Wikimedia Commons</a>, individually attributed on reveal.</p>
+    <div class="seo-grid">
+      <div class="seo-col">
+        <h2>How to play</h2>
+        <ol>
+          <li>Choose a mystery picture from the wall.</li>
+          <li>Tap the card to flip it, then press Play.</li>
+          <li>Pot balls in the billiards game to progressively reveal the photograph.</li>
+          <li>Complete the picture to keep it in your collection.</li>
+        </ol>
+      </div>
+      <div class="seo-col">
+        <h2>FAQ</h2>
+        <h3>What is Pot &amp; Reveal?</h3><p>…</p>
+        <!-- 5 concise FAQs total -->
+      </div>
+    </div>
+    <p class="attribution">Images from <a href="https://commons.wikimedia.org/">Wikimedia Commons</a>, individually attributed on the completed card.</p>
   </section>
   <!-- Hidden challenge data is embedded here as §6 (not rendered) -->
   <nav class="site-links" aria-label="Billiards pages">…as arena.html…</nav>
@@ -264,9 +277,13 @@ Reuse the site's existing header chrome, not a bespoke one:
 </html>
 ```
 
-`<reveal-app>` renders: sticky `topbar`, compact intro, dense `#card-grid` (from embedded data), the
-same SEO prose styled inside shadow, and a count line. The light-DOM `seo-fallback` ensures a no-JS
-crawl (view-source) sees the prose.
+`<reveal-app>` renders: sticky `topbar`, compact intro, dense `#card-grid` (from embedded data) and a
+count line — **no prose**. The light-DOM `seo-fallback` is the only copy of the explanatory text, so
+it is both what a no-JS crawl (view-source) sees and what the player sees.
+
+Its layout: `.seo-grid` is a panel (`--surface`/`--border`, 6px radius, tight padding) holding two
+columns — **How to play** on the left, **FAQ** below/right — collapsing to one column under 600px,
+with the attribution line under the panel. There is no `About Pot & Reveal` block.
 
 `<head>` extras: `og:title/description/image` (one static poster, not per-card), `twitter:card`,
 `og:type=website`, one `VideoGame` JSON-LD block adapted from `lobby.html`, `theme-color`,
@@ -288,29 +305,33 @@ crawl (view-source) sees the prose.
 
 ### 9.2 States
 
-**Mystery (unsolved):**
+The card is **one unit** — a single 3:4 flip card with a front face and a back face. There is no
+thumb strip, no caption row and no tick badge; the whole card is the grid cell, which keeps the wall
+dense.
 
-- No network image request. Visual `?` glyph in `var(--text-faint)`; name not shown on the card face
-  (preserves mystery).
-- A11y: card is a real `<button>` with `aria-label="Mystery picture — tap to reveal play"`. Keyboard:
-  Space/Enter flips.
+**Front face (no interaction target of its own):**
 
-**Flipped (play affordance):**
+- **Unsolved:** `?` glyph in `var(--text-faint)`. No network image request, name not shown (preserves
+  mystery).
+- **Solved:** the **locally stored thumbnail** (`data:` URL from `localStorage`, `object-fit: cover`,
+  no network).
 
-- Card flips on tap/click/keyboard to reveal a **Play** button (centered `▶` + "Play"). CSS-only
+**Back face (revealed by the flip):**
+
+- **Unsolved:** a centered **Play** button (`▶ Play`) that navigates to the game.
+- **Solved:** the card's name in the middle and **one action per corner** — **Wikipedia** top-left,
+  **Share** top-right, **Delete** bottom-left, **Replay** bottom-right (see §11).
+
+**Flipping:**
+
+- Tapping/clicking/keyboard on the card flips it, solved or not. CSS-only
   `transform: rotateY(180deg)` with `transform-style: preserve-3d; backface-visibility: hidden;
   transition: transform 220ms ease`. `prefers-reduced-motion` disables animation.
-- Interaction is **flip, then press Play** — not tap-twice on the card. Tapping/clicking elsewhere
-  does not launch.
-
-**Completed (kept picture):**
-
-- **Not flippable** — always shows its **locally stored thumbnail** (`data:` URL from
-  `localStorage`), no network.
-- Thumbnail + visible name underneath (`font-size: .72rem`, `white-space: nowrap; overflow: hidden;
-  text-overflow: ellipsis`) + small completed tick.
-- **Small edge icons on the card itself** (near edges to obscure minimal image): **Share**,
-  **Replay**, **Wikipedia**, **Delete**. No dialog — you explicitly asked for no modal.
+- Interaction is **flip, then press the button** — not tap-twice on the card. Action buttons call
+  `stopPropagation` so they neither flip the card back nor launch.
+- A11y: the card is a real `<button>` with `role="listitem"`, `aria-pressed` for the flip state, and
+  a state-dependent `aria-label` (`Mystery picture — tap to reveal play` / `<name> — completed, tap
+  for actions`). Keyboard: Space/Enter flips; the action buttons are separate tab stops.
 - Restrained visual transition (no confetti).
 
 ### 9.3 Negative / scope
@@ -458,18 +479,18 @@ ${BASE}?ruletype=reveal&state=<encodeURIComponent(state)>&image=<encodeURICompon
 
 ---
 
-## 11) Completed-card actions (icons on the card, no dialog)
+## 11) Completed-card actions (corner buttons on the flipped card, no dialog)
 
-A solved card always shows its thumbnail (not flippable) and exposes small icons on the card, near
-the edges, without overly obscuring the image:
+A solved card shows its thumbnail until flipped; the flip reveals the name and four small corner
+buttons (one per corner), so nothing obscures the picture and no dialog is needed:
 
 - **Share** — copies the card's **game replay link** (`_replayUrlFor(entry)`, i.e. the state-derived
   URL) via `navigator.clipboard.writeText`; falls back to logging for manual copy, and to the
   Wikipedia link only when no state exists. One reveal only; no whole-collection share.
 - **Replay** — opens the game replay link in a new tab (`window.open(url, "_blank", "noopener")`).
   Muted/disabled when the card has no `state` (cards completed before the state contract).
-- **Wikipedia** — opens `wikipediaUrl` (unobtrusive secondary action).
-- **Delete** — deferred hook. The affordance and `aria-label="Remove from collection"` exist, and
+- **Wikipedia** — opens `wikipediaUrl` (unobtrusive secondary action, top-left corner).
+- **Delete** — deferred hook (bottom-left corner, out of the way). The affordance and `aria-label="Remove from collection"` exist, and
   the `localStorage` API already supports `remove(id)`/`clear()`, but v1 renders the button with a
   log-only handler. You are still deciding between a **"new deck" button** (clear/reset when all
   entries are complete) and **per-card delete** to curate a favourite Pokémon-like collection. Spec
@@ -488,8 +509,9 @@ the edges, without overly obscuring the image:
   to match `arena-view`).
 - Tight vertical rhythm: `gap: 0.2–0.4rem`, section padding `.4rem` inside panel-like cards, no large
   hero/whitespace. Explanatory copy is deliberately **after** the collection.
-- Buttons reuse `SHARED_STYLES` treatments; the Play button is the primary action, edge icons are
-  small translucent overlays (`backdrop-filter: blur(2px)`).
+- Buttons reuse `SHARED_STYLES` treatments: the Play button is the primary action on the unsolved
+  back face; the solved back face uses four 22px `--surface`/`--border` corner buttons
+  (`.corner-tl/.corner-tr/.corner-bl/.corner-br`) so they never overlap the centred name.
 - `prefers-reduced-motion` disables flip; cards are real `<button>`s with `aria-pressed`/
   `aria-label`, keyboard operable (`Space`/`Enter`), focus rings via `button:focus-visible`.
 - Mobile: grid stays dense (no single-column wall), icons keep ≥22px tap targets, no dialog keeps
@@ -613,8 +635,9 @@ seeding beyond this list, no randomization.
 
 ## 18) Open items (not blocking v1)
 
-1. **Deploy path** — the game returns to `./reveal/index.html`, while the build emits the flat
-   `docker/html/reveal.html` / `../billiards/dist/reveal.html`. Pick one layout and align (§5.2).
+1. ~~**Deploy path**~~ — resolved: build and `crossdeploy` now emit the directory form
+   `reveal/index.html` + `reveal/reveal.js`, matching the game's `./reveal/index.html` return URL
+   (§5.2).
 2. **Delete vs new deck** — undecided; v1 ships both hooks (per-card Delete icon, New-deck button
    slot) with non-destructive/log-only handlers. Promote to real behaviour in a follow-up without
    layout change.
@@ -631,9 +654,11 @@ seeding beyond this list, no randomization.
 
 ## 19) Verification
 
-- `src/client/reveal/index.html` SEO prose is grep-visible in view-source without JS.
-- `npx esbuild src/client/reveal/reveal.js --bundle` succeeds; the bundle + page are served by nginx
-  `location /`.
+- `src/client/reveal/index.html` SEO prose is grep-visible in view-source without JS, and appears
+  exactly **once** on screen (the Lit app must not re-render it).
+- `npm run build:lit` emits `docker/html/reveal/index.html` + `docker/html/reveal/reveal.js` (and
+  removes the old flat pair); served by nginx `location /`, `/reveal/index.html`, `/reveal/` and
+  `/reveal/reveal.js` all answer 200, and the page's `../lobby.html` / `../assets/…` links resolve.
 - Return flow: opening `…/reveal/index.html?image=<encoded seed url>&state=<crushed state>` mints a
   card, stores `state` + a `replayUrl` of the form `${BASE}?ruletype=reveal&state=…&image=…`, and
   leaves the URL with both params stripped (refresh does not re-award).
@@ -641,7 +666,8 @@ seeding beyond this list, no randomization.
 - `npm run lint` + `npx oxfmt` / `npm run prettify` pass.
 - `npm run screenshot:iphone` / Playwright: header matches `arena.html` (logo + version + trophy +
   user-badge), grid is dense and tight, explanation sits below the grid, no visible duplicate list,
-  completed cards show thumb + edge icons without obscuring the image.
+  a solved card shows the picture on its front and the name + four corner buttons on its back, with
+  no tick badge and no caption row.
 
 ---
 
@@ -649,13 +675,13 @@ seeding beyond this list, no randomization.
 
 | Piece | State |
 |---|---|
-| `src/client/reveal/index.html` | Done — theme bootstrap, SEO prose in light DOM, hidden `<ul id="challenge-data">` (47 entries), site-links footer. |
-| `src/client/reveal/reveal.js` | Done — header islands, dense grid, flip→Play, completed cards (thumb + Share/Replay/Wikipedia/Delete edge icons), lobby presence, return handling, silent-failure logging. |
+| `src/client/reveal/index.html` | Done — theme bootstrap, single light-DOM prose panel (How to play + FAQ, two columns ≥600px), hidden `<ul id="challenge-data">` (47 entries), site-links footer. |
+| `src/client/reveal/reveal.js` | Done — header islands, dense grid; single flip card per entry (front: `?` or picture, back: Play, or name + Wikipedia/Share/Delete/Replay corner buttons); lobby presence, return handling, silent-failure logging. |
 | `revealGameUrl()` (`src/client/utils.js`) | Done. |
 | `revealReplayUrl({ imageUrl, state })` (`src/client/utils.js`) | Done — builds the game's replay link from the stored state. |
 | `?state=` persistence + replay link on the card | Done — stored in `reveal:collection`, derived link used by Replay/Share. |
 | Delete / new-deck behaviour | Hook only (see §11, §18.2). |
-| Deploy path (`reveal/index.html` vs `reveal.html`) | Open (§18.1). |
+| Deploy path (`reveal/index.html` + `reveal/reveal.js`) | Done — emitted by `build:lit` and `crossdeploy`; stale flat `reveal.html`/`reveal.js` removed by both. |
 
 ---
 

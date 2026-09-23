@@ -7,10 +7,11 @@ function logApi(message) {
     ngx.log(ngx.ERR, "API: " + message);
 }
 
+// Liveness test endpoint. Deliberately reports nothing about the environment
+// (it used to echo UPSTASH_URL).
 async function hello(r) {
-    const upstashUrl = process.env.UPSTASH_URL || "not set";
     r.headersOut['Content-Type'] = 'text/plain';
-    r.return(200, `hello world\nUPSTASH_URL: ${upstashUrl}\n`);
+    r.return(200, "hello\n");
 }
 
 const USAGE_KEYS = ["chineseUsage", "koreanUsage", "germanUsage", "turkishUsage", "vietnameseUsage", "japaneseUsage", "spanishUsage", "dutchUsage"];

@@ -252,7 +252,7 @@ class RevealApp extends LitElement {
           grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
         }
       }
-      /* Card — 3:4 aspect, two states: mystery flipping vs completed thumb */
+      /* Single 3:4 flip card — front shows '?' or the picture, back shows the actions */
       .card {
         position: relative;
         aspect-ratio: 3 / 4;
@@ -262,28 +262,19 @@ class RevealApp extends LitElement {
         background: var(--surface);
         padding: 0;
         cursor: pointer;
-        display: flex;
-        flex-direction: column;
         perspective: 600px;
+        font: inherit;
+        color: inherit;
       }
       .card:focus-visible {
         outline: 2px solid #007bff;
         outline-offset: 1px;
       }
-      /* Completed card: no perspective/flip, always thumb */
-      .card.completed {
-        perspective: none;
-        cursor: default;
-      }
-      .card.completed .flip-inner {
-        transform: none !important;
-      }
       .flip-inner {
-        flex: 1;
-        position: relative;
+        position: absolute;
+        inset: 0;
         transform-style: preserve-3d;
         transition: transform 220ms ease;
-        min-height: 0;
       }
       .card.is-flipped .flip-inner {
         transform: rotateY(180deg);
@@ -313,10 +304,30 @@ class RevealApp extends LitElement {
         font-weight: 200;
         line-height: 1;
       }
+      .face-front img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
       .face-back {
         background: var(--surface);
         transform: rotateY(180deg);
-        gap: 0.2rem;
+      }
+      /* Solved back face: name centred between the four corner buttons */
+      .back-name {
+        max-width: 100%;
+        box-sizing: border-box;
+        padding: 0 0.25rem;
+        font-size: 0.68rem;
+        line-height: 1.15;
+        color: var(--text);
+        text-align: center;
+        overflow-wrap: anywhere;
+        max-height: 3.4em;
+        overflow: hidden;
       }
       .play-btn {
         display: inline-flex;
@@ -340,56 +351,15 @@ class RevealApp extends LitElement {
         outline: 2px solid #007bff;
         outline-offset: 1px;
       }
-      /* Completed card body */
-      .thumb-wrap {
-        flex: 1;
-        min-height: 0;
-        width: 100%;
-        position: relative;
-        overflow: hidden;
-        background: #000;
-      }
-      .thumb-wrap img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-      }
-      .card-name {
-        font-size: 0.72rem;
-        color: var(--text);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        padding: 0.15rem 0.25rem;
-        text-align: center;
-        width: 100%;
-        box-sizing: border-box;
-        background: var(--surface);
-        border-top: 1px solid var(--border);
-      }
-      /* Edge icons on completed card — near edges to obscure minimal image */
-      .edge-actions {
+      /* One action button per corner of the flipped back face */
+      .corner-btn {
         position: absolute;
-        top: 2px;
-        right: 2px;
-        display: flex;
-        gap: 2px;
-      }
-      .edge-actions.bottom {
-        top: auto;
-        bottom: 2px;
-        right: 2px;
-        left: 2px;
-        justify-content: space-between;
-      }
-      .icon-btn {
         width: 22px;
         height: 22px;
         border-radius: 4px;
-        border: 1px solid rgba(255, 255, 255, 0.7);
-        background: rgba(0, 0, 0, 0.55);
-        color: #fff;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
         font-size: 0.65rem;
         display: inline-flex;
         align-items: center;
@@ -397,74 +367,35 @@ class RevealApp extends LitElement {
         cursor: pointer;
         padding: 0;
         line-height: 1;
-        backdrop-filter: blur(2px);
       }
-      .icon-btn:hover {
-        background: rgba(0, 0, 0, 0.75);
+      .corner-btn:hover {
+        background: var(--bg);
       }
-      .icon-btn:focus-visible {
-        outline: 2px solid #fff;
+      .corner-btn:focus-visible {
+        outline: 2px solid #007bff;
         outline-offset: 1px;
       }
-      .icon-btn[disabled] {
-        opacity: 0.45;
+      .corner-btn[disabled] {
+        opacity: 0.4;
         cursor: default;
       }
-      /* Completed tick overlay */
-      .tick {
-        position: absolute;
-        top: 2px;
-        left: 2px;
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        background: #198754;
-        color: #fff;
-        font-size: 0.65rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: 1px solid #fff;
+      .corner-tl {
+        top: 3px;
+        left: 3px;
       }
-      /* SEO prose dup inside shadow — styled like light-DOM fallback but tighter */
-      .seo {
-        padding: 0.35rem 0;
-        font-size: 0.78rem;
-        line-height: 1.5;
+      .corner-tr {
+        top: 3px;
+        right: 3px;
       }
-      .seo h2 {
-        font-size: 0.85rem;
-        font-weight: 600;
-        margin: 0.5rem 0 0.15rem;
-        color: var(--text-dim);
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
+      .corner-bl {
+        bottom: 3px;
+        left: 3px;
       }
-      .seo h3 {
-        font-size: 0.78rem;
-        font-weight: 600;
-        margin: 0.4rem 0 0.1rem;
+      .corner-br {
+        bottom: 3px;
+        right: 3px;
       }
-      .seo ol,
-      .seo ul {
-        margin: 0.15rem 0 0.35rem 1.1rem;
-        padding: 0;
-      }
-      .seo li {
-        margin-bottom: 0.12rem;
-      }
-      .seo a {
-        color: var(--link);
-        text-decoration: none;
-      }
-      .seo a:hover {
-        text-decoration: underline;
-      }
-      .seo .attribution {
-        font-size: 0.7rem;
-        color: var(--text-muted);
-        margin-top: 0.6rem;
-      }
+      /* The explanatory prose lives once, in the light DOM (index.html .seo-fallback). */
     `,
   ];
 
@@ -644,9 +575,9 @@ class RevealApp extends LitElement {
     );
   }
 
+  // Every card flips, solved or not: front is the picture (or '?'), back is the actions
   _onFlip(ch) {
     const id = idForChallenge(ch);
-    if (this._completedIds.has(id)) return;
     this._flippedId = this._flippedId === id ? null : id;
   }
 
@@ -700,81 +631,88 @@ class RevealApp extends LitElement {
   _renderCard(ch, completedEntry) {
     const id = idForChallenge(ch);
     const isCompleted = !!completedEntry;
-    const isFlipped = this._flippedId === id && !isCompleted;
+    const isFlipped = this._flippedId === id;
     const classes = ["card", isCompleted ? "completed" : "", isFlipped ? "is-flipped" : ""]
       .filter(Boolean)
       .join(" ");
-    if (isCompleted) {
-      const hasReplay = !!this._replayUrlFor(completedEntry);
-      return html`
-        <div class="${classes}" role="listitem" aria-label="${ch.name} — completed">
-          <div class="thumb-wrap">
-            <img src="${completedEntry.thumb}" alt="" loading="lazy" />
-            <span class="tick" aria-hidden="true">✓</span>
-            <div class="edge-actions">
-              <button
-                class="icon-btn"
-                title="Share"
-                aria-label="Share ${ch.name}"
-                @click=${(e) => this._onShare(e, ch)}
-              >
-                ⤴
-              </button>
-              <button
-                class="icon-btn"
-                title="View on Wikipedia"
-                aria-label="View ${ch.name} on Wikipedia"
-                @click=${(e) => {
-                  e.stopPropagation();
-                  window.open(ch.wikipediaUrl, "_blank", "noopener");
-                }}
-              >
-                ⓦ
-              </button>
-            </div>
-            <div class="edge-actions bottom">
-              <button
-                class="icon-btn"
-                title="Replay"
-                aria-label="Replay ${ch.name}"
-                ?disabled=${!hasReplay}
-                @click=${(e) => this._onReplay(e, ch)}
-              >
-                ▶
-              </button>
-              <button
-                class="icon-btn"
-                title="Remove from collection"
-                aria-label="Remove ${ch.name} from collection"
-                @click=${(e) => this._onDelete(e, ch)}
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-          <div class="card-name" title="${ch.name}">${ch.name}</div>
-        </div>
-      `;
-    }
+    const hasReplay = isCompleted && !!this._replayUrlFor(completedEntry);
+    const label = isCompleted
+      ? `${ch.name} — completed, tap for actions`
+      : "Mystery picture — tap to reveal play";
     return html`
       <button
         class="${classes}"
         role="listitem"
-        aria-label="Mystery picture — tap to reveal play"
+        aria-label="${label}"
         aria-pressed="${isFlipped ? "true" : "false"}"
+        title="${isCompleted ? ch.name : "Mystery picture"}"
         @click=${() => this._onFlip(ch)}
       >
         <div class="flip-inner">
-          <div class="face face-front"><span class="q" aria-hidden="true">?</span></div>
+          ${
+            isCompleted
+              ? html`<div class="face face-front">
+                  <img src="${completedEntry.thumb}" alt="" loading="lazy" />
+                </div>`
+              : html`<div class="face face-front"><span class="q" aria-hidden="true">?</span></div>`
+          }
           <div class="face face-back">
-            <button
-              class="play-btn"
-              type="button"
-              aria-label="Play ${ch.name}"
-              @click=${(e) => this._onPlay(e, ch)}
-            >
-              ▶ Play
-            </button>
+            ${
+              isCompleted
+                ? html`
+                    <span class="back-name">${ch.name}</span>
+                    <button
+                      class="corner-btn corner-tl"
+                      type="button"
+                      title="View on Wikipedia"
+                      aria-label="View ${ch.name} on Wikipedia"
+                      @click=${(e) => {
+                        e.stopPropagation();
+                        window.open(ch.wikipediaUrl, "_blank", "noopener");
+                      }}
+                    >
+                      ⓦ
+                    </button>
+                    <button
+                      class="corner-btn corner-tr"
+                      type="button"
+                      title="Share"
+                      aria-label="Share ${ch.name}"
+                      @click=${(e) => this._onShare(e, ch)}
+                    >
+                      ⤴
+                    </button>
+                    <button
+                      class="corner-btn corner-bl"
+                      type="button"
+                      title="Remove from collection"
+                      aria-label="Remove ${ch.name} from collection"
+                      @click=${(e) => this._onDelete(e, ch)}
+                    >
+                      ✕
+                    </button>
+                    <button
+                      class="corner-btn corner-br"
+                      type="button"
+                      title="Replay"
+                      aria-label="Replay ${ch.name}"
+                      ?disabled=${!hasReplay}
+                      @click=${(e) => this._onReplay(e, ch)}
+                    >
+                      ▶
+                    </button>
+                  `
+                : html`
+                    <button
+                      class="play-btn"
+                      type="button"
+                      aria-label="Play ${ch.name}"
+                      @click=${(e) => this._onPlay(e, ch)}
+                    >
+                      ▶ Play
+                    </button>
+                  `
+            }
           </div>
         </div>
       </button>
@@ -783,17 +721,16 @@ class RevealApp extends LitElement {
 
   render() {
     const completedById = new Map(this._collection.map((e) => [e.id, e]));
-    // Fixed XML order (source order), completed not separated — but thumb cards show where completed
-    // To make the collection feel like favourites wall, we keep source order; completed simply render as thumbs.
+    // Fixed source order — solved cards keep their grid position and simply show their picture.
     const challenges = this._challenges;
     return html`
       <div class="container">
         <header class="topbar">
-          <a href="./lobby.html" class="topbrand" aria-label="Billiards lobby"
+          <a href="../lobby.html" class="topbrand" aria-label="Billiards lobby"
             ><img src="../assets/threecushion.png" class="logo" alt=""
           /></a>
           <h1 class="title">
-            <a href="./lobby.html">Billiards</a
+            <a href="../lobby.html">Billiards</a
             ><a
               href="https://github.com/tailuge/billiards"
               target="_blank"
@@ -839,54 +776,6 @@ class RevealApp extends LitElement {
           </div>
         </section>
 
-        <section class="seo panel" aria-label="How to play and FAQ">
-          <h2>How to play</h2>
-          <ol>
-            <li>Choose a mystery picture from the wall.</li>
-            <li>Tap the card to flip it and press Play.</li>
-            <li>Pot balls in the billiards game to progressively reveal the photograph.</li>
-            <li>Complete the challenge to keep the picture in your collection of favourites.</li>
-          </ol>
-          <h2>About Pot &amp; Reveal</h2>
-          <p>
-            Pot &amp; Reveal is a free online billiards game where photographs are progressively
-            uncovered as you play. The game runs entirely in the browser with nothing to download —
-            realistic ball physics, spin and cushion behaviour reproduced in WebGL. Each picture can
-            be approached in any order; there is no daily order, streak or quota.
-          </p>
-          <p>
-            The page is part of the open-source tailuge/billiards project. It feels like the
-            existing lobby and arena, uses the same billiards engine, and reuses the same online
-            presence so other players can see you are online while you build your collection.
-          </p>
-          <h2>FAQ</h2>
-          <h3>What is Pot &amp; Reveal?</h3>
-          <p>
-            A free online billiards game where photographs are progressively uncovered as you play.
-          </p>
-          <h3>How are pictures revealed?</h3>
-          <p>
-            Each successful pot reveals another section of the hidden photograph. The more you pot,
-            the more of the image you see.
-          </p>
-          <h3>Do I need to download anything?</h3>
-          <p>No. The game runs directly in the web browser on desktop or mobile.</p>
-          <h3>Can I share a reveal?</h3>
-          <p>
-            Yes. Completed pictures keep a share and replay link. Sharing is for the individual
-            reveal, not the entire collection.
-          </p>
-          <h3>Is there a right order?</h3>
-          <p>
-            No. Pick any mystery card you like — the wall is in a fixed order; your solved
-            favourites stay with you and the rest remain mysteries until you solve them.
-          </p>
-          <p class="attribution">
-            Images from <a href="https://commons.wikimedia.org/">Wikimedia Commons</a> and linked
-            Wikipedia pages, individually attributed on the completed card. Played via the
-            tailuge/billiards engine.
-          </p>
-        </section>
       </div>
     `;
   }
