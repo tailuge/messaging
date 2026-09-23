@@ -14,14 +14,33 @@ async function hello(r) {
 }
 
 const USAGE_KEYS = ["chineseUsage", "koreanUsage", "germanUsage", "turkishUsage", "vietnameseUsage", "japaneseUsage", "spanishUsage", "dutchUsage"];
+const USAGE_METRIC_RE = /^[a-zA-Z0-9_-]+$/;
 
+// Records one occurrence of `metric` for today (UTC). Counters live in the same
+// Upstash sorted sets the scoreboard's usage dashboard reads: key
+// `<metric>Usage`, member `{"date":"YYYY-MM-DD"}`, score = running daily count.
 async function usage(r) {
     const match = r.uri.match(/^\/api\/usage\/(.+)$/);
     if (!match) return json(r, 400, { error: "Missing key" });
+    let metric;
+    try {
+        metric = decodeURIComponent(match[1]);
+    } catch (e) {
+        return json(r, 400, { error: "Invalid metric name" });
+    }
+    if (!USAGE_METRIC_RE.test(metric)) return json(r, 400, { error: "Invalid metric name" });
+
+    const date = new Date().toISOString().split("T")[0];
+    try {
+        await redis("ZINCRBY", metric + "Usage", "1", JSON.stringify({ date: date }));
+    } catch (e) {
+        logApi("usage increment failed key=" + metric + ": " + (e && e.message ? e.message : e));
+        return json(r, 502, { error: "Upstream error", message: e && e.message ? e.message : String(e) });
+    }
     return json(r, 200, {
         status: "success",
-        message: "usage recorded (noop)",
-        key: decodeURIComponent(match[1]),
+        message: "usage recorded",
+        key: metric,
         ts: Date.now()
     });
 }

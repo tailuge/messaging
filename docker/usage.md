@@ -77,11 +77,11 @@ Unknown metric (empty sorted set) returns `[]`, not an error — matches scorebo
 
 Anything except `GET`/`PUT` on `/api/usage/*` → `405`. Other `/api/*` paths keep the existing `404` router fallback.
 
-## Client Change (follow-up)
+## Client Change
 
-Point `src/client/logusage.js` at this deployment (relative URL when hosted here, absolute otherwise) so counts no longer depend on the Vercel app. Keep skipping localhost.
+`src/client/logusage.js` calls this deployment's `PUT /api/usage/{key}` via the shared absolute `API_BASE` from `src/client/utils.js` (`https://billiards-network.onrender.com`), so counts no longer depend on the Vercel app regardless of which origin serves the client. Still skips localhost/127.0.0.1.
 
-The Render free tier can be slow to wake/respond, so the client `PUT` should use a ~10s timeout:
+The Render free tier can be slow to wake/respond, so the client `PUT` would ideally use a ~10s timeout — not applied yet, because `AbortSignal.timeout` is unavailable on the older Safari versions in our browserslist and an unguarded call would throw before `fetch` runs:
 
 ```js
 fetch(url, { method: "PUT", mode: "cors", signal: AbortSignal.timeout(10_000) })
