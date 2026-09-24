@@ -496,6 +496,11 @@ ${BASE}?ruletype=reveal&state=<encodeURIComponent(state)>&image=<encodeURICompon
 - Target longest edge 160–200px (covers 2× DPR on an 84–100px card), WebP quality 0.6 → ~8–14 KB per
   card as a data URL.
 - Never store full-res source. Completed display uses only the local `thumb:` data URL.
+- **Pokémon-deck backdrop:** the artwork is a transparent PNG, so the canvas is first filled with a
+  radial wash of the card's own type colour (`.type-pill` palette, muted to a very dark tint —
+  water deep blue, fire deep red-brown) before the image is drawn over it. Without it the artwork
+  sits straight on `--surface`. The wash is baked in and therefore theme-independent, so it is dark
+  in light mode too; opaque kids-deck photos have no type and are unchanged.
 
 ### 10.5 `localStorage` schema — capped collection
 

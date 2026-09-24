@@ -216,7 +216,57 @@ function deckIdFromUrl() {
   return DECKS.find((d) => d.mode === wanted)?.id ?? null;
 }
 
-async function imageToThumbDataUrl(imageUrl, targetEdge = 180) {
+// Pokémon type colours. The .type-pill rules in the styles below are the same palette (the pills
+// paint these hexes); this copy exists because the thumbnail canvas is drawn outside CSS. Keep the
+// two tables in step.
+const POKE_TYPE_COLOURS = {
+  normal: "#9fa19f",
+  fire: "#e62829",
+  water: "#2980ef",
+  electric: "#fac000",
+  grass: "#3fa129",
+  ice: "#3dcef3",
+  fighting: "#ff8000",
+  poison: "#9141cb",
+  ground: "#915121",
+  flying: "#81b9ef",
+  psychic: "#ef4179",
+  bug: "#91a119",
+  rock: "#afa981",
+  ghost: "#704170",
+  dragon: "#5060e1",
+  dark: "#624d4e",
+  steel: "#60a1b8",
+  fairy: "#ef70ef",
+};
+
+// A very dark, low-saturation cut of a type colour, returned as the `h s% l%` half of an hsl()
+// colour. Pokémon artwork is a PNG with transparent margins, so with nothing behind it the card
+// surface shows through the picture. Filling that space with a wash of the card's own type keeps
+// the artwork sitting on its own colour — water reads as a deep blue, fire as a deep red-brown —
+// while staying dark enough not to compete with it.
+function typeWash(hex, saturation = 42, lightness = 22) {
+  const value = Number.parseInt(hex.replace("#", ""), 16);
+  const r = ((value >> 16) & 255) / 255;
+  const g = ((value >> 8) & 255) / 255;
+  const b = (value & 255) / 255;
+  const max = Math.max(r, g, b);
+  const chroma = max - Math.min(r, g, b);
+  let hue = 0;
+  if (chroma) {
+    if (max === r) hue = ((g - b) / chroma + 6) % 6;
+    else if (max === g) hue = (b - r) / chroma + 2;
+    else hue = (r - g) / chroma + 4;
+    hue *= 60;
+  }
+  // Scale the saturation by how colourful the type actually is. Several of the canonical colours
+  // are near-neutrals (normal is #9fa19f, a grey with a 2/255 red-to-green spread) and forcing 42%
+  // saturation on them turns a residual tint into a strong cast — normal would come out green.
+  const colourful = Math.min(1, chroma / 0.35);
+  return `${hue.toFixed(1)} ${(saturation * colourful).toFixed(1)}% ${lightness}%`;
+}
+
+async function imageToThumbDataUrl(imageUrl, { targetEdge = 180, type = "" } = {}) {
   // Fetch the image as a blob with CORS, draw to canvas, export WebP
   const img = new Image();
   img.crossOrigin = "anonymous";
@@ -237,6 +287,25 @@ async function imageToThumbDataUrl(imageUrl, targetEdge = 180) {
   canvas.height = h;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("no 2d context");
+  // Backdrop first, so transparent artwork is composited on top of it. Kids-deck photos are
+  // opaque and have no type, so they take the plain canvas as before.
+  const wash = POKE_TYPE_COLOURS[type];
+  if (wash) {
+    const gradient = ctx.createRadialGradient(
+      w / 2,
+      h / 2,
+      0,
+      w / 2,
+      h / 2,
+      Math.hypot(w, h) / 2,
+    );
+    // Brightest (such as it is) at the centre behind the subject, falling darker at the corners so
+    // the card keeps the deck's dark look at its edges.
+    gradient.addColorStop(0, `hsl(${typeWash(wash)})`);
+    gradient.addColorStop(1, `hsl(${typeWash(wash, 32, 8)})`);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, w, h);
+  }
   ctx.drawImage(loaded, 0, 0, w, h);
   // Prefer webp, fall back to jpeg if unsupported or tainted
   let dataUrl;
@@ -954,7 +1023,7 @@ class RevealApp extends LitElement {
     // Generate thumb, persist
     let thumb = "";
     try {
-      thumb = await imageToThumbDataUrl(match.imageUrl);
+      thumb = await imageToThumbDataUrl(match.imageUrl, { type: match.pokeType });
     } catch (e) {
       console.log("reveal: thumb generation failed, card stays unsolved", e);
       return;

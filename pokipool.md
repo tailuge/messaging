@@ -163,8 +163,13 @@ is the `?` glyph, not a network request (`reveal-spec.md` §9.2).
 - **Use `sprites.other["official-artwork"].front_default`** (475×475 PNG). The reveal metaphor needs
   an image worth uncovering; a 96×96 pixel sprite (§3) cannot be progressively revealed.
 - The existing thumbnail path (`imageToThumbDataUrl` → 180 px longest edge → WebP 0.6 → data URL)
-  needs **no change**: `raw.githubusercontent.com` sends `access-control-allow-origin: *` (verified),
-  so the canvas stays untainted and `toDataURL` still succeeds.
+  needs no change to its fetch/CORS handling: `raw.githubusercontent.com` sends
+  `access-control-allow-origin: *` (verified), so the canvas stays untainted and `toDataURL` still
+  succeeds. It does now take the card's type (`{ type: match.pokeType }`) and fill the canvas with a
+  dark muted radial wash of that type's colour — water reads deep blue, fire deep red-brown — before
+  drawing the artwork over it, so the transparent PNG sits on a backdrop of its own colour instead
+  of on `--surface`. Because the wash is baked into the thumb it is theme-independent (dark in light
+  mode as well); the kids deck has no type and keeps the plain canvas.
 - **Transparency and aspect ratio are the visible difference.** Artwork is square with transparent
   margins, while the card is 3:4 and `.face-front img` currently uses `object-fit: cover`. Cover will
   crop the artwork's edges and can leave the transparent area showing the card surface behind it.
