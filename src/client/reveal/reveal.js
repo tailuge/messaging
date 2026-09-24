@@ -85,18 +85,28 @@ function hashSeed(s) {
  */
 function postProcessChallenges(challenges) {
   if (!challenges.length) return challenges;
-  // Seeded shuffle — Fisher-Yates with mulberry32
+  // 1. Order deck easy to hard by original rating (data-rating in DOM)
+  const sorted = challenges.slice().sort((a, b) => a.rating - b.rating);
+  const n = sorted.length;
+  const processed = sorted.map((ch, i) => {
+    const normRating = (i + 1) / n;
+    const reds = Math.max(1, Math.round(normRating * 32));
+    const stars = Math.min(5, Math.max(1, Math.ceil(normRating * 5)));
+    return {
+      ...ch,
+      normRating,
+      reds,
+      stars,
+      rankRating: normRating,
+    };
+  });
+  // 2. Present deck in deterministically shuffled order
   const rand = mulberry32(hashSeed(challenges[0].imageUrl));
-  const arr = challenges.slice();
-  for (let i = arr.length - 1; i > 0; i--) {
+  for (let i = processed.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+    [processed[i], processed[j]] = [processed[j], processed[i]];
   }
-  // Even rank distribution: hardest card (highest original rating) → rankRating 1,
-  // easiest → rankRating 1/n. Sort a copy by original rating desc, then map rank.
-  const byRating = arr.slice().sort((a, b) => b.rating - a.rating);
-  const rankMap = new Map(byRating.map((ch, i) => [ch.id, (i + 1) / arr.length]));
-  return arr.map((ch) => ({ ...ch, rankRating: rankMap.get(ch.id) ?? ch.rating }));
+  return processed;
 }
 
 
@@ -410,13 +420,13 @@ class RevealApp extends LitElement {
       /* Dense card grid — the central element */
       .card-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(max(84px, calc((100% - 42px) / 8)), 1fr));
         /* Just wide enough for the card shadows to read between neighbours */
         gap: 6px;
       }
       @media (width <= 380px) {
         .card-grid {
-          grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(max(76px, calc((100% - 35px) / 8)), 1fr));
           gap: 5px;
         }
       }
@@ -521,10 +531,10 @@ class RevealApp extends LitElement {
       /* ── Pokémon type / nature hint pills ─────────────────────────────── */
       .poke-pills {
         display: flex;
-        gap: 0.2rem;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.15rem;
         margin-top: 0.28rem;
-        flex-wrap: wrap;
-        justify-content: center;
         z-index: 1;
       }
       .type-pill {
@@ -751,12 +761,11 @@ class RevealApp extends LitElement {
   // so a picture completed in one is still completed when you come back to it.
   _setDeck(id) {
     const deck = DECKS.find((d) => d.id === id) ?? DECKS[0];
+    saveDeckId(deck.id);
     if (deck.id !== this._deckId || !this._challenges.length) {
       this._deckId = deck.id;
       this._challenges = postProcessChallenges(readChallengesFromDOM(deck.dataId));
-
       this._flippedId = null;
-      saveDeckId(deck.id);
     }
     this.requestUpdate();
   }
@@ -928,7 +937,8 @@ class RevealApp extends LitElement {
       userName: userStore.userName,
       lod: userStore.lod,
       flip: userStore.flip,
-      rating: ch.rankRating ?? ch.rating,
+      rating: ch.normRating ?? ch.rankRating ?? ch.rating,
+      stars: ch.stars,
       custom: userStore.getCustom(),
     });
     window.location.href = url;
@@ -1004,10 +1014,10 @@ class RevealApp extends LitElement {
       .filter(Boolean)
       .join(" ");
     const hasReplay = isCompleted && !!this._replayUrlFor(completedEntry);
-    const rating = Math.min(5, Math.max(1, Math.round((ch.rankRating ?? ch.rating) * 5)));
+    const stars = ch.stars ?? Math.min(5, Math.max(1, Math.ceil((ch.normRating ?? ch.rating) * 5)));
     const label = isCompleted
       ? `${ch.name} — completed, tap for actions`
-      : `Mystery picture — ${rating} star rating, tap to reveal play`;
+      : `Mystery picture — ${stars} star rating, tap to reveal play`;
     return html`
       <button
         class="${classes}"
@@ -1025,8 +1035,8 @@ class RevealApp extends LitElement {
                 </div>`
               : html`<div class="face face-front">
                   <span class="q" aria-hidden="true">?</span>
-                  <span class="rating" role="img" aria-label="${rating} out of 5 stars"
-                    >${"★".repeat(rating)}</span
+                  <span class="rating" role="img" aria-label="${stars} out of 5 stars"
+                    >${"★".repeat(stars)}</span
                   >
                   ${ch.pokeType
                     ? html`<div class="poke-pills" aria-hidden="true">
