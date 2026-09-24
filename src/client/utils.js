@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 1116;
+export const CLIENTVERSION = 1118;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -276,6 +276,33 @@ export const revealReplayUrl = ({ imageUrl, state }) => {
     let url = `${BASE}?ruletype=reveal&state=${encodeURIComponent(state)}`;
     if (imageUrl) url += `&image=${encodeURIComponent(imageUrl)}`;
     return url;
+};
+
+// Share a link the same way the settings panel does: hand off to the OS share sheet on mobile,
+// otherwise copy to the clipboard. Resolves to 'shared', 'copied' or 'dismissed' so the caller
+// can show its own feedback.
+export const shareOrCopy = (url, title = document.title) =>
+    navigator.share && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+        ? navigator.share({ title, url }).then(() => 'shared').catch(() => 'dismissed')
+        : navigator.clipboard.writeText(url).then(() => 'copied').catch(() => 'dismissed');
+
+// Ask the scoreboard shortener (same service as ../billiards/src/utils/shorten.ts) for a short
+// link. It stores the query string and re-attaches it to the billiards game host, so pass a
+// game URL (?ruletype=…&state=…). Falls back to `url` when the call fails.
+export const shortenUrl = async (url) => {
+    try {
+        const response = await fetch(`${SCOREBOARD_URL}/api/shorten`, {
+            method: 'POST',
+            mode: 'cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ input: new URL(url).search }),
+        });
+        const data = await response.json();
+        return data.shortUrl || url;
+    } catch (e) {
+        console.error('reveal: could not shorten url', url, e);
+        return url;
+    }
 };
 
 const RULE_ASSETS = { eightball: 'eightball', snooker: 'snooker', threecushion: 'threecushion', nineball: 'nineball', sagu: 'sagu' };

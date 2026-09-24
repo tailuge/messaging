@@ -2,7 +2,15 @@ import { LitElement, html, css } from "lit";
 import { MessagingClient } from "../../index.ts";
 import { THEME_VARS, SHARED_STYLES } from "../styles.js";
 import { userStore } from "../user-store.js";
-import { revealGameUrl, revealReplayUrl, formatVersion, CLIENTVERSION, NCHANBASE } from "../utils.js";
+import {
+  revealGameUrl,
+  revealReplayUrl,
+  shortenUrl,
+  shareOrCopy,
+  formatVersion,
+  CLIENTVERSION,
+  NCHANBASE,
+} from "../utils.js";
 import "../user-badge.js";
 import "../trophy.js";
 import "../settings-modal.js";
@@ -331,6 +339,8 @@ class RevealApp extends LitElement {
   static properties = {
     _theme: { type: String, reflect: true, attribute: "theme" },
     _flippedId: { state: true },
+    _sharingId: { state: true },
+    _sharedId: { state: true },
     _completedIds: { state: true },
     _removedIds: { state: true },
     _collection: { state: true },
@@ -830,6 +840,15 @@ class RevealApp extends LitElement {
         opacity: 0.4;
         cursor: default;
       }
+      /* Share confirmed: the button tints and shows a tick for two seconds */
+      .corner-btn.shared {
+        border-color: #198754;
+        color: #198754;
+      }
+      .shared-tick {
+        font-size: 0.8rem;
+        line-height: 1;
+      }
       /* Inline SVG glyphs (no icon font) sit on the button's own text colour */
       .corner-btn svg {
         width: 13px;
@@ -1111,19 +1130,23 @@ class RevealApp extends LitElement {
     window.location.href = url;
   }
 
-  _onShare(e, ch) {
+  async _onShare(e, ch) {
     e.stopPropagation();
-    // Sharing a reveal shares the game replay link (state included), not the collection
-    const shareUrl = this._replayUrlFor(this._entryFor(ch)) || ch.wikipediaUrl || ch.imageUrl;
-    if (!shareUrl) return;
-    // Prefer clipboard, fall back to logging for manual copy
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard
-        .writeText(shareUrl)
-        .catch(() => console.log("reveal: clipboard write failed"));
-    } else {
-      console.log("reveal: share", shareUrl);
-    }
+    // Share the card's game replay, built like ../billiards does: ruletype + state only, no
+    // image/wiki params. Nothing to share without a state, so the button no-ops.
+    const state = this._entryFor(ch)?.state;
+    if (!state) return;
+    const id = idForChallenge(ch);
+    this._sharingId = id;
+    const shortUrl = await shortenUrl(revealReplayUrl({ state }));
+    this._sharingId = null;
+    // Mobile hands off to the OS share sheet (no feedback needed), desktop copies to clipboard
+    const result = await shareOrCopy(shortUrl);
+    if (result !== "copied") return;
+    this._sharedId = id;
+    setTimeout(() => {
+      this._sharedId = null;
+    }, 2000);
   }
 
   _onReplay(e, ch) {
@@ -1239,17 +1262,22 @@ class RevealApp extends LitElement {
                       >${ch.name}</a
                     >
                     <button
-                      class="corner-btn corner-tr"
+                      class="corner-btn corner-tr ${this._sharedId === id ? "shared" : ""}"
                       type="button"
                       title="Share"
                       aria-label="Share ${ch.name}"
+                      ?disabled=${this._sharingId === id}
                       @click=${(e) => this._onShare(e, ch)}
                     >
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path
-                          d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"
-                        />
-                      </svg>
+                      ${
+                        this._sharedId === id
+                          ? html`<span class="shared-tick" aria-hidden="true">✓</span>`
+                          : html`<svg viewBox="0 0 24 24" aria-hidden="true">
+                              <path
+                                d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"
+                              />
+                            </svg>`
+                      }
                     </button>
                     <button
                       class="corner-btn corner-bl"
