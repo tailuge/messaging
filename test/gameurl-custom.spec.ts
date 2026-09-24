@@ -1,6 +1,6 @@
-import { gameUrl, soloUrl } from "../src/client/utils.js";
+import { gameUrl, revealGameUrl, soloUrl } from "../src/client/utils.js";
 
-// lit is ESM-only and unused by gameUrl — stub it out.
+// lit is ESM-only and unused by the URL helpers — stub it out.
 jest.mock("lit", () => ({
     html: (strings: any, ..._values: any[]) => strings[0],
     css: (strings: any, ..._values: any[]) => strings[0],
@@ -72,6 +72,27 @@ describe("gameUrl custom flattening", () => {
         expect(param(url, "custom.cue.colour")).toBe("red");
         expect(param(url, "custom.cue.length")).toBeNull();
         expect(param(url, "custom.cue.tip")).toBeNull();
+    });
+});
+
+describe("revealGameUrl rating", () => {
+    const build = (rating: number) => revealGameUrl({
+        imageUrl: "https://example.com/image.jpg",
+        userId: "alice",
+        userName: "Alice",
+        lod: 2,
+        rating,
+    } as any);
+
+    it("converts the rating to a whole number of reds", () => {
+        expect(param(build(0.0313), "reds")).toBe("1");
+        expect(param(build(0.5278), "reds")).toBe("16");
+        expect(param(build(1), "reds")).toBe("32");
+    });
+
+    it("clamps ratings to the supported 0–1 range", () => {
+        expect(param(build(-1), "reds")).toBe("0");
+        expect(param(build(2), "reds")).toBe("32");
     });
 });
 

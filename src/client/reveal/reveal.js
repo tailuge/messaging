@@ -32,11 +32,14 @@ function readChallengesFromDOM() {
       const imageUrl = a.getAttribute("data-image") || "";
       // Respect both &amp; in HTML and raw &
       const wikipediaUrl = a.getAttribute("href") || "";
+      const rawRating = Number.parseFloat(a.getAttribute("data-rating") || "");
+      const rating = Number.isFinite(rawRating) ? Math.min(1, Math.max(0, rawRating)) : 0;
       // href may be empty if anchor is malformed
       return {
         name,
         imageUrl: imageUrl.trim(),
         wikipediaUrl: wikipediaUrl.trim(),
+        rating,
         id: slugify(name),
       };
     })
@@ -393,6 +396,16 @@ class RevealApp extends LitElement {
         line-height: 1;
         text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
       }
+      .rating {
+        margin-top: 0.2rem;
+        color: #f5c451;
+        font-size: 0.62rem;
+        line-height: 1;
+        letter-spacing: 0.04rem;
+        white-space: nowrap;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+        z-index: 1;
+      }
       .face-front img {
         position: absolute;
         inset: 0;
@@ -714,6 +727,7 @@ class RevealApp extends LitElement {
       userName: userStore.userName,
       lod: userStore.lod,
       flip: userStore.flip,
+      rating: ch.rating,
       custom: userStore.getCustom(),
     });
     window.location.href = url;
@@ -789,9 +803,10 @@ class RevealApp extends LitElement {
       .filter(Boolean)
       .join(" ");
     const hasReplay = isCompleted && !!this._replayUrlFor(completedEntry);
+    const rating = Math.min(5, Math.max(1, Math.round(ch.rating * 5)));
     const label = isCompleted
       ? `${ch.name} — completed, tap for actions`
-      : "Mystery picture — tap to reveal play";
+      : `Mystery picture — ${rating} star rating, tap to reveal play`;
     return html`
       <button
         class="${classes}"
@@ -807,7 +822,12 @@ class RevealApp extends LitElement {
               ? html`<div class="face face-front">
                   <img src="${completedEntry.thumb}" alt="" loading="lazy" />
                 </div>`
-              : html`<div class="face face-front"><span class="q" aria-hidden="true">?</span></div>`
+              : html`<div class="face face-front">
+                  <span class="q" aria-hidden="true">?</span>
+                  <span class="rating" role="img" aria-label="${rating} out of 5 stars"
+                    >${"★".repeat(rating)}</span
+                  >
+                </div>`
           }
           <div class="face face-back">
             ${

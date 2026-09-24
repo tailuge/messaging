@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 1096;
+export const CLIENTVERSION = 1098;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -241,8 +241,10 @@ export const spectateUrl = ({ tableId, userId, userName, ruleType, options }) =>
     return appendOptions(url, options);
 };
 
-export const revealGameUrl = ({ imageUrl, userId, userName, lod, flip, custom }) => {
-    let url = `${BASE}?ruletype=reveal&image=${encodeURIComponent(imageUrl)}&userId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}&lod=${lod}`;
+export const revealGameUrl = ({ imageUrl, userId, userName, lod, flip, rating, custom }) => {
+    const normalizedRating = Math.min(1, Math.max(0, Number.isFinite(rating) ? rating : 0));
+    const reds = Math.floor(normalizedRating * 32);
+    let url = `${BASE}?ruletype=reveal&image=${encodeURIComponent(imageUrl)}&userId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}&lod=${lod}&reds=${reds}`;
     if (_localhost) url += `&lobbyUrl=${WS_SERVER}`;
     if (flip) url += '&flip=true';
     url = appendCustom(url, custom, 'custom');
