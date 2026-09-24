@@ -76,23 +76,46 @@ describe("gameUrl custom flattening", () => {
 });
 
 describe("revealGameUrl rating", () => {
-    const build = (rating: number) => revealGameUrl({
+    const build = (rating: number, stars?: number) => revealGameUrl({
         imageUrl: "https://example.com/image.jpg",
         userId: "alice",
         userName: "Alice",
         lod: 2,
         rating,
+        stars,
     } as any);
 
     it("converts the rating to a whole number of reds", () => {
-        expect(param(build(0.0313), "reds")).toBe("1");
-        expect(param(build(0.5278), "reds")).toBe("16");
+        expect(param(build(0.03125), "reds")).toBe("1");
+        expect(param(build(0.5), "reds")).toBe("16");
         expect(param(build(1), "reds")).toBe("32");
     });
 
     it("clamps ratings to the supported 0–1 range", () => {
-        expect(param(build(-1), "reds")).toBe("0");
+        expect(param(build(-1), "reds")).toBe("1");
         expect(param(build(2), "reds")).toBe("32");
+    });
+
+    it("appends extra query params depending on star rating", () => {
+        const url1 = build(1 / 32, 1);
+        expect(param(url1, "tableSize")).toBe("6");
+        expect(param(url1, "freeaim")).toBeNull();
+
+        const url2 = build(7 / 32, 2);
+        expect(param(url2, "tableSize")).toBe("6");
+        expect(param(url2, "freeaim")).toBe("true");
+
+        const url3 = build(13 / 32, 3);
+        expect(param(url3, "tableSize")).toBeNull();
+        expect(param(url3, "freeaim")).toBeNull();
+
+        const url4 = build(20 / 32, 4);
+        expect(param(url4, "tableSize")).toBeNull();
+        expect(param(url4, "freeaim")).toBeNull();
+
+        const url5 = build(32 / 32, 5);
+        expect(param(url5, "tableSize")).toBeNull();
+        expect(param(url5, "freeaim")).toBe("true");
     });
 });
 

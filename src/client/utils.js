@@ -241,10 +241,18 @@ export const spectateUrl = ({ tableId, userId, userName, ruleType, options }) =>
     return appendOptions(url, options);
 };
 
-export const revealGameUrl = ({ imageUrl, userId, userName, lod, flip, rating, custom }) => {
+export const revealGameUrl = ({ imageUrl, userId, userName, lod, flip, rating, stars, custom }) => {
     const normalizedRating = Math.min(1, Math.max(0, Number.isFinite(rating) ? rating : 0));
-    const reds = Math.floor(normalizedRating * 32);
+    const reds = Math.max(1, Math.round(normalizedRating * 32));
+    const starRating = stars ?? Math.min(5, Math.max(1, Math.ceil(normalizedRating * 5)));
     let url = `${BASE}?ruletype=reveal&image=${encodeURIComponent(imageUrl)}&userId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}&lod=${lod}&reds=${reds}`;
+    if (starRating === 1) {
+        url += '&tableSize=6';
+    } else if (starRating === 2) {
+        url += '&tableSize=6&freeaim=true';
+    } else if (starRating === 5) {
+        url += '&freeaim=true';
+    }
     if (_localhost) url += `&lobbyUrl=${WS_SERVER}`;
     if (flip) url += '&flip=true';
     url = appendCustom(url, custom, 'custom');
