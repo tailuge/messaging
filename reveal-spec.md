@@ -204,15 +204,24 @@ the names in order only. Each entry carries `name`, `imageUrl` (includes `utm_*`
 The page offers more than one deck from a button pair on the title row (so offering the choice costs
 **no extra vertical height**):
 
-| Deck | Button | Data list | On-page title |
-|---|---|---|---|
-| K-idols (default) | `K-idols` | `<ul id="challenge-data">` (47 entries) | `Pot & Reveal` |
-| Pokemon (placeholder) | `Pokemon` | `<ul id="pokemon-data">` (one sample entry) | `PokePot` |
+| Deck | Button | `?mode=` | Data list | On-page title |
+|---|---|---|---|---|
+| K-idols (default) | `K-idols` | `k-idols` | `<ul id="challenge-data">` (47 entries) | `Pot & Reveal` |
+| Pokemon (placeholder) | `Pokemon` | `pokepot` | `<ul id="pokemon-data">` (one sample entry) | `PokePot` |
 
 - `DECKS` in `reveal.js` is the only place a deck is declared (`id`, button `label`, on-page
-  `title`, `dataId`); a deck is added by appending to that array plus its hidden `<ul>`.
+  `title`, `mode` alias, `dataId`); a deck is added by appending to that array plus its hidden
+  `<ul>`.
 - The chosen deck is remembered in `reveal:deck`, so a game launched from a deck returns to that
   deck's wall; `loadDeckId` ignores an unknown id and falls back to the first deck.
+- `?mode=<alias>` opens the page straight onto that deck —
+  `…/reveal/index.html?mode=pokepot` — so a shared link can pick one. It is matched
+  case-insensitively against the alias; an absent or unknown value falls back to the remembered
+  deck rather than erroring. The override is **view-only and never saved**: following someone's link
+  must not change the deck your own visits start on.
+- Because of that, choosing a deck (button press, or an `?image=` return that lands on another deck)
+  also drops a `?mode=` naming a *different* deck from the address bar: otherwise the next reload
+  would snap back to the linked deck instead of the one just chosen.
 - The collection and deleted-ids stay **shared by all decks** (one `reveal:collection`, one
   `reveal:removed`): a picture completed in one deck is still completed when you switch back, and
   `Reset deck` clears progress for every deck.
@@ -274,7 +283,7 @@ Reuse the site's existing header chrome, not a bespoke one:
 </head>
 <body>
   <h1 hidden>Pot & Reveal — billiards picture-reveal game</h1>
-  <reveal-app></reveal-app>
+  <main><reveal-app></reveal-app></main>
   <!-- Explanatory prose below the grid — real HTML, view-source/crawler visible, no JS needed.
        The single copy: <reveal-app> renders the grid above and no prose below. -->
   <section class="seo-fallback" aria-label="How to play and FAQ">
@@ -360,10 +369,16 @@ dense.
   transition: transform 220ms ease`. `prefers-reduced-motion` disables animation.
 - Interaction is **flip, then press the button** — not tap-twice on the card. Action buttons call
   `stopPropagation` so they neither flip the card back nor launch.
-- A11y: the card is a real `<button>` with `role="listitem"`, `aria-pressed` for the flip state, and
-  a state-dependent `aria-label` (`Mystery picture — tap to reveal play` / `<name> — completed, tap
-  for actions`). Keyboard: Space/Enter flips; the action buttons and the name link are separate tab
-  stops. `stopPropagation` on the name link keeps it from flipping the card.
+- A11y: the card is a real `<button>` with `role="button"`, `aria-pressed` for the flip state, and
+  a state-dependent `aria-label` (`Mystery picture — <type> <nature> — play to reveal, <n> star
+  rating, tap to flip` / `<name> — completed, tap for actions`).
+- The type/nature hints sit in the label **immediately before "play"**, not tacked on at the end:
+  WCAG 2.5.3 (axe `label-content-name-mismatch`) requires the card's visible words to form a
+  *contiguous* run inside the accessible name, and the pills are rendered above the Play button. A
+  word wedged between them ("…Adamant — 4 star rating… play") fails the check. The label repeats
+  the pill's first-word-only nature, from the same variable, so the two cannot drift apart.
+- Keyboard: Space/Enter flips; the action buttons and the name link are separate tab stops.
+  `stopPropagation` on the name link keeps it from flipping the card.
 - Restrained visual transition (no confetti).
 
 ### 9.3 Negative / scope
@@ -434,8 +449,9 @@ Algorithm on load (`reveal.js` → `_handleReturnParam()`):
    `<canvas>` at small size, export `canvas.toDataURL('image/webp', 0.6)` (fallback `image/jpeg`).6. Persist the completed card including the verbatim `state` (§10.5). On any failure (fetch error,
      taint, quota) → **return the card to unsolved** (do not persist), `console.log` the cause, **no
      fuss, no user-visible notification**.
-7. `history.replaceState` to strip `?image=` **and** `?state=`. This happens **up front**, as soon
-     as the two params have been read (steps 1–3) and before the fetch/canvas work of steps 4–6:
+7. `history.replaceState` to strip the **entire query string** — `?image=`, `?state=` and anything
+     else that rode along. This happens **up front**, as soon as the params have been read (steps
+     1–3) and before the fetch/canvas work of steps 4–6:
      the return URL is single-use and copyable, so it must not sit in the address bar during the
      async thumbnail generation (or indefinitely, if that image request never settles). Everything
      the later steps need is held in memory, so stripping first does not affect whether the card is
@@ -735,9 +751,9 @@ seeding beyond this list, no randomization.
   `/reveal/reveal.js` all answer 200, and the page's `../lobby.html` / `../assets/…` links resolve.
 - Return flow: opening `…/reveal/index.html?image=<encoded seed url>&state=<crushed state>` mints a
   card, stores `state` + a `replayUrl` of the form `${BASE}?ruletype=reveal&state=…&image=…`, and
-  clears both params from the address bar immediately (before the card is minted), so the URL is
-  never there to copy and refresh does not re-award. A `?image=` that matches no seed entry is also
-  stripped.
+  clears the whole query string from the address bar immediately (before the card is minted), so the
+  URL is never there to copy and refresh does not re-award. A `?image=` that matches no seed entry
+  is also stripped.
 - Replay opens that link; Share copies it.
 - **Delete** on a solved card removes that tile from the wall immediately, the following cards reflow
   into the gap, and a reload keeps it deleted (`reveal:removed`) — the collection entry is gone too.

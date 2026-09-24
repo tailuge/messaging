@@ -58,11 +58,11 @@ export const THEME_VARS = css`
 `;
 
 export const FONT_STYLES = css`
-    :host { font-family: 'Exo', sans-serif; font-weight: 200; }
+    :host { font-family: 'Exo', 'Exo Fallback', sans-serif; font-weight: 200; }
 `;
 
 export const SHARED_STYLES = css`
-    :host { font-family: 'Exo', sans-serif; font-weight: 200; }
+    :host { font-family: 'Exo', 'Exo Fallback', sans-serif; font-weight: 200; }
     button { cursor: pointer; padding: 0.15rem 0.2rem; border: 1px solid var(--btn-border); border-radius: 4px; background: var(--btn-bg); color: var(--text); font: inherit; font-size: 0.75rem; transition: background-color 0.2s, opacity 0.2s; min-width: 24px; min-height: 24px; }
     button:hover { background-color: var(--btn-hover); }
     button:active { background-color: var(--btn-active); }
@@ -230,7 +230,7 @@ export const BADGE_STYLES = css`
 `;
 
 export const USER_BADGE_STYLES = css`
-    :host { display: inline-flex; align-items: center; align-self: center; font-family: 'Exo', sans-serif; font-weight: 200; min-width: 0; overflow: hidden; }
+    :host { display: inline-flex; align-items: center; align-self: center; font-family: 'Exo', 'Exo Fallback', sans-serif; font-weight: 200; min-width: 0; overflow: hidden; }
     .badge {
         display: inline-flex; align-items: center; gap: 4px;
         padding: 0px 4px 0px 2px; border-radius: 4px;
@@ -255,7 +255,7 @@ export const USER_BADGE_STYLES = css`
 `;
 
 export const SOLO_PANEL_STYLES = css`
-    :host { display: block; font-family: 'Exo', sans-serif; font-weight: 200; }
+    :host { display: block; font-family: 'Exo', 'Exo Fallback', sans-serif; font-weight: 200; }
     .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 48px)); gap: 0.1rem; justify-content: center; }
     a { border: none; background: none; cursor: pointer; padding: 0.1rem; border-radius: 4px; display: inline-block; text-decoration: none; color: inherit; width: 100%; box-sizing: border-box; }
     a:hover { background: var(--btn-hover); }
@@ -264,7 +264,7 @@ export const SOLO_PANEL_STYLES = css`
 `;
 
 export const INFO_PANEL_STYLES = css`
-    :host { display: block; overflow-y: hidden; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.75rem; color: var(--text); max-height: 40px; opacity: 0; transition: max-height 1s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.6s ease-out 0.15s; }
+    :host { display: block; overflow-y: hidden; font-family: 'Exo', 'Exo Fallback', sans-serif; font-weight: 200; font-size: 0.75rem; color: var(--text); max-height: 40px; opacity: 0; transition: max-height 1s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.6s ease-out 0.15s; }
     /* Capped rather than auto so the reveal can animate. Must clear the tallest
        layout (a 393px phone: 108px cabinet/HiScore row + 26px MOTD + 413px
        history/rankings = 547px), otherwise the bottom of the match history
@@ -358,7 +358,7 @@ export const PLAYER_PANEL_STYLES = css`
 export const LOBBY_APP_STYLES = [THEME_VARS, css`
     /* No min-height: 100%: the app hugs its content so the site-links line in
        lobby.html sits directly under it instead of below a full-viewport box. */
-    :host { display: flex; flex-direction: column; font-family: 'Exo', sans-serif; font-weight: 200; font-size: 0.85rem; box-sizing: border-box; padding: 0.25rem; gap: 0.2rem; background: var(--bg); color: var(--text); overflow-y: auto; scrollbar-width: none; }
+    :host { display: flex; flex-direction: column; font-family: 'Exo', 'Exo Fallback', sans-serif; font-weight: 200; font-size: 0.85rem; box-sizing: border-box; padding: 0.25rem; gap: 0.2rem; background: var(--bg); color: var(--text); overflow-y: auto; scrollbar-width: none; }
     :host::-webkit-scrollbar { display: none; }
     h1 { font-size: 1.0rem; color: var(--text-dim); text-align: left; margin: 0; letter-spacing: 0.1em; text-transform: uppercase; flex-shrink: 0; }
     h1 a { color: inherit; text-decoration: none; }

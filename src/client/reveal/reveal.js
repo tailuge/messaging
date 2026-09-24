@@ -14,10 +14,23 @@ const MAX_COMPLETED = 20;
 
 // Decks the page can show, each rendered from its own hidden <ul> in index.html. The first
 // entry is the default and the fallback when nothing valid is stored. `title` is the on-page
-// game title shown beside the deck buttons.
+// game title shown beside the deck buttons. `mode` is the ?mode= value that opens straight onto
+// that deck, so a shared link can choose it.
 const DECKS = [
-  { id: "kids", label: "K-idols", title: "K-Pot Idol", dataId: "challenge-data" },
-  { id: "pokemon", label: "Pokemon", title: "Poképot", dataId: "pokemon-data" },
+  {
+    id: "kids",
+    label: "K-idols",
+    title: "K-Pot Idol",
+    mode: "k-idols",
+    dataId: "challenge-data",
+  },
+  {
+    id: "pokemon",
+    label: "Pokemon",
+    title: "Poképot",
+    mode: "pokepot",
+    dataId: "pokemon-data",
+  },
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -187,6 +200,22 @@ function saveDeckId(id) {
   }
 }
 
+// A shared link can name the deck to open with: ?mode=k-idols or ?mode=pokepot. Resolved against
+// each deck's `mode` alias; an absent or unknown value falls back to the remembered deck.
+// Deliberately a view-only preference — unlike the deck buttons it is never saved, so following
+// someone else's link does not change which deck your own visits start on.
+function deckIdFromUrl() {
+  let mode;
+  try {
+    mode = new URLSearchParams(window.location.search).get("mode");
+  } catch {
+    return null;
+  }
+  if (!mode) return null;
+  const wanted = mode.trim().toLowerCase();
+  return DECKS.find((d) => d.mode === wanted)?.id ?? null;
+}
+
 async function imageToThumbDataUrl(imageUrl, targetEdge = 180) {
   // Fetch the image as a blob with CORS, draw to canvas, export WebP
   const img = new Image();
@@ -252,7 +281,7 @@ class RevealApp extends LitElement {
         padding: 0.25rem;
         background: var(--bg);
         color: var(--text);
-        font-family: Exo, sans-serif;
+        font-family: Exo, "Exo Fallback", sans-serif;
         font-weight: 200;
         font-size: 0.85rem;
       }
@@ -549,14 +578,16 @@ class RevealApp extends LitElement {
         color: #fff;
         text-shadow: 0 1px 2px rgba(0,0,0,0.45);
       }
+      /* No opacity on the pill itself: fading the whole element composited --text-dim down to
+         ~2.6:1 against the card surface, failing WCAG 1.4.3 (needs 4.5:1). It stays visually
+         quiet via its low-alpha background instead, so the text keeps its full colour. */
       .nature-pill {
         padding: 0.05rem 0.3rem;
         border-radius: 99px;
         font-size: 0.48rem;
         font-weight: 400;
         line-height: 1.55;
-        opacity: 0.55;
-        background: rgba(128,128,128,0.22);
+        background: rgba(128,128,128,0.18);
         color: var(--text-dim);
         border: 1px solid rgba(128,128,128,0.25);
         white-space: nowrap;
@@ -727,7 +758,7 @@ class RevealApp extends LitElement {
       document.documentElement.style.colorScheme = t;
     } catch {}
     // Challenges from the selected deck's embedded hidden list (must be in DOM already)
-    this._deckId = loadDeckId();
+    this._deckId = deckIdFromUrl() ?? loadDeckId();
     this._challenges = postProcessChallenges(readChallengesFromDOM(this._deck().dataId));
     this._collection = loadCollection();
     this._completedIds = new Set(this._collection.map((e) => e.id));
@@ -762,6 +793,11 @@ class RevealApp extends LitElement {
   _setDeck(id) {
     const deck = DECKS.find((d) => d.id === id) ?? DECKS[0];
     saveDeckId(deck.id);
+    // Choosing a deck makes it the remembered one, so any ?mode= naming a different deck loses its
+    // say — otherwise the next reload would jump back to the linked deck instead of the one picked
+    // here. This is what makes ?mode= a per-visit preference: the link sets the first view, and the
+    // buttons (via the stored deck) take over from then on.
+    this._dropModeParam();
     if (deck.id !== this._deckId || !this._challenges.length) {
       this._deckId = deck.id;
       this._challenges = postProcessChallenges(readChallengesFromDOM(deck.dataId));
@@ -900,13 +936,25 @@ class RevealApp extends LitElement {
     this.requestUpdate();
   }
 
-  // Drop the single-use return params so the URL cannot be copied or refreshed into a re-award
+  // Rewrite the address-bar query ('' clears it entirely), keeping the path and hash
+  _replaceQuery(search) {
+    history.replaceState(null, "", location.pathname + (search ? `?${search}` : "") + location.hash);
+  }
+
+  // Drop the single-use return params so the URL cannot be copied or refreshed into a re-award.
+  // The whole query goes now, not just ?image=/?state=: the return URL is single-use and everything
+  // it carried is either held in memory or already persisted, so nothing needs to stay in the bar.
   _stripReturnParams() {
+    if (!window.location.search) return;
+    this._replaceQuery("");
+  }
+
+  // Clear a ?mode= link's claim on the deck without disturbing any other param
+  _dropModeParam() {
     const params = new URLSearchParams(window.location.search);
-    params.delete("image");
-    params.delete("state");
-    const next = params.toString();
-    history.replaceState(null, "", location.pathname + (next ? `?${next}` : "") + location.hash);
+    if (!params.has("mode")) return;
+    params.delete("mode");
+    this._replaceQuery(params.toString());
   }
 
   _entryFor(ch) {
@@ -1015,13 +1063,23 @@ class RevealApp extends LitElement {
       .join(" ");
     const hasReplay = isCompleted && !!this._replayUrlFor(completedEntry);
     const stars = ch.stars ?? Math.min(5, Math.max(1, Math.ceil((ch.normRating ?? ch.rating) * 5)));
+    // The pill only shows the first word of the nature, so that is the word the label has to
+    // repeat. Shared with the pill below so the two cannot drift apart.
+    const natureWord = ch.pokeNature ? ch.pokeNature.split(" ")[0] : "";
+    // The card is a picture with no name on it, so the label describes what is on show rather
+    // than repeating it. WCAG 2.5.3 (axe `label-content-name-mismatch`) wants the visible words
+    // — the type and nature hints, then the Play button — to appear as a *contiguous* run of
+    // words in the accessible name. The hints are rendered above Play, so they have to sit
+    // immediately before "play" here: any word wedged between them fails the check.
+    const hints = [ch.pokeType, natureWord].filter(Boolean);
+    const hintPrefix = hints.length ? `${hints.join(" ")} — ` : "";
     const label = isCompleted
       ? `${ch.name} — completed, tap for actions`
-      : `Mystery picture — ${stars} star rating, tap to reveal play`;
+      : `Mystery picture — ${hintPrefix}play to reveal, ${stars} star rating, tap to flip`;
     return html`
       <button
         class="${classes}"
-        role="listitem"
+        role="button"
         aria-label="${label}"
         aria-pressed="${isFlipped ? "true" : "false"}"
         title="${isCompleted ? ch.name : "Mystery picture"}"
@@ -1041,8 +1099,8 @@ class RevealApp extends LitElement {
                   ${ch.pokeType
                     ? html`<div class="poke-pills" aria-hidden="true">
                         <span class="type-pill" data-t="${ch.pokeType}">${ch.pokeType}</span>
-                        ${ch.pokeNature
-                          ? html`<span class="nature-pill" title="${ch.pokeNature}">${ch.pokeNature.split(" ")[0]}</span>`
+                        ${natureWord
+                          ? html`<span class="nature-pill" title="${ch.pokeNature}">${natureWord}</span>`
                           : ""}
                       </div>`
                     : ""}
@@ -1172,7 +1230,7 @@ class RevealApp extends LitElement {
 
         <section class="panel" aria-labelledby="collection-heading">
           <h2 id="collection-heading" hidden>Picture collection</h2>
-          <div class="card-grid" role="list">
+          <div class="card-grid">
             ${
               challenges.length
                 ? challenges.map((ch) => {

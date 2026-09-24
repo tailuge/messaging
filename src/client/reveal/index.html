@@ -34,6 +34,24 @@
       }
     </script>
     <style>
+      /* Metric-matched fallback for Exo.
+         Every text block on this page is Exo, so when the web font arrives the whole page reflows
+         at once — that swap is the page's entire CLS (0.63, by far its biggest performance
+         problem). Sizing a local lookalike to Exo's own metrics means it moves nothing.
+         Measured on the real page against Exo's 200 weight: a 1.33em line box (1.00em ascent,
+         0.33em descent) whose advance widths differ from Arial's by ~1%. So size-adjust stays
+         near 1, and ascent/descent are divided by it to land back on 1.00em/0.33em. 101% is the
+         middle of the band that keeps text wrapping identical at both 412px and 1280px wide.
+         Arial and Liberation Sans are metric-compatible, so one tuning covers both. */
+      @font-face {
+        font-family: "Exo Fallback";
+        src: local("Arial"), local("Helvetica Neue"), local("Liberation Sans"),
+          local("DejaVu Sans");
+        size-adjust: 101%;
+        ascent-override: 99%;
+        descent-override: 32.7%;
+        line-gap-override: 0%;
+      }
       html,
       body {
         margin: 0;
@@ -51,18 +69,18 @@
         justify-content: center;
         gap: 0.75rem;
         padding: 0.35rem 0.5rem;
-        font-family: Exo, sans-serif;
+        font-family: Exo, "Exo Fallback", sans-serif;
         font-weight: 200;
         font-size: 0.7rem;
         line-height: 1.35;
         text-align: center;
       }
+      /* Underlined by default: a link inside a block of text must not rely on colour alone
+         to be distinguishable (WCAG 1.4.1). */
       .site-links a {
         color: #05c;
-        text-decoration: none;
-      }
-      .site-links a:hover {
         text-decoration: underline;
+        text-underline-offset: 2px;
       }
       html[theme="dark"] .site-links a {
         color: #6ba3f5;
@@ -128,7 +146,7 @@
         max-width: 900px;
         margin: 0 auto;
         padding: 0.4rem 0.5rem 0.2rem;
-        font-family: Exo, sans-serif;
+        font-family: Exo, "Exo Fallback", sans-serif;
         font-weight: 200;
         font-size: 0.8rem;
         line-height: 1.45;
@@ -186,10 +204,8 @@
       }
       .seo-fallback a {
         color: #0055cc;
-        text-decoration: none;
-      }
-      .seo-fallback a:hover {
         text-decoration: underline;
+        text-underline-offset: 2px;
       }
       html[theme="dark"] .seo-fallback a {
         color: #6ba3f5;
@@ -299,7 +315,9 @@
   </head>
   <body>
     <h1 hidden>K-Pot Idol — billiards picture-reveal game</h1>
-    <reveal-app></reveal-app>
+    <main>
+      <reveal-app></reveal-app>
+    </main>
 
     <!-- Explanatory prose — real HTML directly in the page so crawlers without JS identify it.
          This is the only copy: <reveal-app> renders the grid above and no prose below. -->
