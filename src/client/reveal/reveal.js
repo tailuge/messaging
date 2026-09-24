@@ -375,7 +375,6 @@ class RevealApp extends LitElement {
         color: var(--text-muted);
         line-height: 1.35;
       }
-      /* Deck switch sits on the title row, so offering decks costs no extra height */
       .intro-head {
         display: flex;
         align-items: center;
@@ -387,15 +386,16 @@ class RevealApp extends LitElement {
       .intro-head h2 {
         margin: 0;
       }
+      /* Deck chooser lives in the footer row, to the left of Reset deck. */
       .deck-switch {
         display: inline-flex;
         gap: 0.25rem;
       }
       .deck-btn {
         font: inherit;
-        font-size: 0.7rem;
+        font-size: 0.72rem;
         line-height: 1.5;
-        padding: 0.05rem 0.45rem;
+        padding: 0.15rem 0.4rem;
         border: 1px solid var(--btn-border);
         border-radius: 4px;
         background: var(--btn-bg);
@@ -422,11 +422,12 @@ class RevealApp extends LitElement {
         /* Cards cast shadows outward — clipping them at the panel edge would flatten the deck */
         overflow: visible;
       }
-      /* Deck reset, below the wall of cards */
+      /* Deck chooser and reset, below the wall of cards */
       .deck-footer {
         display: flex;
         align-items: center;
-        justify-content: flex-end;
+        justify-content: space-between;
+        flex-wrap: wrap;
         gap: 0.5rem;
         margin-top: 0.35rem;
       }
@@ -526,9 +527,19 @@ class RevealApp extends LitElement {
           transform: none;
         }
       }
+      /* The isolation below is load-bearing, not cosmetic: the front face's hint spans carry
+         z-index 1 (to sit above the completed card's thumbnail and the inner vignette), and
+         without a stacking context of their own those indices leak past the sibling back face.
+         On a flipped card the front face is turned away — invisible, but its spans still won
+         hit-testing over the Play button, so taps in the middle of that button flipped the card
+         shut instead of playing. Isolating each face keeps its children's z-index inside it, and
+         hit-testing then resolves to whichever face is actually towards the viewer. Probed across
+         the Play button's own rectangle: every point used to resolve to the rating stars, type
+         pill or nature pill on the hidden face; with this, all of them resolve to the button. */
       .face {
         position: absolute;
         inset: 0;
+        isolation: isolate;
         backface-visibility: hidden;
         display: flex;
         flex-direction: column;
@@ -566,8 +577,12 @@ class RevealApp extends LitElement {
         margin-top: 0.28rem;
         z-index: 1;
       }
+      /* Both pills bias their padding downward. The font's ascent/descent box is symmetric, but
+         a short label like "fire" or "Jolly" has no descenders, so the visible ink rides above
+         the middle of the pill. Equal padding measured 2.75px above the text against 3.75px
+         below; taken from the top and given to the bottom, the ink sits on the centreline. */
       .type-pill {
-        padding: 0.05rem 0.32rem;
+        padding: 0.15rem 0.32rem 0.02rem;
         border-radius: 99px;
         font-size: 0.52rem;
         font-weight: 600;
@@ -582,7 +597,7 @@ class RevealApp extends LitElement {
          ~2.6:1 against the card surface, failing WCAG 1.4.3 (needs 4.5:1). It stays visually
          quiet via its low-alpha background instead, so the text keeps its full colour. */
       .nature-pill {
-        padding: 0.05rem 0.3rem;
+        padding: 0.1rem 0.3rem 0.02rem;
         border-radius: 99px;
         font-size: 0.48rem;
         font-weight: 400;
@@ -660,27 +675,62 @@ class RevealApp extends LitElement {
         outline: 2px solid #007bff;
         outline-offset: 1px;
       }
+      /* Primary action on a flipped card. It is the only way out of the wall into a game, so it
+         is sized to be hit reliably on a phone: full card width (capped) and 32px tall, against
+         the 24px minimum of WCAG 2.5.8. A miss lands on the card underneath, which flips the
+         card shut — so a small target costs the player their opened card, not just a second tap. */
       .play-btn {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 0.25rem;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
-        border: 1px solid #0d6efd;
+        width: 100%;
+        max-width: 5.5rem;
+        min-height: 2rem;
+        padding: 0.3rem 0.5rem;
+        border-radius: 6px;
+        border: 1px solid #0a58ca;
         background: #0d6efd;
         color: #fff;
         font: inherit;
-        font-size: 0.78rem;
+        font-size: 0.8rem;
         font-weight: 600;
         cursor: pointer;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+        transition:
+          background-color 120ms ease,
+          box-shadow 120ms ease,
+          transform 80ms ease;
       }
+      /* Hover has to read at a glance on a 90px-wide card: a clearly lighter blue, plus a lift.
+         The previous #0b5ed7 was within a hair of the resting #0d6efd, so hovering looked like
+         nothing was happening. */
       .play-btn:hover {
-        background: #0b5ed7;
-        border-color: #0a58ca;
+        background: #2b7bff;
+        border-color: #2b7bff;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+        transform: translateY(-1px);
       }
+      .play-btn:active {
+        background: #0a53c4;
+        border-color: #0a53c4;
+        box-shadow: none;
+        transform: translateY(1px) scale(0.98);
+      }
+      /* Outline sits on the card surface, not the blue fill, so it uses the body text colour
+         (high contrast in both themes) rather than another shade of blue. */
       .play-btn:focus-visible {
-        outline: 2px solid #007bff;
+        outline: 2px solid var(--text);
         outline-offset: 1px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .play-btn {
+          transition: none;
+        }
+        .play-btn:hover,
+        .play-btn:active {
+          transform: none;
+        }
       }
       /* Share/Delete/Replay sit in the top-right, bottom-left and bottom-right corners; the
          top-left stays free. */
@@ -1206,25 +1256,10 @@ class RevealApp extends LitElement {
         <section class="intro">
           <div class="intro-head">
             <h2>${this._deck().title}</h2>
-            <div class="deck-switch" role="group" aria-label="Deck">
-              ${DECKS.map(
-                (d) => html`
-                  <button
-                    class="deck-btn"
-                    type="button"
-                    aria-pressed="${d.id === this._deckId ? "true" : "false"}"
-                    title="Show the ${d.label} deck"
-                    @click=${() => this._setDeck(d.id)}
-                  >
-                    ${d.label}
-                  </button>
-                `,
-              )}
-            </div>
           </div>
           <p>
             Play billiards to uncover hidden pictures. Each successful pot reveals another part of
-            the image.
+            the mystery image.
           </p>
         </section>
 
@@ -1247,10 +1282,25 @@ class RevealApp extends LitElement {
                   </p>`
             }
           </div>
-          ${
-            this._collection.length || this._removedIds.size
-              ? html`<div class="deck-footer">
+          <div class="deck-footer">
+            <div class="deck-switch" role="group" aria-label="Deck">
+              ${DECKS.map(
+                (d) => html`
                   <button
+                    class="deck-btn"
+                    type="button"
+                    aria-pressed="${d.id === this._deckId ? "true" : "false"}"
+                    title="Show the ${d.label} deck"
+                    @click=${() => this._setDeck(d.id)}
+                  >
+                    ${d.label}
+                  </button>
+                `,
+              )}
+            </div>
+            ${
+              this._collection.length || this._removedIds.size
+                ? html`<button
                     class="reset-btn"
                     type="button"
                     title="Clear all revealed cards and restore deleted pictures"
@@ -1258,10 +1308,10 @@ class RevealApp extends LitElement {
                     @click=${this._onResetClick}
                   >
                     Reset deck
-                  </button>
-                </div>`
-              : ""
-          }
+                  </button>`
+                : ""
+            }
+          </div>
         </section>
 
       </div>

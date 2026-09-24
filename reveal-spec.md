@@ -610,8 +610,9 @@ three small corner buttons, so nothing obscures the picture and no dialog is nee
   ```
 
 - In-page language tabs on the prose panel (`index.html`): **English, Korean (`ko`), Turkish
-  (`tr`), Chinese (`zh`), Vietnamese (`vi`), Spanish (`es`)**. English holds the real copy; the
-  other five panels are `TBD` placeholders until real translations land.
+  (`tr`), Chinese (`zh`), Vietnamese (`vi`), Spanish (`es`)**. All six panels carry the How to
+  play + FAQ copy; translations mirror the English structure (intro, numbered steps, difficulty
+  note; then the same four FAQ questions in the same order).
 - Same `reveal.js` bundle for all; language-specific text stays in HTML. Any JS string that must
   appear (e.g. "Copied!") reads from `data-i18n-*` on the HTML rather than hard-coding.
 - The tabs are **JS-free**: hidden `<input type="radio" name="seo-lang">` elements precede the
@@ -772,7 +773,7 @@ seeding beyond this list, no randomization.
 
 | Piece | State |
 |---|---|
-| `src/client/reveal/index.html` | Done — theme bootstrap, single light-DOM prose panel (How to play + FAQ, two columns ≥600px) with JS-free language tabs (en/ko/tr/zh/vi/es, non-English copy `TBD`), hidden `<ul id="challenge-data">` (47 entries) and the placeholder `<ul id="pokemon-data">` deck (§6.5), site-links footer. |
+| `src/client/reveal/index.html` | Done — theme bootstrap, single light-DOM prose panel (How to play + FAQ, two columns ≥600px) with JS-free language tabs (en/ko/tr/zh/vi/es, all translated), hidden `<ul id="challenge-data">` (47 entries) and the placeholder `<ul id="pokemon-data">` deck (§6.5), site-links footer. |
 | `src/client/reveal/reveal.js` | Done — header islands, deck switch on the title row (`reveal:deck`, titles `Pot & Reveal` / `PokePot`), dense grid; single flip card per entry (front: `?` plus 1–5 stars or picture, back: Play, or the name as a Wikipedia link plus Share/Delete/Replay corner buttons); lobby presence, cross-deck return handling, silent-failure logging. |
 | `revealGameUrl()` (`src/client/utils.js`) | Done — adds `reds=floor(clamp(rating, 0, 1) * 32)` to the launch URL. |
 | `revealReplayUrl({ imageUrl, state })` (`src/client/utils.js`) | Done — builds the game's replay link from the stored state. |
