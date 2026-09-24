@@ -26,7 +26,7 @@ This plan swaps the **content source** from a hand-curated Wikimedia list to **P
   by National Dex number via `https://pokeapi.co/api/v2/pokemon/{id}`, not by pasting a URL per entry.
 - **Stats** — on completion the card gains real data: base stats, types, height/weight, genus and a
   flavour line, fetched once per Pokémon and cached locally. Those stats are what the page shows on
-  the solved card, replacing today's single "Wikipedia" corner action.
+  the solved card, alongside today's name-as-link plus Share/Replay/Delete actions.
 
 What does **not** change: the Lit + esbuild toolchain, the grid, the single 3:4 flip card, the
 `localStorage`-only collection, lobby presence, the replay `state` contract, the silent-failure
@@ -43,7 +43,7 @@ the identity key, the solved-card payload and the copy change.
 | Card identity | `slugify(name)`, plus exact string match on `data-image` | `id = "p{dexId}"`; the dex number is the key everywhere | small, removes a class of bugs |
 | Mystery image | Wikimedia photo (opaque, mixed aspect) | official artwork PNG (square, transparent, ~118–153 KB) | small |
 | Solved thumbnail | canvas → WebP data URL, ~10 KB | unchanged (CORS verified, §3) | none |
-| Solved card extra | Wikipedia link, name, Replay, Share | **stats panel**: types, six base stats + total, height/weight, genus/flavour; Share/Replay unchanged | new UI |
+| Solved card extra | name (a Wikipedia link) + Share/Replay/Delete | **stats panel**: types, six base stats + total, height/weight, genus/flavour; the name link points at the Pokemon page instead of Wikipedia, Share/Replay/Delete unchanged | new UI |
 | Return contract | `?image=<encoded url>&state=<crushed state>` | `?pokemon=<dexId>&image=<artwork url>&state=…` (image kept, §9) | cross-repo |
 | Collection cap | 20 entries | decision: keep 20, or raise | trivial |
 | Storage key | `reveal:collection` | new key (§12) so old entries cannot confuse the new page | trivial |
@@ -424,7 +424,8 @@ reviewed.
 - One completed card costs exactly one artwork request + one `/pokemon/{id}` request, and the second
   flip costs none; `pokipool:stats` stays under ~1 KB per card.
 - Solved card front shows the artwork with sane `object-fit` in dark and light mode; the back shows
-  name + Wikipedia-replacement link/Share/Replay as today, plus the stats panel.
+  the name (which is the link, §11 of `reveal-spec.md`) + Share/Delete/Replay as today, plus the
+  stats panel.
 - Offline (devtools) completion still persists the card and logs only.
 - `npm run lint`, `npm run build:lit`, `npm run crossdeploy`, `npm run screenshot:iphone` all pass,
   and `/reveal/` (or `/pokipool/`) serves through nginx with `../lobby.html` and `../assets/…`

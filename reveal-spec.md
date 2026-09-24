@@ -277,9 +277,10 @@ Reuse the site's existing header chrome, not a bespoke one:
 </html>
 ```
 
-`<reveal-app>` renders: sticky `topbar`, compact intro, dense `#card-grid` (from embedded data) and a
-count line — **no prose**. The light-DOM `seo-fallback` is the only copy of the explanatory text, so
-it is both what a no-JS crawl (view-source) sees and what the player sees.
+`<reveal-app>` renders: sticky `topbar`, compact intro, dense `#card-grid` (from embedded data) and,
+below the grid, the deck **Reset** button (shown only when something has been revealed) — **no
+prose**, no progress counters. The light-DOM `seo-fallback` is the only copy of the explanatory
+text, so it is both what a no-JS crawl (view-source) sees and what the player sees.
 
 Its layout: `.seo-grid` is a panel (`--surface`/`--border`, 6px radius, tight padding) holding two
 columns — **How to play** on the left, **FAQ** below/right — collapsing to one column under 600px,
@@ -301,7 +302,9 @@ with the attribution line under the panel. There is no `About Pot & Reveal` bloc
 - Card: `aspect-ratio: 3/4`, `border: 1px solid var(--border)`, `border-radius: 6px`,
   `overflow: hidden`, `background: var(--surface)`, tight padding. Same panel visual language as
   `arena-view`/`active-arenas`.
-- Source (fixed) order — no shuffle. Completed cards stay in place and simply render as thumbs.
+- Source (fixed, stored) order — **no shuffle**, never was: the grid renders `#challenge-data` as
+  written. Completed cards stay in place and simply render as thumbs. Only **deleted** cards are
+  filtered out of the list, so the cards after them reflow into the gap (§11).
 
 ### 9.2 States
 
@@ -319,8 +322,9 @@ dense.
 **Back face (revealed by the flip):**
 
 - **Unsolved:** a centered **Play** button (`▶ Play`) that navigates to the game.
-- **Solved:** the card's name in the middle and **one action per corner** — **Wikipedia** top-left,
-  **Share** top-right, **Delete** bottom-left, **Replay** bottom-right (see §11).
+- **Solved:** the card's name in the middle — the name **is** the Wikipedia link, so there is no
+  separate Wikipedia button — plus **one action per corner**: **Share** top-right, **Delete**
+  bottom-left, **Replay** bottom-right (see §11). The top-left corner is free.
 
 **Flipping:**
 
@@ -331,7 +335,8 @@ dense.
   `stopPropagation` so they neither flip the card back nor launch.
 - A11y: the card is a real `<button>` with `role="listitem"`, `aria-pressed` for the flip state, and
   a state-dependent `aria-label` (`Mystery picture — tap to reveal play` / `<name> — completed, tap
-  for actions`). Keyboard: Space/Enter flips; the action buttons are separate tab stops.
+  for actions`). Keyboard: Space/Enter flips; the action buttons and the name link are separate tab
+  stops. `stopPropagation` on the name link keeps it from flipping the card.
 - Restrained visual transition (no confetti).
 
 ### 9.3 Negative / scope
@@ -481,25 +486,44 @@ ${BASE}?ruletype=reveal&state=<encodeURIComponent(state)>&image=<encodeURICompon
   in `try/catch`; on `QuotaExceededError` drop oldest and retry once. Never throw to the user. No
   partial progress persisted; unsolved cards are not stored.
 
+### 10.6 `localStorage` — deleted cards
+
+- Key: `reveal:removed` — a **separate key** so a deletion can never corrupt the collection (the
+  same principle as the stats key in `pokipool.md` §7).
+- Value: `JSON.stringify(Array<string>)` of card ids (`"boa"`), in no meaningful order.
+- Written by Delete (§11) and cleared by Reset deck; a card completed again is removed from the list
+  (a re-completed picture is back in the deck). Read once on mount, then kept in component state.
+- A `?` tile is rendered for every entry in `#challenge-data` **except** ids listed here, so the
+  deck shrinks by deletions and the remaining cards reflow. With every entry deleted the grid shows
+  a short "no pictures left — press Reset deck" line instead of the (empty) wall.
+- Both keys live in `try/catch`; a failure degrades to "deletion does not persist" and logs only.
+
 ---
 
 ## 11) Completed-card actions (corner buttons on the flipped card, no dialog)
 
-A solved card shows its thumbnail until flipped; the flip reveals the name and four small corner
-buttons (one per corner), so nothing obscures the picture and no dialog is needed:
+A solved card shows its thumbnail until flipped; the flip reveals the name (**a Wikipedia link**) and
+three small corner buttons, so nothing obscures the picture and no dialog is needed:
 
-- **Share** — copies the card's **game replay link** (`_replayUrlFor(entry)`, i.e. the state-derived
-  URL) via `navigator.clipboard.writeText`; falls back to logging for manual copy, and to the
-  Wikipedia link only when no state exists. One reveal only; no whole-collection share.
+- **Share** — top-right corner, a small inline SVG share glyph; copies the card's **game replay
+  link** (`_replayUrlFor(entry)`, i.e. the state-derived URL) via `navigator.clipboard.writeText`;
+  falls back to logging for manual copy, and to the Wikipedia link only when no state exists. One
+  reveal only; no whole-collection share.
 - **Replay** — opens the game replay link in a new tab (`window.open(url, "_blank", "noopener")`).
   Muted/disabled when the card has no `state` (cards completed before the state contract).
-- **Wikipedia** — opens `wikipediaUrl` (unobtrusive secondary action, top-left corner).
-- **Delete** — deferred hook (bottom-left corner, out of the way). The affordance and `aria-label="Remove from collection"` exist, and
-  the `localStorage` API already supports `remove(id)`/`clear()`, but v1 renders the button with a
-  log-only handler. You are still deciding between a **"new deck" button** (clear/reset when all
-  entries are complete) and **per-card delete** to curate a favourite Pokémon-like collection. Spec
-  therefore requires the affordance now and defers destructive behaviour; "new deck" (if kept) is a
-  single button below the grid, not per-card, and resets `reveal:collection` after confirmation.
+- **Wikipedia** — the card's own name, rendered as a real `<a href="wikipediaUrl" target="_blank"
+  rel="noopener">` in the middle of the back face (there is no Wikipedia corner button). No extra
+  button competes with the picture, and the link supports copy/open-in-new-tab like any link.
+- **Delete** — bottom-left corner, `✕`, `aria-label="Remove from collection"`. Destructive: it filters
+  the entry out of `reveal:collection` (persisted immediately), adds the id to `reveal:removed`
+  (§10.6) so the tile does not return on reload, and clears the flip state when that card was open.
+  The tile leaves the wall and the remaining cards reflow into the gap — no layout animation is
+  specified yet. Deletion is reversible only via **Reset deck**.
+- **Reset deck** — a single button **below the grid** (never per-card), rendered while the collection
+  is non-empty **or** a deletion is remembered. It asks for confirmation (`window.confirm`, naming
+  how many revealed cards and deleted pictures will be affected), then removes both
+  `reveal:collection` and `reveal:removed` and clears the in-memory collection/completed-set/removed
+  set/flip state, so the **full source deck** returns to its unsolved `?` state in source order.
 - Attribution detail (author/licence) can be added when the game supplies it; for now the Wikipedia
   link plus the attribution line in the prose covers it.
 
@@ -509,13 +533,22 @@ buttons (one per corner), so nothing obscures the picture and no dialog is neede
 
 - `reveal.js` imports `THEME_VARS`/`SHARED_STYLES` from `src/client/styles.js` — same pathway as
   `tournament/arena.js`, so reveal never drifts.
+- Cards carry a **layered drop shadow** (two soft black layers plus a hairline inset highlight), a
+  stronger shadow on `:hover`/`:active`, and the hardest one on the flipped/focused card, so the wall
+  reads as a deck of physical cards. The grid `gap` is wide enough (6px, 5px ≤380px) for the shadows
+  to read between neighbours, and the panel uses `overflow: visible` so they are not clipped. Solved
+  fronts add inner shading (`inset` vignette over the thumbnail); theme tokens are unchanged. The
+  name link uses `var(--link)`; no new colour tokens.
 - Exo 200 everywhere; headings small (`h1 ~1rem`, `h2 ~0.85rem`, `letter-spacing: .06em`, uppercase
   to match `arena-view`).
 - Tight vertical rhythm: `gap: 0.2–0.4rem`, section padding `.4rem` inside panel-like cards, no large
   hero/whitespace. Explanatory copy is deliberately **after** the collection.
 - Buttons reuse `SHARED_STYLES` treatments: the Play button is the primary action on the unsolved
-  back face; the solved back face uses four 22px `--surface`/`--border` corner buttons
-  (`.corner-tl/.corner-tr/.corner-bl/.corner-br`) so they never overlap the centred name.
+  back face; the solved back face uses three 22px `--surface`/`--border` corner buttons
+  (`.corner-tr` Share, `.corner-bl` Delete, `.corner-br` Replay — the top-left corner is free) so
+  they never overlap the centred name link. Share's glyph is a small inline SVG (Material share
+  node, 13px, `fill: currentColor`) — no icon font, no image request; Delete/Replay keep their
+  text glyphs.
 - `prefers-reduced-motion` disables flip; cards are real `<button>`s with `aria-pressed`/
   `aria-label`, keyboard operable (`Space`/`Enter`), focus rings via `button:focus-visible`.
 - Mobile: grid stays dense (no single-column wall), icons keep ≥22px tap targets, no dialog keeps
@@ -642,9 +675,11 @@ seeding beyond this list, no randomization.
 1. ~~**Deploy path**~~ — resolved: build and `crossdeploy` now emit the directory form
    `reveal/index.html` + `reveal/reveal.js`, matching the game's `./reveal/index.html` return URL
    (§5.2).
-2. **Delete vs new deck** — undecided; v1 ships both hooks (per-card Delete icon, New-deck button
-   slot) with non-destructive/log-only handlers. Promote to real behaviour in a follow-up without
-   layout change.
+2. ~~**Delete vs new deck**~~ — resolved: both are destructive. Per-card **Delete** filters the card
+   out of the deck and remembers it in `reveal:removed` (§10.6, §11); the confirmed **Reset deck**
+   button below the grid clears `reveal:collection` **and** `reveal:removed` (§11). Cards reflow
+   without animation for now; a minimal CSS reflow transition can be added later without a layout
+   change.
 3. **Attribution granularity** — seed gives `wikipediaUrl` (English Wikipedia), not Wikimedia
    Commons file pages. A dedicated Commons attribution/licence line can be added once the game
    supplies it.
@@ -669,6 +704,11 @@ seeding beyond this list, no randomization.
   never there to copy and refresh does not re-award. A `?image=` that matches no seed entry is also
   stripped.
 - Replay opens that link; Share copies it.
+- **Delete** on a solved card removes that tile from the wall immediately, the following cards reflow
+  into the gap, and a reload keeps it deleted (`reveal:removed`) — the collection entry is gone too.
+- **Reset deck** appears below the grid while anything is revealed or deleted; confirming it empties
+  both `reveal:collection` and `reveal:removed` so the full 47-card deck in source order is `?`
+  again (no per-card state survives); declining it changes nothing.
 - `npm run lint` + `npx oxfmt` / `npm run prettify` pass.
 - `npm run screenshot:iphone` / Playwright: header matches `arena.html` (logo + version + trophy +
   user-badge), grid is dense and tight, explanation sits below the grid, no visible duplicate list,
@@ -682,11 +722,11 @@ seeding beyond this list, no randomization.
 | Piece | State |
 |---|---|
 | `src/client/reveal/index.html` | Done — theme bootstrap, single light-DOM prose panel (How to play + FAQ, two columns ≥600px), hidden `<ul id="challenge-data">` (47 entries), site-links footer. |
-| `src/client/reveal/reveal.js` | Done — header islands, dense grid; single flip card per entry (front: `?` or picture, back: Play, or name + Wikipedia/Share/Delete/Replay corner buttons); lobby presence, return handling, silent-failure logging. |
+| `src/client/reveal/reveal.js` | Done — header islands, dense grid; single flip card per entry (front: `?` or picture, back: Play, or the name as a Wikipedia link plus Share/Delete/Replay corner buttons); lobby presence, return handling, silent-failure logging. |
 | `revealGameUrl()` (`src/client/utils.js`) | Done. |
 | `revealReplayUrl({ imageUrl, state })` (`src/client/utils.js`) | Done — builds the game's replay link from the stored state. |
 | `?state=` persistence + replay link on the card | Done — stored in `reveal:collection`, derived link used by Replay/Share. |
-| Delete / new-deck behaviour | Hook only (see §11, §18.2). |
+| Delete / new-deck behaviour | Done — per-card Delete filters the deck and persists in `reveal:removed`; Reset deck clears both keys (see §10.6, §11). |
 | Deploy path (`reveal/index.html` + `reveal/reveal.js`) | Done — emitted by `build:lit` and `crossdeploy`; stale flat `reveal.html`/`reveal.js` removed by both. |
 
 ---

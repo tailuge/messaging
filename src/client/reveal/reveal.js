@@ -8,6 +8,7 @@ import "../trophy.js";
 import "../settings-modal.js";
 
 const STORAGE_KEY = "reveal:collection";
+const REMOVED_KEY = "reveal:removed";
 const MAX_COMPLETED = 20;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -72,6 +73,35 @@ function saveCollection(entries) {
   }
 }
 
+function clearCollection() {
+  // Reset also un-deletes: the full source deck comes back (see _onDelete)
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(REMOVED_KEY);
+  } catch (e) {
+    console.log("reveal: clearCollection failed", e);
+  }
+}
+
+function loadRemovedIds() {
+  try {
+    const raw = localStorage.getItem(REMOVED_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRemovedIds(ids) {
+  try {
+    localStorage.setItem(REMOVED_KEY, JSON.stringify(ids));
+  } catch (e) {
+    console.log("reveal: saveRemovedIds failed", e);
+  }
+}
+
 async function imageToThumbDataUrl(imageUrl, targetEdge = 180) {
   // Fetch the image as a blob with CORS, draw to canvas, export WebP
   const img = new Image();
@@ -119,6 +149,7 @@ class RevealApp extends LitElement {
     _theme: { type: String, reflect: true, attribute: "theme" },
     _flippedId: { state: true },
     _completedIds: { state: true },
+    _removedIds: { state: true },
     _collection: { state: true },
     _challenges: { state: true },
     _lobby: { state: true },
@@ -213,6 +244,7 @@ class RevealApp extends LitElement {
       }
       .intro {
         padding: 0.1rem 0 0.15rem;
+        text-align: center;
       }
       .intro h2 {
         margin: 0 0 0.15rem;
@@ -233,23 +265,44 @@ class RevealApp extends LitElement {
         border: 1px solid var(--border);
         border-radius: 6px;
         padding: 0.4rem;
-        overflow: hidden;
+        /* Cards cast shadows outward — clipping them at the panel edge would flatten the deck */
+        overflow: visible;
       }
-      .count {
-        font-size: 0.72rem;
+      /* Deck reset, below the wall of cards */
+      .deck-footer {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        margin-top: 0.35rem;
+      }
+      .reset-btn {
+        padding: 0.15rem 0.4rem;
+        border: 1px solid var(--btn-border);
+        border-radius: 4px;
+        background: var(--btn-bg);
         color: var(--text-muted);
-        text-align: right;
-        margin-top: 0.25rem;
+        font-size: 0.72rem;
+      }
+      .reset-btn:hover {
+        background: var(--btn-hover);
+        color: var(--text);
+      }
+      .reset-btn:focus-visible {
+        outline: 2px solid #007bff;
+        outline-offset: 1px;
       }
       /* Dense card grid — the central element */
       .card-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
-        gap: 4px;
+        /* Just wide enough for the card shadows to read between neighbours */
+        gap: 6px;
       }
       @media (width <= 380px) {
         .card-grid {
           grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+          gap: 5px;
         }
       }
       /* Single 3:4 flip card — front shows '?' or the picture, back shows the actions */
@@ -265,6 +318,37 @@ class RevealApp extends LitElement {
         perspective: 600px;
         font: inherit;
         color: inherit;
+        /* Layered drop shadow + a hairline top highlight, so the wall reads as a deck of
+           physical cards rather than a flat grid. Works in both themes. */
+        box-shadow:
+          0 1px 2px rgba(0, 0, 0, 0.45),
+          0 3px 7px rgba(0, 0, 0, 0.28),
+          inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        transition:
+          box-shadow 160ms ease,
+          transform 160ms ease;
+      }
+      .card:hover {
+        z-index: 1;
+        transform: translateY(-1px);
+        box-shadow:
+          0 2px 4px rgba(0, 0, 0, 0.5),
+          0 8px 18px rgba(0, 0, 0, 0.4),
+          inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      }
+      .card:active {
+        transform: translateY(0);
+        box-shadow:
+          0 1px 2px rgba(0, 0, 0, 0.5),
+          0 2px 5px rgba(0, 0, 0, 0.32);
+      }
+      /* An open card sits proud of the wall, so it shades harder than its neighbours */
+      .card.is-flipped,
+      .card:focus-visible {
+        z-index: 1;
+        box-shadow:
+          0 2px 5px rgba(0, 0, 0, 0.5),
+          0 10px 22px rgba(0, 0, 0, 0.42);
       }
       .card:focus-visible {
         outline: 2px solid #007bff;
@@ -280,8 +364,12 @@ class RevealApp extends LitElement {
         transform: rotateY(180deg);
       }
       @media (prefers-reduced-motion: reduce) {
-        .flip-inner {
+        .flip-inner,
+        .card {
           transition: none;
+        }
+        .card:hover {
+          transform: none;
         }
       }
       .face {
@@ -303,6 +391,7 @@ class RevealApp extends LitElement {
         font-size: 1.6rem;
         font-weight: 200;
         line-height: 1;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
       }
       .face-front img {
         position: absolute;
@@ -312,9 +401,21 @@ class RevealApp extends LitElement {
         object-fit: cover;
         display: block;
       }
+      /* Inner shading on the thumbnail: a hairline inner border plus a bottom vignette,
+         so the picture looks set into the card. Painted over the image. */
+      .face-front::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        box-shadow:
+          inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+          inset 0 -10px 18px rgba(0, 0, 0, 0.3);
+      }
       .face-back {
         background: var(--surface);
         transform: rotateY(180deg);
+        box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.2);
       }
       /* Solved back face: name centred between the four corner buttons */
       .back-name {
@@ -323,11 +424,20 @@ class RevealApp extends LitElement {
         padding: 0 0.25rem;
         font-size: 0.68rem;
         line-height: 1.15;
-        color: var(--text);
+        color: var(--link);
+        text-decoration: none;
         text-align: center;
         overflow-wrap: anywhere;
         max-height: 3.4em;
         overflow: hidden;
+        cursor: pointer;
+      }
+      .back-name:hover {
+        text-decoration: underline;
+      }
+      .back-name:focus-visible {
+        outline: 2px solid #007bff;
+        outline-offset: 1px;
       }
       .play-btn {
         display: inline-flex;
@@ -351,7 +461,8 @@ class RevealApp extends LitElement {
         outline: 2px solid #007bff;
         outline-offset: 1px;
       }
-      /* One action button per corner of the flipped back face */
+      /* Share/Delete/Replay sit in the top-right, bottom-left and bottom-right corners; the
+         top-left stays free. */
       .corner-btn {
         position: absolute;
         width: 22px;
@@ -379,9 +490,12 @@ class RevealApp extends LitElement {
         opacity: 0.4;
         cursor: default;
       }
-      .corner-tl {
-        top: 3px;
-        left: 3px;
+      /* Inline SVG glyphs (no icon font) sit on the button's own text colour */
+      .corner-btn svg {
+        width: 13px;
+        height: 13px;
+        display: block;
+        fill: currentColor;
       }
       .corner-tr {
         top: 3px;
@@ -404,6 +518,7 @@ class RevealApp extends LitElement {
     this._theme = document.documentElement.getAttribute("theme") || "dark";
     this._flippedId = null;
     this._completedIds = new Set();
+    this._removedIds = new Set();
     this._collection = [];
     this._challenges = [];
     this._lobby = null;
@@ -424,6 +539,7 @@ class RevealApp extends LitElement {
     this._challenges = readChallengesFromDOM();
     this._collection = loadCollection();
     this._completedIds = new Set(this._collection.map((e) => e.id));
+    this._removedIds = new Set(loadRemovedIds());
     // Listen for user name changes (badge)
     this._onNameChanged = () => this.requestUpdate();
     document.addEventListener("user-name-changed", this._onNameChanged);
@@ -551,6 +667,13 @@ class RevealApp extends LitElement {
     saveCollection(col);
     this._collection = col;
     this._completedIds = new Set(col.map((e) => e.id));
+    // A picture completed again is back in the deck even if it had been deleted
+    if (this._removedIds.has(id)) {
+      const removed = new Set(this._removedIds);
+      removed.delete(id);
+      saveRemovedIds([...removed]);
+      this._removedIds = removed;
+    }
     this.requestUpdate();
   }
 
@@ -618,16 +741,44 @@ class RevealApp extends LitElement {
     window.open(url, "_blank", "noopener");
   }
 
+  // "New deck": clear the persisted collection (and deletions) so every card of the source deck
+  // returns to the unsolved state.
+  _onResetClick() {
+    const solved = this._collection.length;
+    const deleted = this._removedIds.size;
+    if (!solved && !deleted) return;
+    const parts = [];
+    if (solved) parts.push(`${solved} revealed card${solved === 1 ? "" : "s"}`);
+    if (deleted) parts.push(`${deleted} deleted picture${deleted === 1 ? "" : "s"}`);
+    const ok = window.confirm(
+      `Reset deck? This clears ${parts.join(" and ")}, setting every card back to unsolved.`
+    );
+    if (!ok) return;
+    clearCollection();
+    this._collection = [];
+    this._completedIds = new Set();
+    this._removedIds = new Set();
+    this._flippedId = null;
+    console.log("reveal: deck reset");
+    this.requestUpdate();
+  }
+
   _onDelete(e, ch) {
     e.stopPropagation();
-    // Hook: log-only no-op for now (renders the affordance, not yet destructive in v1)
-    console.log("reveal: delete hook", idForChallenge(ch));
-    // If you want it destructive in v1, uncomment:
-    // const id = idForChallenge(ch);
-    // const next = removeFromCollection(id);
-    // this._collection = next;
-    // this._completedIds = new Set(next.map(en => en.id));
-    // if (this._flippedId === id) this._flippedId = null;
+    const id = idForChallenge(ch);
+    // Deleting drops the card from the wall and remembers it, so the tile does not come back on
+    // reload. The picture is gone from the deck until "Reset deck" restores the full source list.
+    const next = this._collection.filter((en) => en.id !== id);
+    saveCollection(next);
+    this._collection = next;
+    this._completedIds = new Set(next.map((en) => en.id));
+    const removed = new Set(this._removedIds);
+    removed.add(id);
+    saveRemovedIds([...removed]);
+    this._removedIds = removed;
+    if (this._flippedId === id) this._flippedId = null;
+    console.log("reveal: deleted", id);
+    this.requestUpdate();
   }
 
   _renderCard(ch, completedEntry) {
@@ -662,19 +813,15 @@ class RevealApp extends LitElement {
             ${
               isCompleted
                 ? html`
-                    <span class="back-name">${ch.name}</span>
-                    <button
-                      class="corner-btn corner-tl"
-                      type="button"
-                      title="View on Wikipedia"
-                      aria-label="View ${ch.name} on Wikipedia"
-                      @click=${(e) => {
-                        e.stopPropagation();
-                        window.open(ch.wikipediaUrl, "_blank", "noopener");
-                      }}
+                    <a
+                      class="back-name"
+                      href="${ch.wikipediaUrl}"
+                      target="_blank"
+                      rel="noopener"
+                      title="View ${ch.name} on Wikipedia"
+                      @click=${(e) => e.stopPropagation()}
+                      >${ch.name}</a
                     >
-                      ⓦ
-                    </button>
                     <button
                       class="corner-btn corner-tr"
                       type="button"
@@ -682,7 +829,11 @@ class RevealApp extends LitElement {
                       aria-label="Share ${ch.name}"
                       @click=${(e) => this._onShare(e, ch)}
                     >
-                      ⤴
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"
+                        />
+                      </svg>
                     </button>
                     <button
                       class="corner-btn corner-bl"
@@ -723,8 +874,9 @@ class RevealApp extends LitElement {
 
   render() {
     const completedById = new Map(this._collection.map((e) => [e.id, e]));
-    // Fixed source order — solved cards keep their grid position and simply show their picture.
-    const challenges = this._challenges;
+    // Fixed source (stored) order — no shuffle. Solved cards keep their grid position and simply
+    // show their picture; deleted ones are filtered out, so the rest reflow into the gap.
+    const challenges = this._challenges.filter((ch) => !this._removedIds.has(idForChallenge(ch)));
     return html`
       <div class="container">
         <header class="topbar">
@@ -770,12 +922,28 @@ class RevealApp extends LitElement {
                     const completedEntry = completedById.get(id);
                     return this._renderCard(ch, completedEntry);
                   })
-                : html`<p style="color:var(--text-muted);font-size:0.78rem">Loading pictures…</p>`
+                : html`<p style="color:var(--text-muted);font-size:0.78rem">
+                    ${this._challenges.length
+                      ? "No pictures left — press Reset deck to restore the wall."
+                      : "Loading pictures…"}
+                  </p>`
             }
           </div>
-          <div class="count" aria-live="polite">
-            ${this._collection.length ? `${this._collection.length} of ${challenges.length} revealed · ${MAX_COMPLETED} max` : ""}
-          </div>
+          ${
+            this._collection.length || this._removedIds.size
+              ? html`<div class="deck-footer">
+                  <button
+                    class="reset-btn"
+                    type="button"
+                    title="Clear all revealed cards and restore deleted pictures"
+                    aria-label="Reset deck — clear all revealed cards and restore the full deck"
+                    @click=${this._onResetClick}
+                  >
+                    Reset deck
+                  </button>
+                </div>`
+              : ""
+          }
         </section>
 
       </div>

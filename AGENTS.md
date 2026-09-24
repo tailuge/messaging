@@ -17,6 +17,12 @@ npm run build:all      # Bundle client + build & start Docker (serves the lobby 
 npm run screenshot:iphone # Screenshot the locally served lobby
 ```
 
+## Working with the user
+
+- **UI changes: do not self-verify.** For client/UI work, run `npm run lint` (and the build if the
+  bundle changed) and then **ask the user to verify manually** — do not rebuild the Docker image or
+  run browser/screenshot checks as a substitute for their eyes.
+
 ## Project Overview
 
 This project consists of two parts:
