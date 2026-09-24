@@ -199,6 +199,28 @@ the names in order only. Each entry carries `name`, `imageUrl` (includes `utm_*`
   source but not user-visible.
 - Editing is per entry: add/remove one `<li>`; no comma bookkeeping. UTF-8, `&amp;` for `&`.
 
+### 6.5 Decks
+
+The page offers more than one deck from a button pair on the title row (so offering the choice costs
+**no extra vertical height**):
+
+| Deck | Button | Data list | On-page title |
+|---|---|---|---|
+| K-idols (default) | `K-idols` | `<ul id="challenge-data">` (47 entries) | `Pot & Reveal` |
+| Pokemon (placeholder) | `Pokemon` | `<ul id="pokemon-data">` (one sample entry) | `PokePot` |
+
+- `DECKS` in `reveal.js` is the only place a deck is declared (`id`, button `label`, on-page
+  `title`, `dataId`); a deck is added by appending to that array plus its hidden `<ul>`.
+- The chosen deck is remembered in `reveal:deck`, so a game launched from a deck returns to that
+  deck's wall; `loadDeckId` ignores an unknown id and falls back to the first deck.
+- The collection and deleted-ids stay **shared by all decks** (one `reveal:collection`, one
+  `reveal:removed`): a picture completed in one deck is still completed when you switch back, and
+  `Reset deck` clears progress for every deck.
+- The `?image=` return match searches **every** deck and switches to the matching one, so a return
+  URL still awards its card if the deck was switched (or the stored deck cleared) since launch.
+- A deck whose `<ul>` is present but empty renders "No pictures in this deck yet." instead of the
+  "Loading pictures…" state.
+
 ---
 
 ## 7) Header — mirrors `arena.html`, uses Lit, reuses pathways
@@ -571,8 +593,16 @@ three small corner buttons, so nothing obscures the picture and no dialog is nee
   /reveal/de/ …
   ```
 
+- In-page language tabs on the prose panel (`index.html`): **English, Korean (`ko`), Turkish
+  (`tr`), Chinese (`zh`), Vietnamese (`vi`), Spanish (`es`)**. English holds the real copy; the
+  other five panels are `TBD` placeholders until real translations land.
 - Same `reveal.js` bundle for all; language-specific text stays in HTML. Any JS string that must
   appear (e.g. "Copied!") reads from `data-i18n-*` on the HTML rather than hard-coding.
+- The tabs are **JS-free**: hidden `<input type="radio" name="seo-lang">` elements precede the
+  panels, so `#seo-lang-xx:checked ~ …` (plain sibling selectors, no `:has()`) styles the active
+  tab and reveals its panel. Every language's copy sits in the DOM — only one is displayed — so a
+  crawler without JS still reads all of it, and each panel (and tab label) carries its own `lang`
+  code. English is `checked`, so the no-JS default is unchanged.
 
 ---
 
@@ -726,8 +756,8 @@ seeding beyond this list, no randomization.
 
 | Piece | State |
 |---|---|
-| `src/client/reveal/index.html` | Done — theme bootstrap, single light-DOM prose panel (How to play + FAQ, two columns ≥600px), hidden `<ul id="challenge-data">` (47 entries), site-links footer. |
-| `src/client/reveal/reveal.js` | Done — header islands, dense grid; single flip card per entry (front: `?` plus 1–5 stars or picture, back: Play, or the name as a Wikipedia link plus Share/Delete/Replay corner buttons); lobby presence, return handling, silent-failure logging. |
+| `src/client/reveal/index.html` | Done — theme bootstrap, single light-DOM prose panel (How to play + FAQ, two columns ≥600px) with JS-free language tabs (en/ko/tr/zh/vi/es, non-English copy `TBD`), hidden `<ul id="challenge-data">` (47 entries) and the placeholder `<ul id="pokemon-data">` deck (§6.5), site-links footer. |
+| `src/client/reveal/reveal.js` | Done — header islands, deck switch on the title row (`reveal:deck`, titles `Pot & Reveal` / `PokePot`), dense grid; single flip card per entry (front: `?` plus 1–5 stars or picture, back: Play, or the name as a Wikipedia link plus Share/Delete/Replay corner buttons); lobby presence, cross-deck return handling, silent-failure logging. |
 | `revealGameUrl()` (`src/client/utils.js`) | Done — adds `reds=floor(clamp(rating, 0, 1) * 32)` to the launch URL. |
 | `revealReplayUrl({ imageUrl, state })` (`src/client/utils.js`) | Done — builds the game's replay link from the stored state. |
 | `?state=` persistence + replay link on the card | Done — stored in `reveal:collection`, derived link used by Replay/Share. |

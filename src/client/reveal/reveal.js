@@ -9,7 +9,16 @@ import "../settings-modal.js";
 
 const STORAGE_KEY = "reveal:collection";
 const REMOVED_KEY = "reveal:removed";
+const DECK_KEY = "reveal:deck";
 const MAX_COMPLETED = 20;
+
+// Decks the page can show, each rendered from its own hidden <ul> in index.html. The first
+// entry is the default and the fallback when nothing valid is stored. `title` is the on-page
+// game title shown beside the deck buttons.
+const DECKS = [
+  { id: "kids", label: "K-idols", title: "K-Pot Idol", dataId: "challenge-data" },
+  { id: "pokemon", label: "Pokemon", title: "Poképot", dataId: "pokemon-data" },
+];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -22,8 +31,8 @@ function slugify(name) {
     .slice(0, 48);
 }
 
-function readChallengesFromDOM() {
-  const ul = document.getElementById("challenge-data");
+function readChallengesFromDOM(dataId = "challenge-data") {
+  const ul = document.getElementById(dataId);
   if (!ul) return [];
   const anchors = [...ul.querySelectorAll("a[data-image]")];
   return anchors
@@ -41,10 +50,55 @@ function readChallengesFromDOM() {
         wikipediaUrl: wikipediaUrl.trim(),
         rating,
         id: slugify(name),
+        // Pokémon-deck flavour metadata (undefined for kids deck)
+        pokeType: a.getAttribute("data-type") || undefined,
+        pokeNature: a.getAttribute("data-nature") || undefined,
       };
     })
     .filter((c) => c.imageUrl);
 }
+
+// Tiny mulberry32 PRNG — fast, seedable, same sequence for all clients.
+function mulberry32(seed) {
+  return () => {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Hash a string to a uint32 seed (djb2 variant).
+function hashSeed(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  return h >>> 0;
+}
+
+/**
+ * Post-processes the raw challenge list:
+ *  1. Shuffle deterministically (same order for every user / reload), seeded from
+ *     the first image URL so different decks get different orders.
+ *  2. Re-assign `rankRating` = rank/(n-1) for a perfectly even 0→1 distribution
+ *     that drives star display and &reds without clustering from raw data-rating.
+ */
+function postProcessChallenges(challenges) {
+  if (!challenges.length) return challenges;
+  // Seeded shuffle — Fisher-Yates with mulberry32
+  const rand = mulberry32(hashSeed(challenges[0].imageUrl));
+  const arr = challenges.slice();
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  // Even rank distribution: hardest card (highest original rating) → rankRating 1,
+  // easiest → rankRating 1/n. Sort a copy by original rating desc, then map rank.
+  const byRating = arr.slice().sort((a, b) => b.rating - a.rating);
+  const rankMap = new Map(byRating.map((ch, i) => [ch.id, (i + 1) / arr.length]));
+  return arr.map((ch) => ({ ...ch, rankRating: rankMap.get(ch.id) ?? ch.rating }));
+}
+
 
 function loadCollection() {
   try {
@@ -105,6 +159,24 @@ function saveRemovedIds(ids) {
   }
 }
 
+// The selected deck is remembered: a game launched from a deck returns to that deck's cards.
+function loadDeckId() {
+  try {
+    const raw = localStorage.getItem(DECK_KEY);
+    return DECKS.some((d) => d.id === raw) ? raw : DECKS[0].id;
+  } catch {
+    return DECKS[0].id;
+  }
+}
+
+function saveDeckId(id) {
+  try {
+    localStorage.setItem(DECK_KEY, id);
+  } catch (e) {
+    console.log("reveal: saveDeckId failed", e);
+  }
+}
+
 async function imageToThumbDataUrl(imageUrl, targetEdge = 180) {
   // Fetch the image as a blob with CORS, draw to canvas, export WebP
   const img = new Image();
@@ -155,6 +227,7 @@ class RevealApp extends LitElement {
     _removedIds: { state: true },
     _collection: { state: true },
     _challenges: { state: true },
+    _deckId: { state: true },
     _lobby: { state: true },
     _connected: { state: true },
   };
@@ -262,6 +335,45 @@ class RevealApp extends LitElement {
         font-size: 0.78rem;
         color: var(--text-muted);
         line-height: 1.35;
+      }
+      /* Deck switch sits on the title row, so offering decks costs no extra height */
+      .intro-head {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin: 0 0 0.15rem;
+      }
+      .intro-head h2 {
+        margin: 0;
+      }
+      .deck-switch {
+        display: inline-flex;
+        gap: 0.25rem;
+      }
+      .deck-btn {
+        font: inherit;
+        font-size: 0.7rem;
+        line-height: 1.5;
+        padding: 0.05rem 0.45rem;
+        border: 1px solid var(--btn-border);
+        border-radius: 4px;
+        background: var(--btn-bg);
+        color: var(--text-muted);
+        cursor: pointer;
+      }
+      .deck-btn:hover {
+        border-color: #0d6efd;
+      }
+      .deck-btn[aria-pressed="true"] {
+        background: #0d6efd;
+        border-color: #0d6efd;
+        color: #fff;
+      }
+      .deck-btn:focus-visible {
+        outline: 2px solid #007bff;
+        outline-offset: 1px;
       }
       .panel {
         background: var(--surface);
@@ -406,6 +518,61 @@ class RevealApp extends LitElement {
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
         z-index: 1;
       }
+      /* ── Pokémon type / nature hint pills ─────────────────────────────── */
+      .poke-pills {
+        display: flex;
+        gap: 0.2rem;
+        margin-top: 0.28rem;
+        flex-wrap: wrap;
+        justify-content: center;
+        z-index: 1;
+      }
+      .type-pill {
+        padding: 0.05rem 0.32rem;
+        border-radius: 99px;
+        font-size: 0.52rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: capitalize;
+        line-height: 1.55;
+        opacity: 0.82;
+        color: #fff;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.45);
+      }
+      .nature-pill {
+        padding: 0.05rem 0.3rem;
+        border-radius: 99px;
+        font-size: 0.48rem;
+        font-weight: 400;
+        line-height: 1.55;
+        opacity: 0.55;
+        background: rgba(128,128,128,0.22);
+        color: var(--text-dim);
+        border: 1px solid rgba(128,128,128,0.25);
+        white-space: nowrap;
+        max-width: 5.5rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      /* Authentic Pokémon type colours */
+      .type-pill[data-t="normal"]   { background: #9fa19f; }
+      .type-pill[data-t="fire"]     { background: #e62829; }
+      .type-pill[data-t="water"]    { background: #2980ef; }
+      .type-pill[data-t="electric"] { background: #fac000; color: #222; text-shadow: none; }
+      .type-pill[data-t="grass"]    { background: #3fa129; }
+      .type-pill[data-t="ice"]      { background: #3dcef3; color: #222; text-shadow: none; }
+      .type-pill[data-t="fighting"] { background: #ff8000; }
+      .type-pill[data-t="poison"]   { background: #9141cb; }
+      .type-pill[data-t="ground"]   { background: #915121; }
+      .type-pill[data-t="flying"]   { background: #81b9ef; color: #222; text-shadow: none; }
+      .type-pill[data-t="psychic"]  { background: #ef4179; }
+      .type-pill[data-t="bug"]      { background: #91a119; }
+      .type-pill[data-t="rock"]     { background: #afa981; }
+      .type-pill[data-t="ghost"]    { background: #704170; }
+      .type-pill[data-t="dragon"]   { background: #5060e1; }
+      .type-pill[data-t="dark"]     { background: #624d4e; }
+      .type-pill[data-t="steel"]    { background: #60a1b8; }
+      .type-pill[data-t="fairy"]    { background: #ef70ef; }
       .face-front img {
         position: absolute;
         inset: 0;
@@ -534,6 +701,7 @@ class RevealApp extends LitElement {
     this._removedIds = new Set();
     this._collection = [];
     this._challenges = [];
+    this._deckId = DECKS[0].id;
     this._lobby = null;
     this._connected = false;
     this._client = null;
@@ -548,8 +716,9 @@ class RevealApp extends LitElement {
       document.documentElement.setAttribute("theme", t);
       document.documentElement.style.colorScheme = t;
     } catch {}
-    // Challenges from embedded hidden list (must be in DOM already)
-    this._challenges = readChallengesFromDOM();
+    // Challenges from the selected deck's embedded hidden list (must be in DOM already)
+    this._deckId = loadDeckId();
+    this._challenges = postProcessChallenges(readChallengesFromDOM(this._deck().dataId));
     this._collection = loadCollection();
     this._completedIds = new Set(this._collection.map((e) => e.id));
     this._removedIds = new Set(loadRemovedIds());
@@ -571,6 +740,41 @@ class RevealApp extends LitElement {
     try {
       this._client?.stop();
     } catch {}
+  }
+
+  // The selected deck (falls back to the first when the stored id is unknown)
+  _deck() {
+    return DECKS.find((d) => d.id === this._deckId) ?? DECKS[0];
+  }
+
+  // Switching deck swaps the wall and the title; the collection itself is shared by all decks,
+  // so a picture completed in one is still completed when you come back to it.
+  _setDeck(id) {
+    const deck = DECKS.find((d) => d.id === id) ?? DECKS[0];
+    if (deck.id !== this._deckId || !this._challenges.length) {
+      this._deckId = deck.id;
+      this._challenges = postProcessChallenges(readChallengesFromDOM(deck.dataId));
+
+      this._flippedId = null;
+      saveDeckId(deck.id);
+    }
+    this.requestUpdate();
+  }
+
+  // Exact image match, searched across every deck so a return URL still awards its card when the
+  // selected deck was switched (or the stored deck cleared) since the game was launched.
+  _matchChallenge(image) {
+    for (const deck of DECKS) {
+      const challenges =
+        deck.id === this._deckId && this._challenges.length
+          ? this._challenges
+          : postProcessChallenges(readChallengesFromDOM(deck.dataId));
+      const ch =
+        challenges.find((c) => c.imageUrl === image) ||
+        challenges.find((c) => decodeURIComponent(c.imageUrl) === image);
+      if (ch) return { ch, deck };
+    }
+    return null;
   }
 
   async _connectPresence() {
@@ -621,18 +825,15 @@ class RevealApp extends LitElement {
     } catch {
       decoded = rawImage;
     }
-    // Ensure challenges are available (DOM may not have been parsed when connectedCallback ran early)
-    if (!this._challenges.length) {
-      this._challenges = readChallengesFromDOM();
-    }
-    const match =
-      this._challenges.find((c) => c.imageUrl === decoded) ||
-      this._challenges.find((c) => decodeURIComponent(c.imageUrl) === decoded);
-    if (!match) {
+    const hit = this._matchChallenge(decoded);
+    if (!hit) {
       console.log("reveal: ?image= did not match any challenge, ignoring", decoded.slice(0, 120));
       // Params already stripped — no card minted, nothing persisted
       return;
     }
+    // Returned from a game launched in another deck: switch to it so the new card is on screen
+    if (hit.deck.id !== this._deckId) this._setDeck(hit.deck.id);
+    const match = hit.ch;
     const id = idForChallenge(match);
     // The game returns the whole-game replay state alongside the image on success
     const state = params.get("state") || "";
@@ -727,7 +928,7 @@ class RevealApp extends LitElement {
       userName: userStore.userName,
       lod: userStore.lod,
       flip: userStore.flip,
-      rating: ch.rating,
+      rating: ch.rankRating ?? ch.rating,
       custom: userStore.getCustom(),
     });
     window.location.href = url;
@@ -803,7 +1004,7 @@ class RevealApp extends LitElement {
       .filter(Boolean)
       .join(" ");
     const hasReplay = isCompleted && !!this._replayUrlFor(completedEntry);
-    const rating = Math.min(5, Math.max(1, Math.round(ch.rating * 5)));
+    const rating = Math.min(5, Math.max(1, Math.round((ch.rankRating ?? ch.rating) * 5)));
     const label = isCompleted
       ? `${ch.name} — completed, tap for actions`
       : `Mystery picture — ${rating} star rating, tap to reveal play`;
@@ -827,6 +1028,14 @@ class RevealApp extends LitElement {
                   <span class="rating" role="img" aria-label="${rating} out of 5 stars"
                     >${"★".repeat(rating)}</span
                   >
+                  ${ch.pokeType
+                    ? html`<div class="poke-pills" aria-hidden="true">
+                        <span class="type-pill" data-t="${ch.pokeType}">${ch.pokeType}</span>
+                        ${ch.pokeNature
+                          ? html`<span class="nature-pill" title="${ch.pokeNature}">${ch.pokeNature.split(" ")[0]}</span>`
+                          : ""}
+                      </div>`
+                    : ""}
                 </div>`
           }
           <div class="face face-back">
@@ -894,6 +1103,8 @@ class RevealApp extends LitElement {
 
   render() {
     const completedById = new Map(this._collection.map((e) => [e.id, e]));
+    // An empty deck whose <ul> is present has simply not been filled in yet
+    const deckListPresent = !!document.getElementById(this._deck().dataId);
     // Fixed source (stored) order — no shuffle. Solved cards keep their grid position and simply
     // show their picture; deleted ones are filtered out, so the rest reflow into the gap.
     const challenges = this._challenges.filter((ch) => !this._removedIds.has(idForChallenge(ch)));
@@ -925,7 +1136,24 @@ class RevealApp extends LitElement {
         </header>
 
         <section class="intro">
-          <h2>Pot &amp; Reveal</h2>
+          <div class="intro-head">
+            <h2>${this._deck().title}</h2>
+            <div class="deck-switch" role="group" aria-label="Deck">
+              ${DECKS.map(
+                (d) => html`
+                  <button
+                    class="deck-btn"
+                    type="button"
+                    aria-pressed="${d.id === this._deckId ? "true" : "false"}"
+                    title="Show the ${d.label} deck"
+                    @click=${() => this._setDeck(d.id)}
+                  >
+                    ${d.label}
+                  </button>
+                `,
+              )}
+            </div>
+          </div>
           <p>
             Play billiards to uncover hidden pictures. Each successful pot reveals another part of
             the image.
@@ -945,7 +1173,9 @@ class RevealApp extends LitElement {
                 : html`<p style="color:var(--text-muted);font-size:0.78rem">
                     ${this._challenges.length
                       ? "No pictures left — press Reset deck to restore the wall."
-                      : "Loading pictures…"}
+                      : deckListPresent
+                        ? "No pictures in this deck yet."
+                        : "Loading pictures…"}
                   </p>`
             }
           </div>
