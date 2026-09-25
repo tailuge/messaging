@@ -20,8 +20,9 @@ const REMOVED_KEY = "reveal:removed";
 const DECK_KEY = "reveal:deck";
 const MAX_COMPLETED = 20;
 
-// Decks the page can show, each rendered from its own hidden <ul> in index.html. The first
-// entry is the default and the fallback when nothing valid is stored. `title` is the on-page
+// Decks the page can show, each rendered from its own <ul> in index.html (listed under its
+// own heading in the footer fold-down). The first entry is the default and the fallback when
+// nothing valid is stored. `title` is the on-page
 // game title shown beside the deck buttons. `mode` is the ?mode= value that opens straight onto
 // that deck, so a shared link can choose it.
 const DECKS = [
@@ -124,7 +125,6 @@ function postProcessChallenges(challenges) {
   }
   return processed;
 }
-
 
 function loadCollection() {
   try {
@@ -294,14 +294,7 @@ async function imageToThumbDataUrl(imageUrl, { targetEdge = 180, type = "" } = {
   // opaque and have no type, so they take the plain canvas as before.
   const wash = POKE_TYPE_COLOURS[type];
   if (wash) {
-    const gradient = ctx.createRadialGradient(
-      w / 2,
-      h / 2,
-      0,
-      w / 2,
-      h / 2,
-      Math.hypot(w, h) / 2,
-    );
+    const gradient = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.hypot(w, h) / 2);
     // Brightest (such as it is) at the centre behind the subject, falling darker at the corners so
     // the card keeps the deck's dark look at its edges.
     gradient.addColorStop(0, `hsl(${typeWash(wash)})`);
@@ -665,7 +658,7 @@ class RevealApp extends LitElement {
         line-height: 1.55;
         opacity: 0.82;
         color: #fff;
-        text-shadow: 0 1px 2px rgba(0,0,0,0.45);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
       }
       /* No opacity on the pill itself: fading the whole element composited --text-dim down to
          ~2.6:1 against the card surface, failing WCAG 1.4.3 (needs 4.5:1). It stays visually
@@ -676,33 +669,75 @@ class RevealApp extends LitElement {
         font-size: 0.48rem;
         font-weight: 400;
         line-height: 1.55;
-        background: rgba(128,128,128,0.18);
+        background: rgba(128, 128, 128, 0.18);
         color: var(--text-dim);
-        border: 1px solid rgba(128,128,128,0.25);
+        border: 1px solid rgba(128, 128, 128, 0.25);
         white-space: nowrap;
         max-width: 5.5rem;
         overflow: hidden;
         text-overflow: ellipsis;
       }
       /* Authentic Pokémon type colours */
-      .type-pill[data-t="normal"]   { background: #9fa19f; }
-      .type-pill[data-t="fire"]     { background: #e62829; }
-      .type-pill[data-t="water"]    { background: #2980ef; }
-      .type-pill[data-t="electric"] { background: #fac000; color: #222; text-shadow: none; }
-      .type-pill[data-t="grass"]    { background: #3fa129; }
-      .type-pill[data-t="ice"]      { background: #3dcef3; color: #222; text-shadow: none; }
-      .type-pill[data-t="fighting"] { background: #ff8000; }
-      .type-pill[data-t="poison"]   { background: #9141cb; }
-      .type-pill[data-t="ground"]   { background: #915121; }
-      .type-pill[data-t="flying"]   { background: #81b9ef; color: #222; text-shadow: none; }
-      .type-pill[data-t="psychic"]  { background: #ef4179; }
-      .type-pill[data-t="bug"]      { background: #91a119; }
-      .type-pill[data-t="rock"]     { background: #afa981; }
-      .type-pill[data-t="ghost"]    { background: #704170; }
-      .type-pill[data-t="dragon"]   { background: #5060e1; }
-      .type-pill[data-t="dark"]     { background: #624d4e; }
-      .type-pill[data-t="steel"]    { background: #60a1b8; }
-      .type-pill[data-t="fairy"]    { background: #ef70ef; }
+      .type-pill[data-t="normal"] {
+        background: #9fa19f;
+      }
+      .type-pill[data-t="fire"] {
+        background: #e62829;
+      }
+      .type-pill[data-t="water"] {
+        background: #2980ef;
+      }
+      .type-pill[data-t="electric"] {
+        background: #fac000;
+        color: #222;
+        text-shadow: none;
+      }
+      .type-pill[data-t="grass"] {
+        background: #3fa129;
+      }
+      .type-pill[data-t="ice"] {
+        background: #3dcef3;
+        color: #222;
+        text-shadow: none;
+      }
+      .type-pill[data-t="fighting"] {
+        background: #ff8000;
+      }
+      .type-pill[data-t="poison"] {
+        background: #9141cb;
+      }
+      .type-pill[data-t="ground"] {
+        background: #915121;
+      }
+      .type-pill[data-t="flying"] {
+        background: #81b9ef;
+        color: #222;
+        text-shadow: none;
+      }
+      .type-pill[data-t="psychic"] {
+        background: #ef4179;
+      }
+      .type-pill[data-t="bug"] {
+        background: #91a119;
+      }
+      .type-pill[data-t="rock"] {
+        background: #afa981;
+      }
+      .type-pill[data-t="ghost"] {
+        background: #704170;
+      }
+      .type-pill[data-t="dragon"] {
+        background: #5060e1;
+      }
+      .type-pill[data-t="dark"] {
+        background: #624d4e;
+      }
+      .type-pill[data-t="steel"] {
+        background: #60a1b8;
+      }
+      .type-pill[data-t="fairy"] {
+        background: #ef70ef;
+      }
       .face-front img {
         position: absolute;
         inset: 0;
@@ -1071,7 +1106,11 @@ class RevealApp extends LitElement {
 
   // Rewrite the address-bar query ('' clears it entirely), keeping the path and hash
   _replaceQuery(search) {
-    history.replaceState(null, "", location.pathname + (search ? `?${search}` : "") + location.hash);
+    history.replaceState(
+      null,
+      "",
+      location.pathname + (search ? `?${search}` : "") + location.hash,
+    );
   }
 
   // Drop the single-use return params so the URL cannot be copied or refreshed into a re-award.
@@ -1161,7 +1200,7 @@ class RevealApp extends LitElement {
     if (solved) parts.push(`${solved} revealed card${solved === 1 ? "" : "s"}`);
     if (deleted) parts.push(`${deleted} deleted picture${deleted === 1 ? "" : "s"}`);
     const ok = window.confirm(
-      `Reset deck? This clears ${parts.join(" and ")}, setting every card back to unsolved.`
+      `Reset deck? This clears ${parts.join(" and ")}, setting every card back to unsolved.`,
     );
     if (!ok) return;
     clearCollection();
@@ -1233,14 +1272,20 @@ class RevealApp extends LitElement {
                   <span class="rating" role="img" aria-label="${stars} out of 5 stars"
                     >${"★".repeat(stars)}</span
                   >
-                  ${ch.pokeType
-                    ? html`<div class="poke-pills" aria-hidden="true">
-                        <span class="type-pill" data-t="${ch.pokeType}">${ch.pokeType}</span>
-                        ${natureWord
-                          ? html`<span class="nature-pill" title="${ch.pokeNature}">${natureWord}</span>`
-                          : ""}
-                      </div>`
-                    : ""}
+                  ${
+                    ch.pokeType
+                      ? html`<div class="poke-pills" aria-hidden="true">
+                          <span class="type-pill" data-t="${ch.pokeType}">${ch.pokeType}</span>
+                          ${
+                            natureWord
+                              ? html`<span class="nature-pill" title="${ch.pokeNature}"
+                                  >${natureWord}</span
+                                >`
+                              : ""
+                          }
+                        </div>`
+                      : ""
+                  }
                 </div>`
           }
           <div class="face face-back">
@@ -1366,11 +1411,13 @@ class RevealApp extends LitElement {
                     return this._renderCard(ch, completedEntry);
                   })
                 : html`<p style="color:var(--text-muted);font-size:0.78rem">
-                    ${this._challenges.length
-                      ? "No pictures left — press Reset deck to restore the wall."
-                      : deckListPresent
-                        ? "No pictures in this deck yet."
-                        : "Loading pictures…"}
+                    ${
+                      this._challenges.length
+                        ? "No pictures left — press Reset deck to restore the wall."
+                        : deckListPresent
+                          ? "No pictures in this deck yet."
+                          : "Loading pictures…"
+                    }
                   </p>`
             }
           </div>
@@ -1405,7 +1452,6 @@ class RevealApp extends LitElement {
             }
           </div>
         </section>
-
       </div>
     `;
   }
