@@ -52,16 +52,16 @@ const GAMES = [
     url: "book/index.html",
   },    
   {
-    label: "3-Cushion (40)",
+    label: "3-Cushion (30)",
     img: "assets/threecushion.png",
     ruletype: "threecushion",
-    options: { raceTo: "40" },
+    options: { raceTo: "30" },
   },
   {
-    label: "3-Cushion (15)",
-    img: "assets/threecushion.png",
-    ruletype: "threecushion",
-    options: { raceTo: "15" },
+    label: "Billiard collections",
+    img: "assets/reveal.png",
+    url: "https://billiards.tailuge.workers.dev/reveal",
+    absolute: true,
   },
   {
     label: "Sagu (5)",

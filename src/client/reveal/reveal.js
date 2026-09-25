@@ -204,9 +204,8 @@ function saveDeckId(id) {
 }
 
 // A shared link can name the deck to open with: ?mode=k-idols or ?mode=pokepot. Resolved against
-// each deck's `mode` alias; an absent or unknown value falls back to the remembered deck.
-// Deliberately a view-only preference — unlike the deck buttons it is never saved, so following
-// someone else's link does not change which deck your own visits start on.
+// each deck's `mode` alias; an absent or unknown value falls back to the remembered deck. When a
+// deck is selected, the mode is written back to the URL so the address bar remains shareable.
 function deckIdFromUrl() {
   let mode;
   try {
@@ -961,11 +960,11 @@ class RevealApp extends LitElement {
   _setDeck(id) {
     const deck = DECKS.find((d) => d.id === id) ?? DECKS[0];
     saveDeckId(deck.id);
-    // Choosing a deck makes it the remembered one, so any ?mode= naming a different deck loses its
-    // say — otherwise the next reload would jump back to the linked deck instead of the one picked
-    // here. This is what makes ?mode= a per-visit preference: the link sets the first view, and the
-    // buttons (via the stored deck) take over from then on.
-    this._dropModeParam();
+    // Keep the address bar aligned with the selected deck so copying the URL always shares the
+    // currently visible deck. replaceState avoids adding a history entry for every deck switch.
+    const params = new URLSearchParams(window.location.search);
+    params.set("mode", deck.mode);
+    this._replaceQuery(params.toString());
     if (deck.id !== this._deckId || !this._challenges.length) {
       this._deckId = deck.id;
       this._challenges = postProcessChallenges(readChallengesFromDOM(deck.dataId));
@@ -1113,19 +1112,13 @@ class RevealApp extends LitElement {
     );
   }
 
-  // Drop the single-use return params so the URL cannot be copied or refreshed into a re-award.
-  // The whole query goes now, not just ?image=/?state=: the return URL is single-use and everything
-  // it carried is either held in memory or already persisted, so nothing needs to stay in the bar.
+  // Drop the single-use return params so the URL cannot be copied or refreshed into a re-award,
+  // while preserving the shareable deck mode and any unrelated query parameters.
   _stripReturnParams() {
-    if (!window.location.search) return;
-    this._replaceQuery("");
-  }
-
-  // Clear a ?mode= link's claim on the deck without disturbing any other param
-  _dropModeParam() {
     const params = new URLSearchParams(window.location.search);
-    if (!params.has("mode")) return;
-    params.delete("mode");
+    if (!params.has("image") && !params.has("state")) return;
+    params.delete("image");
+    params.delete("state");
     this._replaceQuery(params.toString());
   }
 
