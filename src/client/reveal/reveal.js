@@ -1446,7 +1446,7 @@ class RevealApp extends LitElement {
                     aria-label="Reset deck — clear all revealed cards and restore the full deck"
                     @click=${this._onResetClick}
                   >
-                    Reset deck
+                    Reset decks
                   </button>`
                 : ""
             }
