@@ -524,7 +524,7 @@ class RevealApp extends LitElement {
       /* Dense card grid — the central element */
       .card-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(max(84px, calc((100% - 42px) / 8)), 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(max(88px, calc((100% - 42px) / 8)), 1fr));
         /* Just wide enough for the card shadows to read between neighbours */
         gap: 6px;
       }
