@@ -85,15 +85,15 @@ describe("revealGameUrl rating", () => {
         stars,
     } as any);
 
-    it("converts the rating to a whole number of reds", () => {
+    it("converts the rating to 1–15 reds", () => {
         expect(param(build(0.03125), "reds")).toBe("1");
-        expect(param(build(0.5), "reds")).toBe("16");
-        expect(param(build(1), "reds")).toBe("32");
+        expect(param(build(0.5), "reds")).toBe("8");
+        expect(param(build(1), "reds")).toBe("15");
     });
 
     it("clamps ratings to the supported 0–1 range", () => {
         expect(param(build(-1), "reds")).toBe("1");
-        expect(param(build(2), "reds")).toBe("32");
+        expect(param(build(2), "reds")).toBe("15");
     });
 
     it("appends extra query params depending on star rating", () => {

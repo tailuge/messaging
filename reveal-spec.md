@@ -7,8 +7,9 @@
 > `../billiards` on the other side of the launch/return contract.
 > **Implemented in:** `src/client/reveal/index.html`, `src/client/reveal/reveal.js`, and
 > `revealGameUrl` / `revealReplayUrl` in `src/client/utils.js`.
-> **Last updated:** 2026-09-24 — challenge entries now include a **0–1 `data-rating`**, shown as
-> 1–5 small stars on unsolved cards and launched as `reds=floor(rating * 32)`. A success return
+> **Last updated:** 2026-09-25 — deck lists are authored easiest-first, so a card's **list
+> position is its rank**: rank gives the 1–5 stars on unsolved cards and the launch `reds`
+> (`clamp(round(rank/n * 15), 1, 15)`). A success return
 > carries **`?image=` and `?state=`**; the state is persisted on the completed card and is the source
 > of that card's replay/share link.
 
@@ -180,8 +181,9 @@ stay real `<a href>` elements. The XML variant is dropped; do not reintroduce it
 - `data-image` = canonical image URL used for `ruletype=reveal&image=` **and** for `?image=`
   matching on return. This is the **canonical identifier**. Raw `&` is escaped as `&amp;` in HTML;
   the DOM yields the unescaped URL, which is what must match the returned `image` param.
-- `data-rating` = a float in `[0, 1]`. The app clamps it, maps it to 1–5 small stars on the
-  unsolved card, and sends `reds=floor(rating * 32)` when launching the game.
+- `data-rating` = a float in `[0, 1]`. Informational only: the deck lists are authored in
+  ascending `data-rating` order, and the app ranks cards by their **list position**. Rank drives
+  the 1–5 stars on the unsolved card and the `reds` sent when launching the game.
 - `href` = `wikipediaUrl` (English Wikipedia page) for the completed card's secondary action.
 - Display name is the anchor text (`BoA`, `Eugene (actress)` … preserved verbatim).
 - `slugify(name)` derives the card `id` for dedup/keys.
@@ -405,7 +407,7 @@ alongside `gameUrl()`/`soloUrl()` reusing `BASE`/`WS_SERVER`/`appendCustom`:
 ```
 ${BASE}?ruletype=reveal&image=<encodeURIComponent(imageUrl)>
   &userId=<userStore.clientId>&userName=<encodeURIComponent(userStore.userName)>
-  &lod=<lod>&flip=<flip or omitted>&reds=<floor(clamp(rating, 0, 1) * 32)>
+  &lod=<lod>&flip=<flip or omitted>&reds=<clamp(round(rank/n * 15), 1, 15)>
   &custom.<k>=<v>…        // userStore.getCustom() via flattenCustom → custom.cue.colour etc.
   &lobbyUrl=<WS_SERVER>  // when _localhost
 ```
@@ -780,7 +782,7 @@ seeding beyond this list, no randomization.
 |---|---|
 | `src/client/reveal/index.html` | Done — theme bootstrap, single light-DOM prose panel (How to play + FAQ, two columns ≥600px) with JS-free language tabs (en/ko/tr/zh/vi/es, all translated), hidden `<ul id="challenge-data">` (47 entries) and the placeholder `<ul id="pokemon-data">` deck (§6.5), site-links footer. |
 | `src/client/reveal/reveal.js` | Done — header islands, deck switch on the title row (`reveal:deck`, titles `Pot & Reveal` / `PokePot`), dense grid; single flip card per entry (front: `?` plus 1–5 stars or picture, back: Play, or the name as a Wikipedia link plus Share/Delete/Replay corner buttons); lobby presence, cross-deck return handling, silent-failure logging. |
-| `revealGameUrl()` (`src/client/utils.js`) | Done — adds `reds=floor(clamp(rating, 0, 1) * 32)` to the launch URL. |
+| `revealGameUrl()` (`src/client/utils.js`) | Done — adds `reds=clamp(round(rating * 15), 1, 15)` to the launch URL. |
 | `revealReplayUrl({ imageUrl, state })` (`src/client/utils.js`) | Done — builds the game's replay link from the stored state. |
 | `?state=` persistence + replay link on the card | Done — stored in `reveal:collection`, derived link used by Replay/Share. |
 | Delete / new-deck behaviour | Done — per-card Delete filters the deck and persists in `reveal:removed`; Reset deck clears both keys (see §10.6, §11). |

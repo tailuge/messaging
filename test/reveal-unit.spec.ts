@@ -1,5 +1,3 @@
-import { revealGameUrl } from "../src/client/utils.js";
-
 // Mock lit to run in Node
 jest.mock("lit", () => ({
     html: (strings: any, ..._values: any[]) => strings[0],
@@ -27,18 +25,13 @@ function hashSeed(s: string) {
 
 function postProcessChallenges(challenges: any[]) {
     if (!challenges.length) return challenges;
-    const sorted = challenges.slice().sort((a, b) => a.rating - b.rating);
-    const n = sorted.length;
-    const processed = sorted.map((ch, i) => {
+    const n = challenges.length;
+    const processed = challenges.map((ch, i) => {
         const normRating = (i + 1) / n;
-        const reds = Math.max(1, Math.round(normRating * 32));
-        const stars = Math.min(5, Math.max(1, Math.ceil(normRating * 5)));
         return {
             ...ch,
             normRating,
-            reds,
-            stars,
-            rankRating: normRating,
+            stars: Math.min(5, Math.max(1, Math.ceil(normRating * 5))),
         };
     });
     const rand = mulberry32(hashSeed(challenges[0].imageUrl));
@@ -50,13 +43,14 @@ function postProcessChallenges(challenges: any[]) {
 }
 
 describe("reveal deck postProcessChallenges", () => {
+    // Deck lists are authored easiest-first, so a card's position is its rank.
     const rawDeck = [
-        { id: "hard", name: "Hard Card", rating: 1.0, imageUrl: "https://x.com/hard.jpg" },
         { id: "easy", name: "Easy Card", rating: 0.1, imageUrl: "https://x.com/easy.jpg" },
         { id: "mid", name: "Mid Card", rating: 0.5, imageUrl: "https://x.com/mid.jpg" },
+        { id: "hard", name: "Hard Card", rating: 1.0, imageUrl: "https://x.com/hard.jpg" },
     ];
 
-    it("orders by rating easy to hard before assigning normalized ratings, stars, and reds", () => {
+    it("assigns normalized ratings and stars by list position", () => {
         const processed = postProcessChallenges(rawDeck);
         expect(processed.length).toBe(3);
 
@@ -65,15 +59,17 @@ describe("reveal deck postProcessChallenges", () => {
         const hard = processed.find((c) => c.id === "hard");
 
         expect(easy.normRating).toBeCloseTo(1 / 3);
-        expect(easy.reds).toBe(11);
         expect(easy.stars).toBe(2);
 
         expect(mid.normRating).toBeCloseTo(2 / 3);
-        expect(mid.reds).toBe(21);
         expect(mid.stars).toBe(4);
 
         expect(hard.normRating).toBeCloseTo(3 / 3);
-        expect(hard.reds).toBe(32);
         expect(hard.stars).toBe(5);
+    });
+
+    it("keeps every card in the deck after shuffling", () => {
+        const processed = postProcessChallenges(rawDeck);
+        expect(processed.map((c) => c.id).sort()).toEqual(["easy", "hard", "mid"]);
     });
 });

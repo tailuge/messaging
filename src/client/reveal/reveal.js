@@ -98,30 +98,25 @@ function hashSeed(s) {
 }
 
 /**
- * Post-processes the raw challenge list:
- *  1. Shuffle deterministically (same order for every user / reload), seeded from
- *     the first image URL so different decks get different orders.
- *  2. Re-assign `rankRating` = rank/(n-1) for a perfectly even 0→1 distribution
- *     that drives star display and &reds without clustering from raw data-rating.
+ * Turns the raw deck into display cards.
+ *
+ * Deck lists are authored easiest-first, so a card's position is its rank. Rank gives the
+ * badge stars (1-5); `&reds` is derived from the same rank fraction in `revealGameUrl`. The
+ * deck is then shuffled deterministically (same order for every user / reload) so the wall
+ * does not simply run easiest to hardest.
  */
 function postProcessChallenges(challenges) {
   if (!challenges.length) return challenges;
-  // 1. Order deck easy to hard by original rating (data-rating in DOM)
-  const sorted = challenges.slice().sort((a, b) => a.rating - b.rating);
-  const n = sorted.length;
-  const processed = sorted.map((ch, i) => {
+  const n = challenges.length;
+  const processed = challenges.map((ch, i) => {
     const normRating = (i + 1) / n;
-    const reds = Math.max(1, Math.round(normRating * 32));
-    const stars = Math.min(5, Math.max(1, Math.ceil(normRating * 5)));
     return {
       ...ch,
       normRating,
-      reds,
-      stars,
-      rankRating: normRating,
+      stars: Math.min(5, Math.max(1, Math.ceil(normRating * 5))),
     };
   });
-  // 2. Present deck in deterministically shuffled order
+  // Seeded Fisher-Yates; the first image URL keeps different decks on different orders.
   const rand = mulberry32(hashSeed(challenges[0].imageUrl));
   for (let i = processed.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
@@ -1123,7 +1118,7 @@ class RevealApp extends LitElement {
       userName: userStore.userName,
       lod: userStore.lod,
       flip: userStore.flip,
-      rating: ch.normRating ?? ch.rankRating ?? ch.rating,
+      rating: ch.normRating ?? ch.rating,
       stars: ch.stars,
       custom: userStore.getCustom(),
     });
@@ -1204,7 +1199,7 @@ class RevealApp extends LitElement {
       .filter(Boolean)
       .join(" ");
     const hasReplay = isCompleted && !!this._replayUrlFor(completedEntry);
-    const stars = ch.stars ?? Math.min(5, Math.max(1, Math.ceil((ch.normRating ?? ch.rating) * 5)));
+    const stars = ch.stars;
     // The pill only shows the first word of the nature, so that is the word the label has to
     // repeat. Shared with the pill below so the two cannot drift apart.
     const natureWord = ch.pokeNature ? ch.pokeNature.split(" ")[0] : "";
@@ -1320,8 +1315,8 @@ class RevealApp extends LitElement {
     const completedById = new Map(this._collection.map((e) => [e.id, e]));
     // An empty deck whose <ul> is present has simply not been filled in yet
     const deckListPresent = !!document.getElementById(this._deck().dataId);
-    // Fixed source (stored) order — no shuffle. Solved cards keep their grid position and simply
-    // show their picture; deleted ones are filtered out, so the rest reflow into the gap.
+    // Shuffled display order (see postProcessChallenges). Solved cards keep their grid position
+    // and simply show their picture; deleted ones are filtered out, so the rest reflow into the gap.
     const challenges = this._challenges.filter((ch) => !this._removedIds.has(idForChallenge(ch)));
     return html`
       <div class="container">

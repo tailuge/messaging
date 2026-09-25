@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 1118;
+export const CLIENTVERSION = 1120;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -243,7 +243,8 @@ export const spectateUrl = ({ tableId, userId, userName, ruleType, options }) =>
 
 export const revealGameUrl = ({ imageUrl, userId, userName, lod, flip, rating, stars, custom }) => {
     const normalizedRating = Math.min(1, Math.max(0, Number.isFinite(rating) ? rating : 0));
-    const reds = Math.max(1, Math.round(normalizedRating * 32));
+    // Rank fraction (0-1) -> 1-15 reds, the most a snooker table holds.
+    const reds = Math.min(15, Math.max(1, Math.round(normalizedRating * 15)));
     const starRating = stars ?? Math.min(5, Math.max(1, Math.ceil(normalizedRating * 5)));
     let url = `${BASE}?ruletype=reveal&image=${encodeURIComponent(imageUrl)}&userId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}&lod=${lod}&reds=${reds}`;
     if (starRating === 1) {
