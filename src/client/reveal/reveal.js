@@ -375,6 +375,8 @@ class RevealApp extends LitElement {
     _lobby: { state: true },
     _connected: { state: true },
     _hasMessage: { state: true },
+    _pendingChats: { state: true },
+    _popoverOpen: { state: true },
   };
 
   static styles = [
@@ -519,6 +521,71 @@ class RevealApp extends LitElement {
         .top-link--alert {
           animation: none;
         }
+      }
+      /* Chat popover: a compact, read-only summary of messages that arrived while the player
+         was on this page (they have no chat UI here). Each line is "sender: text"; the Lobby
+         button navigates back so the conversation can be continued there. Clicking outside
+         (or Escape) dismisses it while leaving the pulsing icon as the reminder. */
+      .chat-popover {
+        position: absolute;
+        top: calc(50% + 20px);
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 3;
+        width: min(20rem, calc(100vw - 2rem));
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        padding: 0.5rem 0.6rem;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+        font-size: 0.78rem;
+        line-height: 1.35;
+      }
+      .chat-popover ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        max-height: 10rem;
+        overflow-y: auto;
+      }
+      .chat-popover-sender {
+        font-weight: 600;
+      }
+      .chat-popover-text {
+        color: var(--text-muted);
+        overflow-wrap: anywhere;
+      }
+      .chat-popover-actions {
+        display: flex;
+        justify-content: flex-end;
+      }
+      .chat-popover-lobby {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 28px;
+        padding: 0.25rem 0.6rem;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: inherit;
+        text-decoration: none;
+        font-size: 0.72rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .chat-popover-lobby:hover {
+        border-color: var(--text-dim);
+      }
+      .chat-popover-lobby:focus-visible {
+        outline: 2px solid #007bff;
+        outline-offset: 1px;
       }
       .intro {
         padding: 0.1rem 0 0.15rem;
@@ -1016,6 +1083,8 @@ class RevealApp extends LitElement {
     this._lobby = null;
     this._connected = false;
     this._hasMessage = false;
+    this._pendingChats = [];
+    this._popoverOpen = false;
     this._client = null;
   }
 
@@ -1039,6 +1108,13 @@ class RevealApp extends LitElement {
     // Listen for user name changes (badge)
     this._onNameChanged = () => this.requestUpdate();
     document.addEventListener("user-name-changed", this._onNameChanged);
+    // Dismiss the chat popover when the player clicks anywhere outside it, or presses Escape
+    this._onDocPointerDown = (e) => this._handleDocPointerDown(e);
+    document.addEventListener("pointerdown", this._onDocPointerDown);
+    this._onDocKeyDown = (e) => {
+      if (e.key === "Escape" && this._popoverOpen) this._dismissPopover();
+    };
+    document.addEventListener("keydown", this._onDocKeyDown);
     // Presence — same path as lobby
     this._connectPresence().catch((e) =>
       console.error("reveal presence failed", e),
@@ -1052,6 +1128,8 @@ class RevealApp extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     document.removeEventListener("user-name-changed", this._onNameChanged);
+    document.removeEventListener("pointerdown", this._onDocPointerDown);
+    document.removeEventListener("keydown", this._onDocKeyDown);
     try {
       this._lobby?.leave();
     } catch {}
@@ -1125,9 +1203,10 @@ class RevealApp extends LitElement {
     });
     this._lobby = lobby;
     // A chat message or a challenge offer has no UI on this page. Flag it so the top bar
-    // shows the message icon, which links back to the lobby for proper handling. Challenge
-    // accepts/declines are for the challenger and are not relevant here.
-    lobby.onChat(() => this._flagPendingMessage());
+    // shows the message icon, which links back to the lobby for proper handling. A chat also
+    // opens a small popover so the text is not lost on the way back. Challenge accepts/declines
+    // are for the challenger and are not relevant here.
+    lobby.onChat((msg) => this._onIncomingChat(msg));
     lobby.onChallenge((msg) => {
       if (msg.type === "offer") this._flagPendingMessage();
     });
@@ -1149,6 +1228,39 @@ class RevealApp extends LitElement {
   _flagPendingMessage() {
     if (this._hasMessage) return;
     this._hasMessage = true;
+  }
+
+  // Chat arrived while the player was here. This page has no chat window, so show a small
+  // popover with the sender and text plus a route back to the lobby (where the conversation
+  // lives). Keeps the last few messages so a burst is not lost to a single line.
+  _onIncomingChat(msg) {
+    if (!msg?.text) return;
+    const sender =
+      this._lobby?.getUsers?.().find((u) => u.userId === msg.senderId)?.userName ||
+      msg.senderId;
+    this._pendingChats = [...this._pendingChats, { sender, text: msg.text }].slice(
+      -5,
+    );
+    this._hasMessage = true;
+    this._popoverOpen = true;
+    this.requestUpdate();
+  }
+
+  // Hide the popover but keep the pending chats and the pulsing icon, so a stray click does
+  // not lose the messages — the icon still leads back to the lobby.
+  _dismissPopover() {
+    if (!this._popoverOpen) return;
+    this._popoverOpen = false;
+    this.requestUpdate();
+  }
+
+  // Click outside the popover closes it. composedPath crosses the shadow boundary back to
+  // this host, so matching the popover element on the path is enough.
+  _handleDocPointerDown(e) {
+    if (!this._popoverOpen) return;
+    const path = e.composedPath?.() ?? [];
+    if (path.some((el) => el?.classList?.contains?.("chat-popover"))) return;
+    this._dismissPopover();
   }
 
   async _handleReturnParam() {
@@ -1537,6 +1649,31 @@ class RevealApp extends LitElement {
             title=${this._hasMessage ? "New message" : "Back to the lobby"}
             >${this._hasMessage ? "💬" : "Lobby"}</a
           >
+          ${this._popoverOpen && this._pendingChats.length
+            ? html`
+                <div
+                  class="chat-popover"
+                  role="dialog"
+                  aria-label="New chat messages"
+                >
+                  <ul>
+                    ${this._pendingChats.map(
+                      (c) => html`
+                        <li>
+                          <span class="chat-popover-sender"
+                            >${c.sender}:</span
+                          >
+                          <span class="chat-popover-text">${c.text}</span>
+                        </li>
+                      `,
+                    )}
+                  </ul>
+                  <div class="chat-popover-actions">
+                    <a class="chat-popover-lobby" href="../lobby">Lobby</a>
+                  </div>
+                </div>
+              `
+            : ""}
           <trophy-item></trophy-item>
           <user-badge></user-badge>
           <settings-modal
