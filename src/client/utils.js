@@ -118,6 +118,7 @@ export function getEmoji(origin = "", ruleType = "", status = "", options = {}, 
     snooker: { emoji: "🔴", title: "snooker" },
     threecushion: { emoji: "③", title: "threecushion" },
     sagu: { emoji: "④", title: "sagu" },
+    reveal: { emoji: "\u{1F0A1}", title: "reveal" },
   };
 
     const mapped = ruleMap[ruleType];
@@ -308,6 +309,7 @@ export const shortenUrl = async (url) => {
 
 const RULE_ASSETS = { eightball: 'eightball', snooker: 'snooker', threecushion: 'threecushion', nineball: 'nineball', sagu: 'sagu' };
 export const ruleIcon = rule => {
+    if (rule === "reveal") return html`<span title="reveal" aria-label="reveal">\u{1F0A1}</span>`;
     const name = RULE_ASSETS[rule];
     return name
         ? html`<img src="assets/${name}.png" alt="${rule}" title="${rule}" width="18" height="18" style="vertical-align:middle">`

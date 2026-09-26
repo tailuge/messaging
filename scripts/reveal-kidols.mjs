@@ -42,25 +42,19 @@ const USER_AGENT =
 // at our request rate; it is what keeps the walk to a few seconds.
 const CONCURRENCY = 6;
 
-// Female-only categories, so no gender check is needed downstream. Names are
 // verbatim Wikipedia category names (without the "Category:" prefix).
 const SEED_CATEGORIES = [
   "South Korean actresses",
   "South Korean film actresses",
   "South Korean television actresses",
-  "South Korean stage actresses",
-  "South Korean voice actresses",
   "20th-century South Korean actresses",
   "21st-century South Korean actresses",
   "South Korean women singers",
   "South Korean women pop singers",
   "South Korean female idols",
-  "South Korean women rappers",
-  "South Korean women singer-songwriters",
   "South Korean women dancers",
   "South Korean female models",
   "South Korean women television presenters",
-  "South Korean women comedians",
 ];
 
 // Groups and labels the above categories reach: the deck is one card per person,
