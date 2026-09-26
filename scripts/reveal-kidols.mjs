@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 // Seed generator for the K-idols deck (`<ul id="challenge-data">` in
-// src/client/reveal/index.html). Prints ready-to-paste <li> entries — one per
-// famous female South Korean actress / singer / celebrity — to stdout.
+// src/client/reveal/index.html). Collects one entry per famous female South
+// Korean actress / singer / celebrity and writes a human-review page to
+// docker/html/decks.html — served by nginx alongside the client, so the
+// candidate links, images and licences can be eyeballed in a browser before
+// any of it is pasted into index.html.
 //
 // Only JSON metadata is ever requested — no image, thumbnail or wiki page is
 // downloaded. A single concurrent pass over `generator=categorymembers` with
@@ -23,16 +26,21 @@
 // when Commons flags one, `data-image-restrictions` (e.g. personality rights).
 //
 // Usage:
-//   node scripts/reveal-kidols.mjs                 # top 47, paste into index.html
+//   node scripts/reveal-kidols.mjs                 # top 32 by article size
 //   node scripts/reveal-kidols.mjs --limit 100     # a longer list
-//   node scripts/reveal-kidols.mjs --sort bytes    # rank by article size, not pageviews
+//   node scripts/reveal-kidols.mjs --sort views    # rank by 60-day pageviews, not article size
 //   node scripts/reveal-kidols.mjs --min-score 5000 # drop the less famous tail
 //   node scripts/reveal-kidols.mjs --depth 0       # seeds only, no subcategory walking
 //   node scripts/reveal-kidols.mjs --no-licence    # skip the attribution lookup
-//   node scripts/reveal-kidols.mjs --json          # JSON records instead of HTML
+//   node scripts/reveal-kidols.mjs --out path.html # write the review page elsewhere
+//   node scripts/reveal-kidols.mjs --json          # JSON records to stdout instead
 //
-// Progress goes to stderr, so `node scripts/reveal-kidols.mjs > deck.html` writes
-// only the markup.
+// Everything except an explicit `--json` goes to the review page, and progress
+// goes to stderr, so stdout stays clean.
+
+import { writeFile, mkdir } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const API = "https://en.wikipedia.org/w/api.php";
 const USER_AGENT =
@@ -47,12 +55,10 @@ const SEED_CATEGORIES = [
   "South Korean actresses",
   "South Korean film actresses",
   "South Korean television actresses",
-  "20th-century South Korean actresses",
   "21st-century South Korean actresses",
   "South Korean women singers",
   "South Korean women pop singers",
   "South Korean female idols",
-  "South Korean women dancers",
   "South Korean female models",
   "South Korean women television presenters",
 ];
@@ -83,12 +89,21 @@ const argValue = (name, fallback) => {
   return i === -1 ? fallback : args[i + 1];
 };
 
-const LIMIT = Number(argValue("--limit", 47));
+// Deck size and ranking metric the K-idols deck ships with: the 32 biggest
+// articles by size, which the deck still emits in ascending data-rating order.
+const LIMIT = Number(argValue("--limit", 32));
 const DEPTH = Number(argValue("--depth", 1));
 const MIN_SCORE = Number(argValue("--min-score", 0));
-const SORT_KEY = argValue("--sort", "views");
+const SORT_KEY = argValue("--sort", "bytes");
 const AS_JSON = args.includes("--json");
 const WITH_LICENCE = !args.includes("--no-licence");
+
+// Review page, served by nginx from /usr/share/nginx/html (see docker/Dockerfile).
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+const OUT_FILE = resolve(
+  SCRIPT_DIR,
+  argValue("--out", "../docker/html/decks.html"),
+);
 const CREATED = new Date().toISOString().slice(0, 10);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -199,9 +214,12 @@ async function mapLimit(items, limit, fn) {
 
 // Breadth-first walk, one level of categories at a time so a whole level is
 // fetched concurrently. Returns records when `withDetails`, else just titles.
+// Either way it returns a `sources` map of article title -> the categories it
+// was found under, so the review page can show where a candidate came from.
 async function walkCategories(seeds, maxDepth, { withDetails }) {
   const records = new Map();
   const titles = new Set();
+  const sources = new Map();
   const visited = new Set();
   let wave = seeds.map((name) => ({ name, depth: 0 }));
 
@@ -216,11 +234,17 @@ async function walkCategories(seeds, maxDepth, { withDetails }) {
       console.error(
         `  ${name}: ${res.titles.length} articles${depth < maxDepth ? `, ${res.subcats.length} subcategories` : ""}`,
       );
-      return { ...res, depth };
+      return { ...res, depth, name };
     });
 
-    for (const { depth, titles: t, subcats, records: r } of results) {
-      for (const title of t) titles.add(title);
+    for (const { depth, name, titles: t, subcats, records: r } of results) {
+      for (const title of t) {
+        titles.add(title);
+        // A person can sit in several categories; keep them all, they are what
+        // makes the review page's "found under" column worth reading.
+        if (!sources.has(title)) sources.set(title, new Set());
+        sources.get(title).add(name);
+      }
       for (const record of r) records.set(record.name, record);
       if (depth < maxDepth) {
         for (const sub of subcats) wave.push({ name: sub, depth: depth + 1 });
@@ -228,7 +252,13 @@ async function walkCategories(seeds, maxDepth, { withDetails }) {
     }
   }
 
-  return withDetails ? [...records.values()] : new Set(titles);
+  if (withDetails) {
+    for (const record of records.values()) {
+      record.categories = [...(sources.get(record.name) ?? [])];
+    }
+    return [...records.values()];
+  }
+  return new Set(titles);
 }
 
 // Attribution metadata worth keeping. `Artist`/`Credit` come back as HTML, so
@@ -348,6 +378,88 @@ ${attrs.join("\n")}
   );
 }
 
+// Standalone review page: one row per candidate with everything a human needs
+// to check it — the article, the image actually used, its licence/author, and
+// the raw metrics the deck ranks on. Served by nginx from /decks.html.
+function renderReviewPage(entries, { metric, minScore, depth }) {
+  const rows = entries
+    .map((entry, i) => {
+      const link = (href, text) =>
+        href
+          ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener">${escapeHtml(text ?? href)}</a>`
+          : `<span class="none">—</span>`;
+      // One category is enough here — a person sits in several, and listing them
+      // all just makes the column tall. Alphabetical keeps it stable across runs.
+      const cat = [...(entry.categories ?? [])].sort()[0];
+      const catCell = cat
+        ? `<a href="https://en.wikipedia.org/wiki/Category:${encodeURI(cat.replace(/ /g, "_"))}" target="_blank" rel="noopener">${escapeHtml(cat)}</a>`
+        : `<span class="none">—</span>`;
+      return `      <tr>
+        <td class="num">${i + 1}</td>
+        <td class="name">${link(wikiUrl(entry.name), entry.name)}</td>
+        <td class="img">${entry.image ? `<a href="${escapeHtml(entry.image)}" target="_blank" rel="noopener"><img loading="lazy" src="${escapeHtml(entry.image)}" alt="${escapeHtml(entry.name)}" width="64" height="64"></a>` : `<span class="none">—</span>`}</td>
+        <td class="small">${catCell}</td>
+        <td class="small">${entry.page ? `<a href="${escapeHtml(entry.page)}" target="_blank" rel="noopener" title="${escapeHtml(entry.pageimage ?? entry.page)}">🔗</a>` : ""}</td>
+        <td class="small">${link(entry.licenseUrl, entry.license ?? "")}</td>
+        <td class="small">${escapeHtml(entry.author ?? "") || `<span class="none">—</span>`}</td>
+        <td class="small">${entry.restrictions ? `<span class="warn">${escapeHtml(entry.restrictions)}</span>` : ""}</td>
+        <td class="num">${entry.bytes.toLocaleString("en")}</td>
+        <td class="num">${entry.views.toLocaleString("en")}</td>
+        <td class="num">${formatRating(entry.rating)}</td>
+      </tr>`;
+    })
+    .join("\n");
+
+  const deck = renderHtml(entries);
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reveal deck candidates</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 1.5rem; }
+  h1 { font-size: 1.25rem; }
+  p.meta { opacity: 0.7; margin: 0 0 1rem; }
+  table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+  th, td { border-bottom: 1px solid #8884; padding: 0.35rem 0.5rem; text-align: left; vertical-align: middle; }
+  td.name { white-space: nowrap; }
+  th { position: sticky; top: 0; background: Canvas; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.small { font-size: 0.8rem; max-width: 22rem; overflow-wrap: anywhere; }
+  td.img img { object-fit: cover; border-radius: 4px; }
+  .none { opacity: 0.4; }
+  .warn { color: #c60; }
+  details { margin-top: 1.5rem; }
+  pre { white-space: pre; overflow-x: auto; background: #8881; padding: 0.75rem; }
+</style>
+</head>
+<body>
+<h1>Reveal deck candidates</h1>
+<p class="meta">${entries.length} entries · generated ${CREATED} · ranked by ${escapeHtml(metric)} · depth ${depth}${minScore ? ` · min score ${minScore}` : ""}</p>
+<table>
+  <thead>
+    <tr>
+      <th class="num">#</th><th>article</th><th>image</th><th>found under</th><th>file page</th>
+      <th>licence</th><th>author</th><th>restrictions</th>
+      <th class="num">bytes</th><th class="num">views</th><th class="num">rating</th>
+    </tr>
+  </thead>
+  <tbody>
+${rows}
+  </tbody>
+</table>
+<details>
+  <summary>Deck markup — paste into <code>&lt;ul id="challenge-data"&gt;</code> in <code>src/client/reveal/index.html</code></summary>
+  <pre id="deck">${escapeHtml(deck)}</pre>
+</details>
+</body>
+</html>
+`;
+}
+
 async function main() {
   if (!["views", "bytes"].includes(SORT_KEY)) {
     throw new Error(`--sort must be "views" or "bytes", got "${SORT_KEY}"`);
@@ -400,9 +512,12 @@ async function main() {
 
   if (AS_JSON) {
     console.log(JSON.stringify(entries, null, 2));
-  } else {
-    console.log(renderHtml(entries));
+    return;
   }
+
+  await mkdir(dirname(OUT_FILE), { recursive: true });
+  await writeFile(OUT_FILE, renderReviewPage(entries, { metric, minScore: MIN_SCORE, depth: DEPTH }));
+  console.error(`\nWrote ${entries.length} entries to ${OUT_FILE}`);
 }
 
 main().catch((error) => {
