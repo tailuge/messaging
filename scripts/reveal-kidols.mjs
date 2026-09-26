@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Seed generator for the reveal decks (`<ul id="challenge-data">` in
 // src/client/reveal/index.html). Collects one entry per famous female
-// celebrity — South Korean, Japanese, Chinese — plus a "watches" deck of
-// premium watch models, a curated "supermodels" deck, a "tokyo" deck of that
-// city's landmarks and a "taipei" deck of Taipei's and Taiwan's, and writes a
+// celebrity — South Korean — one per Taiwanese pop star of either gender, plus
+// a "watches" deck of premium watch models, a "tokyo" deck of that city's
+// landmarks and a "taipei" deck of Taipei's and Taiwan's, and writes a
 // human-review page to docker/html/decks.html,
 // served by nginx alongside the client, so the
 // candidate links, images and licences can be eyeballed in a browser before any
@@ -31,7 +31,7 @@
 //
 // Usage:
 //   node scripts/reveal-kidols.mjs                 # all decks, top 32 by article size
-//   node scripts/reveal-kidols.mjs --deck japan    # just one deck
+//   node scripts/reveal-kidols.mjs --deck taiwan   # just one deck
 //   node scripts/reveal-kidols.mjs --deck watches --sort views
 //   node scripts/reveal-kidols.mjs --limit 100     # a longer list
 //   node scripts/reveal-kidols.mjs --sort views    # rank by 60-day pageviews, not article size
@@ -58,8 +58,8 @@ const USER_AGENT =
 // at our request rate; it is what keeps the walk to a few seconds. The cars deck
 // asks for far more categories than the others and is the one that gets
 // throttled, so the retry backoff above is what keeps a full run reliable.
-const CONCURRENCY = 4;// One deck per regional celebrity category, plus the supermodels, Tokyo, watches
-// and cars decks.
+const CONCURRENCY = 4;// One deck per regional celebrity category, plus the Tokyo, Taipei, watches and
+// cars decks.
 // `seeds` are the categories walked (verbatim Wikipedia names, without the
 // "Category:" prefix); `exclude` is
 // walked at depth 0 only and dropped, because the subcategory walk below the
@@ -104,135 +104,49 @@ const DECKS = [
     skip: ["Choi Jin-sil"],
   },
   {
-    id: "japan",
-    label: "Japanese celebrities",
+    // Taiwanese pop stars of either gender, ranked by the same article-size
+    // default as the Korean deck. Seeded from the pop-family categories only
+    // (pop, Mandopop, Hokkien pop, K-pop) rather than the wider
+    // "Taiwanese singers" tree, so rock, folk and classical singers stay out.
+    // Because the pop categories hold men and women side by side, both genders
+    // arrive without a gender split; a person can also arrive through their
+    // band's member subcategory ("F4 (band) members"), which is where most of
+    // the boy-band and girl-group singers are filed. Walking the parent pop
+    // category also reaches its three genre subcategories, so they are seeded
+    // directly only to keep their own subcategories in the walk.
+    id: "taiwan",
+    label: "Taiwanese pop stars",
     seeds: [
-      "Japanese women actors",
-      "Japanese film actresses",
-      "Japanese television actresses",
-      "Japanese women singers",
-      "Japanese women pop singers",
-      "Japanese female models",
-      "Japanese women television presenters",
+      "Taiwanese pop singers",
+      "Taiwanese Mandopop singers",
+      "Taiwanese Hokkien pop singers",
+      "Taiwanese K-pop singers",
     ],
+    // The groups themselves, their labels, and the musical-theatre category
+    // that the pop singers tree drags in. "Taiwanese musical quartets" and
+    // "Taiwanese hip hop groups" do not exist as categories, so they are not
+    // listed; a missing exclude is harmless, it just fetches nothing.
     exclude: [
-      "Japanese men actors",
-      "Japanese male models",
-      "Japanese male musicians",
-      "Japanese girl groups",
-      "Japanese boy bands",
-      "Japanese musical groups",
-      "Japanese pop music groups",
-      "Japanese idol groups",
-      "Japanese musical theatre actresses",
-      "Japanese hip hop groups",
-      "Japanese musical duos",
-      "Japanese musical trios",
-      "Japanese musical quartets",
-      "Japanese rock music groups",
-      "Japanese women rock singers",
-      "Japanese record labels",
+      "Taiwanese boy bands",
+      "Taiwanese girl groups",
+      "Taiwanese musical groups",
+      "Taiwanese pop music groups",
+      "Taiwanese musical duos",
+      "Taiwanese musical trios",
+      "Taiwanese rock music groups",
+      "Taiwanese record labels",
+      "Taiwanese musical theatre actors",
     ],
-    skip: ["Asuka (wrestler)", "Hamuko Hoshi", "Yuzuki Aikawa", "Tsukasa Fujimoto"],
+    // A-yue (張震嶽), on the article "Chang Chen-yue": a headline Taiwanese
+    // singer the pop-category walk misses because he is not filed under them.
+    // `force` fetches the title directly and keeps it in the deck even when its
+    // article size would not rank it inside the top LIMIT; redirected or
+    // missing names are dropped, so a title with no article (or no image) can
+    // be listed without breaking the run.
+    force: ["Chang Chen-yue"],
   },
   {
-    id: "china",
-    label: "Chinese celebrities",
-    seeds: [
-      "Chinese women actors",
-      "Chinese film actresses",
-      "Chinese television actresses",
-      "Chinese women singers",
-      "Chinese women pop singers",
-      "Chinese female models",
-      "Chinese women television presenters",
-    ],
-    exclude: [
-      "Chinese men actors",
-      "Chinese male models",
-      "Chinese male musicians",
-      "Chinese girl groups",
-      "Chinese boy bands",
-      "Chinese musical groups",
-      "Chinese pop music groups",
-      "Chinese idol groups",
-      "Chinese musical theatre actresses",
-      "Chinese hip hop groups",
-      "Chinese musical duos",
-      "Chinese musical trios",
-      "Chinese musical quartets",
-      "Chinese rock music groups",
-      "Chinese record labels",
-    ],
-    skip: ["Sylvia Chang", "Priscilla Chan (singer)"],
-  },
-  {
-    // The elite supermodels, pinned by article title like the cars deck. There
-    // is no supermodel category tree to walk: Category:Supermodels is empty, and
-    // the nearest populated tree — Category:Female models — holds every model in
-    // every market, from catalogue and pageant work to glamour modelling, so
-    // ranking it by article size surfaces whoever has the longest article rather
-    // than the household names this deck is for. A curated list is the only way
-    // to get the "S-class" tier the deck is named for.
-    //
-    // Names are the article titles, not the colloquial ones ("Iman (model)",
-    // "Liu Wen (model)"). Kept to 48 so fetchTitles' single batched call stays
-    // under MediaWiki's 50-title limit; --limit then trims to the 32 biggest.
-    id: "supermodels",
-    label: "S-class female supermodels",
-    titles: [
-      "Gisele Bündchen",
-      "Kate Moss",
-      "Naomi Campbell",
-      "Cindy Crawford",
-      "Claudia Schiffer",
-      "Christy Turlington",
-      "Linda Evangelista",
-      "Tyra Banks",
-      "Heidi Klum",
-      "Helena Christensen",
-      "Elle Macpherson",
-      "Iman (model)",
-      "Janice Dickinson",
-      "Adriana Lima",
-      "Alessandra Ambrosio",
-      "Miranda Kerr",
-      "Kendall Jenner",
-      "Gigi Hadid",
-      "Bella Hadid",
-      "Cara Delevingne",
-      "Karlie Kloss",
-      "Joan Smalls",
-      "Liu Wen (model)",
-      "Rosie Huntington-Whiteley",
-      "Emily Ratajkowski",
-      "Hailey Bieber",
-      "Jourdan Dunn",
-      "Doutzen Kroes",
-      "Natasha Poly",
-      "Lara Stone",
-      "Carmen Kass",
-      "Eva Herzigová",
-      "Stephanie Seymour",
-      "Tatjana Patitz",
-      "Christie Brinkley",
-      "Paulina Porizkova",
-      "Anok Yai",
-      "Adut Akech",
-      "Imaan Hammam",
-      "Barbara Palvin",
-      "Winnie Harlow",
-      "Twiggy",
-      "Jean Shrimpton",
-      "Lauren Hutton",
-      "Cheryl Tiegs",
-      "Kathy Ireland",
-      "Beverly Johnson",
-      "Candice Swanepoel",
-    ],
-  },
-  {
-    // Tokyo landmarks and buildings. Unlike the supermodels deck this is a real
+    // Tokyo landmarks and buildings. Unlike the cars deck this is a real
     // category tree, so it walks rather than pinning titles. The seeds are the
     // content categories that actually hold landmark articles: "Tourist
     // attractions in Tokyo" carries the headline sights and, one level down,
@@ -1044,13 +958,44 @@ async function buildDeck(deck) {
       .sort((a, b) => b[SORT_KEY] - a[SORT_KEY]);
     found = people.length;
     excluded = groups.size;
+
+    // Titles the walk missed, fetched directly and marked so the selection
+    // below keeps them in the deck whatever they rank. A name already reached
+    // by the walk is marked rather than duplicated.
+    if (deck.force?.length) {
+      console.error(`\nForcing in ${deck.force.length} title(s)…`);
+      const forced = await fetchTitles(deck.force);
+      for (const title of deck.force) {
+        const person = forced.get(title);
+        if (!person) {
+          console.error(`  no such article: ${title}`);
+          continue;
+        }
+        if (!person.image) {
+          console.error(`  no image: ${title}`);
+          continue;
+        }
+        if ((deck.skip ?? []).includes(person.asked)) continue;
+        const existing = candidates.find((c) => c.name === person.asked);
+        if (existing) {
+          existing.forced = true;
+          continue;
+        }
+        candidates.push({ ...person, name: person.asked, forced: true });
+      }
+    }
   }
 
   if (!candidates.length) throw new Error(`${deck.label}: no candidates with an image found`);
 
-  const selected = candidates
-    .sort((a, b) => b[SORT_KEY] - a[SORT_KEY])
-    .slice(0, LIMIT);
+  const ranked = candidates.sort((a, b) => b[SORT_KEY] - a[SORT_KEY]);
+  const selected = ranked.slice(0, LIMIT);
+  // A forced title that did not rank high enough displaces the weakest
+  // non-forced entries instead of being dropped by the LIMIT slice.
+  const missing = ranked.filter((c) => c.forced && !selected.includes(c));
+  if (missing.length) {
+    selected.splice(Math.max(selected.length - missing.length, 0), missing.length, ...missing);
+  }
   const max = selected[0][SORT_KEY] || 1;
 
   let byFile = new Map();

@@ -99,7 +99,7 @@ class ArenaApp extends LitElement {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     creatorId: userStore.clientId,
-                    creatorName: userStore.userName || 'Anonymous',
+                    creatorName: userStore.userName,
                     ruleType: this._ruleType,
                     options: this._options,
                     durationMinutes: this._durationMinutes,

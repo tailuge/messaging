@@ -7,6 +7,22 @@ const genId = (userName) => {
     return prefix + sep + Math.random().toString(36).slice(2, 7);
 };
 
+// A fresh player is named from their browser locale, so the default is a little more
+// identifiable than plain "Anonymous" — e.g. Anon-EN for en-US, Anon-KR for ko-KR. The
+// region subtag is preferred, falling back to the language. Not persisted: it re-derives
+// on each load. Locale is only an approximation of country (an English browser in Germany
+// yields EN), which is fine here.
+export const anonName = () => {
+    const [lang, ...rest] = (navigator.languages?.[0] || navigator.language || 'en').split('-');
+    const region = rest.find((p) => /^[A-Za-z]{2}$/.test(p));
+    const code = (region || lang || 'en').toUpperCase().slice(0, 2);
+    return `Anon-${code}`;
+};
+
+// Generated names always start with "Anon" (case-sensitive). Used to tell whether the player
+// has picked a name yet — e.g. before joining an Arena or tournament.
+export const isAnonymousName = (name) => (name || '').slice(0, 4) === 'Anon';
+
 class UserStore extends EventTarget {
     constructor() {
         super();
@@ -44,7 +60,7 @@ class UserStore extends EventTarget {
             }
         }
 
-        this.userName = urlName || this.userName || storedName || 'Anonymous';
+        this.userName = urlName || this.userName || storedName || anonName();
         this.lod = localStorage.getItem('lod') || '4';
         this.flip = localStorage.getItem('flip') === 'true';
         this.useProxy = localStorage.getItem('useProxy') === 'true';

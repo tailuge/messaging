@@ -1,6 +1,6 @@
 import { html, css } from 'lit';
 import { THEME_VARS, SHARED_STYLES } from '../styles.js';
-import { userStore, StoreElement } from '../user-store.js';
+import { userStore, StoreElement, anonName } from '../user-store.js';
 
 // Visual phase only: localStorage stands in for the app's KV store and
 // `storage` events provide live updates between tabs. Swap loadAll/saveAll
@@ -198,7 +198,7 @@ class TournamentApp extends StoreElement {
         const t = this._tournament;
         if (!t || t.status !== 'open' || t.participants.length >= t.size) return;
         if (t.participants.some(p => p.id === userStore.clientId)) return;
-        const name = (this._name || '').trim().slice(0, 12) || 'Anonymous';
+        const name = (this._name || '').trim().slice(0, 12) || anonName();
         if (name !== userStore.userName) userStore.set(userStore.clientId, name);
         t.participants = [...t.participants, { id: userStore.clientId, name }];
         this._save();

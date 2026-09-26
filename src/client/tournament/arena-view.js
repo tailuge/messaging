@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { gameUrl, API_BASE } from '../utils.js';
 import { THEME_VARS, SHARED_STYLES } from '../styles.js';
-import { userStore } from '../user-store.js';
+import { userStore, isAnonymousName } from '../user-store.js';
 import './podium.js';
 import './arena-leaderboard.js';
 
@@ -455,7 +455,7 @@ class ArenaView extends LitElement {
 
     async _join() {
         const name = (userStore.userName || '').trim();
-        if (/^(anonymous|anon)$/i.test(name)) {
+        if (isAnonymousName(name)) {
             window.alert('You must change name, Anonymous is not a valid arena name');
             return;
         }

@@ -34,6 +34,20 @@ const DECKS = [
     dataId: "challenge-data",
   },
   {
+    id: "taipei",
+    label: "Taipei",
+    title: "Taipei",
+    mode: "taipei",
+    dataId: "taipei-data",
+  },
+  {
+    id: "cars",
+    label: "SuperCars",
+    title: "SuperCars",
+    mode: "supercars",
+    dataId: "cars-data",
+  },
+  {
     id: "pokemon",
     label: "Pokemon",
     title: "Poképot",
@@ -64,7 +78,9 @@ function readChallengesFromDOM(dataId = "challenge-data") {
       // Respect both &amp; in HTML and raw &
       const wikipediaUrl = a.getAttribute("href") || "";
       const rawRating = Number.parseFloat(a.getAttribute("data-rating") || "");
-      const rating = Number.isFinite(rawRating) ? Math.min(1, Math.max(0, rawRating)) : 0;
+      const rating = Number.isFinite(rawRating)
+        ? Math.min(1, Math.max(0, rawRating))
+        : 0;
       // href may be empty if anchor is malformed
       return {
         name,
@@ -94,7 +110,8 @@ function mulberry32(seed) {
 // Hash a string to a uint32 seed (djb2 variant).
 function hashSeed(s) {
   let h = 0;
-  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  for (let i = 0; i < s.length; i++)
+    h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
   return h >>> 0;
 }
 
@@ -139,14 +156,20 @@ function loadCollection() {
 
 function saveCollection(entries) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(0, MAX_COMPLETED)));
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(entries.slice(0, MAX_COMPLETED)),
+    );
   } catch (e) {
     // QuotaExceededError: drop oldest and retry once
     if (e && e.name === "QuotaExceededError") {
       console.log("reveal: localStorage quota exceeded, evicting oldest");
       try {
         entries.pop();
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(0, MAX_COMPLETED)));
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify(entries.slice(0, MAX_COMPLETED)),
+        );
       } catch {
         console.log("reveal: still over quota after eviction");
       }
@@ -171,7 +194,9 @@ function loadRemovedIds() {
     const raw = localStorage.getItem(REMOVED_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string") : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((id) => typeof id === "string")
+      : [];
   } catch {
     return [];
   }
@@ -268,7 +293,10 @@ function typeWash(hex, saturation = 42, lightness = 22) {
   return `${hue.toFixed(1)} ${(saturation * colourful).toFixed(1)}% ${lightness}%`;
 }
 
-async function imageToThumbDataUrl(imageUrl, { targetEdge = 180, type = "" } = {}) {
+async function imageToThumbDataUrl(
+  imageUrl,
+  { targetEdge = 180, type = "" } = {},
+) {
   // Fetch the image as a blob with CORS, draw to canvas, export WebP
   const img = new Image();
   img.crossOrigin = "anonymous";
@@ -289,11 +317,22 @@ async function imageToThumbDataUrl(imageUrl, { targetEdge = 180, type = "" } = {
   canvas.height = h;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("no 2d context");
+  // Source images are up to ~1280px down to a ~180px thumbnail in one drawImage, well beyond a
+  // 2x reduction, so opt into the browser's best downscale filter (defaults to "low", which can
+  // alias at this ratio).
+  ctx.imageSmoothingQuality = "high";
   // Backdrop first, so transparent artwork is composited on top of it. Kids-deck photos are
   // opaque and have no type, so they take the plain canvas as before.
   const wash = POKE_TYPE_COLOURS[type];
   if (wash) {
-    const gradient = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.hypot(w, h) / 2);
+    const gradient = ctx.createRadialGradient(
+      w / 2,
+      h / 2,
+      0,
+      w / 2,
+      h / 2,
+      Math.hypot(w, h) / 2,
+    );
     // Brightest (such as it is) at the centre behind the subject, falling darker at the corners so
     // the card keeps the deck's dark look at its edges.
     gradient.addColorStop(0, `hsl(${typeWash(wash)})`);
@@ -335,6 +374,7 @@ class RevealApp extends LitElement {
     _deckId: { state: true },
     _lobby: { state: true },
     _connected: { state: true },
+    _hasMessage: { state: true },
   };
 
   static styles = [
@@ -422,6 +462,63 @@ class RevealApp extends LitElement {
       }
       .topbar settings-modal {
         flex-shrink: 0;
+      }
+      /* Always shown, centred over the top bar (absolute, out of the flex flow) so it never
+         shoves or overlaps the trophy cups and other header controls. By default it is the
+         only route back to the lobby; when a chat message or challenge arrives it swaps to
+         a pulsing icon. Either state is just a link to the lobby, which owns the chat window
+         and challenge banner and knows how to present them. */
+      .top-link {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1;
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 28px;
+        height: 28px;
+        padding: 0 0.55rem;
+        background: var(--bg);
+        font-size: 0.72rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        line-height: 1;
+        text-decoration: none;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: inherit;
+      }
+      .top-link:hover {
+        border-color: var(--text-dim);
+      }
+      .top-link:focus-visible {
+        outline: 2px solid #007bff;
+        outline-offset: 1px;
+      }
+      /* Message/challenge state: the width collapses back to a square icon. */
+      .top-link--alert {
+        width: 28px;
+        min-width: 0;
+        padding: 0;
+        font-size: 1rem;
+        animation: msg-pulse 2s ease-in-out infinite;
+      }
+      @keyframes msg-pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.45;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .top-link--alert {
+          animation: none;
+        }
       }
       .intro {
         padding: 0.1rem 0 0.15rem;
@@ -516,13 +613,19 @@ class RevealApp extends LitElement {
       /* Dense card grid — the central element */
       .card-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(max(88px, calc((100% - 42px) / 8)), 1fr));
+        grid-template-columns: repeat(
+          auto-fill,
+          minmax(max(88px, calc((100% - 42px) / 8)), 1fr)
+        );
         /* Just wide enough for the card shadows to read between neighbours */
         gap: 6px;
       }
       @media (width <= 380px) {
         .card-grid {
-          grid-template-columns: repeat(auto-fill, minmax(max(76px, calc((100% - 35px) / 8)), 1fr));
+          grid-template-columns: repeat(
+            auto-fill,
+            minmax(max(76px, calc((100% - 35px) / 8)), 1fr)
+          );
           gap: 5px;
         }
       }
@@ -912,6 +1015,7 @@ class RevealApp extends LitElement {
     this._deckId = DECKS[0].id;
     this._lobby = null;
     this._connected = false;
+    this._hasMessage = false;
     this._client = null;
   }
 
@@ -926,7 +1030,9 @@ class RevealApp extends LitElement {
     } catch {}
     // Challenges from the selected deck's embedded hidden list (must be in DOM already)
     this._deckId = deckIdFromUrl() ?? loadDeckId();
-    this._challenges = postProcessChallenges(readChallengesFromDOM(this._deck().dataId));
+    this._challenges = postProcessChallenges(
+      readChallengesFromDOM(this._deck().dataId),
+    );
     this._collection = loadCollection();
     this._completedIds = new Set(this._collection.map((e) => e.id));
     this._removedIds = new Set(loadRemovedIds());
@@ -934,9 +1040,13 @@ class RevealApp extends LitElement {
     this._onNameChanged = () => this.requestUpdate();
     document.addEventListener("user-name-changed", this._onNameChanged);
     // Presence — same path as lobby
-    this._connectPresence().catch((e) => console.error("reveal presence failed", e));
+    this._connectPresence().catch((e) =>
+      console.error("reveal presence failed", e),
+    );
     // ?image= success handling (exact match, log-only on fail)
-    this._handleReturnParam().catch((e) => console.log("reveal: handleReturnParam error", e));
+    this._handleReturnParam().catch((e) =>
+      console.log("reveal: handleReturnParam error", e),
+    );
   }
 
   disconnectedCallback() {
@@ -967,7 +1077,9 @@ class RevealApp extends LitElement {
     this._replaceQuery(params.toString());
     if (deck.id !== this._deckId || !this._challenges.length) {
       this._deckId = deck.id;
-      this._challenges = postProcessChallenges(readChallengesFromDOM(deck.dataId));
+      this._challenges = postProcessChallenges(
+        readChallengesFromDOM(deck.dataId),
+      );
       this._flippedId = null;
     }
     this.requestUpdate();
@@ -991,9 +1103,14 @@ class RevealApp extends LitElement {
 
   async _connectPresence() {
     const baseHost =
-      typeof NCHANBASE !== "undefined" && NCHANBASE ? NCHANBASE : "billiards-network.onrender.com";
+      typeof NCHANBASE !== "undefined" && NCHANBASE
+        ? NCHANBASE
+        : "billiards-network.onrender.com";
     let baseUrl = `https://${baseHost}`;
-    if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+    if (
+      location.hostname === "localhost" ||
+      location.hostname === "127.0.0.1"
+    ) {
       const protocol = location.protocol === "https:" ? "https:" : "http:";
       baseUrl = `${protocol}//${location.host}`;
     }
@@ -1007,6 +1124,13 @@ class RevealApp extends LitElement {
       userName: userStore.userName,
     });
     this._lobby = lobby;
+    // A chat message or a challenge offer has no UI on this page. Flag it so the top bar
+    // shows the message icon, which links back to the lobby for proper handling. Challenge
+    // accepts/declines are for the challenger and are not relevant here.
+    lobby.onChat(() => this._flagPendingMessage());
+    lobby.onChallenge((msg) => {
+      if (msg.type === "offer") this._flagPendingMessage();
+    });
     this._connected = true;
     this.requestUpdate();
     // Keep presence fresh on name change via updatePresence
@@ -1019,6 +1143,12 @@ class RevealApp extends LitElement {
         .catch((err) => console.error("reveal: updatePresence failed", err));
     };
     document.addEventListener("user-name-changed", this._presenceNameListener);
+  }
+
+  // Lights the top-bar message icon; it stays lit until the page is left for the lobby.
+  _flagPendingMessage() {
+    if (this._hasMessage) return;
+    this._hasMessage = true;
   }
 
   async _handleReturnParam() {
@@ -1039,7 +1169,10 @@ class RevealApp extends LitElement {
     }
     const hit = this._matchChallenge(decoded);
     if (!hit) {
-      console.log("reveal: ?image= did not match any challenge, ignoring", decoded.slice(0, 120));
+      console.log(
+        "reveal: ?image= did not match any challenge, ignoring",
+        decoded.slice(0, 120),
+      );
       // Params already stripped — no card minted, nothing persisted
       return;
     }
@@ -1059,7 +1192,10 @@ class RevealApp extends LitElement {
         entry.completedAt = Date.now();
         if (state) {
           entry.state = state;
-          entry.replayUrl = revealReplayUrl({ imageUrl: entry.imageUrl, state });
+          entry.replayUrl = revealReplayUrl({
+            imageUrl: entry.imageUrl,
+            state,
+          });
         }
         col.unshift(entry);
         saveCollection(col);
@@ -1071,7 +1207,9 @@ class RevealApp extends LitElement {
     // Generate thumb, persist
     let thumb = "";
     try {
-      thumb = await imageToThumbDataUrl(match.imageUrl, { type: match.pokeType });
+      thumb = await imageToThumbDataUrl(match.imageUrl, {
+        type: match.pokeType,
+      });
     } catch (e) {
       console.log("reveal: thumb generation failed, card stays unsolved", e);
       return;
@@ -1124,7 +1262,9 @@ class RevealApp extends LitElement {
 
   _entryFor(ch) {
     const id = idForChallenge(ch);
-    return this._collection.find((en) => en.id === id || en.imageUrl === ch.imageUrl);
+    return this._collection.find(
+      (en) => en.id === id || en.imageUrl === ch.imageUrl,
+    );
   }
 
   // Replay link for the game, derived from the stored state (`` when unavailable)
@@ -1132,7 +1272,9 @@ class RevealApp extends LitElement {
     if (!entry) return "";
     return (
       entry.replayUrl ||
-      (entry.state ? revealReplayUrl({ imageUrl: entry.imageUrl, state: entry.state }) : "")
+      (entry.state
+        ? revealReplayUrl({ imageUrl: entry.imageUrl, state: entry.state })
+        : "")
     );
   }
 
@@ -1191,7 +1333,8 @@ class RevealApp extends LitElement {
     if (!solved && !deleted) return;
     const parts = [];
     if (solved) parts.push(`${solved} revealed card${solved === 1 ? "" : "s"}`);
-    if (deleted) parts.push(`${deleted} deleted picture${deleted === 1 ? "" : "s"}`);
+    if (deleted)
+      parts.push(`${deleted} deleted picture${deleted === 1 ? "" : "s"}`);
     const ok = window.confirm(
       `Reset deck? This clears ${parts.join(" and ")}, setting every card back to unsolved.`,
     );
@@ -1227,7 +1370,11 @@ class RevealApp extends LitElement {
     const id = idForChallenge(ch);
     const isCompleted = !!completedEntry;
     const isFlipped = this._flippedId === id;
-    const classes = ["card", isCompleted ? "completed" : "", isFlipped ? "is-flipped" : ""]
+    const classes = [
+      "card",
+      isCompleted ? "completed" : "",
+      isFlipped ? "is-flipped" : "",
+    ]
       .filter(Boolean)
       .join(" ");
     const hasReplay = isCompleted && !!this._replayUrlFor(completedEntry);
@@ -1262,16 +1409,23 @@ class RevealApp extends LitElement {
                 </div>`
               : html`<div class="face face-front">
                   <span class="q" aria-hidden="true">?</span>
-                  <span class="rating" role="img" aria-label="${stars} out of 5 stars"
+                  <span
+                    class="rating"
+                    role="img"
+                    aria-label="${stars} out of 5 stars"
                     >${"★".repeat(stars)}</span
                   >
                   ${
                     ch.pokeType
                       ? html`<div class="poke-pills" aria-hidden="true">
-                          <span class="type-pill" data-t="${ch.pokeType}">${ch.pokeType}</span>
+                          <span class="type-pill" data-t="${ch.pokeType}"
+                            >${ch.pokeType}</span
+                          >
                           ${
                             natureWord
-                              ? html`<span class="nature-pill" title="${ch.pokeNature}"
+                              ? html`<span
+                                  class="nature-pill"
+                                  title="${ch.pokeNature}"
                                   >${natureWord}</span
                                 >`
                               : ""
@@ -1304,7 +1458,9 @@ class RevealApp extends LitElement {
                     >
                       ${
                         this._sharedId === id
-                          ? html`<span class="shared-tick" aria-hidden="true">✓</span>`
+                          ? html`<span class="shared-tick" aria-hidden="true"
+                              >✓</span
+                            >`
                           : html`<svg viewBox="0 0 24 24" aria-hidden="true">
                               <path
                                 d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"
@@ -1355,7 +1511,9 @@ class RevealApp extends LitElement {
     const deckListPresent = !!document.getElementById(this._deck().dataId);
     // Shuffled display order (see postProcessChallenges). Solved cards keep their grid position
     // and simply show their picture; deleted ones are filtered out, so the rest reflow into the gap.
-    const challenges = this._challenges.filter((ch) => !this._removedIds.has(idForChallenge(ch)));
+    const challenges = this._challenges.filter(
+      (ch) => !this._removedIds.has(idForChallenge(ch)),
+    );
     return html`
       <div class="container">
         <header class="topbar">
@@ -1372,6 +1530,13 @@ class RevealApp extends LitElement {
               >${formatVersion(CLIENTVERSION)}</a
             >
           </h1>
+          <a
+            class="top-link ${this._hasMessage ? "top-link--alert" : ""}"
+            href="../lobby"
+            aria-label=${this._hasMessage ? "New message — open the lobby" : "Back to the lobby"}
+            title=${this._hasMessage ? "New message" : "Back to the lobby"}
+            >${this._hasMessage ? "💬" : "Lobby"}</a
+          >
           <trophy-item></trophy-item>
           <user-badge></user-badge>
           <settings-modal
@@ -1388,8 +1553,8 @@ class RevealApp extends LitElement {
             <h2>${this._deck().title}</h2>
           </div>
           <p>
-            Play billiards to uncover hidden pictures. Each successful pot reveals another part of
-            the mystery image.
+            Play billiards to uncover hidden pictures. Each successful pot
+            reveals another part of the mystery image.
           </p>
         </section>
 

@@ -1,5 +1,5 @@
 import { html } from 'lit';
-import { userStore, StoreElement } from './user-store.js';
+import { userStore, StoreElement, anonName } from './user-store.js';
 import { USER_BADGE_STYLES } from './styles.js';
 import { isVercel } from './utils.js';
 
@@ -46,7 +46,7 @@ class UserBadge extends StoreElement {
     }
 
     _commit(value) {
-        const val = value.trim().slice(0, 12) || 'Anonymous';
+        const val = value.trim().slice(0, 12) || anonName();
         this._name = val;
         userStore.set(this._clientId, val);
         this.dispatchEvent(new CustomEvent('user-name-changed', {
