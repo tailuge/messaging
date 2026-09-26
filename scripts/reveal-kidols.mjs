@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 // Seed generator for the reveal decks (`<ul id="challenge-data">` in
 // src/client/reveal/index.html). Collects one entry per famous female
-// celebrity — South Korean, Japanese, Chinese — and writes a human-review page
-// to docker/html/decks.html, served by nginx alongside the client, so the
+// celebrity — South Korean, Japanese, Chinese — plus a "watches" deck of
+// premium watch models, a curated "supermodels" deck, a "tokyo" deck of that
+// city's landmarks and a "taipei" deck of Taipei's and Taiwan's, and writes a
+// human-review page to docker/html/decks.html,
+// served by nginx alongside the client, so the
 // candidate links, images and licences can be eyeballed in a browser before any
 // of it is pasted into index.html. Each deck gets its own collapsed section and
 // its images are only fetched once that section is opened.
@@ -29,11 +32,12 @@
 // Usage:
 //   node scripts/reveal-kidols.mjs                 # all decks, top 32 by article size
 //   node scripts/reveal-kidols.mjs --deck japan    # just one deck
+//   node scripts/reveal-kidols.mjs --deck watches --sort views
 //   node scripts/reveal-kidols.mjs --limit 100     # a longer list
 //   node scripts/reveal-kidols.mjs --sort views    # rank by 60-day pageviews, not article size
 //   node scripts/reveal-kidols.mjs --min-score 5000 # drop the less famous tail
 //   node scripts/reveal-kidols.mjs --depth 0       # seeds only, no subcategory walking
-//   node scripts/reveal-kidols.mjs --no-licence    # skip the attribution lookup
+//   node scripts/reveal-kidols.mjs --no-licence    # skip the attribution lookup (Commons)
 //   node scripts/reveal-kidols.mjs --out path.html # write the review page elsewhere
 //   node scripts/reveal-kidols.mjs --json          # JSON records to stdout instead
 //
@@ -45,19 +49,24 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const API = "https://en.wikipedia.org/w/api.php";
+// The image files live here; only their attribution metadata is read.
+const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
 const USER_AGENT =
   "tailuge-reveal-kidols/1.0 (https://billiards.tailuge.workers.dev/reveal/)";
 
 // How many category requests are in flight at once. Wikipedia is fine with this
-// at our request rate; it is what keeps the walk to a few seconds.
-const CONCURRENCY = 6;
-
-// One deck per regional celebrity category. `seeds` are the categories walked
-// (verbatim Wikipedia names, without the "Category:" prefix); `exclude` is
+// at our request rate; it is what keeps the walk to a few seconds. The cars deck
+// asks for far more categories than the others and is the one that gets
+// throttled, so the retry backoff above is what keeps a full run reliable.
+const CONCURRENCY = 4;// One deck per regional celebrity category, plus the supermodels, Tokyo, watches
+// and cars decks.
+// `seeds` are the categories walked (verbatim Wikipedia names, without the
+// "Category:" prefix); `exclude` is
 // walked at depth 0 only and dropped, because the subcategory walk below the
 // seeds reaches bands, groups and labels that are not people. `skip` drops
 // individual articles that category membership cannot — mostly men who are
-// categorised with their female counterparts.
+// categorised with their female counterparts. The cars deck is the exception:
+// it pins `titles` instead, because "the dream cars" is not a category.
 const DECKS = [
   {
     id: "korea",
@@ -157,9 +166,359 @@ const DECKS = [
     ],
     skip: ["Sylvia Chang", "Priscilla Chan (singer)"],
   },
+  {
+    // The elite supermodels, pinned by article title like the cars deck. There
+    // is no supermodel category tree to walk: Category:Supermodels is empty, and
+    // the nearest populated tree — Category:Female models — holds every model in
+    // every market, from catalogue and pageant work to glamour modelling, so
+    // ranking it by article size surfaces whoever has the longest article rather
+    // than the household names this deck is for. A curated list is the only way
+    // to get the "S-class" tier the deck is named for.
+    //
+    // Names are the article titles, not the colloquial ones ("Iman (model)",
+    // "Liu Wen (model)"). Kept to 48 so fetchTitles' single batched call stays
+    // under MediaWiki's 50-title limit; --limit then trims to the 32 biggest.
+    id: "supermodels",
+    label: "S-class female supermodels",
+    titles: [
+      "Gisele Bündchen",
+      "Kate Moss",
+      "Naomi Campbell",
+      "Cindy Crawford",
+      "Claudia Schiffer",
+      "Christy Turlington",
+      "Linda Evangelista",
+      "Tyra Banks",
+      "Heidi Klum",
+      "Helena Christensen",
+      "Elle Macpherson",
+      "Iman (model)",
+      "Janice Dickinson",
+      "Adriana Lima",
+      "Alessandra Ambrosio",
+      "Miranda Kerr",
+      "Kendall Jenner",
+      "Gigi Hadid",
+      "Bella Hadid",
+      "Cara Delevingne",
+      "Karlie Kloss",
+      "Joan Smalls",
+      "Liu Wen (model)",
+      "Rosie Huntington-Whiteley",
+      "Emily Ratajkowski",
+      "Hailey Bieber",
+      "Jourdan Dunn",
+      "Doutzen Kroes",
+      "Natasha Poly",
+      "Lara Stone",
+      "Carmen Kass",
+      "Eva Herzigová",
+      "Stephanie Seymour",
+      "Tatjana Patitz",
+      "Christie Brinkley",
+      "Paulina Porizkova",
+      "Anok Yai",
+      "Adut Akech",
+      "Imaan Hammam",
+      "Barbara Palvin",
+      "Winnie Harlow",
+      "Twiggy",
+      "Jean Shrimpton",
+      "Lauren Hutton",
+      "Cheryl Tiegs",
+      "Kathy Ireland",
+      "Beverly Johnson",
+      "Candice Swanepoel",
+    ],
+  },
+  {
+    // Tokyo landmarks and buildings. Unlike the supermodels deck this is a real
+    // category tree, so it walks rather than pinning titles. The seeds are the
+    // content categories that actually hold landmark articles: "Tourist
+    // attractions in Tokyo" carries the headline sights and, one level down,
+    // the museums, parks, theatres, sports venues and palaces; the shrines and
+    // temples sit two levels below it, so they are seeded directly. Skyscrapers
+    // and office buildings are reached through their per-ward and skyscraper
+    // subcategories at depth 1.
+    id: "tokyo",
+    label: "Tokyo landmarks",
+    seeds: [
+      "Tourist attractions in Tokyo",
+      "Shinto shrines in Tokyo",
+      "Buddhist temples in Tokyo",
+      "Skyscrapers in Tokyo",
+      "Office buildings in Tokyo",
+      "Hotels in Tokyo",
+      "Retail buildings in Tokyo",
+    ],
+    // "Tourist attractions in Tokyo" also files the city's natural features,
+    // festivals and universities, and Akihabara is a shopping district rather
+    // than a building. None of them belong in a deck of landmarks someone
+    // recognises from a photo of the building itself.
+    exclude: [
+      "Lakes of Tokyo",
+      "Mountains of Tokyo",
+      "Rivers of Tokyo",
+      "Festivals in Tokyo",
+      "Universities and colleges in Tokyo",
+      "Akihabara",
+    ],
+    // Historical events arrive through Edo Castle, which is itself skipped by
+    // request (the palace grounds card is carried by the Imperial Palace
+    // article instead), and the Izu Islands through the tourist categories, and
+    // the anime fair through a venue. The Baseball Hall of Fame is a genuine
+    // museum but its article is mostly inductee lists, so its size would float
+    // it to the top of the deck ahead of the buildings themselves.
+    skip: [
+      "Sakuradamon incident (1932)",
+      "Sakuradamon Incident (1860)",
+      "Edo Castle",
+      "Small Worlds Miniature Museum",
+      "Ōoku",
+      "Izu Islands",
+      "Tokyo International Anime Fair",
+      "Japanese Baseball Hall of Fame",
+    ],
+  },
+  {
+    // Taipei landmarks, buildings and tourist spots — deliberately
+    // Taipei-centric: the island-wide trees were tried first and made an
+    // islands deck, with Kinmen, Matsu, Penghu and the South China Sea
+    // disputes swamping the city. Same shape as the tokyo deck: a real
+    // category tree, walked at depth 1. "Tourist attractions in Taipei"
+    // carries the headline sights and, one level down, the museums, parks,
+    // gates, squares, sports venues, night markets and shopping malls;
+    // "Buildings and structures in Taipei" reaches the hotels and offices.
+    // The skyscrapers and the temples are seeded directly because their
+    // categories sit one level too deep under those trees (office/hotel/
+    // residential skyscrapers under "Skyscrapers in Taipei"; "Temples in
+    // Taipei" under "Religious buildings and structures in Taipei").
+    id: "taipei",
+    label: "Taipei landmarks",
+    seeds: [
+      "Tourist attractions in Taipei",
+      "Buildings and structures in Taipei",
+      "Skyscrapers in Taipei",
+      "Buddhist temples in Taipei",
+      "Taoist temples in Taipei",
+      "Night markets in Taipei",
+    ],
+    // Schools, hospitals, universities and libraries are buildings, but
+    // nobody recognises them from their photos (the Rare Book Preservation
+    // Society arrives through the libraries). Plain metro stations are the
+    // same, so Taipei Main Station goes with them; Songshan Airport arrives
+    // through the buildings tree.
+    exclude: [
+      "Schools in Taipei",
+      "Hospitals in Taipei",
+      "Universities and colleges in Taipei",
+      "Libraries in Taipei",
+      "Railway stations in Taipei",
+      "Airports in Taiwan",
+    ],
+    // Events and phenomena that sit in the tourist category directly, with
+    // no festival category to filter on. The "List of" index pages are
+    // caught by SKIP_TITLE instead. Bishanyan (碧山巖) has no English
+    // Wikipedia article to seed, and Huaxi Street night market is covered
+    // by its article's other name, "Snake Alley (Taipei)".
+    skip: [
+      "Formoz Festival",
+      "Taipei Marathon",
+      "New Taipei City Wan Jin Shi Marathon",
+      "Taipei New Year's Eve Party",
+      "PokéPark",
+      "Rainbow crossings in Taipei",
+      "Taipei Grand Trail",
+      // Zoo animals, a garden nobody guesses from a photo, and a diplomatic
+      // office rather than a landmark.
+      "Apostolic Nunciature to China",
+      "Jiannan Butterfly Garden",
+      "Tuan Tuan and Yuan Yuan",
+      "Lin Wang",
+    ],
+  },
+  {
+    // Watches, not people. Same shape as the decks above, but seeded from the
+    // handful of Wikipedia categories that actually hold watch articles —
+    // "Watch models" plus the per-brand ones — because there is no "Luxury
+    // watches" tree. A hand-written list of model names was tried first and
+    // does not work: most of those models have no article at all (Rolex
+    // Explorer resolves, Nautilus and Royal Oak do not), and "Cartier Santos"
+    // redirects to an unrelated chart. Walking real categories gets real
+    // articles, so the deck is a category walk like the rest.
+    id: "watches",
+    label: "Premium watches",
+    // `seeds` are category names, not article titles. "Watch models" is the
+    // only real tree of individual references; everything else is the brand
+    // article's category, which brings its models with it. The Seiko/Swatch/
+    // Casio seeds are there so the deck is not all Swiss luxury.
+    seeds: [
+      "Watch models",
+      "Rolex watches",
+      "Omega watches",
+      "Breitling SA",
+      "Casio brands",
+      "The Swatch Group",
+      "Seiko",
+      "Cartier (brand)",
+      "Audemars Piguet",
+      "Patek Philippe",
+    ],
+    // The brand articles seed their own subtrees, and a watch company pulls in
+    // its investors, its racing sponsorships and its designers. Drop the parent
+    // brands wholesale (so Cartier the maison and Patek Philippe the company
+    // are out, but Cartier Tank and the Calatrava stay) plus the people and
+    // conglomerate categories, and skip the handful of named non-watches that
+    // survive because they sit in no excludable category.
+    exclude: [
+      "Watch brands",
+      "Watchmaking conglomerates",
+      "Rolex",
+      "Rolex people",
+      "Citizen Watch",
+      "Fossil Group",
+      "Timex watches",
+      "Soviet watch brands",
+      "Ukrainian watch brands",
+      "Watchmakers",
+      "Watch designers",
+      "Watch collecting",
+      // The "Seiko" and "The Swatch Group" seeds are the reason for most of
+      // these: both are company categories, so they drag in sister companies,
+      // suppliers (ETA, Valjoux), a Swatch retailer, Epson and two executives.
+      // Their watch articles are reached through "Watch models" and
+      // "Casio brands" instead. "Swiss watchmakers (people)" is a person list.
+      "Watch manufacturing companies of Japan",
+      "Casio",
+      "Japanese companies established in 1881",
+      "Retail companies established in 1881",
+      "Watch movement manufacturers",
+      "Swiss watchmakers (people)",
+      "Watch manufacturing companies of Switzerland",
+      "Watch manufacturing companies of the United States",
+      "Defunct watchmaking companies",
+      "Amorphous metals",
+      // Casio makes far more than watches; these are its cameras and music
+      // players, which sit in "Casio brands" alongside the F-91W.
+      "Casio digital cameras",
+      "Casio musical instruments",
+    ],
+    skip: [
+      "CVC Capital Partners",
+      "Partners Group",
+      "Antoni Patek",
+      "Adrien Philippe",
+      "Léon Breitling",
+      "Gallet & Company",
+      // A watch designer who arrives with no excludable category to filter on.
+      "Elmar Mock",
+      "Hans Wilsdorf Foundation",
+      "Paris Masters",
+      "24 Hours of Daytona",
+      "Bucherer",
+      "Epson",
+      "Swatch",
+      "Cartier (brand)",
+      "Audemars Piguet",
+      "Patek Philippe",
+      // Generic/incidental subjects rather than a watch: "Watch" is the whole
+      // topic (its image is a Casio Oceanus), and RockWatch was an aborted
+      // 1980s smartwatch. Epson and Wako arrive with no watch category to filter
+      // on, so they can only be named.
+      "Watch",
+      "RockWatch",
+      "Epson",
+      "Epson Robots",
+      "Epson MX-80",
+      "Wako (retailer)",
+      "Nicolas Hayek",
+      // Manufacturer/parent-company articles, not watches. They are highly
+      // read, so views-ranking floats them to the hardest end of the deck where
+      // a card should be a watch. Their model articles come in from the seeds.
+      "Omega SA",
+      "Longines",
+      "Tissot",
+      "Movado",
+      "Seiko",
+      "Tritium",
+      "Lume",
+      "Super-LumiNova",
+      // "Spring Drive" and "Omega 28.9 chronograph" are calibres/movements, not
+      // watches a player would recognise by its picture.
+      "Spring Drive",
+      "Omega 28.9 chronograph",
+      // The Rolex Yacht-Master card's picture is a street photo of a Basel
+      // building that happens to be in frame; nothing to reveal.
+      "Rolex Yacht-Master",
+      // Reviewed on the generated page and dropped by hand: the Casio Loopy is
+      // a child's console-and-watch set rather than a watch, and MoonSwatch and
+      // the Breitling Orbiter are Swatch/Breitling lines nobody picks out of a
+      // line-up of watches.
+      "Casio Loopy",
+      "MoonSwatch",
+      "Breitling Orbiter",
+    ],
+  },
+  {
+    // The dream cars, pinned by article title. This is the one deck that is a
+    // hand-written list rather than a category walk: Wikipedia has no category
+    // for "the cars you wanted as a kid", and the per-marque "vehicles" trees
+    // are full of runabouts and near-duplicate generation articles. A category
+    // walk was tried first and produced 677 candidates of which the recognisable
+    // handful was a small fraction.
+    //
+    // Names are the ones on the articles, not the colloquial ones: the R34
+    // Skyline and the A80 Supra are both covered by the model article above, and
+    // the FD RX-7 by "Mazda RX-7". "DeLorean DMC-12" is a redirect to
+    // "DMC DeLorean" and keeps the name it was asked for.
+    id: "cars",
+    label: "Dream cars",
+    titles: [
+      "Nissan Skyline GT-R (R34)",
+      "Toyota Supra",
+      "Mazda RX-7",
+      "Mitsubishi Lancer Evolution",
+      "Subaru Impreza",
+      "Honda NSX",
+      "Nissan Silvia",
+      "Toyota AE86",
+      "Honda S2000",
+      "Nissan 350Z",
+      "Nissan 300ZX",
+      "Mitsubishi Eclipse",
+      "Toyota MR2",
+      "Mazda RX-8",
+      "Mitsubishi 3000GT",
+      "Honda Civic Type R",
+      "Ford Mustang",
+      "Chevrolet Camaro",
+      "Dodge Viper",
+      "Dodge Charger",
+      "Porsche 911",
+      "Ferrari F40",
+      "Ferrari Testarossa",
+      "Lamborghini Countach",
+      "Lamborghini Diablo",
+      "Lamborghini Murciélago",
+      "McLaren F1",
+      "Ford GT",
+      "BMW M3",
+      "Audi Quattro",
+      "Lancia Delta",
+      "DeLorean DMC-12",
+    ],
+  },
 ];
 
 const SKIP_TITLE = /^(List of|Outline of|Index of)\b/i;
+
+// Generation-specific articles are near-duplicate cards that nobody guesses from
+// a picture, and the model trees are full of them: both the chassis codes
+// ("Toyota Corolla (E210)", "Mazda MX-5 (ND)") and the spelled-out forms
+// ("Honda Civic (eighth generation)", "Toyota RAV4 (second generation)").
+const GENERATION_TITLE =
+  /\((?:[A-Z]{1,3}\d{2,3}[A-Z]?|(?:[a-z]+ )?generation|(?:[a-z]+ )?series|phase \d|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth)\)$/i;
+
 
 const args = process.argv.slice(2);
 const argValue = (name, fallback) => {
@@ -195,8 +554,13 @@ const CREATED = new Date().toISOString().slice(0, 10);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function api(params, { retries = 4 } = {}) {
-  const url = new URL(API);
+// Wikipedia throttles bursts, and the wider decks (the cars one walks a couple
+// of thousand articles across dozens of categories) trip it often enough that a
+// short fixed backoff is not enough: back off further each attempt and add
+// jitter, so concurrent workers that were all throttled do not retry in lockstep
+// and keep throttling each other.
+async function api(params, { retries = 7, host = API } = {}) {
+  const url = new URL(host);
   for (const [key, value] of Object.entries({
     format: "json",
     formatversion: "2",
@@ -205,18 +569,28 @@ async function api(params, { retries = 4 } = {}) {
     url.searchParams.set(key, String(value));
   }
   for (let attempt = 0; attempt <= retries; attempt++) {
-    const res = await fetch(url, {
-      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
-    });
-    if (res.status === 429 || res.status >= 500) {
-      await sleep(500 * (attempt + 1));
+    let res;
+    try {
+      res = await fetch(url, {
+        headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+      });
+    } catch (error) {
+      if (attempt === retries) throw error;
+      await sleep(backoff(attempt));
       continue;
     }
-    if (!res.ok) throw new Error(`HTTP ${res.status} from ${API}`);
+    if (res.status === 429 || res.status >= 500) {
+      await sleep(backoff(attempt));
+      continue;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`);
     return res.json();
   }
   throw new Error(`Gave up on ${url.searchParams.get("gcmtitle") ?? url}`);
 }
+
+const backoff = (attempt) =>
+  Math.min(1500 * 2 ** attempt, 30000) + Math.random() * 750;
 
 // pageimages appends ?utm_source=… tracking; the deck's URLs are bare, so drop it.
 function cleanImageUrl(url) {
@@ -259,6 +633,10 @@ async function fetchCategory(name, withDetails) {
       gcmtitle: `Category:${name}`,
       gcmtype: "page|subcat",
       gcmlimit: 500,
+      // Without this, category members that are redirects score 0 views and 0
+      // bytes, so redirect articles (TAG Heuer Monaco -> TAG Heuer, Reverso ->
+      // Reverso (watch)) silently fall to the bottom of a --sort views deck.
+      redirects: "1",
       ...(cont ? { gcmcontinue: cont } : {}),
       ...(withDetails
         ? {
@@ -380,7 +758,11 @@ function stripHtml(value) {
 }
 
 // One request per 50 images, run over the final selection only — the candidates
-// that lost do not need attribution.
+// that lost do not need attribution. Asked of Commons rather than
+// en.wikipedia.org: the images all live on Commons, and enwiki's copy of the
+// imageinfo is incomplete for some of them (it returns an empty
+// LicenseShortName for Omega Bullhead.JPG where Commons says CC BY-SA 4.0), so
+// a lookup there silently loses the attribution the licence requires.
 async function fetchLicenses(records) {
   const names = new Set();
   for (const record of records) {
@@ -391,16 +773,19 @@ async function fetchLicenses(records) {
 
   for (let i = 0; i < titles.length; i += 50) {
     const batch = titles.slice(i, i + 50);
-    const data = await api({
-      action: "query",
-      titles: batch.join("|"),
-      prop: "imageinfo",
-      iiprop: "extmetadata|user|url",
-      iiextmetadatafilter: LICENSE_FIELDS.join("|"),
-    });
+    const data = await api(
+      {
+        action: "query",
+        titles: batch.join("|"),
+        prop: "imageinfo",
+        iiprop: "extmetadata|user|url",
+        iiextmetadatafilter: LICENSE_FIELDS.join("|"),
+      },
+      { host: COMMONS_API },
+    );
     for (const page of data.query?.pages ?? []) {
-      // The file page usually lives on Commons, so en.wikipedia reports it as
-      // "missing" while still serving the imageinfo — only skip when there is none.
+      // A title can be a Commons redirect or a file that was since renamed; skip
+      // only when there is no imageinfo to read at all.
       const info = page.imageinfo?.[0];
       if (!info) continue;
       const meta = info.extmetadata ?? {};
@@ -574,42 +959,108 @@ ${decks.map((deck) => renderDeck(deck, { metric, minScore, depth })).join("\n")}
 `;
 }
 
+// A deck given `titles` is a fixed, hand-picked list rather than a category
+// walk: the titles are fetched directly in one batched call. This is the only
+// way to get a deck of specific models, because Wikipedia has no category that
+// holds "the good cars" — the per-marque trees are full of runabouts and
+// generation duplicates. `redirects` is set so a requested name that is a
+// redirect resolves to its article, and so pageviews are populated at all.
+async function fetchTitles(titles) {
+  const byName = new Map();
+  let cont;
+  do {
+    const data = await api({
+      action: "query",
+      titles: titles.join("|"),
+      redirects: "1",
+      prop: "pageimages|info|pageviews|pageprops",
+      piprop: "thumbnail|original|name",
+      pithumbsize: 1280,
+      ppprop: "disambiguation|wikibase_item",
+      ...(cont ? { continue: cont } : {}),
+    });
+    // Follow the redirect/normalisation chain back to the name that was asked
+    // for, so "DeLorean DMC-12" is credited to the "DMC DeLorean" it resolves to.
+    const resolved = new Map();
+    for (const entry of data.query?.normalized ?? []) resolved.set(entry.to, entry.from);
+    for (const entry of data.query?.redirects ?? []) resolved.set(entry.to, entry.from);
+    for (const page of data.query?.pages ?? []) {
+      const asked = resolved.get(page.title) ?? page.title;
+      byName.set(asked, { ...toRecord(page), asked });
+    }
+    cont = data.continue?.continue;
+  } while (cont);
+  return byName;
+}
+
 async function buildDeck(deck) {
   console.error(`\n=== ${deck.label} ===`);
-  console.error(`Collecting people (depth ${DEPTH}, ${CONCURRENCY} at a time)…`);
-  const people = await walkCategories(deck.seeds, DEPTH, {
-    withDetails: true,
-  });
 
-  console.error(`\nCollecting groups and labels to exclude…`);
-  const groups = await walkCategories(deck.exclude, 0, {
-    withDetails: false,
-  });
+  let candidates;
+  let found = 0;
+  let excluded = 0;
+  if (deck.titles) {
+    console.error(`Fetching ${deck.titles.length} pinned titles…`);
+    const found = await fetchTitles(deck.titles);
+    candidates = [];
+    for (const title of deck.titles) {
+      const person = found.get(title);
+      if (!person) {
+        console.error(`  no such article: ${title}`);
+        continue;
+      }
+      if (!person.image) {
+        console.error(`  no image: ${title}`);
+        continue;
+      }
+      if ((deck.skip ?? []).includes(person.asked)) continue;
+      if (person[SORT_KEY] < MIN_SCORE) continue;
+      // Keep the name that was asked for, so the card reads the way the deck
+      // was written rather than whatever the redirect resolved to.
+      candidates.push({ ...person, name: person.asked });
+    }
+  } else {
+    console.error(`Collecting people (depth ${DEPTH}, ${CONCURRENCY} at a time)…`);
+    const people = await walkCategories(deck.seeds, DEPTH, {
+      withDetails: true,
+    });
 
-  const candidates = people
-    .filter(
-      (person) =>
-        !groups.has(person.name) &&
-        person.image &&
-        !person.disambiguation &&
-        !SKIP_TITLE.test(person.name) &&
-        !(deck.skip ?? []).includes(person.name) &&
-        person[SORT_KEY] >= MIN_SCORE,
-    )
-    .sort((a, b) => b[SORT_KEY] - a[SORT_KEY])
-    .slice(0, LIMIT);
+    console.error(`\nCollecting groups and labels to exclude…`);
+    const groups = await walkCategories(deck.exclude, 0, {
+      withDetails: false,
+    });
+
+    candidates = people
+      .filter(
+        (person) =>
+          !groups.has(person.name) &&
+          person.image &&
+          !person.disambiguation &&
+          !SKIP_TITLE.test(person.name) &&
+          !GENERATION_TITLE.test(person.name) &&
+          !(deck.skip ?? []).includes(person.name) &&
+          person[SORT_KEY] >= MIN_SCORE,
+      )
+      .sort((a, b) => b[SORT_KEY] - a[SORT_KEY]);
+    found = people.length;
+    excluded = groups.size;
+  }
 
   if (!candidates.length) throw new Error(`${deck.label}: no candidates with an image found`);
-  const max = candidates[0][SORT_KEY] || 1;
+
+  const selected = candidates
+    .sort((a, b) => b[SORT_KEY] - a[SORT_KEY])
+    .slice(0, LIMIT);
+  const max = selected[0][SORT_KEY] || 1;
 
   let byFile = new Map();
   if (WITH_LICENCE) {
     console.error(`\nFetching image licences…`);
-    byFile = await fetchLicenses(candidates);
+    byFile = await fetchLicenses(selected);
   }
 
   // The deck is authored in ascending data-rating order, so reverse the ranking.
-  const entries = candidates
+  const entries = selected
     .map((person) => ({
       ...person,
       ...byFile.get(fileKey(person.pageimage ?? "")),
@@ -618,9 +1069,10 @@ async function buildDeck(deck) {
     .reverse();
 
   const metric = SORT_KEY === "views" ? "60-day pageviews" : "article size";
-  console.error(
-    `${people.length} people -> ${groups.size} excluded -> ${entries.length} entries with image/wiki, ranked by ${metric}`,
-  );
+  const how = deck.titles
+    ? `${deck.titles.length} pinned titles`
+    : `${found} people -> ${excluded} excluded`;
+  console.error(`${how} -> ${entries.length} entries with image/wiki, ranked by ${metric}`);
   return { ...deck, entries };
 }
 
