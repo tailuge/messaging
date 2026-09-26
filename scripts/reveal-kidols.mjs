@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-// Seed generator for the K-idols deck (`<ul id="challenge-data">` in
-// src/client/reveal/index.html). Collects one entry per famous female South
-// Korean actress / singer / celebrity and writes a human-review page to
-// docker/html/decks.html — served by nginx alongside the client, so the
-// candidate links, images and licences can be eyeballed in a browser before
-// any of it is pasted into index.html.
+// Seed generator for the reveal decks (`<ul id="challenge-data">` in
+// src/client/reveal/index.html). Collects one entry per famous female
+// celebrity — South Korean, Japanese, Chinese — and writes a human-review page
+// to docker/html/decks.html, served by nginx alongside the client, so the
+// candidate links, images and licences can be eyeballed in a browser before any
+// of it is pasted into index.html. Each deck gets its own collapsed section and
+// its images are only fetched once that section is opened.
 //
 // Only JSON metadata is ever requested — no image, thumbnail or wiki page is
 // downloaded. A single concurrent pass over `generator=categorymembers` with
@@ -26,7 +27,8 @@
 // when Commons flags one, `data-image-restrictions` (e.g. personality rights).
 //
 // Usage:
-//   node scripts/reveal-kidols.mjs                 # top 32 by article size
+//   node scripts/reveal-kidols.mjs                 # all decks, top 32 by article size
+//   node scripts/reveal-kidols.mjs --deck japan    # just one deck
 //   node scripts/reveal-kidols.mjs --limit 100     # a longer list
 //   node scripts/reveal-kidols.mjs --sort views    # rank by 60-day pageviews, not article size
 //   node scripts/reveal-kidols.mjs --min-score 5000 # drop the less famous tail
@@ -50,35 +52,111 @@ const USER_AGENT =
 // at our request rate; it is what keeps the walk to a few seconds.
 const CONCURRENCY = 6;
 
-// verbatim Wikipedia category names (without the "Category:" prefix).
-const SEED_CATEGORIES = [
-  "South Korean actresses",
-  "South Korean film actresses",
-  "South Korean television actresses",
-  "21st-century South Korean actresses",
-  "South Korean women singers",
-  "South Korean women pop singers",
-  "South Korean female idols",
-  "South Korean female models",
-  "South Korean women television presenters",
-];
-
-// Groups and labels the above categories reach: the deck is one card per person,
-// so anything collected here is removed from the candidates.
-const EXCLUDE_CATEGORIES = [
-  "South Korean girl groups",
-  "South Korean boy bands",
-  "South Korean musical groups",
-  "South Korean pop music groups",
-  "K-pop music groups",
-  "South Korean idol groups",
-  "South Korean hip hop groups",
-  "South Korean musical duos",
-  "South Korean musical trios",
-  "South Korean musical quartets",
-  "South Korean musical quintets",
-  "South Korean rock music groups",
-  "South Korean record labels",
+// One deck per regional celebrity category. `seeds` are the categories walked
+// (verbatim Wikipedia names, without the "Category:" prefix); `exclude` is
+// walked at depth 0 only and dropped, because the subcategory walk below the
+// seeds reaches bands, groups and labels that are not people. `skip` drops
+// individual articles that category membership cannot — mostly men who are
+// categorised with their female counterparts.
+const DECKS = [
+  {
+    id: "korea",
+    label: "South Korean celebrities",
+    seeds: [
+      "South Korean actresses",
+      "South Korean film actresses",
+      "South Korean television actresses",
+      "21st-century South Korean actresses",
+      "South Korean women singers",
+      "South Korean women pop singers",
+      "South Korean female idols",
+      "South Korean female models",
+      "South Korean women television presenters",
+    ],
+    exclude: [
+      "South Korean men actors",
+      "South Korean male models",
+      "South Korean male musicians",
+      "South Korean girl groups",
+      "South Korean boy bands",
+      "South Korean musical groups",
+      "South Korean pop music groups",
+      "K-pop music groups",
+      "South Korean idol groups",
+      "South Korean musical theatre actresses",
+      "South Korean hip hop groups",
+      "South Korean musical duos",
+      "South Korean musical trios",
+      "South Korean musical quartets",
+      "South Korean musical quintets",
+      "South Korean rock music groups",
+      "South Korean record labels",
+    ],
+    skip: ["Choi Jin-sil"],
+  },
+  {
+    id: "japan",
+    label: "Japanese celebrities",
+    seeds: [
+      "Japanese women actors",
+      "Japanese film actresses",
+      "Japanese television actresses",
+      "Japanese women singers",
+      "Japanese women pop singers",
+      "Japanese female models",
+      "Japanese women television presenters",
+    ],
+    exclude: [
+      "Japanese men actors",
+      "Japanese male models",
+      "Japanese male musicians",
+      "Japanese girl groups",
+      "Japanese boy bands",
+      "Japanese musical groups",
+      "Japanese pop music groups",
+      "Japanese idol groups",
+      "Japanese musical theatre actresses",
+      "Japanese hip hop groups",
+      "Japanese musical duos",
+      "Japanese musical trios",
+      "Japanese musical quartets",
+      "Japanese rock music groups",
+      "Japanese women rock singers",
+      "Japanese record labels",
+    ],
+    skip: ["Asuka (wrestler)", "Hamuko Hoshi", "Yuzuki Aikawa", "Tsukasa Fujimoto"],
+  },
+  {
+    id: "china",
+    label: "Chinese celebrities",
+    seeds: [
+      "Chinese women actors",
+      "Chinese film actresses",
+      "Chinese television actresses",
+      "Chinese women singers",
+      "Chinese women pop singers",
+      "Chinese female models",
+      "Chinese women television presenters",
+    ],
+    exclude: [
+      "Chinese men actors",
+      "Chinese male models",
+      "Chinese male musicians",
+      "Chinese girl groups",
+      "Chinese boy bands",
+      "Chinese musical groups",
+      "Chinese pop music groups",
+      "Chinese idol groups",
+      "Chinese musical theatre actresses",
+      "Chinese hip hop groups",
+      "Chinese musical duos",
+      "Chinese musical trios",
+      "Chinese musical quartets",
+      "Chinese rock music groups",
+      "Chinese record labels",
+    ],
+    skip: ["Sylvia Chang", "Priscilla Chan (singer)"],
+  },
 ];
 
 const SKIP_TITLE = /^(List of|Outline of|Index of)\b/i;
@@ -89,8 +167,17 @@ const argValue = (name, fallback) => {
   return i === -1 ? fallback : args[i + 1];
 };
 
-// Deck size and ranking metric the K-idols deck ships with: the 32 biggest
-// articles by size, which the deck still emits in ascending data-rating order.
+// Deck size and ranking metric the decks ship with: the 32 biggest articles by
+// size, which each deck still emits in ascending data-rating order.
+const DECK_IDS = argValue("--deck", DECKS.map((d) => d.id).join(","));
+const DECK_LIST = DECK_IDS.split(",")
+  .map((id) => id.trim())
+  .filter(Boolean)
+  .map((id) => {
+    const deck = DECKS.find((d) => d.id === id);
+    if (!deck) throw new Error(`--deck must be one of ${DECKS.map((d) => d.id).join(", ")}, got "${id}"`);
+    return deck;
+  });
 const LIMIT = Number(argValue("--limit", 32));
 const DEPTH = Number(argValue("--depth", 1));
 const MIN_SCORE = Number(argValue("--min-score", 0));
@@ -378,11 +465,12 @@ ${attrs.join("\n")}
   );
 }
 
-// Standalone review page: one row per candidate with everything a human needs
-// to check it — the article, the image actually used, its licence/author, and
-// the raw metrics the deck ranks on. Served by nginx from /decks.html.
-function renderReviewPage(entries, { metric, minScore, depth }) {
-  const rows = entries
+// One row per candidate, with everything a human needs to check it — the article,
+// the image actually used, its licence/author, and the raw metrics the deck ranks
+// on. Images are parked in data-src: the section script below only moves them to
+// src when the deck section is opened, so a closed deck costs no image requests.
+function renderRows(entries) {
+  return entries
     .map((entry, i) => {
       const link = (href, text) =>
         href
@@ -397,7 +485,7 @@ function renderReviewPage(entries, { metric, minScore, depth }) {
       return `      <tr>
         <td class="num">${i + 1}</td>
         <td class="name">${link(wikiUrl(entry.name), entry.name)}</td>
-        <td class="img">${entry.image ? `<a href="${escapeHtml(entry.image)}" target="_blank" rel="noopener"><img loading="lazy" src="${escapeHtml(entry.image)}" alt="${escapeHtml(entry.name)}" width="64" height="64"></a>` : `<span class="none">—</span>`}</td>
+        <td class="img">${entry.image ? `<a href="${escapeHtml(entry.image)}" target="_blank" rel="noopener"><img data-src="${escapeHtml(entry.image)}" alt="${escapeHtml(entry.name)}" width="64" height="64"></a>` : `<span class="none">—</span>`}</td>
         <td class="small">${catCell}</td>
         <td class="small">${entry.page ? `<a href="${escapeHtml(entry.page)}" target="_blank" rel="noopener" title="${escapeHtml(entry.pageimage ?? entry.page)}">🔗</a>` : ""}</td>
         <td class="small">${link(entry.licenseUrl, entry.license ?? "")}</td>
@@ -409,9 +497,35 @@ function renderReviewPage(entries, { metric, minScore, depth }) {
       </tr>`;
     })
     .join("\n");
+}
 
-  const deck = renderHtml(entries);
+function renderDeck(deck, { metric, minScore, depth }) {
+  return `<details class="deck" id="${deck.id}">
+  <summary>${escapeHtml(deck.label)} — ${deck.entries.length} entries</summary>
+  <p class="meta">generated ${CREATED} · ranked by ${escapeHtml(metric)} · depth ${depth}${minScore ? ` · min score ${minScore}` : ""}</p>
+  <table>
+    <thead>
+      <tr>
+        <th class="num">#</th><th>article</th><th>image</th><th>found under</th><th>file page</th>
+        <th>licence</th><th>author</th><th>restrictions</th>
+        <th class="num">bytes</th><th class="num">views</th><th class="num">rating</th>
+      </tr>
+    </thead>
+    <tbody>
+${renderRows(deck.entries)}
+    </tbody>
+  </table>
+  <details>
+    <summary>Deck markup — paste into <code>&lt;ul id="challenge-data"&gt;</code> in <code>src/client/reveal/index.html</code></summary>
+    <pre>${escapeHtml(renderHtml(deck.entries))}</pre>
+  </details>
+</details>`;
+}
 
+// Standalone review page: one collapsed section per deck, served by nginx from
+// /decks.html.
+function renderReviewPage(decks, { metric, minScore, depth }) {
+  const total = decks.reduce((sum, deck) => sum + deck.entries.length, 0);
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -422,8 +536,8 @@ function renderReviewPage(entries, { metric, minScore, depth }) {
   :root { color-scheme: light dark; }
   body { font: 14px/1.5 system-ui, sans-serif; margin: 1.5rem; }
   h1 { font-size: 1.25rem; }
-  p.meta { opacity: 0.7; margin: 0 0 1rem; }
-  table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+  p.meta { opacity: 0.7; margin: 0 0 0.5rem; font-size: 0.85rem; }
+  table { border-collapse: collapse; width: 100%; }
   th, td { border-bottom: 1px solid #8884; padding: 0.35rem 0.5rem; text-align: left; vertical-align: middle; }
   td.name { white-space: nowrap; }
   th { position: sticky; top: 0; background: Canvas; }
@@ -432,46 +546,43 @@ function renderReviewPage(entries, { metric, minScore, depth }) {
   td.img img { object-fit: cover; border-radius: 4px; }
   .none { opacity: 0.4; }
   .warn { color: #c60; }
-  details { margin-top: 1.5rem; }
+  details.deck { margin-bottom: 1.5rem; }
+  details.deck > summary { font-size: 1.1rem; font-weight: 600; cursor: pointer; }
+  details { margin-top: 1rem; }
   pre { white-space: pre; overflow-x: auto; background: #8881; padding: 0.75rem; }
 </style>
 </head>
 <body>
 <h1>Reveal deck candidates</h1>
-<p class="meta">${entries.length} entries · generated ${CREATED} · ranked by ${escapeHtml(metric)} · depth ${depth}${minScore ? ` · min score ${minScore}` : ""}</p>
-<table>
-  <thead>
-    <tr>
-      <th class="num">#</th><th>article</th><th>image</th><th>found under</th><th>file page</th>
-      <th>licence</th><th>author</th><th>restrictions</th>
-      <th class="num">bytes</th><th class="num">views</th><th class="num">rating</th>
-    </tr>
-  </thead>
-  <tbody>
-${rows}
-  </tbody>
-</table>
-<details>
-  <summary>Deck markup — paste into <code>&lt;ul id="challenge-data"&gt;</code> in <code>src/client/reveal/index.html</code></summary>
-  <pre id="deck">${escapeHtml(deck)}</pre>
-</details>
+<p class="meta">${total} entries across ${decks.length} ${decks.length === 1 ? "deck" : "decks"} · generated ${CREATED}</p>
+${decks.map((deck) => renderDeck(deck, { metric, minScore, depth })).join("\n")}
+<script>
+  // Images sit in data-src until their section is opened, so a deck nobody looks
+  // at costs nothing.
+  for (const section of document.querySelectorAll("details.deck")) {
+    section.addEventListener("toggle", () => {
+      if (!section.open) return;
+      for (const img of section.querySelectorAll("img[data-src]")) {
+        img.src = img.dataset.src;
+        img.removeAttribute("data-src");
+      }
+    });
+  }
+</script>
 </body>
 </html>
 `;
 }
 
-async function main() {
-  if (!["views", "bytes"].includes(SORT_KEY)) {
-    throw new Error(`--sort must be "views" or "bytes", got "${SORT_KEY}"`);
-  }
-
+async function buildDeck(deck) {
+  console.error(`\n=== ${deck.label} ===`);
   console.error(`Collecting people (depth ${DEPTH}, ${CONCURRENCY} at a time)…`);
-  const people = await walkCategories(SEED_CATEGORIES, DEPTH, {
+  const people = await walkCategories(deck.seeds, DEPTH, {
     withDetails: true,
   });
 
   console.error(`\nCollecting groups and labels to exclude…`);
-  const groups = await walkCategories(EXCLUDE_CATEGORIES, 0, {
+  const groups = await walkCategories(deck.exclude, 0, {
     withDetails: false,
   });
 
@@ -482,12 +593,13 @@ async function main() {
         person.image &&
         !person.disambiguation &&
         !SKIP_TITLE.test(person.name) &&
+        !(deck.skip ?? []).includes(person.name) &&
         person[SORT_KEY] >= MIN_SCORE,
     )
     .sort((a, b) => b[SORT_KEY] - a[SORT_KEY])
     .slice(0, LIMIT);
 
-  if (!candidates.length) throw new Error("No candidates with an image found");
+  if (!candidates.length) throw new Error(`${deck.label}: no candidates with an image found`);
   const max = candidates[0][SORT_KEY] || 1;
 
   let byFile = new Map();
@@ -507,17 +619,36 @@ async function main() {
 
   const metric = SORT_KEY === "views" ? "60-day pageviews" : "article size";
   console.error(
-    `\n${people.length} people -> ${groups.size} excluded -> ${entries.length} entries with image/wiki, ranked by ${metric}`,
+    `${people.length} people -> ${groups.size} excluded -> ${entries.length} entries with image/wiki, ranked by ${metric}`,
   );
+  return { ...deck, entries };
+}
+
+async function main() {
+  if (!["views", "bytes"].includes(SORT_KEY)) {
+    throw new Error(`--sort must be "views" or "bytes", got "${SORT_KEY}"`);
+  }
+
+  const built = [];
+  for (const deck of DECK_LIST) built.push(await buildDeck(deck));
 
   if (AS_JSON) {
-    console.log(JSON.stringify(entries, null, 2));
+    console.log(
+      JSON.stringify(
+        built.length === 1 ? built[0].entries : Object.fromEntries(built.map((d) => [d.id, d.entries])),
+        null,
+        2,
+      ),
+    );
     return;
   }
 
+  const metric = SORT_KEY === "views" ? "60-day pageviews" : "article size";
   await mkdir(dirname(OUT_FILE), { recursive: true });
-  await writeFile(OUT_FILE, renderReviewPage(entries, { metric, minScore: MIN_SCORE, depth: DEPTH }));
-  console.error(`\nWrote ${entries.length} entries to ${OUT_FILE}`);
+  await writeFile(OUT_FILE, renderReviewPage(built, { metric, minScore: MIN_SCORE, depth: DEPTH }));
+  console.error(
+    `\nWrote ${built.length} ${built.length === 1 ? "deck" : "decks"}, ${built.reduce((n, d) => n + d.entries.length, 0)} entries to ${OUT_FILE}`,
+  );
 }
 
 main().catch((error) => {
