@@ -931,11 +931,19 @@ class RevealApp extends LitElement {
         transform: rotateY(180deg);
         box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.2);
       }
-      /* Solved back face: name centred between the four corner buttons */
+      /* Solved back face: name centred between the four corner buttons.
+         min-height/min-width are the WCAG 2.5.8 Target Size (Minimum) floor of 24px. The link
+         reads as plain text -- no background or border, the padding alone carries the hit area
+         -- but the box is large enough to tap. inline-block is load-bearing: padding does not
+         grow the line box of an inline anchor, so without it the target stays one text line
+         tall. A miss here lands on the card, which flips the card shut. */
       .back-name {
+        display: inline-block;
+        min-width: 24px;
+        min-height: 24px;
         max-width: 100%;
         box-sizing: border-box;
-        padding: 0 0.25rem;
+        padding: 0.3rem 0.4rem;
         font-size: 0.68rem;
         line-height: 1.15;
         color: var(--link);
