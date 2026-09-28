@@ -208,12 +208,7 @@ table td {
         color: inherit;
       }
       #sparkline {
-        background: var(--card-bg);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
         padding: 2px 1px;
-        margin-bottom: 1px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         overflow: hidden;
       }
       #sparkline div {
@@ -232,7 +227,15 @@ table td {
         </div>
       </header>
 
-      <div id="sparkline"></div>
+      <div class="card collapsed" id="sparkline-card">
+        <div class="toggle-header" onclick="toggleCard('sparkline-card')" style="cursor: pointer;">
+          <h3 style="margin: 0; display: inline;">Activity Sparklines</h3>
+          <span class="toggle-indicator">&#9656;</span>
+        </div>
+        <div class="card-content" id="sparkline-info">
+          <div id="sparkline"></div>
+        </div>
+      </div>
 
       <div class="grid">
         <div class="card">
@@ -336,84 +339,83 @@ table td {
          </div>
        </div>
 
-<div class="card" id="ref-card">
-        <div class="toggle-header" onclick="toggleCard('ref-card')" style="cursor: pointer;">
-          <h3 style="margin: 0; display: inline;">Referrer Sources</h3>
-          <span class="toggle-indicator">▾</span>
+      <div class="grid">
+        <div class="card" id="ref-card">
+          <div class="toggle-header" onclick="toggleCard('ref-card')" style="cursor: pointer;">
+            <h3 style="margin: 0; display: inline;">Referrer Sources</h3>
+            <span class="toggle-indicator">▾</span>
+          </div>
+          <div id="ref-meta" class="refresh-tag"></div>
+          <div class="card-content" id="ref-info">
+            <table id="ref-table">
+              <thead>
+                <tr>
+                  <th>Referrer</th>
+                  <th>Count</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colspan="2" style="text-align: center; color: var(--secondary-color)">
+                    No referrer data available.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div id="ref-meta" class="refresh-tag"></div>
-        <div class="card-content" id="ref-info">
-          <table id="ref-table">
-            <thead>
-              <tr>
-                <th>Referrer</th>
-                <th>Count</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td colspan="2" style="text-align: center; color: var(--secondary-color)">
-                  No referrer data available.
-                </td>
-              </tr>
-            </tbody>
-          </table>
+
+        <div class="card" id="ua-card">
+          <div class="toggle-header" onclick="toggleCard('ua-card')" style="cursor: pointer;">
+            <h3 style="margin: 0; display: inline;">OS & Browser</h3>
+            <span class="toggle-indicator">▾</span>
+          </div>
+          <div id="ua-meta" class="refresh-tag"></div>
+          <div class="card-content" id="ua-info">
+            <table id="ua-table">
+              <thead>
+                <tr>
+                  <th>OS</th>
+                  <th>Browser</th>
+                  <th>Count</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colspan="3" style="text-align: center; color: var(--secondary-color)">
+                    No data available.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card" id="geo-card">
+          <div class="toggle-header" onclick="toggleCard('geo-card')" style="cursor: pointer;">
+            <h3 style="margin: 0; display: inline;">Country & Cities</h3>
+            <span class="toggle-indicator">▾</span>
+          </div>
+          <div id="geo-meta" class="refresh-tag"></div>
+          <div class="card-content" id="geo-info">
+            <table id="geo-table">
+              <thead>
+                <tr>
+                  <th>Country Code</th>
+                  <th>Cities</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colspan="2" style="text-align: center; color: var(--secondary-color)">
+                    No data available.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-
-<div class="grid">
-<div class="card" id="ua-card">
-        <div class="toggle-header" onclick="toggleCard('ua-card')" style="cursor: pointer;">
-          <h3 style="margin: 0; display: inline;">OS & Browser</h3>
-          <span class="toggle-indicator">▾</span>
-        </div>
-        <div id="ua-meta" class="refresh-tag"></div>
-        <div class="card-content" id="ua-info">
-          <table id="ua-table">
-            <thead>
-              <tr>
-                <th>OS</th>
-                <th>Browser</th>
-                <th>Count</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td colspan="3" style="text-align: center; color: var(--secondary-color)">
-                  No data available.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-<div class="card" id="geo-card">
-        <div class="toggle-header" onclick="toggleCard('geo-card')" style="cursor: pointer;">
-          <h3 style="margin: 0; display: inline;">Country & Cities</h3>
-          <span class="toggle-indicator">▾</span>
-        </div>
-        <div id="geo-meta" class="refresh-tag"></div>
-        <div class="card-content" id="geo-info">
-          <table id="geo-table">
-            <thead>
-              <tr>
-                <th>Country Code</th>
-                <th>Cities</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td colspan="2" style="text-align: center; color: var(--secondary-color)">
-                  No data available.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-</div>
 
 <div class="card collapsed" id="njs-logs-card">
         <div class="toggle-header" onclick="toggleCard('njs-logs-card')" style="cursor: pointer;">
