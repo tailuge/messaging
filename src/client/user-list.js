@@ -7,8 +7,14 @@ import { SHARED_STYLES, USER_LIST_STYLES } from './styles.js';
 const emit = (el, type, detail) =>
     el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
 
-/** Tooltip text for a player: city then reduced user agent, e.g. "London - Windows Chrome". */
-const locTip = (u) => [u.meta?.city, u.meta?.ua].filter(Boolean).join(' - ');
+/**
+ * Tooltip for a player: the city on the first line and the reduced user agent on the second,
+ * e.g. "London" over "Windows Chrome". Each part is its own line so a long city cannot push the
+ * user agent off to the side, and either part is omitted when absent.
+ */
+const locTip = (u) => html`
+    ${u.meta?.city ? html`<span class="loc-city">${u.meta.city}</span>` : ''}
+    ${u.meta?.ua ? html`<span class="loc-ua">${u.meta.ua}</span>` : ''}`;
 
 export class UserList extends LitElement {
     static properties = {
@@ -38,12 +44,17 @@ export class UserList extends LitElement {
             transform: translateX(-50%);
             background: #222; color: #fff;
             padding: 4px 8px; border-radius: 4px;
-            font-size: 0.75rem; white-space: nowrap;
+            font-size: 0.75rem;
+            text-align: center;
             pointer-events: none;
             opacity: 0;
             transition: opacity 0.2s ease;
             z-index: 10;
         }
+        /* nowrap moved off the tooltip and onto its lines: the two parts stack, but neither
+           wraps mid-word on a long city or a long user agent. */
+        .loc-city, .loc-ua { display: block; white-space: nowrap; }
+        .loc-ua { opacity: 0.75; }
         .name-wrap:hover .loc-tip { opacity: 1; transition: opacity 0.2s ease 5s; }
         .status-link { text-decoration: none; color: inherit; }
     `];
