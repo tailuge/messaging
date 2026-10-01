@@ -1,6 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { THEME_VARS, SHARED_STYLES } from './styles.js';
-import { arenaGameIcon, API_BASE } from './utils.js';
+import { arenaGameIcon, fetchArena } from './utils.js';
 import './arena-chat.js';
 import './tournament/arena-view.js';
 
@@ -92,21 +92,22 @@ export class ArenaPanel extends LitElement {
     async _loadArenaName() {
         if (!this.arenaId) return;
         try {
-            const response = await fetch(`${API_BASE}/api/arena/${encodeURIComponent(this.arenaId)}`);
-            if (response.ok) {
-                const data = await response.json();
-                if (data.arena) {
-                    const arena = data.arena;
-                    const name = arena.creatorName ? html`${arenaGameIcon(arena.ruleType, arena.options)} ${arena.creatorName}` : 'Arena';
-                    this._arenaName = name;
-                }
-            } else {
+            // Shares the request with <arena-view>, which loads the same arena.
+            const data = await fetchArena(this.arenaId);
+            if (data.arena) {
+                const arena = data.arena;
+                const name = arena.creatorName ? html`${arenaGameIcon(arena.ruleType, arena.options)} ${arena.creatorName}` : 'Arena';
+                this._arenaName = name;
+            }
+        } catch (error) {
+            if (error.status) {
                 // Finished arenas are deleted once they roll out of the archive,
                 // so an old link (trophy cabinet, shared URL) can 404 for good.
                 this._arenaName = 'Arena no longer available';
+            } else {
+                // Transient: leave the title on "Loading..." and try again next mount.
+                console.error('Failed to load arena name:', error);
             }
-        } catch (e) {
-            console.error('Failed to load arena name:', e);
         }
     }
 

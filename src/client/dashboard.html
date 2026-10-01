@@ -111,6 +111,11 @@ table td {
         background: #f8f9fa;
         font-size: 0.7rem;
       }
+      .count-col {
+        width: 1%;
+        white-space: nowrap;
+        text-align: right;
+      }
       .ip-col {
         max-width: 16ch;
         overflow: hidden;
@@ -350,8 +355,8 @@ table td {
             <table id="ref-table">
               <thead>
                 <tr>
+                  <th class="count-col">Count</th>
                   <th>Referrer</th>
-                  <th>Count</th>
                 </tr>
               </thead>
               <tbody>
@@ -602,7 +607,7 @@ table td {
             return countB - countA;
           });
           refTableBody.innerHTML = sorted
-            .map(([ref, count]) => `<tr><td>${escapeHtml(ref)}</td><td>${count}</td></tr>`)
+            .map(([ref, count]) => `<tr><td class="count-col">${count}</td><td>${escapeHtml(ref)}</td></tr>`)
             .join("");
         } else {
           refTableBody.innerHTML =

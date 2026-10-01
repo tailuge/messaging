@@ -1,5 +1,5 @@
 import { LitElement, html, css } from 'lit';
-import { gameUrl, API_BASE } from '../utils.js';
+import { gameUrl, API_BASE, fetchArena } from '../utils.js';
 import { THEME_VARS, SHARED_STYLES } from '../styles.js';
 import { userStore, isAnonymousName } from '../user-store.js';
 import './podium.js';
@@ -432,9 +432,9 @@ class ArenaView extends LitElement {
         this._busy = true;
         this._error = '';
         try {
-            const response = await fetch(`${API_BASE}/api/arena/${encodeURIComponent(this.arenaId)}`);
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || `Unable to load Arena (${response.status})`);
+            // Shared with <arena-panel>'s header load, so mounting this view
+            // alongside it costs one request rather than two.
+            const data = await fetchArena(this.arenaId);
             this._arena = data.arena;
             this._leaderboard = data.leaderboard || [];
             // Re-arm the one-shot stale refetch when the arena context changes.

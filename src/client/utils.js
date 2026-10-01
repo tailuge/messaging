@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 1162;
+export const CLIENTVERSION = 1167;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -15,6 +15,38 @@ export const ACTIVE_PAGE = _localhost ? './active.html' : 'https://billiards-net
 
 export const API_BASE = _localhost ? '' : 'https://billiards-network.onrender.com';
 export const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel');
+
+// Shared in-flight fetch for GET /api/arena/:id. The arena panel header and
+// the arena view both need the same arena as they mount, so they share one
+// request instead of one each. Deliberately no cache: entries are dropped the
+// moment the request settles, so refetches after a join/leave/pairing always
+// read fresh state rather than replaying the payload from page load.
+const arenaInFlight = new Map();
+
+export function fetchArena(arenaId) {
+    if (!arenaId) return Promise.resolve(null);
+    const existing = arenaInFlight.get(arenaId);
+    if (existing) return existing;
+
+    const request = fetch(`${API_BASE}/api/arena/${encodeURIComponent(arenaId)}`)
+        .then(response =>
+            response.json().then(data => {
+                if (!response.ok) {
+                    // `status` lets callers tell a permanent HTTP failure (the
+                    // arena has been evicted from the archive) from a transient
+                    // network error, which carries no status.
+                    const error = new Error(data.error || `Unable to load Arena (${response.status})`);
+                    error.status = response.status;
+                    throw error;
+                }
+                return data;
+            }),
+        )
+        .finally(() => arenaInFlight.delete(arenaId));
+
+    arenaInFlight.set(arenaId, request);
+    return request;
+}
 
 export const timeAgo = ts => {
   const s = Math.floor((Date.now() - ts) / 1000);
