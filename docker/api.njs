@@ -156,14 +156,29 @@ function parseTopPlayers(result, limitElo) {
     return players.slice(0, limitElo);
 }
 
+async function readHiscores() {
+    const results = await Promise.all(RULE_TYPES.map((rule) => redis("ZRANGE", `hiscore${rule}`, "0", "9")));
+    const hiscores = {};
+    for (let i = 0; i < RULE_TYPES.length; i += 1) {
+        hiscores[RULE_TYPES[i]] = parseHiscores(results[i]);
+    }
+    return hiscores;
+}
+
+async function readRecentMatches(limitMatches) {
+    const members = await redis("ZREVRANGE", "match_results", "0", String(limitMatches - 1));
+    return (Array.isArray(members) ? members : []).map((member) => JSON.parse(member));
+}
+
 async function summaryTopPlayers(limitElo) {
     const key = `topPlayers:${limitElo}`;
     const cached = ngx.shared.summary_cache.get(key);
     if (cached) return JSON.parse(cached);
 
+    const results = await Promise.all(RULE_TYPES.map((rule) => redis("HGETALL", `elo:${rule}`)));
     const topPlayers = {};
     for (let i = 0; i < RULE_TYPES.length; i += 1) {
-        topPlayers[RULE_TYPES[i]] = parseTopPlayers(await redis("HGETALL", `elo:${RULE_TYPES[i]}`), limitElo);
+        topPlayers[RULE_TYPES[i]] = parseTopPlayers(results[i], limitElo);
     }
     ngx.shared.summary_cache.set(key, JSON.stringify(topPlayers), ELO_CACHE_TTL);
     return topPlayers;
@@ -181,17 +196,12 @@ async function summary(r) {
         return json(r, 200, JSON.parse(cached));
     }
 
-    const hiscores = {};
-    for (let i = 0; i < RULE_TYPES.length; i += 1) {
-        hiscores[RULE_TYPES[i]] = parseHiscores(await redis("ZRANGE", `hiscore${RULE_TYPES[i]}`, "0", "9"));
-    }
-    const topPlayers = await summaryTopPlayers(limitElo);
-    const matches = await redis("ZREVRANGE", "match_results", "0", String(limitMatches - 1));
-    const payload = {
-        hiscores,
-        topPlayers,
-        recentMatches: (Array.isArray(matches) ? matches : []).map((member) => JSON.parse(member)),
-    };
+    const results = await Promise.all([
+        readHiscores(),
+        summaryTopPlayers(limitElo),
+        readRecentMatches(limitMatches),
+    ]);
+    const payload = { hiscores: results[0], topPlayers: results[1], recentMatches: results[2] };
     ngx.shared.summary_cache.set(key, JSON.stringify(payload));
     logApi("summary miss ms=" + (Date.now() - startedAt));
     return json(r, 200, payload);
