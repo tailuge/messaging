@@ -32,15 +32,20 @@ export class UserList extends LitElement {
     static styles = [SHARED_STYLES, USER_LIST_STYLES, css`
         @keyframes throb { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        li { animation: fadeIn 0.2s ease-out; }
+        li { animation: fadeIn 0.2s ease-out; anchor-scope: --user-name; }
         .btn-chat { animation: throb 2s ease-in-out infinite; font-size: 1rem; border: none; background: none; padding: 0 0.2rem; }
         .btn-spectate { background: #7c3aed; color: #fff; border: none; border-radius: 4px; padding: 0.25rem 0.6rem; cursor: pointer; }
         .btn-spectate:hover { background: #6d28d9; }
-        .name-wrap { position: relative; display: inline-block; }
+        .name-wrap {
+            position: relative;
+            display: inline-block;
+            anchor-name: --user-name;
+        }
         .user-name { overflow: visible; }
         .loc-tip {
             position: absolute;
-            left: 50%; top: 0;
+            bottom: calc(100% + 4px);
+            left: 50%;
             transform: translateX(-50%);
             background: #222; color: #fff;
             padding: 4px 8px; border-radius: 4px;
@@ -49,13 +54,26 @@ export class UserList extends LitElement {
             pointer-events: none;
             opacity: 0;
             transition: opacity 0.2s ease;
-            z-index: 10;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+        @supports (anchor-name: --user-name) {
+            .loc-tip {
+                position: fixed;
+                position-anchor: --user-name;
+                position-area: left center;
+                position-try-fallbacks: flip-inline, flip-block;
+                margin-right: 6px;
+                bottom: auto;
+                left: auto;
+                transform: none;
+            }
         }
         /* nowrap moved off the tooltip and onto its lines: the two parts stack, but neither
            wraps mid-word on a long city or a long user agent. */
         .loc-city, .loc-ua { display: block; white-space: nowrap; }
         .loc-ua { opacity: 0.75; }
-        .name-wrap:hover .loc-tip { opacity: 1; transition: opacity 0.2s ease 5s; }
+        .name-wrap:hover .loc-tip { opacity: 1; transition: opacity 0.2s ease 0.1s; }
         .status-link { text-decoration: none; color: inherit; }
     `];
 
