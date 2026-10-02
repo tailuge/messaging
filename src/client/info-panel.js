@@ -1,6 +1,6 @@
 import { html } from 'lit';
 import { INFO_PANEL_STYLES } from './styles.js';
-import { SCOREBOARD_URL, timeAgo, flag, ruleIcon, renderTrophy, replayUrl, isVercel } from './utils.js';
+import { SCOREBOARD_URL, API_BASE, timeAgo, flag, ruleIcon, renderTrophy, replayUrl, isVercel } from './utils.js';
 import { userStore, StoreElement } from './user-store.js';
 import './replay-button.js';
 import './cabinate.js';
@@ -38,7 +38,7 @@ class InfoPanel extends StoreElement {
             this.classList.add('loaded');
             this.requestUpdate();
         });
-        fetch(`${SCOREBOARD_URL}/api/summary`, { mode: 'cors' })
+        fetch(`${API_BASE}/api/summary`, { mode: 'cors' })
             .then(r => r.json())
             .then(d => {
                 this._data = d;
@@ -120,7 +120,7 @@ class InfoPanel extends StoreElement {
                                       name in each table, so the link name carries the rule too. -->
                                  ${topPlayers[game].slice(0, 4).map((p, i) => html`<tr>
                                      <td><a href="${SCOREBOARD_URL}/player/${encodeURIComponent(p.name)}?ruleType=${game}" aria-label="${renderTrophy(i)} ${p.name}, ${game} rankings">${renderTrophy(i)} ${p.name}</a></td>
-                                     <td>${Math.round(p.conservativeRating)}</td>
+                                     <td>${Math.round(p.rating)}</td>
                                  </tr>`)}
                             </table></div>
                         `)}

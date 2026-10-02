@@ -112,6 +112,91 @@ async function redis() {
     return data.result;
 }
 
+// GET /api/summary — lobby scoreboard, backed by the same Upstash KV the
+// scoreboard writes. The whole response is cached in the njs shared dict for
+// the zone's 120s timeout, keyed by both params.
+const RULE_TYPES = ["snooker", "nineball", "threecushion", "eightball", "sagu"];
+// The ELO ranking reads every player in every rule type, so it is cached for an
+// hour independently of the response cache's 120s zone default.
+const ELO_CACHE_TTL = 3600;
+
+function positiveInt(value, fallback) {
+    const n = parseInt(value, 10);
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+// ZRANGE returns JSON ScoreData members low-to-high; the panel shows the best
+// score first.
+function parseHiscores(result) {
+    const members = (Array.isArray(result) ? result : []).map((member) => JSON.parse(member));
+    members.reverse();
+    return members.map((s) => ({
+        name: s.name,
+        likes: s.likes || 0,
+        id: s.id,
+        score: Math.floor(s.score),
+    }));
+}
+
+function parseTopPlayers(result, limitElo) {
+    // The hash field is the player name; the stored value has no name of its own.
+    const hash = scoresFromHgetall(result);
+    const players = Object.keys(hash).map((name) => {
+        const p = JSON.parse(hash[name]);
+        return {
+            name: name,
+            rating: p.rating,
+            rd: p.rd,
+            gamesPlayed: p.gamesPlayed,
+            wins: p.wins,
+            losses: p.losses,
+        };
+    });
+    players.sort((a, b) => b.rating - a.rating);
+    return players.slice(0, limitElo);
+}
+
+async function summaryTopPlayers(limitElo) {
+    const key = `topPlayers:${limitElo}`;
+    const cached = ngx.shared.summary_cache.get(key);
+    if (cached) return JSON.parse(cached);
+
+    const topPlayers = {};
+    for (let i = 0; i < RULE_TYPES.length; i += 1) {
+        topPlayers[RULE_TYPES[i]] = parseTopPlayers(await redis("HGETALL", `elo:${RULE_TYPES[i]}`), limitElo);
+    }
+    ngx.shared.summary_cache.set(key, JSON.stringify(topPlayers), ELO_CACHE_TTL);
+    return topPlayers;
+}
+
+async function summary(r) {
+    const startedAt = Date.now();
+    const limitElo = positiveInt(r.args.limitElo, 10);
+    const limitMatches = positiveInt(r.args.limitMatches, 32);
+    const key = `summary:${limitElo}:${limitMatches}`;
+
+    const cached = ngx.shared.summary_cache.get(key);
+    if (cached) {
+        logApi("summary hit ms=" + (Date.now() - startedAt));
+        return json(r, 200, JSON.parse(cached));
+    }
+
+    const hiscores = {};
+    for (let i = 0; i < RULE_TYPES.length; i += 1) {
+        hiscores[RULE_TYPES[i]] = parseHiscores(await redis("ZRANGE", `hiscore${RULE_TYPES[i]}`, "0", "9"));
+    }
+    const topPlayers = await summaryTopPlayers(limitElo);
+    const matches = await redis("ZREVRANGE", "match_results", "0", String(limitMatches - 1));
+    const payload = {
+        hiscores,
+        topPlayers,
+        recentMatches: (Array.isArray(matches) ? matches : []).map((member) => JSON.parse(member)),
+    };
+    ngx.shared.summary_cache.set(key, JSON.stringify(payload));
+    logApi("summary miss ms=" + (Date.now() - startedAt));
+    return json(r, 200, payload);
+}
+
 const K_ACTIVE = "arena:active";
 const K_ARCHIVED = "arena:archived";
 const K_WINNERS = "arena:winners";
@@ -585,6 +670,7 @@ async function arenaResult(r, arenaId) {
 async function router(r) {
     try {
         if (r.uri === '/api/hello' && r.method === 'GET') return await hello(r);
+        if (r.uri === '/api/summary' && r.method === 'GET') return await summary(r);
         if (r.uri === '/api/usage' && r.method === 'GET') return await usageStats(r);
         if (r.uri.startsWith('/api/usage/') && r.method === 'PUT') return await usage(r);
             if (r.uri === '/api/arena' && r.method === 'GET') return await arenaList(r);
