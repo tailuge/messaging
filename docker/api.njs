@@ -16,6 +16,9 @@ async function hello(r) {
 
 const USAGE_KEYS = ["chineseUsage", "koreanUsage", "germanUsage", "turkishUsage", "vietnameseUsage", "japaneseUsage", "spanishUsage", "dutchUsage"];
 const USAGE_METRIC_RE = /^[a-zA-Z0-9_-]+$/;
+// Daily counts only change once a day, so the usage dashboard reads are cached
+// for an hour via an explicit TTL overriding summary_cache's 120s default.
+const USAGE_CACHE_TTL = 3600;
 
 // Records one occurrence of `metric` for today (UTC). Counters live in the same
 // Upstash sorted sets the scoreboard's usage dashboard reads: key
@@ -93,6 +96,29 @@ async function usageStats(r) {
         }
     }
     return json(r, 200, data);
+}
+
+// GET /api/usage/<metric> — daily counts for one metric, shaped as
+// [{date,count}] for the usage dashboard's charts.
+async function usageSeries(r) {
+    const match = r.uri.match(/^\/api\/usage\/(.+)$/);
+    if (!match) return json(r, 400, { error: "Missing key" });
+    let metric;
+    try {
+        metric = decodeURIComponent(match[1]);
+    } catch (e) {
+        return json(r, 400, { error: "Invalid metric name" });
+    }
+    if (!USAGE_METRIC_RE.test(metric)) return json(r, 400, { error: "Invalid metric name" });
+
+    const key = "usage:" + metric;
+    const cached = ngx.shared.summary_cache.get(key);
+    if (cached) return json(r, 200, JSON.parse(cached));
+
+    const result = await redis("ZRANGE", metric + "Usage", "0", "-1", "WITHSCORES");
+    const rows = normalizeUsage(result);
+    ngx.shared.summary_cache.set(key, JSON.stringify(rows), USAGE_CACHE_TTL);
+    return json(r, 200, rows);
 }
 
 async function redis() {
@@ -683,6 +709,7 @@ async function router(r) {
         if (r.uri === '/api/summary' && r.method === 'GET') return await summary(r);
         if (r.uri === '/api/usage' && r.method === 'GET') return await usageStats(r);
         if (r.uri.startsWith('/api/usage/') && r.method === 'PUT') return await usage(r);
+        if (r.uri.startsWith('/api/usage/') && r.method === 'GET') return await usageSeries(r);
             if (r.uri === '/api/arena' && r.method === 'GET') return await arenaList(r);
         if (r.uri === '/api/arena' && r.method === 'POST') return await arenaCreate(r);
         if (r.uri === '/api/arena/results' && r.method === 'GET') return await arenaResultsGet(r);

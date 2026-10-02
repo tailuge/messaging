@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Support Terminal: Usage</title>
+  <meta name="description" content="A dashboard for monitoring usage metrics." />
+  <style>
+    body {
+      background-color: #000;
+      color: #fff;
+      font-family: "IBM Plex Mono", monospace;
+      margin: 0;
+      padding: 20px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #333;
+      padding-bottom: 10px;
+    }
+    .title {
+      font-size: 1.5rem;
+      margin: 0;
+    }
+    .server-stats-links a {
+      color: #0055ff;
+      text-decoration: none;
+      margin-left: 20px;
+      font-size: 0.8rem;
+    }
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 20px;
+    }
+    .chart-container {
+      background-color: #111;
+      border: 1px solid #333;
+      padding: 10px;
+      height: 400px;
+    }
+  </style>
+</head>
+
+<body>
+  <header class="header">
+    <h1 class="title">USAGE</h1>
+    <div class="server-stats-links">
+      <a href="https://vercel.com/tailuges-projects/~/usage" target="_blank">VERCEL</a>
+      <a href="https://dashboard.render.com/web/srv-ctk5bmtds78s73eteil0/metrics" target="_blank">RENDER</a>
+    </div>
+  </header>
+  <main id="chart-grid" class="chart-grid"></main>
+
+  <script src="https://cdn.plot.ly/plotly-cartesian-3.0.0-rc.0.min.js"
+    integrity="sha384-k9BNvphELWyBtQVTUBS5YYM9SAb3H4NoA6hxg6YARuWJqdp+yp8F3mJN405LN+KC"
+    crossorigin="anonymous"></script>
+
+  <script type="module">
+    const GROUPS = [
+      {
+        id: "lobby-game",
+        label: "LOBBY & GAME ACTIVITY",
+        metrics: [
+          { id: "lobby", label: "LOBBY TRAFFIC", color: "#0055ff" },
+          { id: "game", label: "GAME ACTIVITY", color: "#9c27b0" },
+        ],
+      },
+      {
+        id: "challenges-accepts",
+        label: "CHALLENGES & ACCEPTS",
+        metrics: [
+          { id: "createTable", label: "CHALLENGES", color: "#ff3e00" },
+          { id: "joinTable", label: "ACCEPTS", color: "#4caf50" },
+        ],
+      },
+    ]
+
+    // CHALLENGES & ACCEPTS is plotted as a trailing mean so day-to-day noise
+    // doesn't hide the trend. Every other panel is plotted raw.
+    const SMOOTHED_GROUP_ID = "challenges-accepts"
+    const SMOOTHING_WINDOW = 3
+    const DAY_MS = 24 * 60 * 60 * 1000
+
+    const chartGrid = document.getElementById("chart-grid")
+
+    GROUPS.forEach((group) => {
+      const container = document.createElement("div")
+      container.id = group.id
+      container.className = "chart-container"
+      chartGrid.appendChild(container)
+      plotGroup(group)
+    })
+
+    async function getData(url) {
+      const response = await fetch(url)
+      return response.json()
+    }
+
+    // Days with no activity are absent from the store, so insert explicit
+    // zero counts — otherwise a "3 day" mean would span three active days.
+    function fillMissingDays(data) {
+      if (data.length === 0) return data
+
+      const countByDate = new Map(data.map((d) => [d.date, d.count]))
+      const filled = []
+      const start = new Date(data[0].date).getTime()
+      const end = new Date(data[data.length - 1].date).getTime()
+
+      for (let time = start; time <= end; time += DAY_MS) {
+        const date = new Date(time).toISOString().split("T")[0]
+        filled.push({ date, count: countByDate.get(date) ?? 0 })
+      }
+
+      return filled
+    }
+
+    function movingAverage(data, window) {
+      const filled = fillMissingDays(data)
+
+      return filled.map((point, index) => {
+        const slice = filled.slice(Math.max(0, index - window + 1), index + 1)
+        const total = slice.reduce((sum, d) => sum + Number(d.count), 0)
+        return { date: point.date, count: total / slice.length }
+      })
+    }
+
+    async function plotGroup(groupConfig) {
+      const traces = await Promise.all(
+        groupConfig.metrics.map(async (metric) => {
+          const rawData = await getData(`/api/usage/${metric.id}`)
+          const data = rawData
+            .map((d) => ({ date: d.date, count: Number(d.count) }))
+            .sort((a, b) => new Date(a.date) - new Date(b.date))
+
+          const points =
+            groupConfig.id === SMOOTHED_GROUP_ID
+              ? movingAverage(data, SMOOTHING_WINDOW)
+              : data
+
+          return {
+            x: points.map((d) => d.date),
+            y: points.map((d) => d.count),
+            name: metric.label,
+            type: "scatter",
+            mode: "lines",
+            line: { color: metric.color, width: 2 },
+          }
+        })
+      )
+
+      const layout = {
+        title: {
+          text: groupConfig.label,
+          font: {
+            family: "'IBM Plex Mono', monospace",
+            size: 11,
+            color: "#888",
+          },
+          x: 0,
+          xanchor: "left",
+        },
+        xaxis: {
+          type: "date",
+          tickangle: 0,
+          dtick: "M3",
+          tickformat: "%b %Y",
+          gridcolor: "#333",
+          linecolor: "#333",
+          tickfont: {
+            family: "'DM Sans', sans-serif",
+            size: 9,
+            color: "#999",
+          },
+          zeroline: false,
+        },
+        yaxis: {
+          gridcolor: "#333",
+          linecolor: "#333",
+          tickfont: {
+            family: "'DM Sans', sans-serif",
+            size: 9,
+            color: "#999",
+          },
+          zeroline: false,
+        },
+        legend: {
+          orientation: "h",
+          yanchor: "bottom",
+          y: 1.02,
+          xanchor: "right",
+          x: 1,
+          font: {
+            family: "'DM Sans', sans-serif",
+            size: 9,
+            color: "#999",
+          },
+          bgcolor: "rgba(0,0,0,0)",
+        },
+        plot_bgcolor: "rgba(0,0,0,0)",
+        paper_bgcolor: "rgba(0,0,0,0)",
+        margin: { t: 50, r: 20, b: 40, l: 30 },
+        autosize: true,
+      }
+
+      const config = {
+        responsive: true,
+        displayModeBar: false,
+        staticPlot: false,
+      }
+
+      Plotly.newPlot(groupConfig.id, traces, layout, config)
+    }
+  </script>
+</body>
+
+</html>
