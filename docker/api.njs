@@ -34,9 +34,10 @@ async function usage(r) {
     }
     if (!USAGE_METRIC_RE.test(metric)) return json(r, 400, { error: "Invalid metric name" });
 
+    const key = metric.endsWith("Usage") ? metric : metric + "Usage";
     const date = new Date().toISOString().split("T")[0];
     try {
-        await redis("ZINCRBY", metric + "Usage", "1", JSON.stringify({ date: date }));
+        await redis("ZINCRBY", key, "1", JSON.stringify({ date: date }));
     } catch (e) {
         logApi("usage increment failed key=" + metric + ": " + (e && e.message ? e.message : e));
         return json(r, 502, { error: "Upstream error", message: e && e.message ? e.message : String(e) });
@@ -111,13 +112,14 @@ async function usageSeries(r) {
     }
     if (!USAGE_METRIC_RE.test(metric)) return json(r, 400, { error: "Invalid metric name" });
 
-    const key = "usage:" + metric;
-    const cached = ngx.shared.summary_cache.get(key);
+    const keyName = metric.endsWith("Usage") ? metric : metric + "Usage";
+    const cacheKey = "usage:" + keyName;
+    const cached = ngx.shared.summary_cache.get(cacheKey);
     if (cached) return json(r, 200, JSON.parse(cached));
 
-    const result = await redis("ZRANGE", metric + "Usage", "0", "-1", "WITHSCORES");
+    const result = await redis("ZRANGE", keyName, "0", "-1", "WITHSCORES");
     const rows = normalizeUsage(result);
-    ngx.shared.summary_cache.set(key, JSON.stringify(rows), USAGE_CACHE_TTL);
+    ngx.shared.summary_cache.set(cacheKey, JSON.stringify(rows), USAGE_CACHE_TTL);
     return json(r, 200, rows);
 }
 
@@ -215,6 +217,13 @@ async function summary(r) {
     const limitElo = positiveInt(r.args.limitElo, 10);
     const limitMatches = positiveInt(r.args.limitMatches, 32);
     const key = `summary:${limitElo}:${limitMatches}`;
+
+    const date = new Date().toISOString().split("T")[0];
+    try {
+        await redis("ZINCRBY", "lobbyUsage", "1", JSON.stringify({ date: date }));
+    } catch (e) {
+        logApi("summary lobbyUsage increment failed: " + (e && e.message ? e.message : e));
+    }
 
     const cached = ngx.shared.summary_cache.get(key);
     if (cached) {
@@ -708,8 +717,12 @@ async function router(r) {
         if (r.uri === '/api/hello' && r.method === 'GET') return await hello(r);
         if (r.uri === '/api/summary' && r.method === 'GET') return await summary(r);
         if (r.uri === '/api/usage' && r.method === 'GET') return await usageStats(r);
-        if (r.uri.startsWith('/api/usage/') && r.method === 'PUT') return await usage(r);
-        if (r.uri.startsWith('/api/usage/') && r.method === 'GET') return await usageSeries(r);
+        if (r.uri.startsWith('/api/usage/')) {
+            if (r.method === 'PUT') return await usage(r);
+            if (r.method === 'GET') return await usageSeries(r);
+            if (r.method === 'OPTIONS') return r.return(204);
+            return json(r, 405, { error: "Method Not Allowed" });
+        }
             if (r.uri === '/api/arena' && r.method === 'GET') return await arenaList(r);
         if (r.uri === '/api/arena' && r.method === 'POST') return await arenaCreate(r);
         if (r.uri === '/api/arena/results' && r.method === 'GET') return await arenaResultsGet(r);
