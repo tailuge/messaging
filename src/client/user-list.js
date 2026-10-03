@@ -1,5 +1,6 @@
-import { LitElement, html, css } from 'lit';
+import { html, css } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
+import { I18nElement, i18n } from './i18n.js';
 import { userStatus, activeGames, canChallenge, canSpectate } from '../index.ts';
 import { flag, getEmoji, isVercel } from './utils.js';
 import { SHARED_STYLES, USER_LIST_STYLES } from './styles.js';
@@ -16,7 +17,7 @@ const locTip = (u) => html`
     ${u.meta?.city ? html`<span class="loc-city">${u.meta.city}</span>` : ''}
     ${u.meta?.ua ? html`<span class="loc-ua">${u.meta.ua}</span>` : ''}`;
 
-export class UserList extends LitElement {
+export class UserList extends I18nElement {
     static properties = {
         slots: { type: Array },
         users: { type: Array },
@@ -165,7 +166,7 @@ export class UserList extends LitElement {
             : spectatable
                 ? html`<button class="btn-spectate" aria-label="Spectate ${u.userName}'s game" @click=${() => emit(this, 'spectate', u)}>Spectate</button>`
                 : challengeable
-                    ? html`<button class="btn-challenge" aria-label="Challenge ${u.userName}" ?disabled=${this.isChallengePending} @click=${() => isVercel ? window.location.href = 'https://billiards.tailuge.workers.dev/lobby' : emit(this, 'challenge', u.userId)}>Challenge</button>`
+                    ? html`<button class="btn-challenge" aria-label=${i18n.t('Challenge {name}', { name: u.userName })} ?disabled=${this.isChallengePending} @click=${() => isVercel ? window.location.href = 'https://billiards.tailuge.workers.dev/lobby' : emit(this, 'challenge', u.userId)}>${i18n.t('Challenge')}</button>`
                     : html``;
         return html`
             <li aria-label="${u.userName}">

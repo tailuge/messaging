@@ -12,8 +12,15 @@ const genId = (userName) => {
 // region subtag is preferred, falling back to the language. Not persisted: it re-derives
 // on each load. Locale is only an approximation of country (an English browser in Germany
 // yields EN), which is fine here.
+//
+// A few languages read better in their own script than as a region code, so Korean
+// players see "Anon-한" rather than "Anon-KR".
+const LOCALE_LABELS = { ko: '한' };
+
 export const anonName = () => {
     const [lang, ...rest] = (navigator.languages?.[0] || navigator.language || 'en').split('-');
+    const label = LOCALE_LABELS[(lang || '').toLowerCase()];
+    if (label) return `Anon-${label}`;
     const region = rest.find((p) => /^[A-Za-z]{2}$/.test(p));
     const code = (region || lang || 'en').toUpperCase().slice(0, 2);
     return `Anon-${code}`;

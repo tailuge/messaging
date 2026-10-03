@@ -1,5 +1,5 @@
 import { LitElement, html, css } from 'lit';
-import { selectorStrings } from './selector-strings.js';
+import { i18n } from './i18n.js';
 
 const GAMES = [
   {
@@ -107,7 +107,7 @@ class SelectorModal extends LitElement {
     _lang: { state: true },
   };
 
-  #strings = selectorStrings;
+  #strings = i18n;
   #unsubLang;
 
   // Escape closes the dialog, matching the lobby's settings modal. Bound as a

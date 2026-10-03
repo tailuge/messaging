@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "a11y-debugging": {
+      "source": "chromedevtools/chrome-devtools-mcp",
+      "sourceType": "github",
+      "skillPath": "skills/a11y-debugging/SKILL.md",
+      "computedHash": "53a79829783f4fee58520d04a2f42f137a5ce478dd0c9a4423fe50ecb4384987"
+    },
+    "chrome-devtools": {
+      "source": "chromedevtools/chrome-devtools-mcp",
+      "sourceType": "github",
+      "skillPath": "skills/chrome-devtools/SKILL.md",
+      "computedHash": "3dbca8528db5940abc28faaebfd73a0fd08c34a5f3f46ff6b7810ea39b183de5"
+    },
+    "debug-optimize-lcp": {
+      "source": "chromedevtools/chrome-devtools-mcp",
+      "sourceType": "github",
+      "skillPath": "skills/debug-optimize-lcp/SKILL.md",
+      "computedHash": "6d8a0d83f5375437d5b8375d85a4869141799ab5cb0286d2542441e5b0fbd2cc"
+    }
+  }
+}

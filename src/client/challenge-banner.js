@@ -1,5 +1,6 @@
-import { LitElement, html } from 'lit';
+import { html } from 'lit';
 import { ruleIcon } from './utils.js';
+import { I18nElement, i18n } from './i18n.js';
 import {
     SHARED_STYLES, CHALLENGE_BANNER_STYLES, SENT_CHALLENGE_BANNER_STYLES
 } from './styles.js';
@@ -42,7 +43,7 @@ const formatOptions = (options, myId) => {
         });
 };
 
-class ChallengeBanner extends LitElement {
+class ChallengeBanner extends I18nElement {
     static properties = { challenge: { type: Object }, sent: { type: Object }, myId: { type: String } };
     static styles = [SHARED_STYLES, CHALLENGE_BANNER_STYLES, SENT_CHALLENGE_BANNER_STYLES];
 
@@ -62,11 +63,11 @@ class ChallengeBanner extends LitElement {
         return html`
             <div class="banner">
                 <div class="details">${ruleIcon(c.ruleType)} ${c.ruleType}</div>
-                <strong>Challenge from ${c.challengerName}</strong>
+                <strong>${i18n.t('Challenge from {name}', { name: c.challengerName })}</strong>
                 <div class="details">${extras.map(e => html`<span>${e}</span>`)}</div>
                 <div class="row">
-                    <button class="btn-accept" aria-label="Accept challenge" @click=${() => emit(this, 'accept')}>Accept</button>
-                    <button class="btn-decline" aria-label="Decline challenge" @click=${() => emit(this, 'decline')}>Decline</button>
+                    <button class="btn-accept" aria-label=${i18n.t('Accept challenge')} @click=${() => emit(this, 'accept')}>${i18n.t('Accept')}</button>
+                    <button class="btn-decline" aria-label=${i18n.t('Decline challenge')} @click=${() => emit(this, 'decline')}>${i18n.t('Decline')}</button>
                 </div>
             </div>`;
     }
@@ -78,11 +79,13 @@ class ChallengeBanner extends LitElement {
             <div class="banner ${c.status}">
                 <div class="details">${ruleIcon(c.ruleType)} ${c.ruleType}</div>
                 ${extras.length > 0 ? html`<div class="details">${extras.map(e => html`<span>${e}</span>`)}</div>` : ''}
-                <strong>${isWaiting ? `Waiting for ${c.recipientName} to accept.` : `${c.recipientName} declined.`}</strong>
+                <strong>${isWaiting
+                    ? i18n.t('Waiting for {name} to accept.', { name: c.recipientName })
+                    : i18n.t('{name} declined.', { name: c.recipientName })}</strong>
                 <div class="row">
                     ${isWaiting
-                        ? html`<button class="btn-leave" @click=${() => emit(this, 'cancel')}>Cancel</button>`
-                        : html`<button aria-label="Dismiss" @click=${() => emit(this, 'dismiss')}>✕</button>`}
+                        ? html`<button class="btn-leave" @click=${() => emit(this, 'cancel')}>${i18n.t('Cancel')}</button>`
+                        : html`<button aria-label=${i18n.t('Dismiss')} @click=${() => emit(this, 'dismiss')}>✕</button>`}
                 </div>
             </div>`;
     }

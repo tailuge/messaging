@@ -1,11 +1,12 @@
-import { LitElement, html } from 'lit';
+import { html } from 'lit';
+import { I18nElement, i18n } from './i18n.js';
 import { SHARED_STYLES, CHALLENGE_MODAL_STYLES, BADGE_STYLES } from './styles.js';
 import { badgeText } from './utils.js';
 
 const emit = (el, type, detail) =>
     el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
 
-class ChallengeModal extends LitElement {
+class ChallengeModal extends I18nElement {
     static properties = {
         userId: { type: String },
         userName: { type: String },
@@ -110,8 +111,8 @@ class ChallengeModal extends LitElement {
         if (!this.userId) return html``;
         return html`
             <div class="backdrop" @click=${e => e.target === e.currentTarget && emit(this, 'cancel')}>
-                <div class="modal" role="dialog" aria-modal="true" aria-label="Select game type">
-                    <h3>Challenge ${this.userName}</h3>
+                <div class="modal" role="dialog" aria-modal="true" aria-label=${i18n.t('Select game type')}>
+                    <h3>${i18n.t('Challenge {name}', { name: this.userName })}</h3>
                     <div class="sections">
                         ${ChallengeModal.SECTIONS.map(s => html`
                             <div class="section">
@@ -154,8 +155,8 @@ class ChallengeModal extends LitElement {
                                     </div>
                             </div>`)}
                     </div>
-                    <button class="msg-btn" type="button" aria-label="Send message" @click=${() => emit(this, 'message')}>💬</button>
-                    <button class="cancel" @click=${() => emit(this, 'cancel')}>Cancel</button>
+                    <button class="msg-btn" type="button" aria-label=${i18n.t('Send message')} @click=${() => emit(this, 'message')}>💬</button>
+                    <button class="cancel" @click=${() => emit(this, 'cancel')}>${i18n.t('Cancel')}</button>
                 </div>
             </div>`;
     }

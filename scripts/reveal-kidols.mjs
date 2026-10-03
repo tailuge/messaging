@@ -68,6 +68,12 @@ const CONCURRENCY = 4;// One deck per regional celebrity category, plus the Toky
 // individual articles that category membership cannot — mostly men who are
 // categorised with their female counterparts. The cars deck is the exception:
 // it pins `titles` instead, because "the dream cars" is not a category.
+//
+// One optional field applies to a pinned deck: `keepOrder` skips the
+// size/pageviews ranking and treats the authored list order as the rank, which a
+// hand-ordered deck needs when those metrics do not track how well a player
+// knows the subject (the anime deck would otherwise float the franchise entries
+// to the hardest end).
 const DECKS = [
   {
     id: "korea",
@@ -489,6 +495,82 @@ const DECKS = [
       "IG-88": "File:IG-88.jpg",
       "Probe droid": "File:Probe droid Star Wars.png",
     },
+  },
+  {
+    // Anime film posters, pinned by article title like the Star Wars deck:
+    // Wikipedia has no category for "the anime films everyone knows", and the
+    // per-studio filmographies are full of television series and shorts.
+    //
+    // Every card's picture is the film's poster from its article's lead image,
+    // which means two things worth knowing before this deck is trusted:
+    //
+    //   * They are all **non-free** (fair use) — Wikipedia's rule for copyrighted
+    //     covers. `--nonfree` is required to get any images at all, and unlike
+    //     the Totoro deck none of these are freely licensed or reusable. The
+    //     review page marks every one.
+    //   * They are all **small** — roughly 250–320px wide. That is not a bug in
+    //     this script: Wikipedia deliberately hosts low-resolution copies of
+    //     non-free files, and its thumbnailer never upscales. The sister game's
+    //     seed data otherwise uses 1280px sources, so these will look soft when
+    //     the reveal canvas draws them large.
+    //
+    // Several of the most famous anime films have no poster on Wikipedia at
+    // all — Akira, Howl's Moving Castle, Ghost in the Shell, Princess Kaguya,
+    // Nausicaä and Only Yesterday have no lead image, and no other language wiki
+    // has one either (checked: their articles carry logos only). So the deck is
+    // built from the films that do have covers rather than the ones that are
+    // most famous.
+    //
+    // `keepOrder` makes the list order the rank. Article size is a poor proxy
+    // for how well a player knows a film — it would float the franchise entries
+    // (Neon Genesis Evangelion, One Piece) to the hardest end — so the list
+    // below is hand-ordered, most recognisable first.
+    id: "anime",
+    label: "Anime films",
+    // The <ul> this deck is pasted into in src/client/reveal/index.html, and the
+    // id/mode the client's DECKS table in reveal.js registers it under.
+    dataId: "anime-data",
+    keepOrder: true,
+    titles: [
+      // Easiest — the ones with an Oscar, a festival prize or a household name.
+      "Spirited Away",
+      "My Neighbor Totoro",
+      "Princess Mononoke",
+      "Your Name",
+      "Grave of the Fireflies",
+      "Kiki's Delivery Service",
+      "Ponyo",
+      "Castle in the Sky",
+      "Evangelion: Death and Rebirth",
+      "Weathering with You",
+      "Suzume",
+      // Middle — very well known, but you have to be into the medium.
+      "One Piece Film: Red",
+      "Whisper of the Heart",
+      "Porco Rosso",
+      "The Boy and the Heron",
+      "Cardcaptor Sakura: The Movie",
+      "The Girl Who Leapt Through Time (2006 film)",
+      "Summer Wars",
+      "Perfect Blue",
+      "Tokyo Godfathers",
+      "Metropolis (2001 film)",
+      "Steamboy",
+      // Hardest — recent releases and the deep cuts.
+      "The First Slam Dunk",
+      "Demon Slayer: Kimetsu no Yaiba the Movie: Mugen Train",
+      "Jujutsu Kaisen 0",
+      "Dragon Ball Super: Broly",
+      "Tales from Earthsea",
+      "The Cat Returns",
+      "The Secret World of Arrietty",
+      "Inu-Oh",
+      "Sword of the Stranger",
+      "Modest Heroes",
+    ],
+    // No `images` overrides: every card uses its article's own poster. The
+    // override mechanism exists for the opposite case — an article whose lead
+    // image is missing or is not the poster — and none of these need it.
   },
 ];
 
@@ -989,6 +1071,7 @@ async function fetchOverrideImages(overrides) {
 // holds "the good cars" — the per-marque trees are full of runabouts and
 // generation duplicates. `redirects` is set so a requested name that is a
 // redirect resolves to its article, and so pageviews are populated at all.
+//
 async function fetchTitles(titles, overrides) {
   const byName = new Map();
   let cont;
@@ -1025,15 +1108,25 @@ async function fetchTitles(titles, overrides) {
     };
     for (const asked of titles) {
       const page = byPage.get(follow(asked));
-      if (page) byName.set(asked, { ...toRecord(page), asked });
+      // A title with no article comes back as a `missing` placeholder rather
+      // than being left out of `pages`. Recording it would produce an empty
+      // record that looks found, so the card would be reported as having no
+      // image rather than as a title that does not exist.
+      if (page && !page.missing) byName.set(asked, { ...toRecord(page), asked });
     }
     cont = data.continue?.continue;
   } while (cont);
+  const resolvedOverrides = await fetchOverrideImages(overrides);
   // An override is authoritative: it exists because the deck author picked that
   // specific picture, so it wins even when the article has some generic image.
-  for (const [title, info] of await fetchOverrideImages(overrides)) {
+  // `fetchOverrideImages` reads them from Commons, so an override is always
+  // freely licensed — clear `nonfree`, which otherwise still describes the
+  // fair-use lead image the override just replaced (the Totoro film's article
+  // picture is a non-free poster, but its override is a public-domain title
+  // card, and the review page would flag it as unusable).
+  for (const [title, info] of resolvedOverrides) {
     const record = byName.get(title);
-    if (record) Object.assign(record, info);
+    if (record) Object.assign(record, info, { nonfree: false });
   }
   return byName;
 }
@@ -1119,7 +1212,13 @@ async function buildDeck(deck) {
 
   if (!candidates.length) throw new Error(`${deck.label}: no candidates with an image found`);
 
-  const ranked = candidates.sort((a, b) => b[SORT_KEY] - a[SORT_KEY]);
+  // `keepOrder` skips the size/pageviews ranking: the deck is already authored
+  // easiest-first, and for a hand-ordered deck the size/pageviews ranking does
+  // not track how well a player knows the subject, so ranking would be noise
+  // (and reversing the list would scramble it).
+  const ranked = deck.keepOrder
+    ? candidates
+    : candidates.sort((a, b) => b[SORT_KEY] - a[SORT_KEY]);
   const selected = ranked.slice(0, LIMIT);
   // A forced title that did not rank high enough displaces the weakest
   // non-forced entries instead of being dropped by the LIMIT slice.
@@ -1135,14 +1234,24 @@ async function buildDeck(deck) {
     byFile = await fetchLicenses(selected);
   }
 
-  // The deck is authored in ascending data-rating order, so reverse the ranking.
-  const entries = selected
-    .map((person) => ({
-      ...person,
-      ...byFile.get(fileKey(person.pageimage ?? "")),
-      rating: Math.min(person[SORT_KEY] / max, 1),
-    }))
-    .reverse();
+  const withLicence = selected.map((person) => ({
+    ...person,
+    ...byFile.get(fileKey(person.pageimage ?? "")),
+  }));
+  // The deck is authored in ascending data-rating order, so reverse the ranking
+  // — unless the deck kept its own order, where list position is the rank and
+  // data-rating has to be derived from it rather than from the metrics.
+  const entries = deck.keepOrder
+    ? withLicence.map((person, i) => ({
+        ...person,
+        rating: withLicence.length < 2 ? 1 : (i + 1) / withLicence.length,
+      }))
+    : withLicence
+        .map((person) => ({
+          ...person,
+          rating: Math.min(person[SORT_KEY] / max, 1),
+        }))
+        .reverse();
 
   const metric = SORT_KEY === "views" ? "60-day pageviews" : "article size";
   const how = deck.titles

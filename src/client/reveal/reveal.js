@@ -61,6 +61,16 @@ const DECKS = [
     mode: "starwars",
     dataId: "starwars-data",
   },
+  {
+    // Anime film posters (generated deck, `<ul id="anime-data">` in index.html).
+    // Label/title use the Japanese script for the vibe; `mode` stays ASCII so the
+    // shareable `?mode=` link is URL-safe.
+    id: "anime",
+    label: "アニメ",
+    title: "アニメ",
+    mode: "anime",
+    dataId: "anime-data",
+  },
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
