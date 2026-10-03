@@ -74,7 +74,7 @@ export class UserList extends I18nElement {
            wraps mid-word on a long city or a long user agent. */
         .loc-city, .loc-ua { display: block; white-space: nowrap; }
         .loc-ua { opacity: 0.75; }
-        .name-wrap:hover .loc-tip { opacity: 1; transition: opacity 0.2s ease 0.1s; }
+        .name-wrap:hover .loc-tip { opacity: 1; transition: opacity 0.2s ease 4s; }
         .status-link { text-decoration: none; color: inherit; }
     `];
 
