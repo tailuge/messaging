@@ -54,6 +54,13 @@ const DECKS = [
     mode: "pokepot",
     dataId: "pokemon-data",
   },
+  {
+    id: "starwars",
+    label: "Star Wars",
+    title: "Star Wars",
+    mode: "starwars",
+    dataId: "starwars-data",
+  },
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────

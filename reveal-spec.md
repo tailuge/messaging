@@ -208,8 +208,11 @@ The page offers more than one deck from a button pair on the title row (so offer
 
 | Deck | Button | `?mode=` | Data list | On-page title |
 |---|---|---|---|---|
-| K-idols (default) | `K-idols` | `k-idols` | `<ul id="challenge-data">` (47 entries) | `Pot & Reveal` |
-| Pokemon (placeholder) | `Pokemon` | `pokepot` | `<ul id="pokemon-data">` (one sample entry) | `PokePot` |
+| K-idols (default) | `K-idols` | `k-idols` | `<ul id="challenge-data">` (32 entries) | `Pot & Reveal` |
+| Taipei | `Taipei` | `taipei` | `<ul id="taipei-data">` (32 entries) | `Taipei` |
+| SuperCars | `SuperCars` | `supercars` | `<ul id="cars-data">` (32 entries) | `SuperCars` |
+| Pokemon | `Pokemon` | `pokepot` | `<ul id="pokemon-data">` (32 entries) | `PokePot` |
+| Star Wars | `Star Wars` | `starwars` | `<ul id="starwars-data">` (32 entries) | `Star Wars` |
 
 - `DECKS` in `reveal.js` is the only place a deck is declared (`id`, button `label`, on-page
   `title`, `mode` alias, `dataId`); a deck is added by appending to that array plus its hidden

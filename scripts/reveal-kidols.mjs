@@ -38,6 +38,7 @@
 //   node scripts/reveal-kidols.mjs --min-score 5000 # drop the less famous tail
 //   node scripts/reveal-kidols.mjs --depth 0       # seeds only, no subcategory walking
 //   node scripts/reveal-kidols.mjs --no-licence    # skip the attribution lookup (Commons)
+//   node scripts/reveal-kidols.mjs --nonfree       # include non-free (fair use) lead images
 //   node scripts/reveal-kidols.mjs --out path.html # write the review page elsewhere
 //   node scripts/reveal-kidols.mjs --json          # JSON records to stdout instead
 //
@@ -422,6 +423,73 @@ const DECKS = [
       "DeLorean DMC-12",
     ],
   },
+  {
+    // The Star Wars deck, pinned by article title like the cars deck: there is
+    // no Wikipedia category for "the Star Wars things you recognise from a
+    // photo", and the character/vehicle/creature trees are full of obscure
+    // Legends-only entries. Names are the article titles; a redirect is fine
+    // and keeps the name it was asked for (e.g. "X-wing fighter").
+    //
+    // Note: most character and vehicle articles carry a non-free (fair use)
+    // image rather than a Commons one, so `data-image-license` and its friends
+    // will usually be empty for this deck — the images are not reusable.
+    id: "starwars",
+    label: "Star Wars",
+    // The <ul> this deck is pasted into in src/client/reveal/index.html, and the
+    // id/mode the client's DECKS table in reveal.js registers it under.
+    dataId: "starwars-data",
+    titles: [
+      "Darth Vader",
+      "Yoda",
+      "Chewbacca",
+      "R2-D2",
+      "C-3PO",
+      "Jabba the Hutt",
+      "Boba Fett",
+      "K-2SO",
+      "Palpatine",
+      "Grogu",
+      "BB-8",
+      "IG-11",
+      "Admiral Ackbar",
+      "Ewok",
+      "Jawa (Star Wars)",
+      "Rancor",
+      "Porg",
+      "Death Star",
+      "Millennium Falcon",
+      "X-wing fighter",
+      "TIE fighter",
+      "AT-AT",
+      "Star Destroyer",
+      "Speeder bike",
+      "Stormtrooper (Star Wars)",
+      "Sarlacc",
+      "Tauntaun",
+      "Bantha",
+      "Nexu",
+      "Y-wing",
+      "Kylo Ren",
+      "IG-88",
+      "Probe droid",
+      "Jar Jar Binks",
+      "Jango Fett",
+      "Princess Leia",
+      "Luke Skywalker",
+      "Han Solo",
+      "Obi-Wan Kenobi",
+    ],
+    // C-3PO's article has no lead image at all, and both droid articles redirect
+    // to one generic "Droid (Star Wars)" photo, so those cards would otherwise
+    // be dropped or show the wrong picture. These free Commons files stand in;
+    // `--nonfree` is still needed for the rest of the deck. Same as the watches
+    // deck, `images` is keyed by the title asked for above.
+    images: {
+      "C-3PO": "File:Star Wars - C-3po.jpg",
+      "IG-88": "File:IG-88.jpg",
+      "Probe droid": "File:Probe droid Star Wars.png",
+    },
+  },
 ];
 
 const SKIP_TITLE = /^(List of|Outline of|Index of)\b/i;
@@ -457,6 +525,12 @@ const MIN_SCORE = Number(argValue("--min-score", 0));
 const SORT_KEY = argValue("--sort", "bytes");
 const AS_JSON = args.includes("--json");
 const WITH_LICENCE = !args.includes("--no-licence");
+// `pageimages` returns only freely licensed lead images unless asked otherwise.
+// Facts-only subjects (landmarks, watches, cars) are free on Commons, but
+// fictional characters and ships are almost always fair-use files hosted on
+// enwiki, so a deck of them needs this flag to have any images at all. Those
+// images are NOT reusable — the review page marks every one.
+const WITH_NONFREE = args.includes("--nonfree");
 
 // Review page, served by nginx from /usr/share/nginx/html (see docker/Dockerfile).
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -517,13 +591,16 @@ function cleanImageUrl(url) {
   return parsed.toString();
 }
 
+// Fair-use files live on enwiki (`upload.wikimedia.org/wikipedia/en/`); freely
+// licensed ones are on Commons (`/wikipedia/commons/`).
+const isNonFree = (url) => Boolean(url) && /\/wikipedia\/(?!commons\/)/.test(url);
+
 function toRecord(page) {
+  const source = page.thumbnail?.source ?? page.original?.source ?? null;
   return {
     name: page.title,
-    image:
-      cleanImageUrl(page.thumbnail?.source) ??
-      cleanImageUrl(page.original?.source) ??
-      null,
+    image: cleanImageUrl(source),
+    nonfree: isNonFree(source),
     // Commons file name, so the licence can be looked up from the file page.
     pageimage: page.pageimage ?? null,
     bytes: page.length ?? 0,
@@ -558,6 +635,7 @@ async function fetchCategory(name, withDetails) {
             piprop: "thumbnail|original|name",
             pithumbsize: 1280,
             ppprop: "disambiguation|wikibase_item",
+            ...(WITH_NONFREE ? { pilicense: "any" } : {}),
           }
         : {}),
     });
@@ -733,7 +811,7 @@ const wikiUrl = (title) =>
 // 0.1711 / 0.208 / 0.39 / 1 — four decimals, trailing zeros trimmed, like the seed data.
 const formatRating = (rating) => String(Number(rating.toFixed(4)));
 
-function renderHtml(entries) {
+function renderHtml(entries, dataId = "challenge-data") {
   const blocks = entries.map((entry) => {
     const attrs = [
       `                href="${escapeHtml(wikiUrl(entry.name))}"`,
@@ -759,9 +837,7 @@ ${attrs.join("\n")}
               >
             </li>`;
   });
-  return ['          <ul id="challenge-data">', ...blocks, "          </ul>"].join(
-    "\n",
-  );
+  return [`          <ul id="${dataId}">`, ...blocks, "          </ul>"].join("\n");
 }
 
 // One row per candidate, with everything a human needs to check it — the article,
@@ -787,7 +863,7 @@ function renderRows(entries) {
         <td class="img">${entry.image ? `<a href="${escapeHtml(entry.image)}" target="_blank" rel="noopener"><img data-src="${escapeHtml(entry.image)}" alt="${escapeHtml(entry.name)}" width="64" height="64"></a>` : `<span class="none">—</span>`}</td>
         <td class="small">${catCell}</td>
         <td class="small">${entry.page ? `<a href="${escapeHtml(entry.page)}" target="_blank" rel="noopener" title="${escapeHtml(entry.pageimage ?? entry.page)}">🔗</a>` : ""}</td>
-        <td class="small">${link(entry.licenseUrl, entry.license ?? "")}</td>
+        <td class="small">${entry.nonfree ? `<span class="warn">non-free (fair use)</span>` : entry.license ? (entry.licenseUrl ? link(entry.licenseUrl, entry.license) : escapeHtml(entry.license)) : `<span class="none">—</span>`}</td>
         <td class="small">${escapeHtml(entry.author ?? "") || `<span class="none">—</span>`}</td>
         <td class="small">${entry.restrictions ? `<span class="warn">${escapeHtml(entry.restrictions)}</span>` : ""}</td>
         <td class="num">${entry.bytes.toLocaleString("en")}</td>
@@ -799,9 +875,10 @@ function renderRows(entries) {
 }
 
 function renderDeck(deck, { metric, minScore, depth }) {
+  const nonfree = deck.entries.filter((entry) => entry.nonfree).length;
   return `<details class="deck" id="${deck.id}">
   <summary>${escapeHtml(deck.label)} — ${deck.entries.length} entries</summary>
-  <p class="meta">generated ${CREATED} · ranked by ${escapeHtml(metric)} · depth ${depth}${minScore ? ` · min score ${minScore}` : ""}</p>
+  <p class="meta">generated ${CREATED} · ranked by ${escapeHtml(metric)} · depth ${depth}${minScore ? ` · min score ${minScore}` : ""}${nonfree ? ` · <span class="warn">${nonfree} non-free image${nonfree === 1 ? "" : "s"}</span>` : ""}</p>
   <table>
     <thead>
       <tr>
@@ -815,8 +892,8 @@ ${renderRows(deck.entries)}
     </tbody>
   </table>
   <details>
-    <summary>Deck markup — paste into <code>&lt;ul id="challenge-data"&gt;</code> in <code>src/client/reveal/index.html</code></summary>
-    <pre>${escapeHtml(renderHtml(deck.entries))}</pre>
+    <summary>Deck markup — paste into <code>&lt;ul id="${deck.dataId ?? "challenge-data"}"&gt;</code> in <code>src/client/reveal/index.html</code></summary>
+    <pre>${escapeHtml(renderHtml(deck.entries, deck.dataId))}</pre>
   </details>
 </details>`;
 }
@@ -873,13 +950,46 @@ ${decks.map((deck) => renderDeck(deck, { metric, minScore, depth })).join("\n")}
 `;
 }
 
+// A pinned deck can name a Commons file for a title whose own article has no
+// useful lead image — the C-3PO article carries no picture at all, and the
+// droid articles (IG-88, Probe droid) all redirect to one generic "Droid (Star
+// Wars)" photo. An override is the only way to give those cards a picture, and
+// because it is a Commons file it also dodges the fair-use problem that plagues
+// the rest of the Star Wars deck.
+async function fetchOverrideImages(overrides) {
+  const out = new Map();
+  const entries = Object.entries(overrides ?? {});
+  if (!entries.length) return out;
+  const data = await api(
+    {
+      action: "query",
+      titles: entries.map(([, file]) => file).join("|"),
+      prop: "imageinfo",
+      iiprop: "url",
+      iiurlwidth: 1280,
+    },
+    { host: COMMONS_API },
+  );
+  const byFile = new Map();
+  for (const page of data.query?.pages ?? []) {
+    const info = page.imageinfo?.[0];
+    if (!info) continue;
+    byFile.set(fileKey(page.title), cleanImageUrl(info.thumburl ?? info.url));
+  }
+  for (const [title, file] of entries) {
+    const image = byFile.get(fileKey(file));
+    if (image) out.set(title, { image, pageimage: fileKey(file), overridden: true });
+  }
+  return out;
+}
+
 // A deck given `titles` is a fixed, hand-picked list rather than a category
 // walk: the titles are fetched directly in one batched call. This is the only
 // way to get a deck of specific models, because Wikipedia has no category that
 // holds "the good cars" — the per-marque trees are full of runabouts and
 // generation duplicates. `redirects` is set so a requested name that is a
 // redirect resolves to its article, and so pageviews are populated at all.
-async function fetchTitles(titles) {
+async function fetchTitles(titles, overrides) {
   const byName = new Map();
   let cont;
   do {
@@ -891,19 +1001,40 @@ async function fetchTitles(titles) {
       piprop: "thumbnail|original|name",
       pithumbsize: 1280,
       ppprop: "disambiguation|wikibase_item",
+      ...(WITH_NONFREE ? { pilicense: "any" } : {}),
       ...(cont ? { continue: cont } : {}),
     });
-    // Follow the redirect/normalisation chain back to the name that was asked
-    // for, so "DeLorean DMC-12" is credited to the "DMC DeLorean" it resolves to.
-    const resolved = new Map();
-    for (const entry of data.query?.normalized ?? []) resolved.set(entry.to, entry.from);
-    for (const entry of data.query?.redirects ?? []) resolved.set(entry.to, entry.from);
-    for (const page of data.query?.pages ?? []) {
-      const asked = resolved.get(page.title) ?? page.title;
-      byName.set(asked, { ...toRecord(page), asked });
+    // Follow the normalisation/redirect chain from each requested name to the
+    // page it lands on, so "DeLorean DMC-12" is credited to the "DMC DeLorean"
+    // it resolves to. Walking per requested title (rather than reverse-mapping
+    // the pages) is what lets several names share one target article — IG-88
+    // and Probe droid both redirect to "Droid (Star Wars)".
+    const next = new Map();
+    for (const entry of data.query?.normalized ?? []) next.set(entry.from, entry.to);
+    for (const entry of data.query?.redirects ?? []) next.set(entry.from, entry.to);
+    const byPage = new Map();
+    for (const page of data.query?.pages ?? []) byPage.set(page.title, page);
+    const follow = (title) => {
+      let current = title;
+      for (let hop = 0; hop < 5; hop++) {
+        const step = next.get(current);
+        if (!step || step === current) break;
+        current = step;
+      }
+      return current;
+    };
+    for (const asked of titles) {
+      const page = byPage.get(follow(asked));
+      if (page) byName.set(asked, { ...toRecord(page), asked });
     }
     cont = data.continue?.continue;
   } while (cont);
+  // An override is authoritative: it exists because the deck author picked that
+  // specific picture, so it wins even when the article has some generic image.
+  for (const [title, info] of await fetchOverrideImages(overrides)) {
+    const record = byName.get(title);
+    if (record) Object.assign(record, info);
+  }
   return byName;
 }
 
@@ -915,7 +1046,7 @@ async function buildDeck(deck) {
   let excluded = 0;
   if (deck.titles) {
     console.error(`Fetching ${deck.titles.length} pinned titles…`);
-    const found = await fetchTitles(deck.titles);
+    const found = await fetchTitles(deck.titles, deck.images);
     candidates = [];
     for (const title of deck.titles) {
       const person = found.get(title);
