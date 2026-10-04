@@ -14,11 +14,14 @@ async function hello(r) {
     r.return(200, "hello\n");
 }
 
-const USAGE_KEYS = ["chineseUsage", "koreanUsage", "germanUsage", "turkishUsage", "vietnameseUsage", "japaneseUsage", "spanishUsage", "dutchUsage"];
+const USAGE_KEYS = ["chineseUsage", "koreanUsage", "germanUsage", "turkishUsage", "vietnameseUsage", "japaneseUsage", "spanishUsage", "dutchUsage", "snookerUsage"];
 const USAGE_METRIC_RE = /^[a-zA-Z0-9_-]+$/;
 // Daily counts only change once a day, so the usage dashboard reads are cached
-// for an hour via an explicit TTL overriding summary_cache's 120s default.
-const USAGE_CACHE_TTL = 3600;
+// for an hour via an explicit per-entry TTL overriding summary_cache's 120s zone
+// default. Mind the units: the njs shared-dict TTL argument is MILLISECONDS,
+// while the zone's `timeout=` directive takes nginx time syntax (seconds).
+const ONE_HOUR_MS = 60 * 60 * 1000;
+const USAGE_CACHE_TTL_MS = ONE_HOUR_MS;
 
 // Records one occurrence of `metric` for today (UTC). Counters live in the same
 // Upstash sorted sets the scoreboard's usage dashboard reads: key
@@ -119,7 +122,7 @@ async function usageSeries(r) {
 
     const result = await redis("ZRANGE", keyName, "0", "-1", "WITHSCORES");
     const rows = normalizeUsage(result);
-    ngx.shared.summary_cache.set(cacheKey, JSON.stringify(rows), USAGE_CACHE_TTL);
+    ngx.shared.summary_cache.set(cacheKey, JSON.stringify(rows), USAGE_CACHE_TTL_MS);
     return json(r, 200, rows);
 }
 
@@ -145,8 +148,9 @@ async function redis() {
 // the zone's 120s timeout, keyed by both params.
 const RULE_TYPES = ["snooker", "nineball", "threecushion", "eightball", "sagu"];
 // The ELO ranking reads every player in every rule type, so it is cached for an
-// hour independently of the response cache's 120s zone default.
-const ELO_CACHE_TTL = 3600;
+// hour independently of the response cache's 120s zone default. Same
+// milliseconds rule as USAGE_CACHE_TTL_MS above.
+const ELO_CACHE_TTL_MS = ONE_HOUR_MS;
 
 function positiveInt(value, fallback) {
     const n = parseInt(value, 10);
@@ -166,21 +170,37 @@ function parseHiscores(result) {
     }));
 }
 
+// Glicko-2 rating deviation inflates while a player sits idle. The scoreboard
+// ranks on the conservative score (rating - 2*RD) computed after that decay, so
+// ranking on raw rating here would disagree with the /elo page the panel links
+// to. Both constants mirror the scoreboard's RatingService.
+const INACTIVITY_C = 50;
+const MAX_RD = 350;
+const DAY_MS = 86400000;
+
+function decayedRd(rd, lastUpdated, now) {
+    const daysInactive = (now - (lastUpdated || 0)) / DAY_MS;
+    return Math.min(Math.sqrt(rd * rd + INACTIVITY_C * INACTIVITY_C * daysInactive), MAX_RD);
+}
+
 function parseTopPlayers(result, limitElo) {
     // The hash field is the player name; the stored value has no name of its own.
     const hash = scoresFromHgetall(result);
+    const now = Date.now();
     const players = Object.keys(hash).map((name) => {
         const p = JSON.parse(hash[name]);
+        const rd = decayedRd(p.rd, p.lastUpdated, now);
         return {
             name: name,
-            rating: p.rating,
-            rd: p.rd,
+            rating: Math.round(p.rating),
+            rd: Math.round(rd),
+            conservativeRating: Math.round(p.rating - 2 * rd),
             gamesPlayed: p.gamesPlayed,
             wins: p.wins,
             losses: p.losses,
         };
     });
-    players.sort((a, b) => b.rating - a.rating);
+    players.sort((a, b) => b.conservativeRating - a.conservativeRating);
     return players.slice(0, limitElo);
 }
 
@@ -208,7 +228,7 @@ async function summaryTopPlayers(limitElo) {
     for (let i = 0; i < RULE_TYPES.length; i += 1) {
         topPlayers[RULE_TYPES[i]] = parseTopPlayers(results[i], limitElo);
     }
-    ngx.shared.summary_cache.set(key, JSON.stringify(topPlayers), ELO_CACHE_TTL);
+    ngx.shared.summary_cache.set(key, JSON.stringify(topPlayers), ELO_CACHE_TTL_MS);
     return topPlayers;
 }
 

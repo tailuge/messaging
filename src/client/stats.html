@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Usage Stats</title>
+  <title>Feeder Stats</title>
   <style>
     body {
       font: 14px system-ui, sans-serif;
@@ -23,7 +23,7 @@
 
 <body>
   <main>
-    <h1>Usage Stats</h1>
+    <h1>Feeder Stats</h1>
     <nav aria-label="Language pages">
       <a href="https://billiards.tailuge.workers.dev/chinese.html">Chinese</a> |
       <a href="https://billiards.tailuge.workers.dev/korean.html">Korean</a> |
@@ -32,7 +32,8 @@
       <a href="https://billiards.tailuge.workers.dev/vietnamese.html">Vietnamese</a> |
       <a href="https://billiards.tailuge.workers.dev/japanese.html">Japanese</a> |
       <a href="https://billiards.tailuge.workers.dev/spanish.html">Spanish</a> |
-      <a href="https://billiards.tailuge.workers.dev/dutch.html">Dutch</a>
+      <a href="https://billiards.tailuge.workers.dev/dutch.html">Dutch</a> |
+      <a href="https://billiards.tailuge.workers.dev/snooker.html">Snooker</a>
     </nav>
     <p id="status">Loading...</p>
     <canvas id="usage-chart" aria-label="Usage by language and date"></canvas>
@@ -48,7 +49,8 @@
       ["vietnameseUsage", "Vietnamese", "#93c"],
       ["japaneseUsage", "Japanese", "#653"],
       ["spanishUsage", "Spanish", "#e67e22"],
-      ["dutchUsage", "Dutch", "#0891b2"]
+      ["dutchUsage", "Dutch", "#0891b2"],
+      ["snookerUsage", "Snooker", "#8e44ad"]
     ];
 
     function valuesByDate(values) {
