@@ -572,6 +572,67 @@ const DECKS = [
     // override mechanism exists for the opposite case — an article whose lead
     // image is missing or is not the poster — and none of these need it.
   },
+  {
+    // Manga volumes, pinned by article title like the Star Wars and anime
+    // decks: the card is the cover art from the manga's own Wikipedia article.
+    // The titles are the exact article names behind the hand-checked wiki
+    // links, so most resolve directly and the parenthesised ones (Dragon Ball,
+    // Bleach, Slam Dunk, Akira, Berserk, Black Jack, Nana) point at the manga
+    // article rather than the franchise or disambiguation page.
+    //
+    // Every cover is a **non-free** (fair-use) file on enwiki, so `--nonfree`
+    // is required to get any images at all, and unlike the Totoro deck none of
+    // these covers are freely licensed or reusable. The review page marks every
+    // one. As with the anime deck they are small (Wikipedia hosts only a
+    // low-resolution copy of a non-free cover).
+    //
+    // `keepOrder` makes the list order the rank: article size does not track how
+    // well a player knows a manga, so the list below is hand-ordered, most
+    // recognisable first (roughly the order the deck was authored in).
+    id: "manga",
+    label: "Manga",
+    // The <ul> this deck is pasted into in src/client/reveal/index.html, and the
+    // id/mode the client's DECKS table in reveal.js registers it under.
+    dataId: "manga-data",
+    keepOrder: true,
+    titles: [
+      "One Piece",
+      "Dragon Ball (manga)",
+      "Naruto",
+      "Death Note",
+      "Attack on Titan",
+      "Demon Slayer: Kimetsu no Yaiba",
+      "Sailor Moon",
+      "Bleach (manga)",
+      "Fullmetal Alchemist",
+      "Case Closed",
+      "Slam Dunk (manga)",
+      "Yu-Gi-Oh!",
+      "Doraemon",
+      "Astro Boy",
+      "Akira (manga)",
+      "Berserk (manga)",
+      "Inuyasha",
+      "My Hero Academia",
+      "Jujutsu Kaisen",
+      "Chainsaw Man",
+      "Spy × Family",
+      "Initial D",
+      "Black Jack (manga)",
+      "Devilman",
+      "Fist of the North Star",
+      "Parasyte",
+      "Tokyo Ghoul",
+      "Hajime no Ippo",
+      "Black Clover",
+      "JoJo's Bizarre Adventure",
+      "The Rose of Versailles",
+      "Nana (manga)",
+    ],
+    // No `images` overrides: every card uses its article's own cover. If an
+    // article turns out to carry no lead image (or the wrong one), add an entry
+    // keyed by the title above, as the Star Wars deck does.
+  },
 ];
 
 const SKIP_TITLE = /^(List of|Outline of|Index of)\b/i;

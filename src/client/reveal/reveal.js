@@ -71,6 +71,16 @@ const DECKS = [
     mode: "anime",
     dataId: "anime-data",
   },
+  {
+    // Manga volume covers (generated deck, `<ul id="manga-data">` in index.html).
+    // Same convention as the anime deck: label/title are the Japanese script and
+    // `mode` stays ASCII so the shareable `?mode=` link is URL-safe.
+    id: "manga",
+    label: "漫画",
+    title: "漫画",
+    mode: "manga",
+    dataId: "manga-data",
+  },
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
