@@ -233,7 +233,7 @@ async function summaryTopPlayers(limitElo) {
 }
 
 async function summary(r) {
-    r.headersOut['Cache-Control'] = 'public, max-age=0, s-maxage=120';
+    r.headersOut['Cache-Control'] = 'public, max-age=0, s-maxage=10';
     const startedAt = Date.now();
     const limitElo = positiveInt(r.args.limitElo, 10);
     const limitMatches = positiveInt(r.args.limitMatches, 32);
