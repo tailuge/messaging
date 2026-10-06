@@ -483,7 +483,18 @@ class ArenaView extends LitElement {
         if (!this._lobby || !this._arena) return;
         const player = this._arena.players?.find(p => p.playerId === userStore.clientId);
         try {
-            await this._lobby.updatePresence({ arenaId: player?.active !== false && player ? this.arenaId : undefined });
+            // Explicit type: 'heartbeat' — updatePresence() spreads this partial
+            // last, so it overrides the 'join' inherited from the initial
+            // joinLobby(). Without it the outgoing message is typed 'join', and
+            // peers drop a 'join' for a user they already know (Lobby.applyPresence),
+            // so the new arenaId stays invisible until the next heartbeat timer
+            // (up to 60s). A heartbeat-typed update goes through the
+            // meaningful-change branch and notifies immediately, letting other
+            // clients refetch and show the joiner at once.
+            await this._lobby.updatePresence({
+                arenaId: player?.active !== false && player ? this.arenaId : undefined,
+                type: 'heartbeat',
+            });
         } catch (error) {
             console.error('Failed to update Arena presence:', error);
         }
