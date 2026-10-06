@@ -181,8 +181,8 @@ describe("Unified Rematch Scenarios (newspec.md)", () => {
                     hostname: 'localhost',
                     host: 'localhost:80',
                     protocol: 'http:',
-                    href: 'http://localhost/?opponent.userId=bob&opponent.userName=Bob&opponent.custom.cue=1&ruletype=threecushion&tableSize=5&raceTo=15&shotclock=60&reds=6&freeaim=true&custom.skin=red',
-                    search: '?opponent.userId=bob&opponent.userName=Bob&opponent.custom.cue=1&ruletype=threecushion&tableSize=5&raceTo=15&shotclock=60&reds=6&freeaim=true&custom.skin=red'
+                    href: 'http://localhost/?opponent.userId=bob&opponent.userName=Bob&opponent.custom.cue=1&ruletype=threecushion&tableSize=5&raceTo=15&shotclock=60&reds=6&freeaim=true&collaboration=true&practice=false&custom.skin=red',
+                    search: '?opponent.userId=bob&opponent.userName=Bob&opponent.custom.cue=1&ruletype=threecushion&tableSize=5&raceTo=15&shotclock=60&reds=6&freeaim=true&collaboration=true&practice=false&custom.skin=red'
                 },
                 history: {
                     replaceState: jest.fn()
@@ -248,7 +248,11 @@ describe("Unified Rematch Scenarios (newspec.md)", () => {
                     raceTo: '15',
                     shotClock: '60',
                     reds: '6',
-                    freeaim: 'true'
+                    freeaim: 'true',
+                    collaboration: 'true',
+                    // An explicit practice=false must survive: "false" is truthy, so
+                    // the read is a presence check, not a boolean one.
+                    practice: 'false'
                 },
                 null,
                 {}
@@ -268,6 +272,8 @@ describe("Unified Rematch Scenarios (newspec.md)", () => {
             expect(urlObj.searchParams.get('shotclock')).toBeNull();
             expect(urlObj.searchParams.get('reds')).toBeNull();
             expect(urlObj.searchParams.get('freeaim')).toBeNull();
+            expect(urlObj.searchParams.get('collaboration')).toBeNull();
+            expect(urlObj.searchParams.get('practice')).toBeNull();
         });
 
         it("should NOT auto-challenge when an arena (tournamentId) param is present — accept-in-game arena path", async () => {

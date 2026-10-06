@@ -62,6 +62,16 @@ class OnlinePanel extends LitElement {
             const freeaim = p.get('freeaim');
             if (freeaim) options.freeaim = freeaim;
 
+            const collaboration = p.get('collaboration');
+            if (collaboration) options.collaboration = collaboration;
+
+            // The literal string "false" is truthy, so this still forwards an
+            // explicit practice=false. That matters: threecushion's practiceMode
+            // defaults to true for non-nineball rules, so dropping it would
+            // wrongly launch "Traditional (10)" in practice mode.
+            const practice = p.get('practice');
+            if (practice) options.practice = practice;
+
             this.#autoChallenge = {
                 opponentId,
                 opponentName: p.get('opponent.userName') || opponentId,
@@ -90,6 +100,8 @@ class OnlinePanel extends LitElement {
             url.searchParams.delete('shotclock');
             url.searchParams.delete('reds');
             url.searchParams.delete('freeaim');
+            url.searchParams.delete('collaboration');
+            url.searchParams.delete('practice');
             history.replaceState(null, '', url);
         }
 
