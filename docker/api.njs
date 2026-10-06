@@ -126,21 +126,66 @@ async function usageSeries(r) {
     return json(r, 200, rows);
 }
 
-async function redis() {
-    const args = Array.prototype.slice.call(arguments);
+// Credentials + URL check shared by the single-command and pipeline callers, so
+// the two can't drift. Trailing slash is stripped because the pipeline endpoint is
+// reached by appending a path.
+function redisEndpoint() {
     const url = process.env.UPSTASH_REDIS_REST_URL;
     const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-    if (!url || !token) throw new Error("UPSTASH_REDIS_REST_URL/TOKEN not configured");        if (typeof url !== "string" || !/^https?:\/\//.test(url)) {
-            throw new Error("UPSTASH_REDIS_REST_URL must start with http:// or https://");
-        }
-        const res = await ngx.fetch(url, {
-            method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    if (!url || !token) throw new Error("UPSTASH_REDIS_REST_URL/TOKEN not configured");
+    if (typeof url !== "string" || !/^https?:\/\//.test(url)) {
+        throw new Error("UPSTASH_REDIS_REST_URL must start with http:// or https://");
+    }
+    return { url: url.replace(/\/$/, ""), token };
+}
+
+async function redis() {
+    const args = Array.prototype.slice.call(arguments);
+    // Plain property access, not destructuring: the njs bundled in the runtime image
+    // rejects destructuring assignment outright (SyntaxError at load time), and this
+    // file has never used it elsewhere.
+    const endpoint = redisEndpoint();
+    const res = await ngx.fetch(endpoint.url, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${endpoint.token}`, "Content-Type": "application/json" },
         body: JSON.stringify(args),
     });
     const data = await res.json();
     if (data.error) throw new Error(`Redis: ${data.error}`);
     return data.result;
+}
+
+// Several commands in ONE HTTP request: POST <url>/pipeline with a two-dimensional
+// body of command arrays, answered by one {"result"} or {"error"} object per command,
+// in order. Each Upstash REST call is a full round trip to a remote host, so this is
+// the difference between N round trips and one — and unlike parallel `ngx.fetch`
+// calls it needs a single connection with a single handshake.
+//
+// Two properties matter when using it:
+//  - NOT atomic. Other clients' commands may interleave with the pipeline, so this is
+//    only safe for commands that don't need isolation from each other or from writers.
+//  - Ordered. Commands execute in the order given, so a read placed after some writes
+//    in the same pipeline observes them. That is why a read can safely ride along with
+//    the writes that feed it, where a sibling promise would race.
+// Commands are still billed individually; the saving is round trips, not commands.
+async function redisPipeline(commands) {
+    const endpoint = redisEndpoint();
+    const res = await ngx.fetch(endpoint.url + "/pipeline", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${endpoint.token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(commands),
+    });
+    const data = await res.json();
+    if (!Array.isArray(data)) {
+        throw new Error(`Redis pipeline: ${data && data.error ? data.error : "unexpected response"}`);
+    }
+    const results = [];
+    for (let i = 0; i < data.length; i += 1) {
+        const item = data[i];
+        if (item && item.error) throw new Error(`Redis: ${item.error}`);
+        results.push(item ? item.result : null);
+    }
+    return results;
 }
 
 // GET /api/summary — lobby scoreboard, backed by the same Upstash KV the
@@ -727,19 +772,33 @@ async function arenaResult(r, arenaId) {
     }
     const keys = arenaKeys(arenaId);
     const cutoff = Date.now() - RESULT_DEDUPE_WINDOW_MS;
-    await redis("ZREMRANGEBYSCORE", keys.scored, "-inf", String(cutoff));
-    const added = await redis("ZADD", keys.scored, "NX", String(Date.now()), String(body.challengeId));
+    // The prune's own result is unused and cannot affect this upload's ZADD (a fresh
+    // challengeId scores `now`, outside the pruned range), so both ride in one request.
+    // `ZADD NX` still decides duplicates on its own, which is why the branch below can
+    // stay a hard gate: the increments must not be issued until it has answered.
+    const dedupe = await redisPipeline([
+        ["ZREMRANGEBYSCORE", keys.scored, "-inf", String(cutoff)],
+        ["ZADD", keys.scored, "NX", String(Date.now()), String(body.challengeId)],
+    ]);
+    const added = dedupe[1];
     if (added === 0) {
         logApi("arena result duplicate arenaId=" + arenaId + " challengeId=" + String(body.challengeId));
         return json(r, 200, { status: "success", duplicate: true });
     }
     const winnerPoints = body.berserk === true ? 2 : 1;
-    await redis("HINCRBY", keys.scores, `p:${winnerId}`, winnerPoints);
-    await redis("HINCRBY", keys.scores, `w:${winnerId}`, 1);
-    await redis("HINCRBY", keys.scores, `g:${winnerId}`, 1);
-    await redis("HINCRBY", keys.scores, `g:${loserId}`, 1);
-    const scores = scoresFromHgetall(await redis("HGETALL", keys.scores));
-    const leaderboard = buildLeaderboard(arena, scores);
+    // The four increments touch disjoint fields (`p:`/`w:` winner, `g:` both players),
+    // so their relative order is irrelevant and they can share one request. HGETALL
+    // rides after them rather than beside them: a pipeline executes in order, so it is
+    // guaranteed to see every increment, where a sibling promise could race and return
+    // a leaderboard missing the result just recorded.
+    const rawScores = (await redisPipeline([
+        ["HINCRBY", keys.scores, `p:${winnerId}`, winnerPoints],
+        ["HINCRBY", keys.scores, `w:${winnerId}`, 1],
+        ["HINCRBY", keys.scores, `g:${winnerId}`, 1],
+        ["HINCRBY", keys.scores, `g:${loserId}`, 1],
+        ["HGETALL", keys.scores],
+    ]))[4];
+    const leaderboard = buildLeaderboard(arena, scoresFromHgetall(rawScores));
     logApi("arena result accepted arenaId=" + arenaId + " challengeId=" + String(body.challengeId) + " winnerId=" + winnerId + " loserId=" + loserId + " leaderboard=" + JSON.stringify(leaderboard));
     return json(r, 200, { status: "success", duplicate: false, leaderboard: leaderboard });
 }

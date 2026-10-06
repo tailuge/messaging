@@ -127,6 +127,10 @@ Rules:
    duplicate-`challengeId` guard without touching what the leaderboard reads.
    *(The removed `EXPIRE` calls are why old arenas used to show all-zero leaderboards: the
    scores hash lapsed after 24 h while the snapshot stayed in the archive for days.)*
+   These commands are sent through the Upstash REST `/pipeline` endpoint, so the prune and
+   the `ZADD` share one HTTP request and the four increments plus the `HGETALL` share another.
+   Pipelining is not atomic, but every command here is either commutative (the increments),
+   self-guarding (`ZADD NX`), or a read ordered after the writes it depends on.
 
 ---
 
@@ -137,7 +141,7 @@ Rules:
 | `GET /api/arena` | Runs tidy first, then a single `HGETALL arena:active`. Parses active arena JSONs, applies in-memory `transition()` if just expired, sorts by `createdAt`. Zero record fetches. | **2 calls** quiet (tidy scan + payload), plus batched tidy writes only when an arena ended or the window rolls | [x] Implemented |
 | `POST /api/arena` | Writes new arena to `SET arena:<id> <json> NX` (**no TTL**) and `HSET arena:active <id> <json>`. No tidy on create. | **2 calls** (incurred only on seed/create) | [x] Implemented |
 | `GET /api/arena/results` | Runs `tidyFinishedArenas()`, then reads the top 20 complete snapshots from `arena:archived` (`ZREVRANGE 0 19`) and parses them directly. | **2 calls** quiet (tidy + `ZREVRANGE`), plus the pop + `DEL` on a roll | [x] Implemented |
-| `POST /api/arena/:id/result` | `HINCRBY` score updates with **no `EXPIRE`**; prunes the `scored` dedupe set by time only. Results are still rejected once the arena has ended. | **8 calls** (record read + dedupe prune + `ZADD` + 4 `HINCRBY` + `HGETALL`) | [x] Implemented |
+| `POST /api/arena/:id/result` | `HINCRBY` score updates with **no `EXPIRE`**; prunes the `scored` dedupe set by time only. Results are still rejected once the arena has ended. | **3 HTTP requests** (record read + a pipeline of dedupe prune and `ZADD`, then a pipeline of 4 `HINCRBY` and `HGETALL` — same 8 commands, no longer 8 round trips) | [x] Implemented |
 | `GET /api/arena/:id` | Unchanged: reads `arena:<id>` plus `HGETALL arena:<id>:scores`. Correct for every arena still in the archive window; **404 once evicted**. | **2 calls** | [x] Implemented |
 
 ---

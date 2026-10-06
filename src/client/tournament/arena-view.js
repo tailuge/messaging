@@ -130,8 +130,8 @@ class ArenaView extends LitElement {
 
         // One-shot stale-participant refetch (see better.md):
         // when presence shows a user in this arena who is missing from the loaded
-        // participant list, refetch the arena from the backend exactly once.
-        this._staleRefetchDone = false;
+        // participant list, refetch the arena from the backend once per such user.
+        this._staleRefetchedPlayers = new Set();
         this._lastLoadedArenaId = null;
 
         // Pairing
@@ -439,17 +439,22 @@ class ArenaView extends LitElement {
             this._leaderboard = data.leaderboard || [];
             // Re-arm the one-shot stale refetch when the arena context changes.
             if (this.arenaId !== this._lastLoadedArenaId) {
-                this._staleRefetchDone = false;
+                this._staleRefetchedPlayers.clear();
                 this._lastLoadedArenaId = this.arenaId;
             }
             await this._syncArenaPresence();
-            // Presence may have arrived while the initial load was in flight.
-            // Check again now that the participant list is available and _busy is false.
-            this._checkStaleArenaPresence();
         } catch (error) {
             this._error = error.message || 'Unable to load Arena.';
         } finally {
             this._busy = false;
+            // Runs after _busy is cleared, not inside the try: _refetchArenaFor skips
+            // while _busy is set, so a presence change that landed during this load
+            // was dropped, and nothing else would retry it. A bare heartbeat will not
+            // either — onUsersChange only fires on a meaningful change, and
+            // hasMeaningfulChange ignores clientTs — so the missed player would wait
+            // for someone else to change state. This can start one more load; each
+            // call records a distinct player before fetching, so it terminates.
+            this._checkStaleArenaPresence();
         }
     }
 
@@ -494,22 +499,38 @@ class ArenaView extends LitElement {
      */
     _checkStaleArenaPresence() {
         if (!this._arena || !this._lobby) return;
-        const stale = this._onlineUsers.some(u =>
+        // Already-refetched players are excluded from the search, not just skipped
+        // afterwards: a player who stays stale because the backend never returns
+        // them would otherwise be re-selected on every check forever and hide every
+        // other stale player behind them.
+        const stale = this._onlineUsers.find(u =>
             u.userId !== userStore.clientId &&
             u.arenaId === this.arenaId &&
+            !this._staleRefetchedPlayers.has(u.userId) &&
             !this._arena.players?.some(p => p.playerId === u.userId));
-        if (stale) this._refetchStaleArenaOnce();
+        if (stale) this._refetchArenaFor(stale.userId);
     }
 
     /**
-     * Refetches the arena once per staleness event. The flag is set synchronously
-     * BEFORE the async fetch so rapid onUsersChange bursts (heartbeats) can only
-     * ever issue one request. Never reset on a timer — only when the arena
-     * context changes (see _load()).
+     * Refetches the arena at most once per stale player per arena context. The id
+     * is recorded synchronously BEFORE the async fetch so a burst of onUsersChange
+     * events for one player (a reconnect, a heartbeat that flips tableId) can only
+     * ever issue one request.
+     *
+     * Keyed per player rather than by a single flag: a second player joining later
+     * still gets a refetch, which a global boolean could not express — it would be
+     * spent by the first player and leave every later joiner missing from the table
+     * (and so unpairable) until a manual reload. Never reset on a timer — only when
+     * the arena context changes (see _load()).
+     *
+     * `_busy` is tested first and the id is deliberately NOT recorded when it trips:
+     * a player skipped because a load was already in flight stays eligible and is
+     * picked up by the next presence change, rather than being marked as handled
+     * without a fetch having happened.
      */
-    _refetchStaleArenaOnce() {
-        if (this._staleRefetchDone || this._busy) return;
-        this._staleRefetchDone = true;   // set BEFORE the fetch → guarantees once-only
+    _refetchArenaFor(playerId) {
+        if (this._busy || this._staleRefetchedPlayers.has(playerId)) return;
+        this._staleRefetchedPlayers.add(playerId);   // set BEFORE the fetch → once per player
         this._load();
     }
 
@@ -527,7 +548,12 @@ class ArenaView extends LitElement {
             await this._load();
         } catch (error) {
             this._error = error.message || `Unable to ${action} Arena.`;
+            // The success path hands control to _load(), which clears _busy and
+            // re-checks; this path does not, so do both here. Without it a presence
+            // change that arrived during the failed request is stranded until some
+            // other user changes state.
             this._busy = false;
+            this._checkStaleArenaPresence();
         }
     }
 
