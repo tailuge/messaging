@@ -1,13 +1,9 @@
 import { LitElement, html, css } from 'lit';
 import { arenaGameIcon, API_BASE } from './utils.js';
 
-// Poll interval keeps the list fresh (arenas appear when created, drop off when
-// they end) without a manual refresh button.
-const REFRESH_MS = 30_000;
-
 // Seed only when there is at least this much time left to the next UTC
-// :00/:30 boundary; below it the sprint would be noise (or born finished) and
-// the poll right after the boundary creates the normal 30-minute slot instead.
+// :00/:30 boundary; below it the sprint would be noise (or born finished), and
+// the next page load after the boundary creates the normal 30-minute slot instead.
 const MIN_SEED_MINUTES = 5;
 const BOUNDARY_MS = 30 * 60 * 1000; // UTC slots: on the hour and half past
 
@@ -80,18 +76,13 @@ class ActiveArenas extends LitElement {
         this._arenas = [];
         this._error = '';
         this.selectable = false;
-        this._timer = null;
     }
 
     connectedCallback() {
         super.connectedCallback();
+        // Load once on mount; the list is refreshed deliberately (create, or the
+        // caller's explicit load()) rather than on a timer, to keep server calls down.
         this._load();
-        this._timer = setInterval(() => this._load(), REFRESH_MS);
-    }
-
-    disconnectedCallback() {
-        if (this._timer) { clearInterval(this._timer); this._timer = null; }
-        super.disconnectedCallback();
     }
 
     async load() {

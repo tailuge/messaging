@@ -700,19 +700,30 @@ async function arenaLeave(r, arenaId) {
 
 async function arenaResult(r, arenaId) {
     const body = await readBody(r);
-    if (!body) return json(r, 400, { error: "Invalid JSON" });
+    // One concise, greppable line per rejection. The first line of the message is
+    // "arena result api error" so the dashboard highlights it, and `reason=` carries
+    // the stable token (the human-readable text stays in the response body).
+    const reject = (status, reason, error) => {
+        logApi("arena result api error arenaId=" + arenaId + " status=" + status + " reason=" + reason);
+        return json(r, status, { error });
+    };
+    if (!body) return reject(400, "invalid-json", "Invalid JSON");
     logApi("arena result upload arenaId=" + arenaId + " payload=" + JSON.stringify(body));
     if (!body.challengeId || !body.winnerId || !body.loserId) {
-        return json(r, 400, { error: "challengeId, winnerId and loserId are required" });
+        const missing = !body.challengeId ? "challengeId" : !body.winnerId ? "winnerId" : "loserId";
+        return reject(400, "missing-" + missing, "challengeId, winnerId and loserId are required");
     }
-    if (String(body.winnerId) === String(body.loserId)) return json(r, 400, { error: "winnerId and loserId must differ" });
+    if (String(body.winnerId) === String(body.loserId)) {
+        return reject(400, "same-ids", "winnerId and loserId must differ");
+    }
     const arena = await loadArena(arenaId);
     const err = requireActive(arena);
-    if (err) return json(r, 409, { error: err });
+    if (err) return reject(409, arena ? "arena-" + arena.status : "no-arena", err);
     const winnerId = String(body.winnerId);
     const loserId = String(body.loserId);
     if (!arena.players.some((p) => p.playerId === winnerId) || !arena.players.some((p) => p.playerId === loserId)) {
-        return json(r, 404, { error: "Participant is not in the Arena" });
+        const who = !arena.players.some((p) => p.playerId === winnerId) ? "winner" : "loser";
+        return reject(404, "not-participant-" + who, "Participant is not in the Arena");
     }
     const keys = arenaKeys(arenaId);
     const cutoff = Date.now() - RESULT_DEDUPE_WINDOW_MS;
