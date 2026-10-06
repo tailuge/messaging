@@ -65,17 +65,17 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0"></script>
   <script>
     const series = [
-      ["chineseUsage", "Chinese", "#d33"],
-      ["koreanUsage", "Korean", "#36c"],
-      ["germanUsage", "German", "#393"],
-      ["turkishUsage", "Turkish", "#c83"],
-      ["vietnameseUsage", "Vietnamese", "#93c"],
-      ["japaneseUsage", "Japanese", "#653"],
-      ["spanishUsage", "Spanish", "#e67e22"],
-      ["dutchUsage", "Dutch", "#0891b2"],
-      ["snookerUsage", "Snooker", "#8e44ad"],
-      ["nineballUsage", "Nine Ball", "#2563eb"],
-      ["eightballUsage", "Eight Ball", "#111827"]
+      ["chineseUsage", "Chinese", "#d33", false],
+      ["koreanUsage", "Korean", "#36c", false],
+      ["germanUsage", "German", "#393", false],
+      ["turkishUsage", "Turkish", "#c83", false],
+      ["vietnameseUsage", "Vietnamese", "#93c", false],
+      ["japaneseUsage", "Japanese", "#653", false],
+      ["spanishUsage", "Spanish", "#e67e22", false],
+      ["dutchUsage", "Dutch", "#0891b2", false],
+      ["snookerUsage", "Snooker", "#8e44ad", true],
+      ["nineballUsage", "Nine Ball", "#2563eb", true],
+      ["eightballUsage", "Eight Ball", "#111827", true]
     ];
 
     function valuesByDate(values) {
@@ -96,7 +96,7 @@
           type: "line",
           data: {
             labels: dates,
-            datasets: series.map(([key, label, color]) => {
+            datasets: series.map(([key, label, color, isDotted]) => {
               const values = valuesByDate(Array.isArray(data[key]) ? data[key] : []);
               return {
                 label,
@@ -104,6 +104,7 @@
                 borderColor: color,
                 backgroundColor: color,
                 pointRadius: 2,
+                borderDash: isDotted ? [3, 3] : [],
                 tension: 0
               };
             })
