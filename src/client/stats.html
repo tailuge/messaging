@@ -6,17 +6,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Feeder Stats</title>
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
       font: 14px system-ui, sans-serif;
-      margin: 1rem;
+      display: flex;
+      flex-direction: column;
+      padding: 1rem;
     }
 
     main {
-      max-width: 900px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      width: 100%;
+      min-height: 0;
     }
 
-    canvas {
-      max-height: 420px;
+    .chart-container {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      min-height: 0;
     }
   </style>
 </head>
@@ -33,10 +52,14 @@
       <a href="https://billiards.tailuge.workers.dev/japanese.html">Japanese</a> |
       <a href="https://billiards.tailuge.workers.dev/spanish.html">Spanish</a> |
       <a href="https://billiards.tailuge.workers.dev/dutch.html">Dutch</a> |
-      <a href="https://billiards.tailuge.workers.dev/snooker.html">Snooker</a>
+      <a href="https://billiards.tailuge.workers.dev/snooker.html">Snooker</a> |
+      <a href="https://billiards.tailuge.workers.dev/nineball.html">Nine Ball</a> |
+      <a href="https://billiards.tailuge.workers.dev/eightball.html">Eight Ball</a>
     </nav>
     <p id="status">Loading...</p>
-    <canvas id="usage-chart" aria-label="Usage by language and date"></canvas>
+    <div class="chart-container">
+      <canvas id="usage-chart" aria-label="Usage by language and date"></canvas>
+    </div>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0"></script>
@@ -50,7 +73,9 @@
       ["japaneseUsage", "Japanese", "#653"],
       ["spanishUsage", "Spanish", "#e67e22"],
       ["dutchUsage", "Dutch", "#0891b2"],
-      ["snookerUsage", "Snooker", "#8e44ad"]
+      ["snookerUsage", "Snooker", "#8e44ad"],
+      ["nineballUsage", "Nine Ball", "#2563eb"],
+      ["eightballUsage", "Eight Ball", "#111827"]
     ];
 
     function valuesByDate(values) {
@@ -86,6 +111,7 @@
           options: {
             animation: false,
             responsive: true,
+            maintainAspectRatio: false,
             scales: { y: { beginAtZero: true } }
           }
         });
