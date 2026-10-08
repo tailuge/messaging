@@ -6,81 +6,177 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Feeder Stats</title>
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     html, body {
       height: 100%;
-      margin: 0;
-      padding: 0;
+      background: #000;
+      color: #ccc;
+      font: 12px system-ui, sans-serif;
     }
 
     body {
-      font: 14px system-ui, sans-serif;
       display: flex;
       flex-direction: column;
-      padding: 1rem;
+      padding: 0.4rem 0.6rem;
+      gap: 0.3rem;
     }
 
-    main {
+    h1 {
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.2;
+      color: #fff;
+    }
+
+    nav {
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    nav a { color: #7af; text-decoration: none; }
+    nav a:hover { text-decoration: underline; }
+
+    #status {
+      font-size: 11px;
+      color: #666;
+      line-height: 1.2;
+    }
+
+    .charts {
       display: flex;
       flex-direction: column;
       flex: 1;
-      width: 100%;
+      gap: 0.3rem;
       min-height: 0;
+    }
+
+    .chart-block {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .chart-label {
+      font-size: 10px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      line-height: 1.4;
     }
 
     .chart-container {
       position: relative;
       flex: 1;
-      width: 100%;
       min-height: 0;
+      width: 100%;
     }
+
+
   </style>
 </head>
 
 <body>
-  <main>
-    <h1>Feeder Stats</h1>
-    <nav aria-label="Language pages">
-      <a href="https://billiards.tailuge.workers.dev/chinese.html">Chinese</a> |
-      <a href="https://billiards.tailuge.workers.dev/korean.html">Korean</a> |
-      <a href="https://billiards.tailuge.workers.dev/german.html">German</a> |
-      <a href="https://billiards.tailuge.workers.dev/turkish.html">Turkish</a> |
-      <a href="https://billiards.tailuge.workers.dev/vietnamese.html">Vietnamese</a> |
-      <a href="https://billiards.tailuge.workers.dev/japanese.html">Japanese</a> |
-      <a href="https://billiards.tailuge.workers.dev/spanish.html">Spanish</a> |
-      <a href="https://billiards.tailuge.workers.dev/dutch.html">Dutch</a> |
-      <a href="https://billiards.tailuge.workers.dev/snooker.html">Snooker</a> |
-      <a href="https://billiards.tailuge.workers.dev/nineball.html">Nine Ball</a> |
-      <a href="https://billiards.tailuge.workers.dev/eightball.html">Eight Ball</a>
-    </nav>
-    <p id="status">Loading...</p>
-    <div class="chart-container">
-      <canvas id="usage-chart" aria-label="Usage by language and date"></canvas>
+  <h1>Feeder Stats</h1>
+  <nav aria-label="Language pages">
+    <a href="https://billiards.tailuge.workers.dev/chinese.html">Chinese</a> |
+    <a href="https://billiards.tailuge.workers.dev/korean.html">Korean</a> |
+    <a href="https://billiards.tailuge.workers.dev/german.html">German</a> |
+    <a href="https://billiards.tailuge.workers.dev/turkish.html">Turkish</a> |
+    <a href="https://billiards.tailuge.workers.dev/vietnamese.html">Vietnamese</a> |
+    <a href="https://billiards.tailuge.workers.dev/japanese.html">Japanese</a> |
+    <a href="https://billiards.tailuge.workers.dev/spanish.html">Spanish</a> |
+    <a href="https://billiards.tailuge.workers.dev/dutch.html">Dutch</a> |
+    <a href="https://billiards.tailuge.workers.dev/snooker.html">Snooker</a> |
+    <a href="https://billiards.tailuge.workers.dev/nineball.html">Nine Ball</a> |
+    <a href="https://billiards.tailuge.workers.dev/eightball.html">Eight Ball</a>
+  </nav>
+  <p id="status">Loading...</p>
+
+  <div class="charts">
+    <div class="chart-block">
+      <span class="chart-label">Languages</span>
+      <div class="chart-container">
+        <canvas id="lang-chart" aria-label="Usage by language"></canvas>
+      </div>
     </div>
-  </main>
+    <div class="chart-block">
+      <span class="chart-label">Game Blogs</span>
+      <div class="chart-container">
+        <canvas id="game-chart" aria-label="Usage by game type"></canvas>
+      </div>
+    </div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0"></script>
   <script>
-    const series = [
-      ["chineseUsage", "Chinese", "#d33", false],
-      ["koreanUsage", "Korean", "#36c", false],
-      ["germanUsage", "German", "#393", false],
-      ["turkishUsage", "Turkish", "#c83", false],
-      ["vietnameseUsage", "Vietnamese", "#93c", false],
-      ["japaneseUsage", "Japanese", "#653", false],
-      ["spanishUsage", "Spanish", "#e67e22", false],
-      ["dutchUsage", "Dutch", "#0891b2", false],
-      ["snookerUsage", "Snooker", "#8e44ad", true],
-      ["nineballUsage", "Nine Ball", "#2563eb", true],
-      ["eightballUsage", "Eight Ball", "#111827", true]
+    const langSeries = [
+      ["chineseUsage",    "Chinese",    "#d33"],
+      ["koreanUsage",     "Korean",     "#36c"],
+      ["germanUsage",     "German",     "#393"],
+      ["turkishUsage",    "Turkish",    "#c83"],
+      ["vietnameseUsage", "Vietnamese", "#93c"],
+      ["japaneseUsage",   "Japanese",   "#653"],
+      ["spanishUsage",    "Spanish",    "#e67e22"],
+      ["dutchUsage",      "Dutch",      "#0891b2"]
+    ];
+
+    const gameSeries = [
+      ["snookerUsage",   "Snooker",    "#8e44ad"],
+      ["nineballUsage",  "Nine Ball",  "#2563eb"],
+      ["eightballUsage", "Eight Ball", "#e5e7eb"]
     ];
 
     function valuesByDate(values) {
       return Object.fromEntries(values.map(item => [item.date, item.count]));
     }
+
+    function makeDates(data, series) {
+      return [...new Set(series.flatMap(([key]) =>
+        Array.isArray(data[key]) ? data[key].map(item => item.date) : []
+      ))].sort();
+    }
+
+    function makeDatasets(data, series, dates) {
+      return series.map(([key, label, color]) => {
+        const values = valuesByDate(Array.isArray(data[key]) ? data[key] : []);
+        return {
+          label,
+          data: dates.map(date => values[date] || 0),
+          borderColor: color,
+          backgroundColor: color,
+          pointRadius: 2,
+          tension: 0
+        };
+      });
+    }
+
+    const darkDefaults = {
+      animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          labels: {
+            color: "#ccc",
+            boxWidth: 10,
+            font: { size: 11 }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: "#777", font: { size: 10 } },
+          grid: { color: "#222" }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { color: "#777", font: { size: 10 } },
+          grid: { color: "#222" }
+        }
+      }
+    };
 
     async function loadUsage() {
       const status = document.getElementById("status");
@@ -88,35 +184,32 @@
         const response = await fetch("/api/usage");
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        const dates = [...new Set(series.flatMap(([key]) =>
-          Array.isArray(data[key]) ? data[key].map(item => item.date) : []
-        ))].sort();
 
-        new Chart(document.getElementById("usage-chart"), {
+        const allSeries = [...langSeries, ...gameSeries];
+        const allDates = makeDates(data, allSeries);
+
+        const langDates = makeDates(data, langSeries);
+        const gameDates = makeDates(data, gameSeries);
+
+        new Chart(document.getElementById("lang-chart"), {
           type: "line",
           data: {
-            labels: dates,
-            datasets: series.map(([key, label, color, isDotted]) => {
-              const values = valuesByDate(Array.isArray(data[key]) ? data[key] : []);
-              return {
-                label,
-                data: dates.map(date => values[date] || 0),
-                borderColor: color,
-                backgroundColor: color,
-                pointRadius: 2,
-                borderDash: isDotted ? [3, 3] : [],
-                tension: 0
-              };
-            })
+            labels: langDates,
+            datasets: makeDatasets(data, langSeries, langDates)
           },
-          options: {
-            animation: false,
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: { y: { beginAtZero: true } }
-          }
+          options: darkDefaults
         });
-        status.textContent = `${dates.length} day${dates.length === 1 ? "" : "s"}`;
+
+        new Chart(document.getElementById("game-chart"), {
+          type: "line",
+          data: {
+            labels: gameDates,
+            datasets: makeDatasets(data, gameSeries, gameDates)
+          },
+          options: darkDefaults
+        });
+
+        status.textContent = `${allDates.length} day${allDates.length === 1 ? "" : "s"}`;
       } catch (error) {
         status.textContent = `Could not load usage: ${error.message}`;
       }
