@@ -622,28 +622,11 @@
          .leaflet-tile-pane or the tile container: those are the elements
          Leaflet rescales during the zoom animation, and filtering them would
          filter the resampled output on every frame. Filtering each image keeps
-         the effect to the raster tiles' own pixels — the markers, labels,
-         popups and Leaflet's chrome are separate panes painted on top and keep
-         the exact colours their contrast ratios were measured against. */
+         the effect to the raster tiles' own pixels — the markers, labels and
+         Leaflet's chrome are separate panes painted on top and keep the exact
+         colours their contrast ratios were measured against. */
       .leaflet-tile {
         filter: brightness(2.5) contrast(1.05);
-      }
-
-      .leaflet-popup-content-wrapper,
-      .leaflet-popup-tip {
-        background: var(--hover);
-        color: var(--text);
-        box-shadow: none;
-      }
-
-      .leaflet-popup-content-wrapper {
-        border: 1px solid var(--border);
-        border-radius: 6px;
-      }
-
-      .leaflet-popup-content {
-        margin: 8px 12px;
-        font-size: 0.82rem;
       }
 
       /* Permanent name labels beside the markers. Leaflet's tooltip defaults to
@@ -1837,15 +1820,6 @@
 
       L.control.zoom({ zoomInTitle: "拡大", zoomOutTitle: "縮小" }).addTo(map)
 
-      // Leaflet hardcodes the popup close button's accessible name as "Close
-      // popup" (1.9) with no option to change it, so relabel it as each popup
-      // opens rather than leaving one English control on a Japanese page.
-      map.on("popupopen", function () {
-        document
-          .querySelector(".leaflet-popup-close-button")
-          ?.setAttribute("aria-label", "閉じる")
-      })
-
       // CARTO "Dark Matter" tiles, so the map matches the dark page. The
       // keyless dark_all URL only returns a watermark placeholder, hence the key.
       L.tileLayer(
@@ -1972,6 +1946,25 @@
       // latLngToContainerPoint would not match the dot on screen.
       map.on("move zoom viewreset resize moveend zoomend", drawStoryLink)
 
+      // Where a hall's star should sit after the zoom: a third of the way in
+      // from the map's left and top rather than under the panel's centre.
+      // Centring put the star behind the story panel on a phone, where that
+      // panel is nearly full width. The panel is pinned to the bottom right and
+      // never taller than 55% of the map, so its top edge sits at 45% of the
+      // map's height less the 26px it keeps off the bottom — clear of a star a
+      // third of the way down on any map taller than about 225px. Leaflet
+      // centres a view on a latlng, so the point to centre on is the star
+      // itself pushed a sixth of the container's width and height down and to
+      // the right.
+      function starViewPoint(hall) {
+        const size = map.getSize()
+        const point = map.project([hall.lat, hall.lng], maxTileZoom)
+        return map.unproject(
+          point.add(L.point(size.x / 6, size.y / 6)),
+          maxTileZoom
+        )
+      }
+
       function select(id, pan) {
         list.querySelectorAll("li").forEach(function (item) {
           item.classList.toggle("active", item.dataset.id === id)
@@ -2022,8 +2015,7 @@
         drawStoryLink()
 
         if (pan) {
-          map.flyTo([hall.lat, hall.lng], maxTileZoom, { duration: 0.8 })
-          markers[id].openPopup()
+          map.flyTo(starViewPoint(hall), maxTileZoom, { duration: 0.8 })
         }
       }
 
@@ -2101,9 +2093,6 @@
           zIndexOffset: 10000,
         })
           .addTo(map)
-          .bindPopup(
-            `<b lang="en">${hall.name}</b><br><span lang="ja">${hall.japaneseName}</span>`
-          )
           .bindTooltip(`<span lang="ja">${hall.japaneseName}</span>`, {
             permanent: true,
             direction: "auto",
