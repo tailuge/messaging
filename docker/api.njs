@@ -17,7 +17,7 @@ async function hello(r) {
 const USAGE_KEYS = ["chineseUsage", "koreanUsage", "germanUsage", "turkishUsage", "vietnameseUsage", "japaneseUsage", "spanishUsage", "dutchUsage", "snookerUsage", "nineballUsage", "eightballUsage"];
 const USAGE_METRIC_RE = /^[a-zA-Z0-9_-]+$/;
 // Daily counts only change once a day, so the usage dashboard reads are cached
-// for an hour via an explicit per-entry TTL overriding summary_cache's 120s zone
+// for an hour via an explicit per-entry TTL overriding summary_cache's 30s zone
 // default. Mind the units: the njs shared-dict TTL argument is MILLISECONDS,
 // while the zone's `timeout=` directive takes nginx time syntax (seconds).
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -190,10 +190,10 @@ async function redisPipeline(commands) {
 
 // GET /api/summary — lobby scoreboard, backed by the same Upstash KV the
 // scoreboard writes. The whole response is cached in the njs shared dict for
-// the zone's 120s timeout, keyed by both params.
+// the zone's 30s timeout, keyed by both params.
 const RULE_TYPES = ["snooker", "nineball", "threecushion", "eightball", "sagu"];
 // The ELO ranking reads every player in every rule type, so it is cached for an
-// hour independently of the response cache's 120s zone default. Same
+// hour independently of the response cache's 30s zone default. Same
 // milliseconds rule as USAGE_CACHE_TTL_MS above.
 const ELO_CACHE_TTL_MS = ONE_HOUR_MS;
 
