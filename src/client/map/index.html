@@ -2131,6 +2131,17 @@
         markers[hall.id] = marker
       })
 
+      // The rows above are what decides this container's height — on a phone the
+      // list takes its 25vh cap and the map gives it up — but the map was built
+      // while that list was still empty, and Leaflet re-measures its container
+      // only on a window resize (getSize hands back the cached one otherwise,
+      // 1.9). Everything it draws is then measured against too tall a box: on a
+      // 390x844 phone it remembers 740px of height where the map ends up 529px,
+      // so a star framed a third of the way down lands at 247px — the middle of
+      // the map — instead of 176px. Re-measure now the rows are in the page; the
+      // pan keeps the view where it was.
+      map.invalidateSize()
+
       // Hand focus back to the club the game was started from, so its panel and
       // (on a win) its freshly filled star are on screen immediately.
       const returnClub = query.get("club")
