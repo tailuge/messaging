@@ -3,3 +3,6 @@
 // rewriting the page as a Lit app. Importing the component registers <app-topbar>, which the
 // page then uses as a plain element.
 import "../topbar.js";
+import { logUsage } from "../logusage.js";
+
+logUsage("map");
