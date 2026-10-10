@@ -425,6 +425,25 @@
         text-align: right;
       }
 
+      /* The closing note: how a hall gets onto the list, and the author's
+         thanks. Spans both columns and rules off from the entries above, the
+         mirror of .clubs-note's rule under its preface. */
+      .clubs-help {
+        column-span: all;
+        margin-top: 0.6rem;
+        padding-top: 0.6rem;
+        border-top: 1px solid var(--border-light);
+      }
+
+      /* Japanese reads better with looser leading than the stories' 1.4, and
+         the measure is capped because the note spans both columns. */
+      .clubs-help p {
+        max-width: 42rem;
+        margin: 0;
+        font-size: 0.75rem;
+        line-height: 1.6;
+      }
+
       /* The help button scrolls the instructions to the top of the viewport,
          where the sticky top bar would cover the 遊び方 heading; the margin
          holds them clear of it. Placed after the .clubs-note rules so the id
@@ -485,11 +504,16 @@
         min-width: 0;
       }
 
+      /* The compact row is two tight lines: the name over its Japanese name,
+         so both get a trimmed line box instead of the font's own leading. At
+         1.1 the pair measures 15.8px + 12.7px (0.9rem and 0.72rem), keeping
+         the rows short in a list that is only 25vh tall on a phone. */
       #list li b {
         display: block;
         color: var(--text);
         font-size: 0.9rem;
         font-weight: 600;
+        line-height: 1.1;
       }
 
       /* Japanese name and ward on one muted metadata line. */
@@ -499,8 +523,10 @@
         gap: 0.4rem;
         color: var(--muted);
 
-        /* Japanese name and ward line sits quieter than the hall name. */
+        /* Japanese name and ward line sits quieter than the hall name, and
+           tight under it — see the row's own leadings above. */
         font-size: 0.72rem;
+        line-height: 1.1;
       }
 
       /* Progress star: hollow by default, filled once the hall is marked
@@ -753,19 +779,23 @@
         line-height: 1.4;
       }
 
-      /* The hall's target: the points to score there for its star. A pill, so it
-         reads as a badge on the panel rather than one more line of prose, and it
-         sits between the story and the button it applies to. */
+      /* The hall's target: the points to score there for its star. A pill that
+         spans the panel, so it reads as a badge on the panel rather than one
+         more line of prose, and it sits between the story and the button it
+         applies to. The gold is the rating gold the reveal deck's stars use;
+         #f5c451 on the pill's #1a1a1a measures 10.7:1, so both the label and
+         the outline clear the 4.5:1 text and 3:1 non-text WCAG AA bars. */
       #story .goal {
-        display: inline-block;
+        display: block;
         margin: 6px 0 0;
-        padding: 1px 8px;
-        border: 1px solid var(--border);
+        padding: 3px 10px;
+        border: 1px solid #f5c451;
         border-radius: 999px;
         background: var(--bg);
-        color: var(--text);
+        color: #f5c451;
         font-size: 0.72rem;
         font-weight: 600;
+        text-align: center;
       }
 
       /* The panel's one call to action, so it takes the accent fill and the
@@ -807,10 +837,6 @@
         stroke-width: 1.5;
       }
 
-      #story-link circle {
-        fill: var(--accent);
-      }
-
       #map.has-selection #story,
       #map.has-selection #story-link {
         display: block;
@@ -839,11 +865,12 @@
         background: var(--hover);
       }
 
-      /* The directory's two links join the sheet's `a` ladder here, between
+      /* The directory's three links join the sheet's `a` ladder here, between
          the chrome above and `#story p a` below: every `a` rule needs
          ascending specificity (stylelint no-descending-specificity). */
       .clubs-panel .club-meta a,
-      .clubs-panel .club-story a {
+      .clubs-panel .club-story a,
+      .clubs-panel .clubs-help a {
         color: var(--accent);
 
         /* Underlined because a link beside prose must not rely on colour alone
@@ -936,7 +963,6 @@
         </div>
         <svg id="story-link" aria-hidden="true">
           <path />
-          <circle r="3.5" />
         </svg>
       </div>
     </main>
@@ -955,9 +981,12 @@
           <!-- How the challenge works. It opens the directory, above the halls
                it describes. tabindex="-1" is there for the tagline's help
                button, which scrolls this section into view and focuses it.
-               The button quoted in step 2 is this page's own; the game's
-               "Update map" in step 4 lives on ../index.html and is the game's
-               own English label, so it is quoted as the reader will see it. -->
+               The button quoted in step 2 is this page's own; steps 3 and 4
+               name the game's top bar (../topbar.js), whose name field and
+               settings menu this page carries too. The "Update map" of step 6,
+               and the settings menu's own "Customise" and "Cue" labels, are
+               the game's English strings, quoted as the reader will see
+               them. -->
           <section class="clubs-note" lang="ja" id="instructions" tabindex="-1">
             <h2>遊び方</h2>
             <p>
@@ -970,6 +999,12 @@
               </li>
               <li>
                 「◯◯でプレイ」ボタンを押すと、その店でのスリークッションが始まります。
+              </li>
+              <li>
+                画面右上の名前欄をクリックすると、ユーザー名を入力できます。ここで入力した名前が、ロビーでほかのプレーヤーに見えます。
+              </li>
+              <li>
+                キューのデザインは、画面右上の設定メニュー（☰）を開き、「Customise」の「Cue」から変更できます。
               </li>
               <li>
                 相手はいません。1ゲームのうちに目標の得点を取ればクリアです。
@@ -1027,6 +1062,46 @@
 
           <article
             class="club"
+            id="club-nabbi"
+            data-id="nabbi"
+            data-race-to="8"
+            data-lat="35.732634"
+            data-lng="139.7306202"
+          >
+            <h3 class="club-name">
+              <span lang="en" data-field="name">Billiard Club Nabbi</span>
+              <span class="club-ja" lang="ja" data-field="japaneseName"
+                >ビリヤードクラブナビー</span
+              >
+            </h3>
+            <dl class="club-meta">
+              <dt>Website</dt>
+              <dd data-field="website">
+                <a href="https://bc-nabbi.jimdofree.com/"
+                  >https://bc-nabbi.jimdofree.com/</a
+                >
+              </dd>
+              <dt>Ward</dt>
+              <dd data-field="district">Toshima</dd>
+              <dt>Address</dt>
+              <dd data-field="address">
+                1-18-11 Kita-Otsuka, Otsuka KY Bldg, Toshima-ku, Tokyo
+              </dd>
+              <dt>Phone</dt>
+              <dd data-field="phone">+81 3-3576-1226</dd>
+              <dt>Opening hours</dt>
+              <dd data-field="hours">Varies</dd>
+              <dt>Tables</dt>
+              <dd data-field="tables">Three-Cushion &amp; Pocket Tables</dd>
+              <dt>Tags</dt>
+              <dd data-field="tags">Toshima, Otsuka, Sugamo, Three-Cushion</dd>
+            </dl>
+            <p class="club-story" data-field="story">
+              スリークッションを初めてプレーしたのがこの店でした。スヌーカーしか知らなかった自分には衝撃で、すっかり虜になってしまいました。日本旅行中、最初の数ショットを手ほどきしてくれた気さくなスタッフの方々には本当に感謝しています。
+            </p>
+          </article>
+          <article
+            class="club"
             id="club-matsuyama"
             data-id="matsuyama"
             data-race-to="7"
@@ -1066,46 +1141,6 @@
             </dl>
             <p class="club-story" data-field="story">
               東京でいちばん趣のある、絵になるビリヤード場かもしれません。暑くない日は自転車で通っていました。2010年ごろには、ここで開かれた小さなアマチュアのスリークッション大会で優勝したこともあります。
-            </p>
-          </article>
-          <article
-            class="club"
-            id="club-nabbi"
-            data-id="nabbi"
-            data-race-to="8"
-            data-lat="35.732634"
-            data-lng="139.7306202"
-          >
-            <h3 class="club-name">
-              <span lang="en" data-field="name">Billiard Club Nabbi</span>
-              <span class="club-ja" lang="ja" data-field="japaneseName"
-                >ビリヤードクラブナビー</span
-              >
-            </h3>
-            <dl class="club-meta">
-              <dt>Website</dt>
-              <dd data-field="website">
-                <a href="https://bc-nabbi.jimdofree.com/"
-                  >https://bc-nabbi.jimdofree.com/</a
-                >
-              </dd>
-              <dt>Ward</dt>
-              <dd data-field="district">Toshima</dd>
-              <dt>Address</dt>
-              <dd data-field="address">
-                1-18-11 Kita-Otsuka, Otsuka KY Bldg, Toshima-ku, Tokyo
-              </dd>
-              <dt>Phone</dt>
-              <dd data-field="phone">+81 3-3576-1226</dd>
-              <dt>Opening hours</dt>
-              <dd data-field="hours">Varies</dd>
-              <dt>Tables</dt>
-              <dd data-field="tables">Three-Cushion &amp; Pocket Tables</dd>
-              <dt>Tags</dt>
-              <dd data-field="tags">Toshima, Otsuka, Sugamo, Three-Cushion</dd>
-            </dl>
-            <p class="club-story" data-field="story">
-              スリークッションを初めてプレーしたのがこの店でした。スヌーカーしか知らなかった自分には衝撃で、すっかり虜になってしまいました。日本旅行中、最初の数ショットを手ほどきしてくれた気さくなスタッフの方々には本当に感謝しています。
             </p>
           </article>
           <article
@@ -1150,7 +1185,7 @@
               山手線で一駅という近さで、東京で働いていたころの「ホームクラブ」でした。仕事帰りに必ず寄っていて、スリークッションを楽しむのにいちばん温かい場所でした。私は「ルーク」として通っていました。向こうはもう忘れてしまったでしょうが、私は今でもよく覚えていますし、最高のスリークッションの思い出と、プロの<a
                 href="https://jpbf.net/player-detail/?seq_id=58"
                 >米山先生</a
-              >と対戦した興奮もここにあります。この店はもう閉店してしまったのでしょうか。とても残念ですが、米山さんには今も会えます！
+              >と対戦した興奮もここにあります。この店はもう閉店してしまったのでしょうか。とても残念ですが、米山さんには今も会えます！寂しいことに、相馬は閉店してしまいましたが、私と同じように相馬が恋しい人は、<a href="../lobby.html">オンライン</a>で撞きに来てください！
             </p>
           </article>
           <article
@@ -1596,7 +1631,26 @@
                 Koto, Kameido, Three-Cushion, Carom, Pocket
               </dd>
             </dl>
+            <p class="club-story" data-field="story">
+              ついに亀戸ルパンまでたどり着きました。今日は<a
+                href="https://jpbf.net/player-detail/?seq_id=58"
+                >米山さん</a
+              >はお店に来ているのでしょうか。あの絹のように滑らかな左利きのプレーヤーとの、待ちに待った一戦をここで実現できるのでしょうか？米山さん、あなたですか？私はロビーで挑戦をお待ちしています。「イギリスのルーク」を探して、ぜひ挑戦してください！
+            </p>
           </article>
+
+          <!-- The closing note: how a hall gets onto the list, and the author's
+               thanks to everyone who made the years in Tokyo what they were.
+               It is inside the directory so it opens with it, and it is not a
+               .club, so the map script leaves it alone (it reads no field
+               from it). The prose is one unwrapped line because a wrapped
+               source line renders as a space between Japanese characters. -->
+          <section class="clubs-help" lang="ja">
+            <h2>最後に</h2>
+            <p>
+              この一覧にあなたの行きつけのビリヤード場を加えたい方、あるいは「ルーク」をご存知の方は、<a href="https://github.com/tailuge">GitHub</a> からご連絡ください。日本での思い出は楽しいことばかりで、イギリスにいる間はずっと、スリークッションが撞けなくて寂しい思いをしていました。だから、撞き続けるためにこのゲームを作りました。長い間、私の日本での滞在を素敵なものにしてくれたすべての方々に、心から感謝しています。
+            </p>
+          </section>
         </div>
       </details>
     </footer>
@@ -1882,14 +1936,15 @@
       const storyPlay = document.getElementById("story-play")
       const storyLink = document.getElementById("story-link")
       const storyPath = storyLink.querySelector("path")
-      const storyTip = storyLink.querySelector("circle")
 
       // The club whose panel is on screen, or null before anything is picked.
       let selectedHall = null
 
       // A cubic bezier from the club's dot to the top edge of the panel. It
       // leaves the dot horizontally and arrives vertically, so it reads as a
-      // connector rather than a straight line across the map.
+      // connector rather than a straight line across the map. It starts at the
+      // club's own point — the middle of its star — with no dot of its own, so
+      // the first dashes sit inside the hollow glyph.
       function drawStoryLink() {
         if (!selectedHall) {
           return
@@ -1909,8 +1964,6 @@
           "d",
           `M ${point.x} ${point.y} C ${point.x + dx * 0.5} ${point.y} ${x} ${y - dy * 0.5} ${x} ${y}`
         )
-        storyTip.setAttribute("cx", point.x)
-        storyTip.setAttribute("cy", point.y)
       }
 
       // The dot travels with the map while the panel stays put, so the curve is
@@ -2010,12 +2063,12 @@
             </span>
           </span>
           <span class="star" aria-hidden="true"></span>
-          <dl class="details" lang="en">
-            <dt>Address</dt>
-            <dd>${hall.address}</dd>
-            <dt>Race to</dt>
-            <dd>${hall.raceTo} points</dd>
-            <dt>Website</dt>
+          <dl class="details">
+            <dt>住所</dt>
+            <dd lang="en">${hall.address}</dd>
+            <dt>目標</dt>
+            <dd lang="en">${hall.raceTo} points</dd>
+            <dt>ウェブサイト</dt>
             <dd>
               <a
                 class="site"
