@@ -21,6 +21,13 @@ const replayLabel = m => {
         + `, ${kickoff(m.timestamp)}`;
 };
 
+// A map challenge can name the hall it was played for: the game adds an optional `club`
+// to the result it uploads. The lobby badge marks those runs with the torii next to the
+// rule, so the history row does the same. Older rows have no `club` and render nothing.
+const clubBadge = m => typeof m.club === 'string' && m.club
+    ? html`<span role="img" title="Map challenge at ${m.club}" aria-label="Map challenge at ${m.club}">⛩️</span>`
+    : '';
+
 class InfoPanel extends StoreElement {
     static styles = INFO_PANEL_STYLES;
     connectedCallback() {
@@ -99,7 +106,7 @@ class InfoPanel extends StoreElement {
                         <div class="tbl"><table>
                         <tr><th>Rule</th><th>Match</th><th>Ago</th><th class="city-col">City</th><th></th></tr>
                             ${recentMatches.map(m => html`<tr>
-                                <td>${ruleIcon(m.ruleType)}</td><td>${m.arenaId ? '⚔️' : ''}${m.loser ? (m.tableSize != null && m.tableSize < 10 ? '🍼' : '🎖️') : ''}${m.freeaim === true ? '⌖' : ''}${m.berserk === true || m.berserk === 'true' ? '🚀' : ''}${m.winner}${m.winnerScore != null ? html`<span class="score">(${m.winnerScore})</span>` : ''}${m.loser ? html` vs ${m.loser}${m.loserScore != null ? html`<span class="score">(${m.loserScore})</span>` : ''}` : ''}</td>
+                                <td>${ruleIcon(m.ruleType)}${clubBadge(m)}</td><td>${m.arenaId ? '⚔️' : ''}${m.loser ? (m.tableSize != null && m.tableSize < 10 ? '🍼' : '🎖️') : ''}${m.freeaim === true ? '⌖' : ''}${m.berserk === true || m.berserk === 'true' ? '🚀' : ''}${m.winner}${m.winnerScore != null ? html`<span class="score">(${m.winnerScore})</span>` : ''}${m.loser ? html` vs ${m.loser}${m.loserScore != null ? html`<span class="score">(${m.loserScore})</span>` : ''}` : ''}</td>
                                 <td class="ago">${timeAgo(m.timestamp)}</td>
                                 <td class="city-col">${m.locationCity ?? ''}</td>
 <td class="replay-col">

@@ -1,24 +1,12 @@
 import { LitElement, html, css } from "lit";
-import { MessagingClient } from "../../index.ts";
 import { THEME_VARS, SHARED_STYLES } from "../styles.js";
 import { userStore } from "../user-store.js";
-import {
-  revealGameUrl,
-  revealReplayUrl,
-  shortenUrl,
-  shareOrCopy,
-  formatVersion,
-  CLIENTVERSION,
-  NCHANBASE,
-} from "../utils.js";
-import "../user-badge.js";
-import "../trophy.js";
-import "../settings-modal.js";
+import { revealGameUrl, revealReplayUrl, shortenUrl, shareOrCopy } from "../utils.js";
+import "../topbar.js";
 
 const STORAGE_KEY = "reveal:collection";
 const REMOVED_KEY = "reveal:removed";
 const DECK_KEY = "reveal:deck";
-const MAX_COMPLETED = 20;
 
 // Decks the page can show, each rendered from its own <ul> in index.html (listed under its
 // own heading in the footer fold-down). The first entry is the default and the fallback when
@@ -82,6 +70,17 @@ const DECKS = [
     dataId: "manga-data",
   },
 ];
+
+// The collection is shared by every deck, so its cap has to cover all of them: a flat 20 silently
+// evicted the oldest completions, so playing one deck dropped another deck's cards. Derived from
+// the decks themselves — the sum of every deck's entries — which is also the most cards the
+// collection can ever hold, since card ids are unique across decks. Falls back to 20 when the
+// deck lists are absent from the DOM.
+const MAX_COMPLETED =
+  DECKS.reduce(
+    (total, deck) => total + readChallengesFromDOM(deck.dataId).length,
+    0,
+  ) || 20;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -399,11 +398,6 @@ class RevealApp extends LitElement {
     _collection: { state: true },
     _challenges: { state: true },
     _deckId: { state: true },
-    _lobby: { state: true },
-    _connected: { state: true },
-    _hasMessage: { state: true },
-    _pendingChats: { state: true },
-    _popoverOpen: { state: true },
   };
 
   static styles = [
@@ -426,193 +420,6 @@ class RevealApp extends LitElement {
         display: flex;
         flex-direction: column;
         gap: 0.2rem;
-      }
-      .topbar {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        flex-shrink: 0;
-        position: sticky;
-        top: 0;
-        z-index: 2;
-        padding: 0.25rem 0;
-        background: var(--bg);
-      }
-      .topbar .logo {
-        width: 32px;
-        height: 32px;
-        flex-shrink: 0;
-        filter: grayscale(100%);
-        opacity: 0.7;
-      }
-      .topbrand {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-        text-decoration: none;
-        color: inherit;
-        flex-shrink: 0;
-      }
-      .topbrand:hover {
-        opacity: 0.85;
-      }
-      .topbrand .logo {
-        opacity: 1;
-        transition: opacity 0.2s;
-      }
-      h1.title {
-        flex: 1;
-        min-width: 0;
-        margin: 0;
-        font-size: 1rem;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--text-dim);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      h1.title a {
-        color: inherit;
-        text-decoration: none;
-      }
-      h1.title a:hover {
-        text-decoration: underline;
-      }
-      h1.title .version {
-        font-size: 0.65rem;
-        color: var(--text-dim);
-        margin-left: 0.25rem;
-        vertical-align: super;
-        font-weight: 200;
-      }
-      .topbar user-badge {
-        min-width: 0;
-      }
-      .topbar settings-modal {
-        flex-shrink: 0;
-      }
-      /* Always shown, centred over the top bar (absolute, out of the flex flow) so it never
-         shoves or overlaps the trophy cups and other header controls. By default it is the
-         only route back to the lobby; when a chat message or challenge arrives it swaps to
-         a pulsing icon. Either state is just a link to the lobby, which owns the chat window
-         and challenge banner and knows how to present them. */
-      .top-link {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        z-index: 1;
-        flex-shrink: 0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 28px;
-        height: 28px;
-        padding: 0 0.55rem;
-        background: var(--bg);
-        font-size: 0.72rem;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        line-height: 1;
-        text-decoration: none;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        color: inherit;
-      }
-      .top-link:hover {
-        border-color: var(--text-dim);
-      }
-      .top-link:focus-visible {
-        outline: 2px solid #007bff;
-        outline-offset: 1px;
-      }
-      /* Message/challenge state: the width collapses back to a square icon. */
-      .top-link--alert {
-        width: 28px;
-        min-width: 0;
-        padding: 0;
-        font-size: 1rem;
-        animation: msg-pulse 2s ease-in-out infinite;
-      }
-      @keyframes msg-pulse {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.45;
-        }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .top-link--alert {
-          animation: none;
-        }
-      }
-      /* Chat popover: a compact, read-only summary of messages that arrived while the player
-         was on this page (they have no chat UI here). Each line is "sender: text"; the Lobby
-         button navigates back so the conversation can be continued there. Clicking outside
-         (or Escape) dismisses it while leaving the pulsing icon as the reminder. */
-      .chat-popover {
-        position: absolute;
-        top: calc(50% + 20px);
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 3;
-        width: min(20rem, calc(100vw - 2rem));
-        display: flex;
-        flex-direction: column;
-        gap: 0.4rem;
-        padding: 0.5rem 0.6rem;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
-        font-size: 0.78rem;
-        line-height: 1.35;
-      }
-      .chat-popover ul {
-        margin: 0;
-        padding: 0;
-        list-style: none;
-        display: flex;
-        flex-direction: column;
-        gap: 0.3rem;
-        max-height: 10rem;
-        overflow-y: auto;
-      }
-      .chat-popover-sender {
-        font-weight: 600;
-      }
-      .chat-popover-text {
-        color: var(--text-muted);
-        overflow-wrap: anywhere;
-      }
-      .chat-popover-actions {
-        display: flex;
-        justify-content: flex-end;
-      }
-      .chat-popover-lobby {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 28px;
-        padding: 0.25rem 0.6rem;
-        background: var(--bg);
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        color: inherit;
-        text-decoration: none;
-        font-size: 0.72rem;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-      }
-      .chat-popover-lobby:hover {
-        border-color: var(--text-dim);
-      }
-      .chat-popover-lobby:focus-visible {
-        outline: 2px solid #007bff;
-        outline-offset: 1px;
       }
       .intro {
         padding: 0.1rem 0 0.15rem;
@@ -643,7 +450,7 @@ class RevealApp extends LitElement {
       .intro-head h2 {
         margin: 0;
       }
-      /* Deck chooser lives in the footer row, to the left of Reset deck. */
+      /* Deck chooser sits above the wall of cards, to the left of Reset deck. */
       .deck-switch {
         display: inline-flex;
         gap: 0.25rem;
@@ -679,14 +486,14 @@ class RevealApp extends LitElement {
         /* Cards cast shadows outward — clipping them at the panel edge would flatten the deck */
         overflow: visible;
       }
-      /* Deck chooser and reset, below the wall of cards */
+      /* Deck chooser and reset, above the wall of cards */
       .deck-footer {
         display: flex;
         align-items: center;
         justify-content: space-between;
         flex-wrap: wrap;
         gap: 0.5rem;
-        margin-top: 0.35rem;
+        margin-bottom: 0.35rem;
       }
       .reset-btn {
         padding: 0.15rem 0.4rem;
@@ -1115,12 +922,6 @@ class RevealApp extends LitElement {
     this._collection = [];
     this._challenges = [];
     this._deckId = DECKS[0].id;
-    this._lobby = null;
-    this._connected = false;
-    this._hasMessage = false;
-    this._pendingChats = [];
-    this._popoverOpen = false;
-    this._client = null;
   }
 
   connectedCallback() {
@@ -1140,37 +941,10 @@ class RevealApp extends LitElement {
     this._collection = loadCollection();
     this._completedIds = new Set(this._collection.map((e) => e.id));
     this._removedIds = new Set(loadRemovedIds());
-    // Listen for user name changes (badge)
-    this._onNameChanged = () => this.requestUpdate();
-    document.addEventListener("user-name-changed", this._onNameChanged);
-    // Dismiss the chat popover when the player clicks anywhere outside it, or presses Escape
-    this._onDocPointerDown = (e) => this._handleDocPointerDown(e);
-    document.addEventListener("pointerdown", this._onDocPointerDown);
-    this._onDocKeyDown = (e) => {
-      if (e.key === "Escape" && this._popoverOpen) this._dismissPopover();
-    };
-    document.addEventListener("keydown", this._onDocKeyDown);
-    // Presence — same path as lobby
-    this._connectPresence().catch((e) =>
-      console.error("reveal presence failed", e),
-    );
     // ?image= success handling (exact match, log-only on fail)
     this._handleReturnParam().catch((e) =>
       console.log("reveal: handleReturnParam error", e),
     );
-  }
-
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    document.removeEventListener("user-name-changed", this._onNameChanged);
-    document.removeEventListener("pointerdown", this._onDocPointerDown);
-    document.removeEventListener("keydown", this._onDocKeyDown);
-    try {
-      this._lobby?.leave();
-    } catch {}
-    try {
-      this._client?.stop();
-    } catch {}
   }
 
   // The selected deck (falls back to the first when the stored id is unknown)
@@ -1212,90 +986,6 @@ class RevealApp extends LitElement {
       if (ch) return { ch, deck };
     }
     return null;
-  }
-
-  async _connectPresence() {
-    const baseHost =
-      typeof NCHANBASE !== "undefined" && NCHANBASE
-        ? NCHANBASE
-        : "billiards-network.onrender.com";
-    let baseUrl = `https://${baseHost}`;
-    if (
-      location.hostname === "localhost" ||
-      location.hostname === "127.0.0.1"
-    ) {
-      const protocol = location.protocol === "https:" ? "https:" : "http:";
-      baseUrl = `${protocol}//${location.host}`;
-    }
-    const client = new MessagingClient({ baseUrl });
-    client.setVersion(formatVersion(CLIENTVERSION));
-    this._client = client;
-    const lobby = await client.joinLobby({
-      messageType: "presence",
-      type: "join",
-      userId: userStore.clientId,
-      userName: userStore.userName,
-    });
-    this._lobby = lobby;
-    // A chat message or a challenge offer has no UI on this page. Flag it so the top bar
-    // shows the message icon, which links back to the lobby for proper handling. A chat also
-    // opens a small popover so the text is not lost on the way back. Challenge accepts/declines
-    // are for the challenger and are not relevant here.
-    lobby.onChat((msg) => this._onIncomingChat(msg));
-    lobby.onChallenge((msg) => {
-      if (msg.type === "offer") this._flagPendingMessage();
-    });
-    this._connected = true;
-    this.requestUpdate();
-    // Keep presence fresh on name change via updatePresence
-    this._presenceNameListener = (e) => {
-      const detail = e.detail || {};
-      const userName = detail.userName || userStore.userName;
-      const userId = detail.userId || userStore.clientId;
-      lobby
-        .updatePresence({ userId, userName })
-        .catch((err) => console.error("reveal: updatePresence failed", err));
-    };
-    document.addEventListener("user-name-changed", this._presenceNameListener);
-  }
-
-  // Lights the top-bar message icon; it stays lit until the page is left for the lobby.
-  _flagPendingMessage() {
-    if (this._hasMessage) return;
-    this._hasMessage = true;
-  }
-
-  // Chat arrived while the player was here. This page has no chat window, so show a small
-  // popover with the sender and text plus a route back to the lobby (where the conversation
-  // lives). Keeps the last few messages so a burst is not lost to a single line.
-  _onIncomingChat(msg) {
-    if (!msg?.text) return;
-    const sender =
-      this._lobby?.getUsers?.().find((u) => u.userId === msg.senderId)?.userName ||
-      msg.senderId;
-    this._pendingChats = [...this._pendingChats, { sender, text: msg.text }].slice(
-      -5,
-    );
-    this._hasMessage = true;
-    this._popoverOpen = true;
-    this.requestUpdate();
-  }
-
-  // Hide the popover but keep the pending chats and the pulsing icon, so a stray click does
-  // not lose the messages — the icon still leads back to the lobby.
-  _dismissPopover() {
-    if (!this._popoverOpen) return;
-    this._popoverOpen = false;
-    this.requestUpdate();
-  }
-
-  // Click outside the popover closes it. composedPath crosses the shadow boundary back to
-  // this host, so matching the popover element on the path is enough.
-  _handleDocPointerDown(e) {
-    if (!this._popoverOpen) return;
-    const path = e.composedPath?.() ?? [];
-    if (path.some((el) => el?.classList?.contains?.("chat-popover"))) return;
-    this._dismissPopover();
   }
 
   async _handleReturnParam() {
@@ -1663,62 +1353,11 @@ class RevealApp extends LitElement {
     );
     return html`
       <div class="container">
-        <header class="topbar">
-          <a href="../lobby.html" class="topbrand" aria-label="Billiards lobby"
-            ><img src="../assets/threecushion.png" class="logo" alt=""
-          /></a>
-          <h1 class="title">
-            <a href="../lobby.html">Billiards</a
-            ><a
-              href="https://github.com/tailuge/billiards"
-              target="_blank"
-              rel="noopener"
-              class="version"
-              >${formatVersion(CLIENTVERSION)}</a
-            >
-          </h1>
-          <a
-            class="top-link ${this._hasMessage ? "top-link--alert" : ""}"
-            href="../lobby"
-            aria-label=${this._hasMessage ? "New message — open the lobby" : "Back to the lobby"}
-            title=${this._hasMessage ? "New message" : "Back to the lobby"}
-            >${this._hasMessage ? "💬" : "Lobby"}</a
-          >
-          ${this._popoverOpen && this._pendingChats.length
-            ? html`
-                <div
-                  class="chat-popover"
-                  role="dialog"
-                  aria-label="New chat messages"
-                >
-                  <ul>
-                    ${this._pendingChats.map(
-                      (c) => html`
-                        <li>
-                          <span class="chat-popover-sender"
-                            >${c.sender}:</span
-                          >
-                          <span class="chat-popover-text">${c.text}</span>
-                        </li>
-                      `,
-                    )}
-                  </ul>
-                  <div class="chat-popover-actions">
-                    <a class="chat-popover-lobby" href="../lobby">Lobby</a>
-                  </div>
-                </div>
-              `
-            : ""}
-          <trophy-item></trophy-item>
-          <user-badge></user-badge>
-          <settings-modal
-            @theme-changed=${(e) => {
-              this._theme = e.detail;
-              document.documentElement.setAttribute("theme", e.detail);
-              document.documentElement.style.colorScheme = e.detail;
-            }}
-          ></settings-modal>
-        </header>
+        <app-topbar
+          @theme-changed=${(e) => {
+            this._theme = e.detail;
+          }}
+        ></app-topbar>
 
         <section class="intro">
           <div class="intro-head">
@@ -1732,25 +1371,6 @@ class RevealApp extends LitElement {
 
         <section class="panel" aria-labelledby="collection-heading">
           <h2 id="collection-heading" hidden>Picture collection</h2>
-          <div class="card-grid">
-            ${
-              challenges.length
-                ? challenges.map((ch) => {
-                    const id = idForChallenge(ch);
-                    const completedEntry = completedById.get(id);
-                    return this._renderCard(ch, completedEntry);
-                  })
-                : html`<p style="color:var(--text-muted);font-size:0.78rem">
-                    ${
-                      this._challenges.length
-                        ? "No pictures left — press Reset deck to restore the wall."
-                        : deckListPresent
-                          ? "No pictures in this deck yet."
-                          : "Loading pictures…"
-                    }
-                  </p>`
-            }
-          </div>
           <div class="deck-footer">
             <div class="deck-switch" role="group" aria-label="Deck">
               ${DECKS.map(
@@ -1779,6 +1399,25 @@ class RevealApp extends LitElement {
                     Reset decks
                   </button>`
                 : ""
+            }
+          </div>
+          <div class="card-grid">
+            ${
+              challenges.length
+                ? challenges.map((ch) => {
+                    const id = idForChallenge(ch);
+                    const completedEntry = completedById.get(id);
+                    return this._renderCard(ch, completedEntry);
+                  })
+                : html`<p style="color:var(--text-muted);font-size:0.78rem">
+                    ${
+                      this._challenges.length
+                        ? "No pictures left — press Reset deck to restore the wall."
+                        : deckListPresent
+                          ? "No pictures in this deck yet."
+                          : "Loading pictures…"
+                    }
+                  </p>`
             }
           </div>
         </section>

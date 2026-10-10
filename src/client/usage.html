@@ -44,6 +44,34 @@
       padding: 10px;
       height: 400px;
     }
+    .chart-section {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .chart-panel {
+      background-color: #111;
+      border: 1px solid #333;
+      padding: 10px;
+      height: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .chart-panel-title {
+      margin: 0;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .chart-canvas {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+    }
   </style>
 </head>
 
@@ -56,6 +84,23 @@
     </div>
   </header>
   <main id="chart-grid" class="chart-grid"></main>
+
+  <section class="chart-section">
+    <div class="chart-panel">
+      <h2 class="chart-panel-title">Languages</h2>
+      <div class="chart-canvas">
+        <canvas id="lang-chart" aria-label="Usage by language"></canvas>
+      </div>
+    </div>
+    <div class="chart-panel">
+      <h2 class="chart-panel-title">Game Blogs</h2>
+      <div class="chart-canvas">
+        <canvas id="game-chart" aria-label="Usage by game type"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0"></script>
 
   <script src="https://cdn.plot.ly/plotly-cartesian-3.0.0-rc.0.min.js"
     integrity="sha384-k9BNvphELWyBtQVTUBS5YYM9SAb3H4NoA6hxg6YARuWJqdp+yp8F3mJN405LN+KC"
@@ -216,6 +261,105 @@
 
       Plotly.newPlot(groupConfig.id, traces, layout, config)
     }
+
+    // Language and game-blog trends, ported from stats.html.
+    const langSeries = [
+      ["chineseUsage", "Chinese", "#d33"],
+      ["koreanUsage", "Korean", "#36c"],
+      ["germanUsage", "German", "#393"],
+      ["turkishUsage", "Turkish", "#c83"],
+      ["vietnameseUsage", "Vietnamese", "#93c"],
+      ["japaneseUsage", "Japanese", "#653"],
+      ["spanishUsage", "Spanish", "#e67e22"],
+      ["dutchUsage", "Dutch", "#0891b2"],
+    ]
+
+    const gameSeries = [
+      ["snookerUsage", "Snooker", "#8e44ad"],
+      ["nineballUsage", "Nine Ball", "#2563eb"],
+      ["eightballUsage", "Eight Ball", "#e5e7eb"],
+    ]
+
+    function valuesByDate(values) {
+      return Object.fromEntries(values.map((item) => [item.date, item.count]))
+    }
+
+    function makeDates(data, series) {
+      return [...new Set(series.flatMap(([key]) =>
+        Array.isArray(data[key]) ? data[key].map((item) => item.date) : []
+      ))].sort()
+    }
+
+    function makeDatasets(data, series, dates) {
+      return series.map(([key, label, color]) => {
+        const values = valuesByDate(Array.isArray(data[key]) ? data[key] : [])
+        return {
+          label,
+          data: dates.map((date) => values[date] || 0),
+          borderColor: color,
+          backgroundColor: color,
+          pointRadius: 2,
+          tension: 0,
+        }
+      })
+    }
+
+    const chartDefaults = {
+      animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          labels: {
+            color: "#999",
+            boxWidth: 10,
+            font: { size: 9 },
+          },
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: "#777", font: { size: 10 } },
+          grid: { color: "#222" },
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { color: "#777", font: { size: 10 } },
+          grid: { color: "#222" },
+        },
+      },
+    }
+
+    async function plotUsageCharts() {
+      try {
+        const data = await getData("/api/usage")
+
+        const langDates = makeDates(data, langSeries)
+        const gameDates = makeDates(data, gameSeries)
+
+        new Chart(document.getElementById("lang-chart"), {
+          type: "line",
+          data: {
+            labels: langDates,
+            datasets: makeDatasets(data, langSeries, langDates),
+          },
+          options: chartDefaults,
+        })
+
+        new Chart(document.getElementById("game-chart"), {
+          type: "line",
+          data: {
+            labels: gameDates,
+            datasets: makeDatasets(data, gameSeries, gameDates),
+          },
+          options: chartDefaults,
+        })
+      } catch (error) {
+        console.error(`Could not load usage charts: ${error.message}`)
+      }
+    }
+
+    plotUsageCharts()
   </script>
 </body>
 

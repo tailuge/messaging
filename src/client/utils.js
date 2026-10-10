@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 1204;
+export const CLIENTVERSION = 1212;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -195,6 +195,13 @@ export function getEmoji(origin = "", ruleType = "", status = "", options = {}, 
 	if (speedmap) return decorate({ emoji: speedmap.emoji+"👟", title: "speedrun" });
   }
 
+
+  // Map pages and map challenges: keep the underlying rule's icon and add the torii gate,
+  // e.g. `threecushion-map` -> ③⛩️, or a bare `map` (the map page itself) -> ⛩️.
+  if (ruleType.includes("map")) {
+    const maprule = ruleMap[ruleType.replace("map", "").replace(/-$/, "")];
+    return decorate({ emoji: (maprule ? maprule.emoji : "") + "⛩️", title: "map" });
+  }
 
   // 2. Check origin patterns
 

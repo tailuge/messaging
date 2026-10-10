@@ -24,7 +24,7 @@ dominant element is a **dense wall of small mystery cards**; explanatory SEO pro
 **below** the grid so returning players can play without scrolling.
 
 Completion persists the finished card (small local thumbnail + identifiers + the game's replay
-`state`, cap 20) in `localStorage`, which is what makes the card's **Replay** and **Share** actions
+`state`, cap = the total number of cards across all decks) in `localStorage`, which is what makes the card's **Replay** and **Share** actions
 work offline of the game. The game itself is not re-implemented here: this repo builds a Lit +
 esbuild page that reuses the existing header islands, URL helpers and share/replay patterns, and
 negotiates launch/return with the game via `ruletype=reveal&image=` / `?image=` + `?state=` exactly
@@ -203,8 +203,8 @@ the names in order only. Each entry carries `name`, `imageUrl` (includes `utm_*`
 
 ### 6.5 Decks
 
-The page offers more than one deck from a button pair on the title row (so offering the choice costs
-**no extra vertical height**):
+The page offers more than one deck from a row of buttons above the wall of cards (so offering the
+choice costs **no extra vertical height**):
 
 | Deck | Button | `?mode=` | Data list | On-page title |
 |---|---|---|---|---|
@@ -318,7 +318,8 @@ Reuse the site's existing header chrome, not a bespoke one:
 ```
 
 `<reveal-app>` renders: sticky `topbar`, compact intro, dense `#card-grid` (from embedded data) and,
-below the grid, the deck **Reset** button (shown only when something has been revealed) — **no
+above the grid, the deck buttons and the **Reset** button (shown only when something has been
+revealed) — **no
 prose**, no progress counters. The light-DOM `seo-fallback` is the only copy of the explanatory
 text, so it is both what a no-JS crawl (view-source) sees and what the player sees.
 
@@ -510,7 +511,10 @@ ${BASE}?ruletype=reveal&state=<encodeURIComponent(state)>&image=<encodeURICompon
 ### 10.5 `localStorage` schema — capped collection
 
 - Key: `reveal:collection` (the `potRevealCollection` name from the design draft is superseded).
-- Value: `JSON.stringify(Array<Entry>)`, **newest first**, trimmed to **20** on write.
+- Value: `JSON.stringify(Array<Entry>)`, **newest first**, trimmed to `MAX_COMPLETED` on write.
+  `MAX_COMPLETED` is derived at load from the deck data — the sum of every deck's entries (224
+  today) — so the shared collection can hold every card and completing one deck's card can never
+  evict another deck's. It falls back to 20 when the deck lists are absent from the DOM.
 
 ```json
 [
@@ -535,7 +539,7 @@ ${BASE}?ruletype=reveal&state=<encodeURIComponent(state)>&image=<encodeURICompon
   name collisions (e.g. multiple "Lee" variants) are disambiguated by distinct
   `imageUrl`/`wikipediaUrl`.
 - On success: if an entry for `id` already exists, move to front (refreshing `state`/`replayUrl` when
-  supplied); else `unshift`. If `length > 20`, `pop` the oldest. Wrap `localStorage` + `JSON.parse`
+  supplied); else `unshift`. If `length > MAX_COMPLETED`, `pop` the oldest. Wrap `localStorage` + `JSON.parse`
   in `try/catch`; on `QuotaExceededError` drop oldest and retry once. Never throw to the user. No
   partial progress persisted; unsolved cards are not stored.
 
@@ -572,7 +576,8 @@ three small corner buttons, so nothing obscures the picture and no dialog is nee
   (§10.6) so the tile does not return on reload, and clears the flip state when that card was open.
   The tile leaves the wall and the remaining cards reflow into the gap — no layout animation is
   specified yet. Deletion is reversible only via **Reset deck**.
-- **Reset deck** — a single button **below the grid** (never per-card), rendered while the collection
+- **Reset deck** — a single button **above the grid**, alongside the deck buttons (never per-card),
+  rendered while the collection
   is non-empty **or** a deletion is remembered. It asks for confirmation (`window.confirm`, naming
   how many revealed cards and deleted pictures will be affected), then removes both
   `reveal:collection` and `reveal:removed` and clears the in-memory collection/completed-set/removed
@@ -739,7 +744,7 @@ seeding beyond this list, no randomization.
    (§5.2).
 2. ~~**Delete vs new deck**~~ — resolved: both are destructive. Per-card **Delete** filters the card
    out of the deck and remembers it in `reveal:removed` (§10.6, §11); the confirmed **Reset deck**
-   button below the grid clears `reveal:collection` **and** `reveal:removed` (§11). Cards reflow
+   button above the grid clears `reveal:collection` **and** `reveal:removed` (§11). Cards reflow
    without animation for now; a minimal CSS reflow transition can be added later without a layout
    change.
 3. **Attribution granularity** — seed gives `wikipediaUrl` (English Wikipedia), not Wikimedia
@@ -768,7 +773,7 @@ seeding beyond this list, no randomization.
 - Replay opens that link; Share copies it.
 - **Delete** on a solved card removes that tile from the wall immediately, the following cards reflow
   into the gap, and a reload keeps it deleted (`reveal:removed`) — the collection entry is gone too.
-- **Reset deck** appears below the grid while anything is revealed or deleted; confirming it empties
+- **Reset deck** appears above the grid while anything is revealed or deleted; confirming it empties
   both `reveal:collection` and `reveal:removed` so the full 47-card deck in source order is `?`
   again (no per-card state survives); declining it changes nothing.
 - `npm run lint` + `npx oxfmt` / `npm run prettify` pass.
@@ -784,7 +789,7 @@ seeding beyond this list, no randomization.
 | Piece | State |
 |---|---|
 | `src/client/reveal/index.html` | Done — theme bootstrap, single light-DOM prose panel (How to play + FAQ, two columns ≥600px) with JS-free language tabs (en/ko/tr/zh/vi/es, all translated), hidden `<ul id="challenge-data">` (47 entries) and the placeholder `<ul id="pokemon-data">` deck (§6.5), site-links footer. |
-| `src/client/reveal/reveal.js` | Done — header islands, deck switch on the title row (`reveal:deck`, titles `Pot & Reveal` / `PokePot`), dense grid; single flip card per entry (front: `?` plus 1–5 stars or picture, back: Play, or the name as a Wikipedia link plus Share/Delete/Replay corner buttons); lobby presence, cross-deck return handling, silent-failure logging. |
+| `src/client/reveal/reveal.js` | Done — header islands, deck switch above the grid (`reveal:deck`, titles `Pot & Reveal` / `PokePot`), dense grid; single flip card per entry (front: `?` plus 1–5 stars or picture, back: Play, or the name as a Wikipedia link plus Share/Delete/Replay corner buttons); lobby presence, cross-deck return handling, silent-failure logging. |
 | `revealGameUrl()` (`src/client/utils.js`) | Done — adds `reds=clamp(round(rating * 15), 1, 15)` to the launch URL. |
 | `revealReplayUrl({ imageUrl, state })` (`src/client/utils.js`) | Done — builds the game's replay link from the stored state. |
 | `?state=` persistence + replay link on the card | Done — stored in `reveal:collection`, derived link used by Replay/Share. |
