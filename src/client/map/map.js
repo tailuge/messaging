@@ -7,6 +7,7 @@ import { logUsage } from "../logusage.js";
 
 logUsage("map");
 import { userStore } from "../user-store.js";
+import { soloUrl } from "../utils.js";
 
 // Build the game URL for a map club. Mirrors the params revealGameUrl/soloUrl use so that
 // userName, userId, lod, flip and all custom.* keys come from the user's stored settings.
@@ -14,34 +15,23 @@ import { userStore } from "../user-store.js";
 // wall plaque portrait shows 🇯🇵 regardless of the player's locale — unless the club passes
 // its own `emoji` (from data-emoji) to use instead. An optional `tableSize` is forwarded as
 // a real game option; it is not shown in any list — it lives only in this launch URL.
-export function mapGameUrl({ raceTo, clubId, clubJapaneseName, emoji, tableSize }) {
-    const BASE = (() => {
-        const local = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-        return local ? `http://${window.location.hostname}:8080/` : "https://billiards.tailuge.workers.dev/";
-    })();
-
+export function mapGameUrl({ raceTo, clubId, clubJapaneseName, emoji, tableSize } = {}) {
     const custom = { ...userStore.getCustom(), emoji: emoji || "\u{1F1EF}\u{1F1F5}" };
+    const options = {
+        raceTo,
+        club: clubId,
+        clubName: clubJapaneseName,
+    };
+    if (tableSize) options.tableSize = tableSize;
 
-    // Flatten custom.* into &custom.key=value pairs (matches the logic in utils.js appendCustom).
-    const customParams = Object.entries(custom)
-        .filter(([, v]) => v !== undefined && v !== null)
-        .map(([k, v]) => `custom.${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-        .join("&");
-
-    let url =
-        `${BASE}?ruletype=threecushion` +
-        `&raceTo=${raceTo}` +
-        (tableSize ? `&tableSize=${encodeURIComponent(tableSize)}` : "") +
-        `&club=${encodeURIComponent(clubId)}` +
-        `&clubName=${encodeURIComponent(clubJapaneseName)}` +
-        `&userId=${encodeURIComponent(userStore.clientId)}` +
-        `&userName=${encodeURIComponent(userStore.userName)}` +
-        `&lod=${userStore.lod}`;
-
-    if (userStore.flip) url += "&flip=true";
-    if (customParams) url += `&${customParams}`;
-
-    return url;
+    return soloUrl(
+        { ruletype: "threecushion", options },
+        userStore.clientId,
+        userStore.userName,
+        userStore.lod,
+        userStore.flip,
+        custom
+    );
 }
 
 // Expose on window so the inline <script> (which runs before this deferred module) can call
