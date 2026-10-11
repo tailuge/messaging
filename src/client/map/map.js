@@ -10,15 +10,17 @@ import { userStore } from "../user-store.js";
 
 // Build the game URL for a map club. Mirrors the params revealGameUrl/soloUrl use so that
 // userName, userId, lod, flip and all custom.* keys come from the user's stored settings.
-// custom.emoji is always forced to the Japan flag, overriding whatever the user has stored,
-// so the wall plaque portrait shows 🇯🇵 regardless of the player's locale.
-export function mapGameUrl({ raceTo, clubId, clubJapaneseName }) {
+// custom.emoji defaults to the Japan flag, overriding whatever the user has stored, so the
+// wall plaque portrait shows 🇯🇵 regardless of the player's locale — unless the club passes
+// its own `emoji` (from data-emoji) to use instead. An optional `tableSize` is forwarded as
+// a real game option; it is not shown in any list — it lives only in this launch URL.
+export function mapGameUrl({ raceTo, clubId, clubJapaneseName, emoji, tableSize }) {
     const BASE = (() => {
         const local = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
         return local ? `http://${window.location.hostname}:8080/` : "https://billiards.tailuge.workers.dev/";
     })();
 
-    const custom = { ...userStore.getCustom(), emoji: "\u{1F1EF}\u{1F1F5}" };
+    const custom = { ...userStore.getCustom(), emoji: emoji || "\u{1F1EF}\u{1F1F5}" };
 
     // Flatten custom.* into &custom.key=value pairs (matches the logic in utils.js appendCustom).
     const customParams = Object.entries(custom)
@@ -29,6 +31,7 @@ export function mapGameUrl({ raceTo, clubId, clubJapaneseName }) {
     let url =
         `${BASE}?ruletype=threecushion` +
         `&raceTo=${raceTo}` +
+        (tableSize ? `&tableSize=${encodeURIComponent(tableSize)}` : "") +
         `&club=${encodeURIComponent(clubId)}` +
         `&clubName=${encodeURIComponent(clubJapaneseName)}` +
         `&userId=${encodeURIComponent(userStore.clientId)}` +
