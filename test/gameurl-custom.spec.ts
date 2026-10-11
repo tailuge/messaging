@@ -9,6 +9,41 @@ jest.mock("lit", () => ({
     },
 }));
 
+const mockStorage = new Map<string, string>();
+const fakeLocalStorage = {
+    getItem: (k: string) => mockStorage.get(k) ?? null,
+    setItem: (k: string, v: string) => mockStorage.set(k, String(v)),
+    removeItem: (k: string) => mockStorage.delete(k),
+    clear: () => mockStorage.clear(),
+};
+
+(globalThis as any).localStorage = fakeLocalStorage;
+(globalThis as any).window = {
+    location: {
+        hostname: "localhost",
+        search: "",
+        href: "http://localhost/",
+    },
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    customElements: {
+        define: jest.fn(),
+        get: jest.fn(),
+    },
+    document: {
+        documentElement: { getAttribute: jest.fn(), setAttribute: jest.fn() },
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+    },
+};
+(globalThis as any).location = (globalThis as any).window.location;
+(globalThis as any).navigator = { userAgent: "node", languages: ["en-US"] };
+(globalThis as any).customElements = (globalThis as any).window.customElements;
+(globalThis as any).document = (globalThis as any).window.document;
+
+import { mapGameUrl } from "../src/client/map/map.js";
+import { userStore } from "../src/client/user-store.js";
+
 const BASE = {
     tableId: "table-1",
     userId: "alice",
@@ -155,5 +190,29 @@ describe("soloUrl custom flattening", () => {
             { cue: "1" },
         );
         expect(url).toBe("https://example.com/game");
+    });
+});
+
+describe("mapGameUrl custom flattening", () => {
+    it("flattens custom cue settings into custom.cue.* URL params", () => {
+        userStore.setCustom("cue", { shaftColour: "#d2b48c", length: "57" });
+        userStore.setCustom("skin", "blue");
+
+        const url = (mapGameUrl as any)({
+            raceTo: 10,
+            clubId: "tokyo",
+            clubJapaneseName: "東京",
+            emoji: "🇯🇵",
+        });
+
+        expect(param(url, "ruletype")).toBe("threecushion");
+        expect(param(url, "raceTo")).toBe("10");
+        expect(param(url, "club")).toBe("tokyo");
+        expect(param(url, "clubName")).toBe("東京");
+        expect(param(url, "custom.cue.shaftColour")).toBe("#d2b48c");
+        expect(param(url, "custom.cue.length")).toBe("57");
+        expect(param(url, "custom.skin")).toBe("blue");
+        expect(param(url, "custom.emoji")).toBe("🇯🇵");
+        expect(param(url, "custom.cue")).toBeNull();
     });
 });
