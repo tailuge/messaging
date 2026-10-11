@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 1232;
+export const CLIENTVERSION = 1234;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -195,6 +195,11 @@ export function getEmoji(origin = "", ruleType = "", status = "", options = {}, 
 	if (speedmap) return decorate({ emoji: speedmap.emoji+"👟", title: "speedrun" });
   }
 
+  if (ruleType.includes("-club")) {
+	const clubmap = ruleMap[ruleType.replace("-club","")];
+	if (clubmap) return decorate({ emoji: clubmap.emoji+"⛩️", title: "club" });
+  }
+
 
   // Map pages and map challenges: keep the underlying rule's icon and add the torii gate,
   // e.g. `threecushion-map` -> ③⛩️, or a bare `map` (the map page itself) -> ⛩️.
@@ -347,8 +352,17 @@ export const shortenUrl = async (url) => {
 };
 
 const RULE_ASSETS = { eightball: 'eightball', snooker: 'snooker', threecushion: 'threecushion', nineball: 'nineball', sagu: 'sagu' };
+const RULE_EMOJI = { eightball: '🎱', snooker: '🔴', threecushion: '③', nineball: '⑨', sagu: '④' };
+const RULE_SUFFIXES = { '-club': '⛩️', '-bot': '🤖', '-exam': '📜', '-speedrun': '👟' };
 export const ruleIcon = rule => {
     if (rule === "reveal") return html`<span title="reveal" aria-label="reveal">\u{1F0A1}</span>`;
+    for (const [suffix, badge] of Object.entries(RULE_SUFFIXES)) {
+        if (rule.endsWith(suffix)) {
+            const base = rule.slice(0, -suffix.length);
+            const emoji = RULE_EMOJI[base];
+            if (emoji) return html`<span title="${rule}" aria-label="${rule}">${emoji}${badge}</span>`;
+        }
+    }
     const name = RULE_ASSETS[rule];
     return name
         ? html`<img src="assets/${name}.png" alt="${rule}" title="${rule}" width="18" height="18" style="vertical-align:middle">`
