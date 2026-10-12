@@ -22,12 +22,27 @@ const replayLabel = m => {
 };
 
 // A map challenge can name the hall it was played for: the game adds an optional `club`
-// to the result it uploads. On those rows the torii replaces the rule icon rather than
-// sitting beside it - the run is a three-cushion game at one hall, so the gate says
-// something the ball does not. Older rows have no `club` and keep the plain rule icon.
+// to the result it uploads, holding the hall's own name (e.g. ビリヤード山手) rather than
+// an id. On those rows the torii replaces the rule icon rather than sitting beside it -
+// the run is a three-cushion game at one hall, so the gate says something the ball does
+// not. Older rows have no `club` and keep the plain rule icon.
 const ruleCell = m => typeof m.club === 'string' && m.club
     ? html`<span role="img" title="Map challenge at ${m.club}" aria-label="Map challenge at ${m.club}">⛩️</span>`
     : ruleIcon(m.ruleType);
+
+// The hall's name rides with the player who made the run, read as "player @ club" -
+// the pairing the game paints on the hall's wall plaque. Only the winner carries it: a
+// club challenge is a solo race to the target, so there is no second player.
+const clubTag = m => typeof m.club === 'string' && m.club ? ` @ ${m.club}` : '';
+
+// The Match column is capped at 8rem and ellipsises, which a Japanese hall name will
+// overflow, so club rows carry the whole pairing in a title. Rows without a club keep
+// their plain text, which fits.
+const matchText = m => {
+    const score = v => v != null ? ` (${v})` : '';
+    return m.winner + clubTag(m) + score(m.winnerScore)
+        + (m.loser ? ` vs ${m.loser}${score(m.loserScore)}` : '');
+};
 
 class InfoPanel extends StoreElement {
     static styles = INFO_PANEL_STYLES;
@@ -107,7 +122,7 @@ class InfoPanel extends StoreElement {
                         <div class="tbl"><table>
                         <tr><th>Rule</th><th>Match</th><th>Ago</th><th class="city-col">City</th><th></th></tr>
                             ${recentMatches.map(m => html`<tr>
-                                <td>${ruleCell(m)}</td><td>${m.arenaId ? '⚔️' : ''}${m.loser ? (m.tableSize != null && m.tableSize < 10 ? '🍼' : '🎖️') : ''}${m.freeaim === true ? '⌖' : ''}${m.berserk === true || m.berserk === 'true' ? '🚀' : ''}${m.winner}${m.winnerScore != null ? html`<span class="score">(${m.winnerScore})</span>` : ''}${m.loser ? html` vs ${m.loser}${m.loserScore != null ? html`<span class="score">(${m.loserScore})</span>` : ''}` : ''}</td>
+                                <td>${ruleCell(m)}</td><td title="${clubTag(m) ? matchText(m) : ''}">${m.arenaId ? '⚔️' : ''}${m.loser ? (m.tableSize != null && m.tableSize < 10 ? '🍼' : '🎖️') : ''}${m.freeaim === true ? '⌖' : ''}${m.berserk === true || m.berserk === 'true' ? '🚀' : ''}${m.winner}${clubTag(m)}${m.winnerScore != null ? html`<span class="score">(${m.winnerScore})</span>` : ''}${m.loser ? html` vs ${m.loser}${m.loserScore != null ? html`<span class="score">(${m.loserScore})</span>` : ''}` : ''}</td>
                                 <td class="ago">${timeAgo(m.timestamp)}</td>
                                 <td class="city-col">${m.locationCity ?? ''}</td>
 <td class="replay-col">
