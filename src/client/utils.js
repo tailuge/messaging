@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 1243;
+export const CLIENTVERSION = 1244;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
