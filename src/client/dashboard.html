@@ -464,6 +464,23 @@ table td {
         return div.innerHTML;
       }
 
+      function safeDecode(str) {
+        if (!str || typeof str !== "string") return str || "";
+        try {
+          const decoded = decodeURIComponent(str);
+          if (decoded !== str && decoded.includes("%")) {
+            try {
+              return decodeURIComponent(decoded);
+            } catch (e) {
+              return decoded;
+            }
+          }
+          return decoded;
+        } catch (e) {
+          return str;
+        }
+      }
+
       async function fetchOnlineUsers() {
         try {
           const response = await fetch("/api/online");
@@ -506,7 +523,7 @@ table td {
           tableBody.innerHTML = Object.entries(onlineUsers)
             .sort((a, b) => b[1] - a[1])
             .map(([userId, count]) => {
-              return `<tr><td>${escapeHtml(userId)}</td><td>${count}</td></tr>`;
+              return `<tr><td>${escapeHtml(safeDecode(userId))}</td><td>${count}</td></tr>`;
             })
             .join("");
         } else {
@@ -561,9 +578,10 @@ table td {
               .map(([ip, value]) => {
                 const parts = value.split("|");
                 const country = escapeHtml(parts[0] || "-");
-                const city = escapeHtml(parts[1] || "");
+                const city = escapeHtml(safeDecode(parts[1] || ""));
                 const hits = escapeHtml(parts[2] || "1");
-                const origins = escapeHtml(parts[3] || "-");
+                const originsArr = (parts[3] || "").split(",").map(s => safeDecode(s)).filter(Boolean);
+                const origins = escapeHtml(originsArr.join(", ") || "-");
                 const location = city ? city : "-";
                 return `<tr><td class="ip-col">${escapeHtml(ip)}</td><td>${country}</td><td>${location}</td><td>${hits}</td><td>${origins}</td></tr>`;
               })
@@ -584,7 +602,7 @@ table td {
               if (pipeIdx === -1) continue;
               const count = parseInt(entry.substring(0, pipeIdx)) || 1;
               const encodedRef = entry.substring(pipeIdx + 1);
-              const ref = decodeURIComponent(encodedRef);
+              const ref = safeDecode(encodedRef);
               aggregated[ref] = (aggregated[ref] || 0) + count;
             }
           }
@@ -607,7 +625,7 @@ table td {
             return countB - countA;
           });
           refTableBody.innerHTML = sorted
-            .map(([ref, count]) => `<tr><td class="count-col">${count}</td><td>${escapeHtml(ref)}</td></tr>`)
+            .map(([ref, count]) => `<tr><td class="count-col">${count}</td><td>${escapeHtml(safeDecode(ref))}</td></tr>`)
             .join("");
         } else {
           refTableBody.innerHTML =
@@ -616,22 +634,37 @@ table td {
 
         const uaTableBody = document.querySelector("#ua-table tbody");
         if (ipCacheEntries && Object.keys(ipCacheEntries).length > 0) {
-            const uaCounts = {};
+            const osData = {};
             for (const val of Object.values(ipCacheEntries)) {
                 const parts = val.split("|");
                 // Cache format: country|city|hits|origins|os|browser
-                const os = parts[4] || "Unknown";
-                const browser = parts[5] || "Unknown";
-                const key = os + "|" + browser;
-                uaCounts[key] = (uaCounts[key] || 0) + 1;
+                const os = safeDecode(parts[4] || "Unknown");
+                const browser = safeDecode(parts[5] || "Unknown");
+                if (!osData[os]) {
+                    osData[os] = { total: 0, browsers: {} };
+                }
+                osData[os].total += 1;
+                osData[os].browsers[browser] = (osData[os].browsers[browser] || 0) + 1;
             }
-            const sorted = Object.entries(uaCounts).sort((a, b) => b[1] - a[1]);
-            uaTableBody.innerHTML = sorted
-                .map(([key, count]) => {
-                    const [os, browser] = key.split("|");
-                    return `<tr><td>${escapeHtml(os)}</td><td>${escapeHtml(browser)}</td><td>${count}</td></tr>`;
-                })
-                .join("");
+            const sortedOS = Object.entries(osData).sort((a, b) => {
+                if (b[1].total !== a[1].total) {
+                    return b[1].total - a[1].total;
+                }
+                return a[0].localeCompare(b[0]);
+            });
+            const rows = [];
+            for (const [os, group] of sortedOS) {
+                const sortedBrowsers = Object.entries(group.browsers).sort((a, b) => {
+                    if (b[1] !== a[1]) {
+                        return b[1] - a[1];
+                    }
+                    return a[0].localeCompare(b[0]);
+                });
+                for (const [browser, count] of sortedBrowsers) {
+                    rows.push(`<tr><td>${escapeHtml(os)}</td><td>${escapeHtml(browser)}</td><td>${count}</td></tr>`);
+                }
+            }
+            uaTableBody.innerHTML = rows.join("");
         } else {
             uaTableBody.innerHTML =
                 '<tr><td colspan="3" style="text-align: center; color: var(--secondary-color);">No data available.</td></tr>';
@@ -643,7 +676,7 @@ table td {
             for (const val of Object.values(ipCacheEntries)) {
                 const parts = val.split("|");
                 const country = parts[0] || "XX";
-                const location = parts[1] || "";
+                const location = safeDecode(parts[1] || "");
                 if (!geoCounts[country]) {
                     geoCounts[country] = { count: 0, cities: new Set() };
                 }
@@ -653,7 +686,7 @@ table td {
             const sorted = Object.entries(geoCounts).sort((a, b) => b[1].count - a[1].count);
             geoTableBody.innerHTML = sorted
                 .map(([country, info]) => {
-                    const cities = [...info.cities].join(", ");
+                    const cities = [...info.cities].map(c => safeDecode(c)).join(", ");
                     return `<tr><td>${escapeHtml(country)}</td><td class="cities-col">${escapeHtml(cities || "-")}</td></tr>`;
                 })
                 .join("");
@@ -676,7 +709,8 @@ table td {
               const errorClass = isError ? "log-error" : "";
               const match = logLine.match(/^\d{4}\/\d{2}\/\d{2} (\d{2}:\d{2}:\d{2})/);
               const timestamp = match ? match[1] : "";
-              const message = logLine.replace(/^(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2})\s*\[.*?\]\s*/, "");
+              const rawMessage = logLine.replace(/^(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2})\s*\[.*?\]\s*/, "");
+              const message = escapeHtml(safeDecode(rawMessage));
               return `<tr class="${errorClass}"><td>${timestamp}</td><td>${message}</td></tr>`;
             })
             .join("");
@@ -720,7 +754,7 @@ table td {
 
         // Adapted regex for NGINX error log format:
         // 2024/01/15 10:30:00 [warn] 123#456: *789 js: presence_sub.. user123
-        const regex = /(\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2})\s+\[\w+\]\s+\d+#\d+:\s+\*(\d+)\s+js:\s+presence_(sub\.\.|unsub)\s+([a-zA-Z0-9-_]+)/g;
+        const regex = /(\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2})\s+\[\w+\]\s+\d+#\d+:\s+\*(\d+)\s+js:\s+presence_(sub\.\.|unsub)\s+(\S+)/g;
         const events = [];
         let match;
 
@@ -730,7 +764,7 @@ table td {
             timestamp: new Date(match[1].replace(/\//g, '-')).getTime(),
             connId: connId,
             action: match[3] === 'sub..' ? 'sub' : 'unsub',
-            user: match[4]
+            user: safeDecode(match[4])
           });
         }
 
@@ -763,7 +797,7 @@ table td {
           });
 
           const label = document.createElement('div');
-          label.innerText = username;
+          label.innerText = safeDecode(username);
           Object.assign(label.style, {
             width: '75px',
             overflow: 'hidden',
