@@ -12,6 +12,26 @@ export interface LobbyOptions {
   heartbeatInterval?: number;
   onReconnect?: () => void;
   onLeave?: () => void;
+  /**
+   * Invoked after an outgoing challenge offer is published. Fires for every
+   * human-originated offer (lobby and arena); bot challenges never reach the
+   * library. Not awaited, so it cannot block or fail the challenge.
+   */
+  onChallengeSent?: (challenge: {
+    challengeeId: string;
+    ruleType: string;
+    tableId: string;
+  }) => void | Promise<void>;
+  /**
+   * Invoked after an outgoing challenge accept is published, before the presence
+   * update. Fires for every human-originated accept (lobby and arena). Not
+   * awaited, so it cannot block or fail the accept.
+   */
+  onChallengeAccepted?: (challenge: {
+    challengerId: string;
+    ruleType: string;
+    tableId: string;
+  }) => void | Promise<void>;
 }
 
 /**
@@ -226,6 +246,24 @@ export class Lobby {
   }
 
   /**
+   * Invokes an optional hook without letting a throwing or rejecting callback
+   * affect the challenge flow. These callbacks are for analytics, so a failure
+   * is logged once and swallowed rather than surfaced to the caller.
+   */
+  private safeEmit(name: string, emit: () => void | Promise<void>): void {
+    try {
+      const result = emit();
+      if (result && typeof (result as Promise<void>).catch === "function") {
+        (result as Promise<void>).catch((e) =>
+          console.error(`[Lobby] ${name} hook failed:`, e),
+        );
+      }
+    } catch (e) {
+      console.error(`[Lobby] ${name} hook failed:`, e);
+    }
+  }
+
+  /**
    * Challenge another user to a game.
    * Returns the ID of the table created for the challenge.
    */
@@ -248,6 +286,12 @@ export class Lobby {
       nextTurnId,
       custom,
     });
+
+    // Centralised usage hook: fires for lobby and arena offers alike. A failing
+    // callback is logged, never surfaced, so analytics cannot break the challenge.
+    this.safeEmit("onChallengeSent", () =>
+      this.options.onChallengeSent?.({ challengeeId: userId, ruleType, tableId }),
+    );
     return tableId;
   }
 
@@ -277,6 +321,13 @@ export class Lobby {
       nextTurnId,
       custom,
     });
+
+    // Centralised usage hook: fired before the presence update so an analytics
+    // callback (e.g. a usage PUT) overlaps that round-trip and gets a head start
+    // before the caller redirects to the game.
+    this.safeEmit("onChallengeAccepted", () =>
+      this.options.onChallengeAccepted?.({ challengerId: userId, ruleType, tableId }),
+    );
 
     // Automatically update our presence to show we've joined the table
     await this.updatePresence({ tableId, ruleType, options });

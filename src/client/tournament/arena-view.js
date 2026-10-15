@@ -1,5 +1,5 @@
 import { LitElement, html, css } from 'lit';
-import { gameUrl, API_BASE, fetchArena } from '../utils.js';
+import { gameUrl, API_BASE, fetchArena, GAME_LAUNCH_DELAY_MS } from '../utils.js';
 import { THEME_VARS, SHARED_STYLES } from '../styles.js';
 import { userStore, isAnonymousName } from '../user-store.js';
 import './podium.js';
@@ -422,7 +422,8 @@ class ArenaView extends LitElement {
             custom: this._localCustom,
             opponent: { userId: msg.challengerId, userName: msg.challengerName || '', custom: msg.custom },
         });
-        window.location.href = url;
+        // Hold the redirect briefly so the accept usage PUT can leave the page.
+        setTimeout(() => { window.location.href = url; }, GAME_LAUNCH_DELAY_MS);
     }
 
     // ── Arena data ────────────────────────────────────────────────────────────

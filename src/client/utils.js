@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 1249;
+export const CLIENTVERSION = 1250;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -15,6 +15,11 @@ export const ACTIVE_PAGE = _localhost ? './active.html' : 'https://billiards-net
 
 export const API_BASE = _localhost ? '' : 'https://billiards-network.onrender.com';
 export const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel');
+
+// Small pause before a game redirect so an in-flight usage PUT (challenge/accept
+// counter) can reach the server before the page unloads. Deliberately tiny: it
+// only narrows the unload race, it does not eliminate it.
+export const GAME_LAUNCH_DELAY_MS = 250;
 
 // Shared in-flight fetch for GET /api/arena/:id. The arena panel header and
 // the arena view both need the same arena as they mount, so they share one

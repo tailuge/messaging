@@ -1,7 +1,7 @@
 import { LitElement, html } from 'lit';
 import { MessagingClient, activeGames } from '../index.ts';
 import { userStore } from './user-store.js';
-import { gameUrl, spectateUrl, flag, ACTIVE_PAGE, INITIAL_STATE, reduce, CLIENTVERSION, formatVersion, NCHANBASE } from './utils.js';
+import { gameUrl, spectateUrl, flag, ACTIVE_PAGE, INITIAL_STATE, reduce, CLIENTVERSION, formatVersion, NCHANBASE, GAME_LAUNCH_DELAY_MS } from './utils.js';
 import { logUsage } from './logusage.js';
 import { SHARED_STYLES, PLAYER_PANEL_STYLES } from './styles.js';
 import { UserSlotManager } from './user-slot-manager.js';
@@ -31,6 +31,7 @@ class OnlinePanel extends LitElement {
     #slotManager = new UserSlotManager();
     #autoChallenge = null;
     #settled = false;
+    #gameLaunchScheduled = false;
 
     constructor() {
         super();
@@ -218,10 +219,16 @@ class OnlinePanel extends LitElement {
 
     async     _connect() {
         this.#slotManager.reset();
-        this.#lobby = await this.#client.joinLobby({
-            messageType: 'presence', type: 'join',
-            userId: this.#myId, userName: this.#myName,
-        });
+        this.#lobby = await this.#client.joinLobby(
+            { messageType: 'presence', type: 'join', userId: this.#myId, userName: this.#myName },
+            {
+                // Counted centrally in the library so every human challenge/accept
+                // (lobby and arena) is recorded exactly once. Bot paths never call
+                // the library, so they are excluded automatically.
+                onChallengeSent: () => logUsage('createTable'),
+                onChallengeAccepted: () => logUsage('joinTable'),
+            },
+        );
         this.dispatchEvent?.(new CustomEvent('lobby-ready', { detail: this.#lobby, bubbles: true, composed: true }));
         this.dispatch({ type: 'CONNECTED', payload: true });
         this.#settled = false;
@@ -258,7 +265,6 @@ class OnlinePanel extends LitElement {
             return;
         }
         const tableId = this.#lobby ? await this.#lobby.challenge(userId, ruleType, options, nextTurnId, this.#localCustom) : 'test-' + Math.random().toString(36).slice(2, 7);
-        logUsage("createTable");
         this.dispatch({ type: 'CHALLENGE_SENT', payload: { challengerId: this.#myId, challengeeId: userId, recipientName: u?.userName || userId, ruleType, options, tableId, nextTurnId } });
     }
 
@@ -280,7 +286,6 @@ class OnlinePanel extends LitElement {
             opts['handicap_' + this.#myId] = myHandicap;
         }
         if (this.#lobby) await this.#lobby.acceptChallenge(c.challengerId, c.ruleType, c.tableId, opts, c.challengerName, nextTurnId, this.#localCustom);
-        logUsage("joinTable");
         this.dispatch({
             type: 'CHALLENGE_MSG',
             payload: {
@@ -339,12 +344,22 @@ class OnlinePanel extends LitElement {
         window.open(ACTIVE_PAGE + (qs ? '?' + qs : ''), '_blank', 'noopener');
     };
 
+    // Builds the game URL from the current match and navigates after a short
+    // delay (GAME_LAUNCH_DELAY_MS), so a usage PUT fired by the accept callback
+    // still gets a chance to reach the server before the page unloads. Guarded
+    // so repeated renders schedule only one launch.
+    #launchGame() {
+        if (this.#gameLaunchScheduled) return;
+        this.#gameLaunchScheduled = true;
+        const url = gameUrl({ tableId: this.#tableId, userId: this.#myId, userName: this.#myName, ruleType: this.#ruleType, isFirst: this.#isFirst, options: this.#matchOptions, lod: userStore.lod, flip: userStore.flip, custom: this.#localCustom, opponent: this.#opponentId ? { userId: this.#opponentId, userName: this.#opponentName, custom: this.#opponentCustom } : undefined });
+        this.#autoChallenge = null;
+        this.#state = { ...this.#state, currentMatch: null };
+        setTimeout(() => { window.location.href = url; }, GAME_LAUNCH_DELAY_MS);
+    }
+
     render() {
         if (this.#tableId) {
-            const url = gameUrl({ tableId: this.#tableId, userId: this.#myId, userName: this.#myName, ruleType: this.#ruleType, isFirst: this.#isFirst, options: this.#matchOptions, lod: userStore.lod, flip: userStore.flip, custom: this.#localCustom, opponent: this.#opponentId ? { userId: this.#opponentId, userName: this.#opponentName, custom: this.#opponentCustom } : undefined });
-            this.#autoChallenge = null;
-            this.#state = { ...this.#state, currentMatch: null };
-            window.location.href = url;
+            this.#launchGame();
             return html``;
         }
 
