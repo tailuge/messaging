@@ -67,6 +67,19 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
+    .chart-panel-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px 10px;
+      font-size: 0.7rem;
+    }
+    .chart-panel-links a {
+      color: #0055ff;
+      text-decoration: none;
+    }
+    .chart-panel-links a:hover {
+      text-decoration: underline;
+    }
     .chart-canvas {
       position: relative;
       flex: 1;
@@ -87,13 +100,15 @@
 
   <section class="chart-section">
     <div class="chart-panel">
-      <h2 class="chart-panel-title">Languages</h2>
+      <h2 class="chart-panel-title">Language Blogs</h2>
+      <nav class="chart-panel-links" id="lang-links" aria-label="Language pages"></nav>
       <div class="chart-canvas">
         <canvas id="lang-chart" aria-label="Usage by language"></canvas>
       </div>
     </div>
     <div class="chart-panel">
       <h2 class="chart-panel-title">Game Blogs</h2>
+      <nav class="chart-panel-links" id="game-links" aria-label="Blog pages"></nav>
       <div class="chart-canvas">
         <canvas id="game-chart" aria-label="Usage by game type"></canvas>
       </div>
@@ -262,24 +277,43 @@
       Plotly.newPlot(groupConfig.id, traces, layout, config)
     }
 
-    // Language and game-blog trends, ported from stats.html.
+    // Language and game-blog trends, ported from stats.html. The fourth entry
+    // of each series is the path of the page whose traffic is being measured;
+    // those pages live on the Cloudflare host and are linked from the panels.
+    const PUBLIC_HOST = "https://billiards.tailuge.workers.dev"
+
     const langSeries = [
-      ["chineseUsage", "Chinese", "#d33"],
-      ["koreanUsage", "Korean", "#36c"],
-      ["germanUsage", "German", "#393"],
-      ["turkishUsage", "Turkish", "#c83"],
-      ["vietnameseUsage", "Vietnamese", "#93c"],
-      ["japaneseUsage", "Japanese", "#653"],
-      ["spanishUsage", "Spanish", "#e67e22"],
-      ["dutchUsage", "Dutch", "#0891b2"],
+      ["chineseUsage", "Chinese", "#d33", "/chinese.html"],
+      ["koreanUsage", "Korean", "#36c", "/korean.html"],
+      ["germanUsage", "German", "#393", "/german.html"],
+      ["turkishUsage", "Turkish", "#c83", "/turkish.html"],
+      ["vietnameseUsage", "Vietnamese", "#93c", "/vietnamese.html"],
+      ["japaneseUsage", "Japanese", "#653", "/japanese.html"],
+      ["spanishUsage", "Spanish", "#e67e22", "/spanish.html"],
+      ["dutchUsage", "Dutch", "#0891b2", "/dutch.html"],
     ]
 
     const gameSeries = [
-      ["snookerUsage", "Snooker", "#8e44ad"],
-      ["nineballUsage", "Nine Ball", "#2563eb"],
-      ["eightballUsage", "Eight Ball", "#e5e7eb"],
-      ["mapUsage", "Map", "#f39c12"],
+      ["snookerUsage", "Snooker", "#8e44ad", "/snooker.html"],
+      ["nineballUsage", "Nine Ball", "#2563eb", "/nineball.html"],
+      ["eightballUsage", "Eight Ball", "#e5e7eb", "/eightball.html"],
+      ["mapUsage", "Map", "#f39c12", "/map/index.html"],
     ]
+
+    // Backlinks from each panel to the pages it measures.
+    function renderLinks(containerId, series) {
+      const container = document.getElementById(containerId)
+      if (!container) return
+
+      series.forEach(([, label, , path]) => {
+        const link = document.createElement("a")
+        link.href = `${PUBLIC_HOST}${path}`
+        link.textContent = label
+        link.target = "_blank"
+        link.rel = "noopener"
+        container.appendChild(link)
+      })
+    }
 
     function valuesByDate(values) {
       return Object.fromEntries(values.map((item) => [item.date, item.count]))
@@ -333,6 +367,9 @@
 
     async function plotUsageCharts() {
       try {
+        renderLinks("lang-links", langSeries)
+        renderLinks("game-links", gameSeries)
+
         const data = await getData("/api/usage")
 
         const langDates = makeDates(data, langSeries)
