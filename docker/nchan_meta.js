@@ -141,6 +141,46 @@ function mergeMeta(payload, meta) {
   return { data: payload, meta: meta };
 }
 
+function extractClientVersion(rawText) {
+  if (!rawText) return null;
+  const match = rawText.match(/"version"\s*:\s*"([^"]+)"/);
+  return match ? match[1] : null;
+}
+
+function injectMetaString(rawText, meta) {
+  const metaStr = JSON.stringify(meta);
+  const trimmed = rawText.trim();
+  if (/"meta"\s*:\s*\{/.test(trimmed)) {
+    // Replace existing top-level "meta": { ... }
+    const metaIdx = trimmed.indexOf('"meta"');
+    if (metaIdx !== -1) {
+      const startBrace = trimmed.indexOf('{', metaIdx);
+      if (startBrace !== -1) {
+        let depth = 0;
+        let endIdx = -1;
+        for (let i = startBrace; i < trimmed.length; i++) {
+          if (trimmed[i] === '{') depth++;
+          else if (trimmed[i] === '}') {
+            depth--;
+            if (depth === 0) { endIdx = i; break; }
+          }
+        }
+        if (endIdx !== -1) {
+          return trimmed.substring(0, metaIdx) + `"meta":${metaStr}` + trimmed.substring(endIdx + 1);
+        }
+      }
+    }
+  }
+  // Inject into JSON object
+  const lastBrace = trimmed.lastIndexOf('}');
+  if (lastBrace === -1) return rawText;
+  const content = trimmed.substring(1, lastBrace).trim();
+  if (content.length === 0) {
+    return `{"meta":${metaStr}}`;
+  }
+  return trimmed.substring(0, lastBrace) + `,"meta":${metaStr}}`;
+}
+
 function incrementStat(key, delta) {
   if (typeof delta === "undefined") delta = 1;
   const stats = ngx.shared.system_stats;
@@ -156,23 +196,23 @@ function getStatsSnapshot(keys) {
 }
 
 async function publish(r) {
-  let parsed = null;
-  let isJson = false;
-  if (r.requestText && r.requestText.length > 0) {
-    try { parsed = JSON.parse(r.requestText); isJson = true; } catch (e) { isJson = false; }
-  }
+  const reqText = r.requestText || "";
+  const isJson = reqText.length > 0 && reqText.trim().startsWith("{");
   if (!isJson) {
-    const res = await r.subrequest("/internal" + r.uri, { method: r.method, body: r.requestText || "" });
+    const res = await r.subrequest("/internal" + r.uri, { method: r.method, body: reqText });
     r.return(res.status, res.responseText);
     return;
   }
   const meta = await buildMeta(r);
-  const enriched = mergeMeta(parsed, meta);
-  const body = JSON.stringify(enriched);
+  const clientVersion = extractClientVersion(reqText);
+  if (clientVersion) {
+    meta.version = clientVersion;
+  }
+  const body = injectMetaString(reqText, meta);
   incrementStat("publish_requests_total");
-  if (enriched.messageType === "presence") {
+  if (reqText.includes('"messageType"') && reqText.includes('"presence"')) {
     incrementStat("presence_publish_total");
-    if (enriched.type === "leave") incrementStat("presence_leave_total");
+    if (reqText.includes('"type"') && reqText.includes('"leave"')) incrementStat("presence_leave_total");
   }
   const res = await r.subrequest("/internal" + r.uri, { method: r.method, body: body });
   r.headersOut["Content-Type"] = "application/json";
