@@ -2,7 +2,12 @@ import { LitElement, html, css } from "lit";
 import { THEME_VARS, SHARED_STYLES } from "../styles.js";
 import { userStore } from "../user-store.js";
 import { revealGameUrl, revealReplayUrl, shortenUrl, shareOrCopy } from "../utils.js";
+import { logUsage } from "../logusage.js";
 import "../topbar.js";
+
+// One page view per load, recorded from the module's top level the way the map page does, so
+// every way in (a bare visit, a shared ?mode= link, a deck switch) counts once for "reveal".
+logUsage("reveal");
 
 const STORAGE_KEY = "reveal:collection";
 const REMOVED_KEY = "reveal:removed";

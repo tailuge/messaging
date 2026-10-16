@@ -14,7 +14,12 @@ async function hello(r) {
     r.return(200, "hello\n");
 }
 
-const USAGE_KEYS = ["chineseUsage", "koreanUsage", "germanUsage", "turkishUsage", "vietnameseUsage", "japaneseUsage", "spanishUsage", "dutchUsage", "snookerUsage", "nineballUsage", "eightballUsage", "mapUsage"];
+// Every metric the usage dashboard charts: the language pages, the game/blog
+// pages (map, reveal), and the activity counters (lobby traffic, game activity,
+// challenges, accepts). GET /api/usage returns them all in one response, which
+// is cached for an hour as a single summary_cache entry below, so a dashboard
+// load costs one cached read instead of one backend read per metric.
+const USAGE_KEYS = ["chineseUsage", "koreanUsage", "germanUsage", "turkishUsage", "vietnameseUsage", "japaneseUsage", "spanishUsage", "dutchUsage", "snookerUsage", "nineballUsage", "eightballUsage", "mapUsage", "revealUsage", "lobbyUsage", "gameUsage", "createTableUsage", "joinTableUsage"];
 const USAGE_METRIC_RE = /^[a-zA-Z0-9_-]+$/;
 // Daily counts only change once a day, so the usage dashboard reads are cached
 // for an hour via an explicit per-entry TTL overriding summary_cache's 30s zone
@@ -88,17 +93,31 @@ function normalizeUsage(result) {
 }
 
 async function usageStats(r) {
+    // One entry for the whole set, so the dashboard's single fetch is served
+    // from the shared dict for USAGE_CACHE_TTL_MS and only a miss reaches
+    // Upstash. Counts change at most once a day, so the hour is invisible —
+    // there is deliberately no invalidation on write.
+    const cacheKey = "usage:all";
+    const cached = ngx.shared.summary_cache.get(cacheKey);
+    if (cached) return json(r, 200, JSON.parse(cached));
+
+    let results;
+    try {
+        // Every ZRANGE in one pipeline request rather than one round trip per
+        // key: this is the only place the whole set is read.
+        results = await redisPipeline(USAGE_KEYS.map(function (key) {
+            return ["ZRANGE", key, "0", "-1", "WITHSCORES"];
+        }));
+    } catch (e) {
+        logApi("usage fetch failed: " + (e && e.stack ? e.stack : e));
+        throw e;
+    }
+
     const data = {};
     for (let i = 0; i < USAGE_KEYS.length; i += 1) {
-        const key = USAGE_KEYS[i];
-        try {
-            const result = await redis("ZRANGE", key, "0", "-1", "WITHSCORES");
-            data[key] = normalizeUsage(result);
-        } catch (e) {
-            logApi("usage fetch failed key=" + key + ": " + (e && e.stack ? e.stack : e));
-            throw e;
-        }
+        data[USAGE_KEYS[i]] = normalizeUsage(results[i]);
     }
+    ngx.shared.summary_cache.set(cacheKey, JSON.stringify(data), USAGE_CACHE_TTL_MS);
     return json(r, 200, data);
 }
 

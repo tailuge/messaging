@@ -72,6 +72,26 @@
       flex: 1;
       min-height: 0;
     }
+    /* The pages the counters above are measured on: one-word links, in a
+       footer so they stay clear of the charts. Absolute URLs on the Cloudflare
+       host that serves those pages, not this dashboard's host. */
+    .source-pages {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 4px 14px;
+      margin-top: 20px;
+      border-top: 1px solid #333;
+      padding-top: 10px;
+      font-size: 0.7rem;
+    }
+    .source-pages a {
+      color: #0055ff;
+      text-decoration: none;
+    }
+    .source-pages a:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 
@@ -87,7 +107,7 @@
 
   <section class="chart-section">
     <div class="chart-panel">
-      <h2 class="chart-panel-title">Languages</h2>
+      <h2 class="chart-panel-title">Language Blogs</h2>
       <div class="chart-canvas">
         <canvas id="lang-chart" aria-label="Usage by language"></canvas>
       </div>
@@ -99,6 +119,24 @@
       </div>
     </div>
   </section>
+
+  <footer class="source-pages" aria-label="Measured pages">
+    <a href="https://billiards.tailuge.workers.dev/chinese.html" target="_blank" rel="noopener">Chinese</a>
+    <a href="https://billiards.tailuge.workers.dev/korean.html" target="_blank" rel="noopener">Korean</a>
+    <a href="https://billiards.tailuge.workers.dev/german.html" target="_blank" rel="noopener">German</a>
+    <a href="https://billiards.tailuge.workers.dev/turkish.html" target="_blank" rel="noopener">Turkish</a>
+    <a href="https://billiards.tailuge.workers.dev/vietnamese.html" target="_blank" rel="noopener">Vietnamese</a>
+    <a href="https://billiards.tailuge.workers.dev/japanese.html" target="_blank" rel="noopener">Japanese</a>
+    <a href="https://billiards.tailuge.workers.dev/spanish.html" target="_blank" rel="noopener">Spanish</a>
+    <a href="https://billiards.tailuge.workers.dev/dutch.html" target="_blank" rel="noopener">Dutch</a>
+    <a href="https://billiards.tailuge.workers.dev/snooker.html" target="_blank" rel="noopener">Snooker</a>
+    <a href="https://billiards.tailuge.workers.dev/nineball.html" target="_blank" rel="noopener">Nineball</a>
+    <a href="https://billiards.tailuge.workers.dev/eightball.html" target="_blank" rel="noopener">Eightball</a>
+    <a href="https://billiards.tailuge.workers.dev/map/index.html" target="_blank" rel="noopener">Map</a>
+    <a href="https://billiards.tailuge.workers.dev/reveal/" target="_blank" rel="noopener">Reveal</a>
+    <a href="https://billiards.tailuge.workers.dev/lobby" target="_blank" rel="noopener">Lobby</a>
+    <a href="https://billiards.tailuge.workers.dev/" target="_blank" rel="noopener">Game</a>
+  </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0"></script>
 
@@ -139,8 +177,20 @@
       container.id = group.id
       container.className = "chart-container"
       chartGrid.appendChild(container)
-      plotGroup(group)
     })
+
+    // One fetch feeds every panel on the page: the Plotly groups, the language
+    // chart and the game-blog chart all read the same aggregate response, which
+    // the server caches for an hour.
+    async function loadUsage() {
+      try {
+        const data = await getData("/api/usage")
+        GROUPS.forEach((group) => plotGroup(group, data))
+        plotUsageCharts(data)
+      } catch (error) {
+        console.error(`Could not load usage charts: ${error.message}`)
+      }
+    }
 
     async function getData(url) {
       const response = await fetch(url)
@@ -175,29 +225,27 @@
       })
     }
 
-    async function plotGroup(groupConfig) {
-      const traces = await Promise.all(
-        groupConfig.metrics.map(async (metric) => {
-          const rawData = await getData(`/api/usage/${metric.id}`)
-          const data = rawData
-            .map((d) => ({ date: d.date, count: Number(d.count) }))
-            .sort((a, b) => new Date(a.date) - new Date(b.date))
+    function plotGroup(groupConfig, usage) {
+      const traces = groupConfig.metrics.map((metric) => {
+        const key = `${metric.id}Usage`
+        const data = (Array.isArray(usage[key]) ? usage[key] : [])
+          .map((d) => ({ date: d.date, count: Number(d.count) }))
+          .sort((a, b) => new Date(a.date) - new Date(b.date))
 
-          const points =
-            groupConfig.id === SMOOTHED_GROUP_ID
-              ? movingAverage(data, SMOOTHING_WINDOW)
-              : data
+        const points =
+          groupConfig.id === SMOOTHED_GROUP_ID
+            ? movingAverage(data, SMOOTHING_WINDOW)
+            : data
 
-          return {
-            x: points.map((d) => d.date),
-            y: points.map((d) => d.count),
-            name: metric.label,
-            type: "scatter",
-            mode: "lines",
-            line: { color: metric.color, width: 2 },
-          }
-        })
-      )
+        return {
+          x: points.map((d) => d.date),
+          y: points.map((d) => d.count),
+          name: metric.label,
+          type: "scatter",
+          mode: "lines",
+          line: { color: metric.color, width: 2 },
+        }
+      })
 
       const layout = {
         title: {
@@ -262,7 +310,8 @@
       Plotly.newPlot(groupConfig.id, traces, layout, config)
     }
 
-    // Language and game-blog trends, ported from stats.html.
+    // Language and game-blog trends, read from the same aggregate response as
+    // the activity panels above.
     const langSeries = [
       ["chineseUsage", "Chinese", "#d33"],
       ["koreanUsage", "Korean", "#36c"],
@@ -279,6 +328,7 @@
       ["nineballUsage", "Nine Ball", "#2563eb"],
       ["eightballUsage", "Eight Ball", "#e5e7eb"],
       ["mapUsage", "Map", "#f39c12"],
+      ["revealUsage", "Reveal", "#2dd4bf"],
     ]
 
     function valuesByDate(values) {
@@ -331,36 +381,30 @@
       },
     }
 
-    async function plotUsageCharts() {
-      try {
-        const data = await getData("/api/usage")
+    function plotUsageCharts(data) {
+      const langDates = makeDates(data, langSeries)
+      const gameDates = makeDates(data, gameSeries)
 
-        const langDates = makeDates(data, langSeries)
-        const gameDates = makeDates(data, gameSeries)
+      new Chart(document.getElementById("lang-chart"), {
+        type: "line",
+        data: {
+          labels: langDates,
+          datasets: makeDatasets(data, langSeries, langDates),
+        },
+        options: chartDefaults,
+      })
 
-        new Chart(document.getElementById("lang-chart"), {
-          type: "line",
-          data: {
-            labels: langDates,
-            datasets: makeDatasets(data, langSeries, langDates),
-          },
-          options: chartDefaults,
-        })
-
-        new Chart(document.getElementById("game-chart"), {
-          type: "line",
-          data: {
-            labels: gameDates,
-            datasets: makeDatasets(data, gameSeries, gameDates),
-          },
-          options: chartDefaults,
-        })
-      } catch (error) {
-        console.error(`Could not load usage charts: ${error.message}`)
-      }
+      new Chart(document.getElementById("game-chart"), {
+        type: "line",
+        data: {
+          labels: gameDates,
+          datasets: makeDatasets(data, gameSeries, gameDates),
+        },
+        options: chartDefaults,
+      })
     }
 
-    plotUsageCharts()
+    loadUsage()
   </script>
 </body>
 
