@@ -5,6 +5,7 @@ import path from "path";
 describe("Dashboard UI Unit Tests", () => {
   let safeDecode: (str: string) => string;
   let updateUIFunction: Function;
+  let updateOnlineUsersFunction: Function;
   let mockDocument: any;
 
   beforeEach(() => {
@@ -69,12 +70,13 @@ describe("Dashboard UI Unit Tests", () => {
 
     const contextFunc = new Function("document", "fetchStats", `
       ${scriptContent.replace("fetchStats();", "")}
-      return { safeDecode, updateUI };
+      return { safeDecode, updateUI, updateOnlineUsersUI };
     `);
 
     const exports = contextFunc(mockDocument, () => {});
     safeDecode = exports.safeDecode;
     updateUIFunction = exports.updateUI;
+    updateOnlineUsersFunction = exports.updateOnlineUsersUI;
   });
 
   test("safeDecode correctly decodes URI components and handles double encoding and invalid input", () => {
@@ -84,6 +86,47 @@ describe("Dashboard UI Unit Tests", () => {
     expect(safeDecode(encodeURIComponent(sample))).toBe(expected);
     expect(safeDecode("plain-username")).toBe("plain-username");
     expect(safeDecode("%invalid%uri%")).toBe("%invalid%uri%");
+  });
+
+  test("online users (array shape from /api/online) render as decoded user ids in a single column", () => {
+    updateOnlineUsersFunction([
+      "%EC%A3%BC%EB%B2%BC%EB%A6%AC-o3dp9",
+      "Luke-84gqc",
+      "user-rd1z4",
+    ]);
+
+    const head = mockDocument.getElementById("online-users-head").innerHTML;
+    expect(head).toBe("<tr><th>User ID</th></tr>");
+    expect(head).not.toContain("Connections");
+
+    const body = mockDocument.getElementById("online-users-tbody").innerHTML;
+    expect(body).toContain(`<td>${decodeURIComponent("%EC%A3%BC%EB%B2%BC%EB%A6%AC-o3dp9")}</td>`);
+    expect(body).toContain("<td>Luke-84gqc</td>");
+    expect(body).toContain("<td>user-rd1z4</td>");
+    expect(body).not.toContain("%EC%A3%BC");
+    expect(body).not.toContain("<td>0</td>");
+
+    expect(mockDocument.getElementById("online-users-count").textContent).toBe("(3)");
+  });
+
+  test("online users (object shape with counts) keep the Connections column", () => {
+    updateOnlineUsersFunction({ "%EA%B0%80-1": 2, "Luke-84gqc": 1 });
+
+    expect(mockDocument.getElementById("online-users-head").innerHTML).toBe(
+      '<tr><th>User ID</th><th class="count-col">Connections</th></tr>'
+    );
+    expect(mockDocument.getElementById("online-users-tbody").innerHTML).toBe(
+      '<tr><td>가-1</td><td class="count-col">2</td></tr>' +
+        '<tr><td>Luke-84gqc</td><td class="count-col">1</td></tr>'
+    );
+  });
+
+  test("empty online users render the placeholder spanning the visible columns", () => {
+    updateOnlineUsersFunction([]);
+    expect(mockDocument.getElementById("online-users-tbody").innerHTML).toContain(
+      'colspan="1"'
+    );
+    expect(mockDocument.getElementById("online-users-count").textContent).toBe("(0)");
   });
 
   test("OS and Browser section groups by OS and sorts correctly", () => {

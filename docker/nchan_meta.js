@@ -72,6 +72,34 @@ function reduceOrigin(origin) {
   return origin;
 }
 
+// A user agent that has to be stored in the ip_cache value: "|" delimits the
+// cache fields and the dashboard splits the value on it, so it can never
+// survive here; newlines would break the value's readability; the length cap
+// keeps a single entry from eating a large chunk of the 1M shared dict.
+function cacheSafeUA(ua) {
+  if (!ua) return "";
+  return ua.replace(/[|\r\n]+/g, " ").replace(/\s+/g, " ").trim().substring(0, 200);
+}
+
+// Cache format: country|city|hits|origins|os|browser. A field that parseUA()
+// could not classify keeps the raw user agent instead of the "Unknown" keyword,
+// so unclassified traffic stays diagnosable and the regexes in parseUA() can be
+// improved from real hits (the dashboard renders these fields verbatim).
+function classifyForCache(parsedUA, ua) {
+  // With no user agent at all there is nothing to retain, so the "Unknown"
+  // keyword stays in that case.
+  var fallback = cacheSafeUA(ua);
+  return {
+    os: parsedUA.os === "Unknown" && fallback ? fallback : parsedUA.os,
+    browser: parsedUA.browser === "Unknown" && fallback ? fallback : parsedUA.browser,
+  };
+}
+
+function formatCacheValue(country, city, count, origins, parsedUA, ua) {
+  var classified = classifyForCache(parsedUA, ua);
+  return `${country}|${city}|${count}|${origins}|${classified.os}|${classified.browser}`;
+}
+
 function createMessageId() {
   return "xxxxxx".replace(/x/g, function () {
     return Math.floor(Math.random() * 16).toString(16);
@@ -96,7 +124,8 @@ async function buildMeta(r) {
   const obfuscatedIp = obfuscateIp(ip);
   const cache = ngx.shared.ip_cache;
   const origin = reduceOrigin(r.headersIn.origin || "");
-  const parsedUA = parseUA(r.headersIn["user-agent"] || "");
+  const ua = r.headersIn["user-agent"] || "";
+  const parsedUA = parseUA(ua);
   const cached = cache.get(obfuscatedIp);
 
   if (cached) {
@@ -111,7 +140,7 @@ async function buildMeta(r) {
       originsArr.push(obfuscatedOrigin);
       origins = originsArr.join(",");
     }
-    cache.set(obfuscatedIp, `${country}|${city}|${count + 1}|${origins}|${parsedUA.os}|${parsedUA.browser}`, 86400000);
+    cache.set(obfuscatedIp, formatCacheValue(country, city, count + 1, origins, parsedUA, ua), 86400000);
     return createMeta(r, country, city);
   }
 
@@ -130,7 +159,7 @@ async function buildMeta(r) {
   }
 
   const obfuscatedOrigin = origin ? obfuscateOrigin(origin) : "";
-  cache.set(obfuscatedIp, `${country}|${city}|1|${obfuscatedOrigin}|${parsedUA.os}|${parsedUA.browser}`, 86400000);
+  cache.set(obfuscatedIp, formatCacheValue(country, city, 1, obfuscatedOrigin, parsedUA, ua), 86400000);
   return createMeta(r, country, city);
 }
 

@@ -293,20 +293,21 @@ table td {
 
         <div class="card">
           <header style="margin-bottom: 5px;">
-            <h3 style="margin: 0;">Online Users (via sub/unsub)</h3>
+            <h3 style="margin: 0;">Online Users (via sub/unsub)
+              <span id="online-users-count" style="color: var(--secondary-color)"></span>
+            </h3>
             <button onclick="fetchOnlineUsers()">Refresh List</button>
           </header>
           <div id="online-users-info">
             <table id="online-users-table">
-              <thead>
+              <thead id="online-users-head">
                 <tr>
                   <th>User ID</th>
-                  <th>Connections</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td colspan="2" style="text-align: center; color: var(--secondary-color)">
+                  <td colspan="1" style="text-align: center; color: var(--secondary-color)">
                     No online users data available.
                   </td>
                 </tr>
@@ -517,17 +518,63 @@ table td {
         }
       }
 
+      // /api/online and /api/stats both return the online users as an array of
+      // user ids (the keys of the online_users shared dict). An object map of
+      // userId -> connection count is still accepted for compatibility, but the
+      // "Connections" column is only rendered when counts are actually present.
+      function normalizeOnlineUsers(onlineUsers) {
+        if (Array.isArray(onlineUsers)) {
+          return onlineUsers.map((user) => ({
+            userId:
+              typeof user === "string"
+                ? user
+                : String((user && (user.userId || user.id)) || ""),
+            connections: null,
+          }));
+        }
+        if (onlineUsers && typeof onlineUsers === "object") {
+          return Object.entries(onlineUsers).map(([userId, count]) => ({
+            userId: userId,
+            connections: Number.isFinite(Number(count)) ? Number(count) : null,
+          }));
+        }
+        return [];
+      }
+
       function updateOnlineUsersUI(onlineUsers) {
+        const countLabel = document.getElementById("online-users-count");
+        const tableHead = document.getElementById("online-users-head");
         const tableBody = document.querySelector("#online-users-table tbody");
-        if (onlineUsers && Object.keys(onlineUsers).length > 0) {
-          tableBody.innerHTML = Object.entries(onlineUsers)
-            .sort((a, b) => b[1] - a[1])
-            .map(([userId, count]) => {
-              return `<tr><td>${escapeHtml(safeDecode(userId))}</td><td>${count}</td></tr>`;
+        const users = normalizeOnlineUsers(onlineUsers)
+          .map((user) => ({ ...user, userId: safeDecode(user.userId) }))
+          .filter((user) => user.userId !== "");
+        const showConnections = users.some((user) => user.connections !== null);
+
+        if (showConnections) {
+          users.sort((a, b) => b.connections - a.connections);
+        } else {
+          users.sort((a, b) => a.userId.localeCompare(b.userId));
+        }
+
+        if (countLabel) countLabel.textContent = `(${users.length})`;
+        if (tableHead) {
+          tableHead.innerHTML = showConnections
+            ? '<tr><th>User ID</th><th class="count-col">Connections</th></tr>'
+            : '<tr><th>User ID</th></tr>';
+        }
+
+        const columns = showConnections ? 2 : 1;
+        if (users.length > 0) {
+          tableBody.innerHTML = users
+            .map((user) => {
+              const countCell = showConnections
+                ? `<td class="count-col">${escapeHtml(String(user.connections))}</td>`
+                : "";
+              return `<tr><td>${escapeHtml(user.userId)}</td>${countCell}</tr>`;
             })
             .join("");
         } else {
-          tableBody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--secondary-color);">No online users.</td></tr>';
+          tableBody.innerHTML = `<tr><td colspan="${columns}" style="text-align: center; color: var(--secondary-color);">No online users.</td></tr>`;
         }
       }
 
