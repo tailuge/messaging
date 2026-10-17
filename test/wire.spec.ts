@@ -29,8 +29,8 @@ describe("wire codec (P1 keys)", () => {
   it("uses short top-level and meta keys on the wire", () => {
     const parsed = JSON.parse(encodeWire(canonicalHeartbeat));
     expect(parsed).toEqual({
-      m: "presence",
-      t: "heartbeat",
+      m: "p",
+      t: "h",
       u: "user-vsa4a",
       n: "Anon-US",
       c: 1792215833126,
@@ -44,6 +44,48 @@ describe("wire codec (P1 keys)", () => {
         v: "v12.53",
       },
     });
+  });
+
+  it("codes challenge type values and decodes them back", () => {
+    const offer = { messageType: "challenge", type: "offer", challengerId: "a", challengerName: "A", challengeeId: "b", ruleType: "standard" };
+    const wire = JSON.parse(encodeWire(offer));
+    expect(wire).toMatchObject({ m: "c", t: "o" });
+    expect(JSON.parse(decodeWire(JSON.stringify(wire)))).toEqual(offer);
+  });
+
+  it("round-trips every presence and challenge type", () => {
+    for (const type of ["join", "heartbeat", "leave"]) {
+      const m = { messageType: "presence", type, userId: "u", userName: "n" };
+      expect(JSON.parse(decodeWire(encodeWire(m)))).toEqual(m);
+    }
+    for (const type of ["offer", "accept", "decline", "cancel"]) {
+      const m = { messageType: "challenge", type, challengerId: "a", challengerName: "A", challengeeId: "b", ruleType: "r" };
+      expect(JSON.parse(decodeWire(encodeWire(m)))).toEqual(m);
+    }
+  });
+
+  it("leaves unknown type values unchanged", () => {
+    const m = { messageType: "presence", type: "someNewType", userId: "u", userName: "n" };
+    const wire = JSON.parse(encodeWire(m));
+    expect(wire.t).toBe("someNewType");
+    expect(JSON.parse(decodeWire(encodeWire(m)))).toEqual(m);
+  });
+
+  it("decodes the P1 word form (m and t as words) unchanged", () => {
+    const p1 = '{"m":"presence","t":"heartbeat","u":"u1","n":"N"}';
+    expect(JSON.parse(decodeWire(p1))).toEqual({ messageType: "presence", type: "heartbeat", userId: "u1", userName: "N" });
+  });
+
+  it("does not decode a canonical type value that happens to be a code", () => {
+    // Canonical `type` (key "type") is never treated as a wire `t` code.
+    const canonical = { messageType: "presence", type: "h", userId: "u", userName: "n" };
+    expect(JSON.parse(decodeWire(JSON.stringify(canonical)))).toEqual(canonical);
+  });
+
+  it("round-trips chat messages with the coded messageType", () => {
+    const chat = { messageType: "chat", senderId: "a", recipientId: "b", text: "hi" };
+    expect(JSON.parse(encodeWire(chat)).m).toBe("m");
+    expect(JSON.parse(decodeWire(encodeWire(chat)))).toEqual(chat);
   });
 
   it("round-trips non-ASCII names, options, custom, seek and null opponent", () => {
@@ -84,14 +126,14 @@ describe("wire codec (P1 keys)", () => {
       meta: { ts: 5, msgId: "m1", origin: "/", country: "GB", city: "x", ua: "Chrome", version: "v1" },
     };
     const wire = JSON.parse(encodeWire(challenge));
-    expect(wire).toMatchObject({ m: "challenge", t: "offer", u: "a", n: "Alice", e: "b", r: "standard", T: "tbl", w: "a" });
+    expect(wire).toMatchObject({ m: "c", t: "o", u: "a", n: "Alice", e: "b", r: "standard", T: "tbl", w: "a" });
     expect(JSON.parse(decodeWire(JSON.stringify(wire)))).toEqual(challenge);
   });
 
   it("round-trips chat messages with sender/recipient roles", () => {
     const chat = { messageType: "chat", senderId: "a", recipientId: "b", text: "hi there" };
     const wire = JSON.parse(encodeWire(chat));
-    expect(wire).toEqual({ m: "chat", u: "a", e: "b", b: "hi there" });
+    expect(wire).toEqual({ m: "m", u: "a", e: "b", b: "hi there" });
     expect(JSON.parse(decodeWire(JSON.stringify(wire)))).toEqual(chat);
   });
 
@@ -127,13 +169,13 @@ describe("wire codec (P1 keys)", () => {
   });
 
   describe("golden sizes (payload.md §4, phase P1)", () => {
-    it("sample 1 heartbeat with meta.ts is exactly 185 bytes on the wire", () => {
-      expect(bytes(encodeWire(canonicalHeartbeat))).toBe(185);
+    it("sample 1 heartbeat with meta.ts is exactly 170 bytes on the wire (P1 + P2a)", () => {
+      expect(bytes(encodeWire(canonicalHeartbeat))).toBe(170);
     });
 
-    it("sample 1 heartbeat without meta.ts is 167 bytes", () => {
+    it("sample 1 heartbeat without meta.ts is 152 bytes (P1 + P2a)", () => {
       const { ts: _ts, ...meta } = canonicalHeartbeat.meta;
-      expect(bytes(encodeWire({ ...canonicalHeartbeat, meta }))).toBe(167);
+      expect(bytes(encodeWire({ ...canonicalHeartbeat, meta }))).toBe(152);
     });
   });
 });

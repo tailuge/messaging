@@ -110,6 +110,19 @@ run_test "Publish response: 2xx, empty body, CORS header" bash -c '
 	printf "%s\n" "$resp" | grep -qi "^access-control-allow-origin:"
 '
 
+run_test "Counters: compact presence leave increments presence_leave_total" bash -c '
+	count() { curl -fsS --max-time 5 "http://localhost/api/stats" | grep -o "\"presence_leave_total\":[0-9]*" | cut -d: -f2; }
+	before=$(count)
+	curl -fsS --max-time 5 -X POST -d "{\"m\":\"p\",\"t\":\"l\",\"u\":\"probe\"}" "http://localhost/publish/presence/lobby" >/dev/null
+	after=$(count)
+	echo "presence_leave_total before=$before after=$after"
+	[ -n "$before" ] && [ -n "$after" ] && [ "$after" -gt "$before" ]
+'
+
+# Server-generated leave on unsubscribe must use the compact form too.
+# Uses a WebSocket: nchan fires nchan_unsubscribe_request (-> presence_unsub) on WebSocket close, not on long-poll drop.
+run_test "Auto-leave on disconnect is compact" node "$SCRIPT_DIR/autoleave-check.mjs"
+
 run_test "Meta: Subscribe receives meta in published message" bash -c '
 	curl -fsS --max-time 5 "http://localhost/subscribe/presence/lobby" >/tmp/nchan-meta-sub.out &
 	SUB_PID=$!

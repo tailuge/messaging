@@ -1,10 +1,11 @@
 /**
- * Compact wire codec for lobby messages (payload.md, phase P1: keys only).
+ * Compact wire codec for lobby messages (payload.md, phases P1 + P2a).
  *
- * Top-level keys, the nested `seek` object and the `meta` object are renamed to
- * short codes. Values are not coded in P1. Keys and values with no table entry
- * pass through unchanged, so canonical frames from older publishers, server
- * auto-leaves and table-channel frames all decode to themselves.
+ * P1: top-level, `seek` and `meta` keys are renamed to short codes.
+ * P2a: `messageType` and the `type` values of presence/challenge messages are
+ * coded. Keys and values with no table entry pass through unchanged, so
+ * canonical frames from older publishers, server auto-leaves and table-channel
+ * frames all decode to themselves.
  *
  * `encodeWire` is applied to lobby publishes only. `decodeWire` is applied to
  * every inbound frame.
@@ -71,6 +72,38 @@ const ROLE_DECODE = new Map<string, Map<string, string>>([
   ],
 ]);
 
+/** Values of `messageType` (wire key `m`). */
+const MESSAGE_TYPE_ENCODE = new Map<string, string>([
+  ["presence", "p"],
+  ["challenge", "c"],
+  ["chat", "m"],
+]);
+const MESSAGE_TYPE_DECODE = invert(MESSAGE_TYPE_ENCODE);
+
+/** Values of `type` (wire key `t`), coded per messageType context. */
+const TYPE_ENCODE = new Map<string, Map<string, string>>([
+  [
+    "presence",
+    new Map([
+      ["join", "j"],
+      ["heartbeat", "h"],
+      ["leave", "l"],
+    ]),
+  ],
+  [
+    "challenge",
+    new Map([
+      ["offer", "o"],
+      ["accept", "a"],
+      ["decline", "d"],
+      ["cancel", "x"],
+    ]),
+  ],
+]);
+const TYPE_DECODE = new Map<string, Map<string, string>>(
+  [...TYPE_ENCODE].map(([mt, codes]) => [mt, invert(codes)]),
+);
+
 /** Keys inside `meta` (server-stamped and client-stamped alike). */
 const META_ENCODE = new Map<string, string>([
   ["ts", "t"],
@@ -101,10 +134,17 @@ function mapIfObj(v: unknown, map: Map<string, string>): unknown {
 
 /** Canonical lobby message -> compact JSON string. */
 export function encodeWire(msg: Obj): string {
+  const messageType = typeof msg.messageType === "string" ? msg.messageType : undefined;
+  const typeCodes = messageType !== undefined ? TYPE_ENCODE.get(messageType) : undefined;
+
   const out = Object.fromEntries(
     Object.entries(msg).map(([k, v]) => {
       const key = ROLE_ENCODE.get(k) ?? TOP_ENCODE.get(k) ?? k;
-      const value = k === "meta" ? mapIfObj(v, META_ENCODE) : k === "seek" ? mapIfObj(v, SEEK_ENCODE) : v;
+      let value: unknown = v;
+      if (k === "meta") value = mapIfObj(v, META_ENCODE);
+      else if (k === "seek") value = mapIfObj(v, SEEK_ENCODE);
+      else if (k === "messageType") value = MESSAGE_TYPE_ENCODE.get(v as string) ?? v;
+      else if (k === "type") value = typeCodes?.get(v as string) ?? v;
       return [key, value];
     }),
   );
@@ -124,13 +164,24 @@ export function decodeWire(raw: string): string {
   }
   if (!isObj(parsed)) return raw;
 
-  const messageType = typeof parsed.m === "string" ? parsed.m : parsed.messageType;
+  // Expand the messageType value first: it selects the role and type tables.
+  // Canonical words pass through because they are not codes.
+  const rawMessageType = parsed.m;
+  const messageType =
+    typeof rawMessageType === "string"
+      ? (MESSAGE_TYPE_DECODE.get(rawMessageType) ?? rawMessageType)
+      : parsed.messageType;
   const roles = typeof messageType === "string" ? ROLE_DECODE.get(messageType) : undefined;
+  const typeCodes = typeof messageType === "string" ? TYPE_DECODE.get(messageType) : undefined;
 
   const out = Object.fromEntries(
     Object.entries(parsed).map(([k, v]) => {
       const key = roles?.get(k) ?? TOP_DECODE.get(k) ?? k;
-      const value = k === "meta" ? mapIfObj(v, META_DECODE) : k === "s" ? mapIfObj(v, SEEK_DECODE) : v;
+      let value: unknown = v;
+      if (k === "meta") value = mapIfObj(v, META_DECODE);
+      else if (k === "s") value = mapIfObj(v, SEEK_DECODE);
+      else if (k === "m") value = typeof rawMessageType === "string" ? messageType : v;
+      else if (k === "t") value = typeCodes?.get(v as string) ?? v;
       return [key, value];
     }),
   );

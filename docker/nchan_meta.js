@@ -208,10 +208,11 @@ async function publish(r) {
   const body = injectMetaString(reqText, meta);
   incrementStat("publish_requests_total");
   // Legacy (canonical) and compact (P1) key forms are both counted.
-  const isPresence = (reqText.includes('"messageType"') || reqText.includes('"m":"presence"')) && reqText.includes('"presence"');
+  // Compact P2a values ("m":"p", "t":"l") and canonical words are both counted.
+  const isPresence = reqText.includes('"m":"p"') || reqText.includes('"messageType":"presence"');
   if (isPresence) {
     incrementStat("presence_publish_total");
-    if (/"(?:type|t)":"leave"/.test(reqText)) incrementStat("presence_leave_total");
+    if (reqText.includes('"t":"l"') || reqText.includes('"type":"leave"')) incrementStat("presence_leave_total");
   }
   const res = await r.subrequest("/internal" + r.uri, { method: r.method, body: body });
   // Publishers never read the body (NchanClient.publish checks response.ok
@@ -259,8 +260,13 @@ function presence_sub(r) {
   }
 }
 
-async function publish_auto_leave(r, publishPath, payload, ua) {
-  const enriched = Object.assign({}, payload, { meta: { ts: Date.now(), ua: ua, origin: "internal", msgId: createMessageId() } });
+// `compact` selects the compact wire form (payload.md P1/P2a): short meta keys.
+// Table leaves stay canonical (table channel is out of scope, §2.2).
+async function publish_auto_leave(r, publishPath, payload, ua, compact) {
+  const meta = compact
+    ? { t: Date.now(), i: createMessageId(), u: ua, o: "internal" }
+    : { ts: Date.now(), ua: ua, origin: "internal", msgId: createMessageId() };
+  const enriched = Object.assign({}, payload, { meta: meta });
   await r.subrequest(publishPath, { method: "POST", body: JSON.stringify(enriched) });
 }
 
@@ -293,7 +299,7 @@ async function table_unsub(r) {
 }
 
 async function publish_leave(r, userId) {
-  await publish_auto_leave(r, "/internal/publish/presence/lobby", { messageType: "presence", type: "leave", userId: userId }, "nchan-auto-leave");
+  await publish_auto_leave(r, "/internal/publish/presence/lobby", { m: "p", t: "l", u: userId }, "nchan-auto-leave", true);
 }
 
 async function presence_unsub(r) {

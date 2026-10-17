@@ -1,10 +1,10 @@
 # Compact wire payload
 
-> **Status (implemented, phase P1 keys only):** `src/wire.ts` (codec) wired into `NchanClient`; `docker/nchan_meta.js` emits compact meta keys (`t,i,u,o,c,y,v`), anchored `extractClientVersion`, dual-form counters, and `mergeMeta` removed. P1 keeps values as words, so the heartbeat measures 185 B with `meta.ts` and 167 B without it. P2a/P2b and §11.1 remain deferred.
+> **Status (implemented: P1 keys + P2a type codes):** `src/wire.ts` codec wired into `NchanClient`; `docker/nchan_meta.js` emits compact meta keys (`t,i,u,o,c,y,v`), anchored `extractClientVersion`, dual-form counters (`"m":"p"` / `"t":"l"` and canonical words), and `mergeMeta` removed. P2a codes `messageType` (`p`/`c`/`m`) and presence/challenge `type` values. Measured heartbeat: 170 B with `meta.ts` (152 B without). That is 15 B below P1 (185 B), not the 7 B the P2a row in §6 predicts. P2b (`meta.ts` ua codes) and §11.1 (positional meta) remain deferred.
 
 > Spec for shrinking nchan publish/subscribe payloads **without changing the library's public message types and without any server-side compression**.
 > Scope: the **lobby channel only** (presence, challenge, chat). Table-channel game messages are out of scope. Back-compat policy: **decode-side only** — see §6.
-> All byte figures are UTF-8 bytes of `JSON.stringify(msg)` (`Buffer.byteLength`), measured against the two live messages captured on 2026-10-17. This spec is implementation-ready; open decisions are flagged.
+> All byte figures are UTF-8 bytes of `JSON.stringify(msg)` (`Buffer.byteLength`), measured against the two live messages captured on 2026-10-17. P1 and P2a are implemented (see the status note at the top); P2b and §11.1 are deferred.
 
 ---
 
@@ -39,7 +39,7 @@ The lobby fan-out is the dominant bandwidth cost:
 
 ### 3.1 Codec boundary
 
-New module `src/wire.ts`. The whole codec is four lookup tables plus pass-through — no per-message branching on frame shape:
+New module `src/wire.ts`. The whole codec is lookup tables plus pass-through — no per-message branching on frame shape. Implemented in `src/wire.ts` (P1 + P2a; the tables there are `TOP_*`, `ROLE_*`, `META_*`, `SEEK_*`, `MESSAGE_TYPE_*` and `TYPE_*`). The `ua` table in §3.3 is not implemented:
 
 ```ts
 KEYS        // canonical -> wire: context-free top-level keys (§3.2)
@@ -49,7 +49,7 @@ META_KEYS   // canonical -> wire: keys inside meta (§3.4)
 VALUES      // canonical -> wire: value codes grouped by context — messageType,
             // presence type, challenge type, ua (§3.3)
 
-encodeWire(msg: CanonicalMessage): string  // canonical -> compact JSON
+encodeWire(msg: Record<string, unknown>): string  // canonical -> compact JSON (implemented)
 decodeWire(raw: string): string           // compact | canonical -> canonical JSON
 ```
 
@@ -60,6 +60,8 @@ decodeWire(raw: string): string           // compact | canonical -> canonical JS
 - `_recordedMessages` keeps the **raw** frame; the `recordedMessages` getter decodes lazily with the same `decodeWire`. The array is a mix of lobby and table frames: lobby frames are normalised, table frames pass through — canonical JSON either way (constraint 7).
 
 ### 3.2 Key table (top level)
+
+> **Status: implemented (P1)** — every row below is in `src/wire.ts`.
 
 | Canonical | Wire | Used by | Notes |
 |---|---|---|---|
@@ -84,6 +86,8 @@ decodeWire(raw: string): string           // compact | canonical -> canonical JS
 Role-based naming keeps the mapping small and unambiguous: `u`/`n` always describe the message's actor, `e` always the other party, so a challenge and a presence message share one vocabulary. On decode, `ROLE_KEYS` is resolved by `messageType`: challenge → `challengerId`/`challengerName`/`challengeeId`; presence → `userId`/`userName`/`opponentId`; chat → `senderId`/`recipientId`. (`data`/`d` and `senderId`-on-table are omitted: the table channel is out of scope, §2.2.)
 
 ### 3.3 Value codes
+
+> **Status:** `messageType` and presence/challenge `type` values are implemented (P2a). The `meta.ua` table is **deferred (P2b)** and is not in the code.
 
 `messageType`:
 
@@ -130,6 +134,8 @@ So `"macOS Safari"` → `"ms"`, `"Windows Chrome"` → `"wc"`, `"Linux Chrome"` 
 - **Fallback / literal path:** `reduceUA` strips `Unknown` before it reaches `meta`, so the values that actually arrive are: a full pair (`"macOS Safari"` → `ms`, `"Windows Chrome"` → `wc`), a single half (`"Chrome"`, `"macOS"` — the other half was `Unknown`), `"Tauri Tauri"` (`parseUA` sets *both* halves to `Tauri`, but the browser table has no code for it), or — when both halves are `Unknown` — the raw UA header verbatim. Everything that is not a known 2-char code is sent and decoded as a literal, so all of these round-trip unchanged. One strictly theoretical edge: a raw-UA fallback that happens to be exactly two characters matching a code (`"ms"`) would decode to the wrong string — real UA headers are tens of bytes; logged in §10.
 
 ### 3.4 `meta`
+
+> **Status: keys implemented (P1).** `meta.ua` keeps its long form until P2b.
 
 The key name stays `meta`:
 
@@ -273,9 +279,9 @@ Nchan stores one message and fans the **identical bytes** out to every subscribe
 | Step | Encoder / server | Heartbeat on the wire (§4 samples, with `meta.ts`) | Saving |
 |---|---|---|---|
 | 0 | canonical (today) | 243 B / 309 B | — |
-| **P1 keys** | top-level + `meta` key renames only — values stay words (`"m":"presence"`, `"u":"macOS Safari"`); server: §7.1 key names + §7.2 + §7.3 | **185 B / 238 B** | **−24% / −23% (≈70% of the win)** |
-| P2a type codes | + client-side `messageType` / `type` value codes (§3.3) | 178 B / 231 B | −27% / −25% |
-| P2b ua codes | + server-side 2-char `meta.ua` (§3.3, §7.1 `ua` line) — full §4/§5 state | 160 B / 211 B | −34% / −32% |
+| **P1 keys** ✅ implemented | top-level + `meta` key renames only — values stay words (`"m":"presence"`, `"u":"macOS Safari"`); server: §7.1 key names + §7.2 + §7.3 | **185 B / 238 B** | **−24% / −23% (≈70% of the win)** |
+| P2a type codes ✅ implemented | + `messageType` / `type` value codes (§3.3) | 170 B measured (sample 1); sample 2 not measured | −15 B vs P1 on sample 1 (table predicted −7 B) |
+| P2b ua codes (deferred) | + server-side 2-char `meta.ua` (§3.3, §7.1 `ua` line) — full §4/§5 state | 160 B / 211 B | −34% / −32% |
 
 P1 is the recommended first step: one flat map + inverse, no value groups, no fallback semantics — ~70% of the bytes for a fraction of the risk. P2b goes last: it is the only step with fallback rules (single-half UAs, Tauri, literal pass-through). `ROLE_KEYS` resolution is step-invariant — the decoder expands `m`'s value (word or code) before resolving `u`/`n`/`e`. Golden fixtures (§9.2) pin the state of whichever step the repo is on (P1 = 185/238). A presence-only kill switch can still be used inside any step.
 
@@ -283,13 +289,13 @@ P1 is the recommended first step: one flat map + inverse, no value groups, no fa
 
 Only this file — no `nchan.conf` changes (§2.3).
 
-1. `createMeta` emits `{t, i, u, o, c, y, v}`; `ua` is the 2-char code built from the `(os, browser)` pair passed in from `buildMeta` (§3.3). `reduceUA`/`parseUA` stay for the `ip_cache` and stats.
-2. `extractClientVersion` (`docker/nchan_meta.js:144`) matches `"version"` today. Two changes: accept the compact `"v"` as well, and **anchor the match to the message's `meta` object** — a bare `"v":` can appear inside opaque `options`/`custom`/`data` (constraint 4), unlike the current low-risk `"version"`. The `setVersion` call sites are unchanged (`online-panel.js:115`, `topbar.js:329`).
-3. **Counters.** `publish()` currently counts presence with `reqText.includes('"messageType"') && reqText.includes('"presence"')`, and leaves with `reqText.includes('"type"') && reqText.includes('"leave"')` — separate substring tests, no adjacency (`nchan_meta.js:213-215`). With compact keys these silently stop counting; add `"m":"p"` and `"t":"l"` variants while keeping the legacy checks for old publishers. Assert in §9.5.
+1. **Keys done (P1):** `createMeta` emits `{t, i, u, o, c, y, v}`. **Deferred (P2b):** `ua` is the 2-char code built from the `(os, browser)` pair passed in from `buildMeta` (§3.3). `reduceUA`/`parseUA` stay for the `ip_cache` and stats.
+2. **Done (P1).** `extractClientVersion` now accepts `v` or `version`, inside the `meta` object only. Original analysis: `extractClientVersion` (`docker/nchan_meta.js:144`) matched `"version"` today. Two changes: accept the compact `"v"` as well, and **anchor the match to the message's `meta` object** — a bare `"v":` can appear inside opaque `options`/`custom`/`data` (constraint 4), unlike the current low-risk `"version"`. The `setVersion` call sites are unchanged (`online-panel.js:115`, `topbar.js:329`).
+3. **Counters — done (P1 + P2a).** Original analysis: `publish()` currently counts presence with `reqText.includes('"messageType"') && reqText.includes('"presence"')`, and leaves with `reqText.includes('"type"') && reqText.includes('"leave"')` — separate substring tests, no adjacency (`nchan_meta.js:213-215`). With compact keys these silently stop counting; add `"m":"p"` and `"t":"l"` variants while keeping the legacy checks for old publishers. Assert in §9.5.
 4. `injectMetaString` is unchanged (the key is still `meta`). Two notes: (a) its brace-matching loop walks to the first balanced `}` after the `"meta"` key, so a meta *value* containing `{`/`}` would break it — keep `v` short and plain; (b) if §11.1's positional meta is adopted, the same walk must accept `[`/`]` as the delimiter — a one-line change. (A `custom`/`options` value containing the literal key `"meta"` is a pre-existing hazard, out of scope.)
-5. `publish_auto_leave` (server-generated leave, and `table:leave` from `table_unsub`) bypasses the publish path and keeps canonical keys and canonical meta. **Decision: rely on pass-through decode** (§3.1) — no server change, nothing to keep in sync.
-6. `mergeMeta` (line 135) is dead code after `51f9e08`; delete it — along with the stale reference at `src/table.ts:60` — or bring it in line with `createMeta` so it cannot drift.
-7. **Empty the publish response — one line, ~4–5 MB/day.** `nchan_meta.js:219` currently echoes the **entire enriched message** back to the publisher (`r.return(res.status, body)`) while nchan's own internal response text is already discarded (line 217). Replace with `r.return(res.status, "")` and drop the `Content-Type` line 218 — return **status code only**. Verified readers: none. `NchanClient.publish` checks `response.ok` alone and never parses the body (same for the `sendBeacon` path); no `.json()`/`.text()` read of a publish response exists in `src/`, `test/`, or `playwright/`; the only reader anywhere is three assertions in `docker/testnchan.sh` (handled by §9.7). Status codes — including nchan 4xx/5xx — still propagate, and even today's *error* responses carry the published message rather than nchan's error text, so no diagnostic content is lost. Response headers (CORS via `cors.conf`, `Vary: Origin` via `metadata_headers.conf`) are untouched; only bodies go to zero. Savings: ≈4.2–5.3 MB/day from heartbeats alone at N=12 (2.8–3.6 MB after §4/§5); joins, chats and **table moves** add on top — size them by sampling `publish_requests_total` (already counted, `/api/stats`) over 24 h × average body bytes. The non-JSON passthrough (line 203) forwards nchan's small status body — test-only traffic, optionally trimmed the same way.
+5. `publish_auto_leave` (server-generated leave, and `table:leave` from `table_unsub`) bypasses the publish path. **Updated:** the presence auto-leave on disconnect (`publish_leave`) now emits the compact form (`m:"p"`, `t:"l"`, meta `t/i/u/o`); `table:leave` stays canonical (table channel out of scope, §2.2). `docker/autoleave-check.mjs` (run by `testnchan.sh`) verifies a WebSocket disconnect produces the compact leave. The decoder still passes canonical frames through unchanged.
+6. **Done.** `mergeMeta` (line 135) was dead code after `51f9e08`; delete it — along with the stale reference at `src/table.ts:60` — or bring it in line with `createMeta` so it cannot drift.
+7. **Empty the publish response — done, ~4–5 MB/day saved.** (The text below describes the pre-change code.) `nchan_meta.js:219` currently echoes the **entire enriched message** back to the publisher (`r.return(res.status, body)`) while nchan's own internal response text is already discarded (line 217). Replace with `r.return(res.status, "")` and drop the `Content-Type` line 218 — return **status code only**. Verified readers: none. `NchanClient.publish` checks `response.ok` alone and never parses the body (same for the `sendBeacon` path); no `.json()`/`.text()` read of a publish response exists in `src/`, `test/`, or `playwright/`; the only reader anywhere is three assertions in `docker/testnchan.sh` (handled by §9.7). Status codes — including nchan 4xx/5xx — still propagate, and even today's *error* responses carry the published message rather than nchan's error text, so no diagnostic content is lost. Response headers (CORS via `cors.conf`, `Vary: Origin` via `metadata_headers.conf`) are untouched; only bodies go to zero. Savings: ≈4.2–5.3 MB/day from heartbeats alone at N=12 (2.8–3.6 MB after §4/§5); joins, chats and **table moves** add on top — size them by sampling `publish_requests_total` (already counted, `/api/stats`) over 24 h × average body bytes. The non-JSON passthrough (line 203) forwards nchan's small status body — test-only traffic, optionally trimmed the same way.
 
 ## 8. Client changes
 
@@ -299,13 +305,13 @@ The readers that *do* change are old builds — that is §6's subject, not §8's
 
 ## 9. Validation
 
-1. **Round-trip property test** (`test/wire.spec.ts`): for every **lobby** message type, `decodeWire(encodeWire(m))` deep-equals `m`. Cover: non-ASCII `userId`/`userName`, `options`, `custom`, `seek`, `opponentId: null`, `isSpectator`, `isLeaving`, omitted optional fields.
-2. **Golden byte fixtures** pinned to §4/§5: assert exactly 142 B and 193 B (and 160/211 with `ts`), plus join 208 B and challenge 187 B. This is the regression guard that the rename keeps its value.
-3. **Size ceiling test:** a bare heartbeat as delivered on the wire — no `ruleType`/`options`, `meta.ts` present (HEAD always stamps it) — must encode to **≤ 170 B**, with the §4 fixture pinning it at 160 B exactly; without `meta.ts` the same frame is 142 B. The ceiling applies post-injection so a new field cannot quietly push past the compact budget. Heartbeats carrying `ruleType`/`options` are covered by the fixtures in §4, not by the ceiling.
+1. **Round-trip property test — implemented** (`test/wire.spec.ts`): for every **lobby** message type, `decodeWire(encodeWire(m))` deep-equals `m`. Cover: non-ASCII `userId`/`userName`, `options`, `custom`, `seek`, `opponentId: null`, `isSpectator`, `isLeaving`, omitted optional fields.
+2. **Golden byte fixtures — partly implemented.** `test/wire.spec.ts` pins sample 1 at 170 B with `meta.ts` and 152 B without (P1 + P2a). The §4/§5 figures (142/193, 160/211) are the P2b end state and are not yet pinned; join 208 B and challenge 187 B are not pinned.
+3. **Size ceiling test:** a bare heartbeat as delivered on the wire — no `ruleType`/`options`, `meta.ts` present (HEAD always stamps it) — must encode to **≤ 170 B**, **Met at P1 + P2a: the test pins it at 170 B; without `meta.ts` it is 152 B.** The 160 B / 142 B figures apply after P2b. The ceiling applies post-injection so a new field cannot quietly push past the compact budget. Heartbeats carrying `ruleType`/`options` are covered by the fixtures in §4, not by the ceiling.
 4. **Legacy fixture:** a canonical-shaped frame (old tab) and a canonical server auto-leave must decode to themselves — this also covers out-of-scope table frames in the shared `recordedMessages` array.
-5. **Server counters:** after a compact publish, `presence_publish_total` / `presence_leave_total` still increment (extend `./docker/testnchan.sh`, which asserts neither today). While in that file: its `Meta: … ts` assertions `grep` for `"ts":`, which §7.1 renames away, and several target `/publish/lobby/*` — a location `nchan.conf` does not define (`/publish/presence/lobby` does), so audit and repoint rather than assuming they pass today; the `Publish response contains …` ones are replaced by §9.7.
-6. **Existing suite:** `npm run test` against the testcontainers nchan, plus `npm run lint`. The two tests that read `recordedMessages` must pass unchanged — that is the acceptance test for the lazy-decode getter.
-7. **Publish response is empty (§7.7):** `curl -sS -D - -o /dev/null -w '%{http_code}' -X POST -H 'Origin: http://localhost' -d '{"messageType":"presence","type":"leave","userId":"probe"}' http://localhost/publish/presence/lobby` must return **2xx with `Content-Length: 0`**, while `Access-Control-Allow-Origin` still appears on the response (implemented as the `Publish response: 2xx, empty body, CORS header` test). It replaces the three `Meta: Publish response contains …` assertions — which already failed at baseline (they target `/publish/lobby/*`, a stale location; §9.5) — instead of the `Subscribe receives meta/ts …` twins, which do prove enrichment end-to-end.
+5. **Server counters — done** (`testnchan.sh` asserts a compact leave increments `presence_leave_total`; the Meta checks now target `/presence/lobby`). Original requirement: after a compact publish, `presence_publish_total` / `presence_leave_total` still increment (extend `./docker/testnchan.sh`, which asserts neither today). While in that file: its `Meta: … ts` assertions `grep` for `"ts":`, which §7.1 renames away, and several target `/publish/lobby/*` — a location `nchan.conf` does not define (`/publish/presence/lobby` does), so audit and repoint rather than assuming they pass today; the `Publish response contains …` ones are replaced by §9.7.
+6. **Existing suite — passing** (`npm run test`, `npm run lint`): `npm run test` against the testcontainers nchan, plus `npm run lint`. The two tests that read `recordedMessages` must pass unchanged — that is the acceptance test for the lazy-decode getter.
+7. **Publish response is empty (§7.7) — implemented, checked by `testnchan.sh`:** `curl -sS -D - -o /dev/null -w '%{http_code}' -X POST -H 'Origin: http://localhost' -d '{"messageType":"presence","type":"leave","userId":"probe"}' http://localhost/publish/presence/lobby` must return **2xx with `Content-Length: 0`**, while `Access-Control-Allow-Origin` still appears on the response (implemented as the `Publish response: 2xx, empty body, CORS header` test). It replaces the three `Meta: Publish response contains …` assertions — which already failed at baseline (they target `/publish/lobby/*`, a stale location; §9.5) — instead of the `Subscribe receives meta/ts …` twins, which do prove enrichment end-to-end.
 
 ## 10. Risks and gotchas
 
