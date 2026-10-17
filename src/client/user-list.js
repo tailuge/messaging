@@ -10,7 +10,7 @@ const emit = (el, type, detail) =>
 
 /**
  * Tooltip for a player: the city on the first line and the reduced user agent on the second,
- * e.g. "London" over "Windows Chrome". Each part is its own line so a long city cannot push the
+ * e.g. "London" over "Win Chr". Each part is its own line so a long city cannot push the
  * user agent off to the side, and either part is omitted when absent.
  */
 const locTip = (u) => html`

@@ -29,25 +29,56 @@ function obfuscateOrigin(origin) {
   return proto + obfuscateIp(hostPart) + pathPart;
 }
 
+// OS labels are three characters to keep the dashboard cell and the reduced
+// `meta.ua` short. ChromeOS and Linux have fixed abbreviations; any other X11
+// platform token (Ubuntu, Fedora, FreeBSD, ...) keeps the first three letters
+// of the token as the user agent reports it.
+function osLabel(token) {
+  if (/^cros$/i.test(token)) return "Chr";
+  if (/^linux$/i.test(token)) return "Lnx";
+  return token.substring(0, 3).replace(/^[a-z]/, function (c) { return c.toUpperCase(); });
+}
+
+// The X11 platform comment is the only OS hint in many desktop user agents:
+// "(X11; CrOS x86_64 14541.0.0)", "(X11; Ubuntu; Linux x86_64; rv:109.0)".
+// "U" is an old locale marker rather than an OS, so it is skipped.
+function x11Platform(ua) {
+  var comment = ua.match(/\(X11;([^)]*)\)/);
+  if (!comment) return "";
+  var parts = comment[1].split(";");
+  for (var i = 0; i < parts.length; i++) {
+    var token = parts[i].trim().split(/\s+/)[0];
+    if (token && !/^u$/i.test(token)) return token;
+  }
+  return "";
+}
+
 function parseUA(ua) {
   var os = "Unknown";
   var browser = "Unknown";
 
   if (ua) {
-    if (/Tauri/i.test(ua)) { os = "Tauri"; browser = "Tauri"; }
-    else if (/Android/i.test(ua)) os = "Android";
+    var platform = x11Platform(ua);
+    if (/Tauri/i.test(ua)) { os = "Tau"; browser = "Tau"; }
+    else if (/Android/i.test(ua)) os = "And";
     else if (/iPhone|iPad|iPod/i.test(ua)) os = "iOS";
-    else if (/Windows NT/i.test(ua)) os = "Windows";
-    else if (/Mac OS X|Macintosh/i.test(ua)) os = "macOS";
-    else if (/Linux/i.test(ua)) os = "Linux";
+    else if (/Windows NT/i.test(ua)) os = "Win";
+    else if (/Mac OS X|Macintosh/i.test(ua)) os = "Mac";
+    else if (platform) os = osLabel(platform);
+    else if (/Linux/i.test(ua)) os = "Lnx";
 
+    // Browser labels are three letters too, and independent of the OS labels
+    // (so "Chr Chr" for Chrome on ChromeOS is fine). A fourth letter keeps a
+    // browser family apart: Chromium is "Chro", Chrome is "Chr". Chromium must
+    // be tested first because its user agent also carries the Chrome token.
     if (browser === "Unknown") {
-      if (/Edg\//i.test(ua)) browser = "Edge";
-      else if (/OPR\//i.test(ua) || /Opera\//i.test(ua)) browser = "Opera";
-      else if (/SamsungBrowser\//i.test(ua)) browser = "Samsung Internet";
-      else if (/Chrome\//i.test(ua) || /CriOS\//i.test(ua)) browser = "Chrome";
-      else if (/Firefox\//i.test(ua) || /FxiOS\//i.test(ua)) browser = "Firefox";
-      else if (/Safari\//i.test(ua)) browser = "Safari";
+      if (/Edg\//i.test(ua)) browser = "Edg";
+      else if (/OPR\//i.test(ua) || /Opera\//i.test(ua)) browser = "Opr";
+      else if (/SamsungBrowser\//i.test(ua)) browser = "Sam";
+      else if (/Chromium\//i.test(ua)) browser = "Chro";
+      else if (/Chrome\//i.test(ua) || /CriOS\//i.test(ua)) browser = "Chr";
+      else if (/Firefox\//i.test(ua) || /FxiOS\//i.test(ua)) browser = "Fir";
+      else if (/Safari\//i.test(ua)) browser = "Saf";
     }
   }
 

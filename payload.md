@@ -120,18 +120,27 @@ Values outside these tables pass through unchanged (forward compatibility).
 
 | OS (from `parseUA`) | Code | Browser (from `parseUA`) | Code |
 |---|---|---|---|
-| macOS | `m` | Chrome | `c` |
-| Windows | `w` | Safari | `s` |
-| Linux | `l` | Firefox | `f` |
-| Android | `a` | Edge | `e` |
-| iOS | `i` | Opera | `o` |
-| Tauri | `t` | Samsung Internet | `g` |
+| Mac | `m` | Chr (Chrome) | `c` |
+| Win | `w` | Saf (Safari) | `s` |
+| Lnx | `l` | Fir (Firefox) | `f` |
+| And | `a` | Edg (Edge) | `e` |
+| iOS | `i` | Opr (Opera) | `o` |
+| Tau (Tauri) | `t` | Sam (Samsung Internet) | `g` |
+| Chr (ChromeOS) | — | Chro (Chromium) | — |
 
-So `"macOS Safari"` → `"ms"`, `"Windows Chrome"` → `"wc"`, `"Linux Chrome"` → `"lc"`.
+So `"Mac Saf"` → `"ms"`, `"Win Chr"` → `"wc"`, `"Lnx Chr"` → `"lc"`.
+
+OS and browser labels are three characters each, and are independent namespaces, so
+Chrome on ChromeOS is `"Chr Chr"` and needs no extra disambiguation. A fourth letter is
+only added to split a family: Chromium is `Chro`, Chrome is `Chr`. The OS parser reads
+`Chr` (ChromeOS) from the `X11;` platform comment — the token after it, or the one after a
+legacy `U` marker. Other X11 platform tokens keep the first three letters of the token as
+reported: Ubuntu → `Ubu`, Fedora → `Fed`, FreeBSD → `Fre`. `Chr` and `Chro` still need a
+code when P2b lands (`C` is free).
 
 - **Server side** the code is derived from the `(os, browser)` pair `parseUA()` already produces — pass `parsedUA` (computed in `buildMeta`, `docker/nchan_meta.js:97`) into `createMeta` instead of re-running `reduceUA`; no string lookup, no extra CPU. The long form stays in the `ip_cache` value (`country|city|count|origins|os|browser`) for `/api/stats`; an `os`/`browser` field that `parseUA()` could not classify holds the raw user agent instead of the `Unknown` keyword (`classifyForCache`, kept for diagnosing the regexes from real traffic), and only an empty header still stores `Unknown`.
 - **Client side** the code is mapped back to `"<os> <browser>"` during decode, so `loc-ua` in `user-list.js` and everything downstream see the same string as today.
-- **Fallback / literal path:** `reduceUA` strips `Unknown` before it reaches `meta`, so the values that actually arrive are: a full pair (`"macOS Safari"` → `ms`, `"Windows Chrome"` → `wc`), a single half (`"Chrome"`, `"macOS"` — the other half was `Unknown`), `"Tauri Tauri"` (`parseUA` sets *both* halves to `Tauri`, but the browser table has no code for it), or — when both halves are `Unknown` — the raw UA header verbatim. Everything that is not a known 2-char code is sent and decoded as a literal, so all of these round-trip unchanged. One strictly theoretical edge: a raw-UA fallback that happens to be exactly two characters matching a code (`"ms"`) would decode to the wrong string — real UA headers are tens of bytes; logged in §10.
+- **Fallback / literal path:** `reduceUA` strips `Unknown` before it reaches `meta`, so the values that actually arrive are: a full pair (`"Mac Saf"` → `ms`, `"Win Chr"` → `wc`), a single half (`"Chr"`, `"Mac"` — the other half was `Unknown`), `"Tau Tau"` (`parseUA` sets *both* halves to `Tauri`, but the browser table has no code for it), or — when both halves are `Unknown` — the raw UA header verbatim. Everything that is not a known 2-char code is sent and decoded as a literal, so all of these round-trip unchanged. One strictly theoretical edge: a raw-UA fallback that happens to be exactly two characters matching a code (`"ms"`) would decode to the wrong string — real UA headers are tens of bytes; logged in §10.
 
 ### 3.4 `meta`
 
@@ -279,7 +288,7 @@ Nchan stores one message and fans the **identical bytes** out to every subscribe
 | Step | Encoder / server | Heartbeat on the wire (§4 samples, with `meta.ts`) | Saving |
 |---|---|---|---|
 | 0 | canonical (today) | 243 B / 309 B | — |
-| **P1 keys** ✅ implemented | top-level + `meta` key renames only — values stay words (`"m":"presence"`, `"u":"macOS Safari"`); server: §7.1 key names + §7.2 + §7.3 | **185 B / 238 B** | **−24% / −23% (≈70% of the win)** |
+| **P1 keys** ✅ implemented | top-level + `meta` key renames only — values stay words (`"m":"presence"`, `"u":"Mac Saf"`); server: §7.1 key names + §7.2 + §7.3 | **185 B / 238 B** | **−24% / −23% (≈70% of the win)** |
 | P2a type codes ✅ implemented | + `messageType` / `type` value codes (§3.3) | 170 B measured (sample 1); sample 2 not measured | −15 B vs P1 on sample 1 (table predicted −7 B) |
 | P2b ua codes (deferred) | + server-side 2-char `meta.ua` (§3.3, §7.1 `ua` line) — full §4/§5 state | 160 B / 211 B | −34% / −32% |
 

@@ -156,12 +156,20 @@ run_test "API: Stats endpoint contains ip_cache" bash -c '
 
 # An unclassified user agent is kept verbatim in the ip_cache os/browser fields
 # instead of the "Unknown" keyword, so the parseUA() regexes can be improved from
-# real traffic. X-Forwarded-For gives the probe its own cache entry (ChromeOS has
-# no token in the OS regexes, while Chrome/ is recognised).
+# real traffic. X-Forwarded-For gives the probe its own cache entry (a PlayStation
+# has no OS token the parser knows, while Safari/ is recognised).
 run_test "API: ip_cache keeps the raw user agent when the OS is unclassified" bash -c '
-	ua="Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+	ua="Mozilla/5.0 (PlayStation; PlayStation 5/2.26) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0 Safari/605.1.15"
 	curl -fsS --max-time 5 -X POST -H "X-Forwarded-For: 203.0.113.9" -H "User-Agent: $ua" -d "{\"messageType\":\"presence\",\"type\":\"join\",\"userId\":\"ua-probe\"}" "http://localhost/publish/presence/lobby" >/dev/null
-	curl -fsS --max-time 5 "http://localhost/api/stats" | grep -qF "CrOS x86_64"
+	curl -fsS --max-time 5 "http://localhost/api/stats" | grep -qF "PlayStation 5/2.26"
+'
+
+# ChromeOS was previously unclassified because its user agent has no Linux token;
+# it is now read from the X11 platform comment and stored as Chr.
+run_test "API: ip_cache classifies ChromeOS from the X11 platform token" bash -c '
+	ua="Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+	curl -fsS --max-time 5 -X POST -H "X-Forwarded-For: 203.0.113.10" -H "User-Agent: $ua" -d "{\"messageType\":\"presence\",\"type\":\"join\",\"userId\":\"ua-probe-cros\"}" "http://localhost/publish/presence/lobby" >/dev/null
+	curl -fsS --max-time 5 "http://localhost/api/stats" | grep -qF "|Chr|Chr"
 '
 
 run_test "API: Stats endpoint contains system_stats" bash -c '
