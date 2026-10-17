@@ -173,8 +173,12 @@ export class NchanClient {
 
   subscribePresence(userId: string, onMessage: (data: string) => void): Subscription {
     let params = `uid=${encodeURIComponent(userId)}`;
-    if (typeof document !== "undefined" && document.referrer) {
-      params += `&ref=${encodeURIComponent(document.referrer)}`;
+    const referrer = typeof document !== "undefined" ? document.referrer : "";
+    if (referrer) {
+      // Send the referring page only: the server strips the query/fragment
+      // before recording it, and game URLs carry long option tails that would
+      // otherwise bloat every handshake URL.
+      params += `&ref=${encodeURIComponent(referrer.split(/[?#]/)[0])}`;
     }
     const path = `${PATHS.PRESENCE_SUBSCRIBE}?${params}`;
     return this.subscribe(path, onMessage);
