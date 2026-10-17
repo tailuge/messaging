@@ -1,4 +1,5 @@
 import type { PresenceMessage, ChallengeMessage, TableMessage, ChatMessage } from "./types";
+import { encodeWire, decodeWire } from "./wire";
 
 const PATHS = {
   PRESENCE_PUBLISH: "/publish/presence/lobby",
@@ -63,7 +64,8 @@ export class NchanClient {
       message.meta = { ...message.meta, version: this.version };
     }
 
-    const body = JSON.stringify(message);
+    // Lobby publishes use the compact wire form; table publishes stay canonical.
+    const body = path === PATHS.PRESENCE_PUBLISH ? encodeWire(message) : JSON.stringify(message);
 
     // Use sendBeacon only for unload/keepalive scenarios
     if (options.keepalive && typeof navigator !== "undefined" && navigator.sendBeacon) {
@@ -100,10 +102,11 @@ export class NchanClient {
   }
 
   /**
-   * Returns all recorded messages as raw strings.
+   * Returns all recorded messages as canonical JSON strings. Frames are stored
+   * raw and decoded on read.
    */
   get recordedMessages(): string[] {
-    return this._recordedMessages;
+    return this._recordedMessages.map(decodeWire);
   }
 
   // Publishing
@@ -247,8 +250,9 @@ export class NchanClient {
       connectionTimeoutTimer.unref?.();
 
       ws.onmessage = (event) => {
-        this.record(event.data as string);
-        onMessage(event.data as string);
+        const raw = event.data as string;
+        this.record(raw);
+        onMessage(decodeWire(raw));
       };
 
       ws.onopen = () => {

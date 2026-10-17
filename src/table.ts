@@ -57,7 +57,7 @@ export class Table<T = any> {
    * Reconnect replay dedup. Nchan replays the channel buffer from `oldest` on
    * reconnect, so messages already processed are re-delivered. Preferred key:
    * the server-generated per-message `msgId`, which survives the server
-   * round-trip (see nchan_meta.js mergeMeta). Server `meta.ts` has millisecond
+   * round-trip (the server stamps it; src/wire.ts restores its compact key). Server `meta.ts` has millisecond
    * granularity, so two DISTINCT messages can share a ts — a ts-only dedup
    * would drop the second one and, e.g., strand the bothJoined handshake.
    * FIFO-bounded to the message buffer size (2000) with headroom.

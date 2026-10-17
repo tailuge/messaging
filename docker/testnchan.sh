@@ -111,21 +111,22 @@ run_test "Publish response: 2xx, empty body, CORS header" bash -c '
 '
 
 run_test "Meta: Subscribe receives meta in published message" bash -c '
-	curl -fsS --max-time 5 "http://localhost/subscribe/lobby/meta_sub" >/tmp/nchan-meta-sub.out &
+	curl -fsS --max-time 5 "http://localhost/subscribe/presence/lobby" >/tmp/nchan-meta-sub.out &
 	SUB_PID=$!
 	sleep 1
-	curl -fsS --max-time 5 -X POST -d "{\"event\": \"meta_message\"}" "http://localhost/publish/lobby/meta_sub" >/dev/null
+	curl -fsS --max-time 5 -X POST -d "{\"messageType\":\"presence\",\"type\":\"join\",\"userId\":\"meta-probe\",\"userName\":\"Meta\"}" "http://localhost/publish/presence/lobby" >/dev/null
 	wait $SUB_PID
-	grep -q "meta" /tmp/nchan-meta-sub.out
+	grep -q "\"meta\":" /tmp/nchan-meta-sub.out
 '
 
-run_test "Meta: Subscribe receives ts in published message" bash -c '
-	curl -fsS --max-time 5 "http://localhost/subscribe/lobby/meta_ts_sub" >/tmp/nchan-meta-ts.out &
+# Compact wire form (payload.md P1): server meta uses short keys, so ts is "t" inside meta.
+run_test "Meta: Subscribe receives compact ts in published message" bash -c '
+	curl -fsS --max-time 5 "http://localhost/subscribe/presence/lobby" >/tmp/nchan-meta-ts.out &
 	SUB_PID=$!
 	sleep 1
-	curl -fsS --max-time 5 -X POST -d "{\"event\": \"ts_message\"}" "http://localhost/publish/lobby/meta_ts_sub" >/dev/null
+	curl -fsS --max-time 5 -X POST -d "{\"messageType\":\"presence\",\"type\":\"join\",\"userId\":\"meta-probe\",\"userName\":\"Meta\"}" "http://localhost/publish/presence/lobby" >/dev/null
 	wait $SUB_PID
-	grep -q "ts" /tmp/nchan-meta-ts.out
+	grep -q "\"meta\":{\"t\":" /tmp/nchan-meta-ts.out
 '
 
 run_test "API: Stats endpoint returns JSON" bash -c '

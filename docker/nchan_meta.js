@@ -78,14 +78,16 @@ function createMessageId() {
   });
 }
 
+// Meta keys are the compact wire names (payload.md §3.4, phase P1). The client
+// decodes them back to canonical names in src/wire.ts.
 function createMeta(r, country, city) {
   return {
-    ts: Date.now(),
-    msgId: createMessageId(),
-    ua: reduceUA(r.headersIn["user-agent"] || ""),
-    origin: reduceOrigin(r.headersIn.origin || ""),
-    country: country,
-    city: city || "",
+    t: Date.now(),
+    i: createMessageId(),
+    u: reduceUA(r.headersIn["user-agent"] || ""),
+    o: reduceOrigin(r.headersIn.origin || ""),
+    c: country,
+    y: city || "",
   };
 }
 
@@ -132,19 +134,14 @@ async function buildMeta(r) {
   return createMeta(r, country, city);
 }
 
-function mergeMeta(payload, meta) {
-  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
-    const clientMeta = payload.meta || {};
-    payload.meta = Object.assign({}, meta, { version: clientMeta.version, msgId: meta.msgId });
-    return payload;
-  }
-  return { data: payload, meta: meta };
-}
-
+// Matches the version inside the message's own flat `meta` object only, so a
+// `v`/`version` key in opaque options/custom payloads is ignored (payload.md §7.2).
 function extractClientVersion(rawText) {
   if (!rawText) return null;
-  const match = rawText.match(/"version"\s*:\s*"([^"]+)"/);
-  return match ? match[1] : null;
+  const metaBody = rawText.match(/"meta"\s*:\s*\{([^{}]*)\}/);
+  if (!metaBody) return null;
+  const version = metaBody[1].match(/"(?:v|version)"\s*:\s*"([^"]+)"/);
+  return version ? version[1] : null;
 }
 
 function injectMetaString(rawText, meta) {
@@ -206,13 +203,15 @@ async function publish(r) {
   const meta = await buildMeta(r);
   const clientVersion = extractClientVersion(reqText);
   if (clientVersion) {
-    meta.version = clientVersion;
+    meta.v = clientVersion;
   }
   const body = injectMetaString(reqText, meta);
   incrementStat("publish_requests_total");
-  if (reqText.includes('"messageType"') && reqText.includes('"presence"')) {
+  // Legacy (canonical) and compact (P1) key forms are both counted.
+  const isPresence = (reqText.includes('"messageType"') || reqText.includes('"m":"presence"')) && reqText.includes('"presence"');
+  if (isPresence) {
     incrementStat("presence_publish_total");
-    if (reqText.includes('"type"') && reqText.includes('"leave"')) incrementStat("presence_leave_total");
+    if (/"(?:type|t)":"leave"/.test(reqText)) incrementStat("presence_leave_total");
   }
   const res = await r.subrequest("/internal" + r.uri, { method: r.method, body: body });
   // Publishers never read the body (NchanClient.publish checks response.ok

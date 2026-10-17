@@ -1,5 +1,7 @@
 # Compact wire payload
 
+> **Status (implemented, phase P1 keys only):** `src/wire.ts` (codec) wired into `NchanClient`; `docker/nchan_meta.js` emits compact meta keys (`t,i,u,o,c,y,v`), anchored `extractClientVersion`, dual-form counters, and `mergeMeta` removed. P1 keeps values as words, so the heartbeat measures 185 B with `meta.ts` and 167 B without it. P2a/P2b and §11.1 remain deferred.
+
 > Spec for shrinking nchan publish/subscribe payloads **without changing the library's public message types and without any server-side compression**.
 > Scope: the **lobby channel only** (presence, challenge, chat). Table-channel game messages are out of scope. Back-compat policy: **decode-side only** — see §6.
 > All byte figures are UTF-8 bytes of `JSON.stringify(msg)` (`Buffer.byteLength`), measured against the two live messages captured on 2026-10-17. This spec is implementation-ready; open decisions are flagged.
