@@ -266,7 +266,16 @@ Nchan stores one message and fans the **identical bytes** out to every subscribe
 
 **Detection:** none — table inversion + pass-through (§3.1) covers every shape. **No explicit wire-version field:** a `w:2` marker costs 4 B/message and buys nothing while both shapes decode anyway. If legacy support is ever dropped, nothing needs to change either — pass-through is unconditional, so old publishers keep working even after a hypothetical cleanup.
 
-**Phasing (optional):** a presence-only feature flag first (§4/§5 bytes ≈ 95% of the win), then challenge + chat via the same tables — independently shippable if you want a kill switch, not required by the design.
+**Phasing (step by step).** Ship the **complete decoder** with the first release — inverse tables cost zero bytes, so no reader ever encounters a code it cannot expand (a keys-only decoder would silently drop a P2 frame: pass-through would leave `m:"p"` unreadable by `isPresenceMessage`). Only the **encoder** and the **server** are then flipped, in three independently shippable steps:
+
+| Step | Encoder / server | Heartbeat on the wire (§4 samples, with `meta.ts`) | Saving |
+|---|---|---|---|
+| 0 | canonical (today) | 243 B / 309 B | — |
+| **P1 keys** | top-level + `meta` key renames only — values stay words (`"m":"presence"`, `"u":"macOS Safari"`); server: §7.1 key names + §7.2 + §7.3 | **185 B / 238 B** | **−24% / −23% (≈70% of the win)** |
+| P2a type codes | + client-side `messageType` / `type` value codes (§3.3) | 178 B / 231 B | −27% / −25% |
+| P2b ua codes | + server-side 2-char `meta.ua` (§3.3, §7.1 `ua` line) — full §4/§5 state | 160 B / 211 B | −34% / −32% |
+
+P1 is the recommended first step: one flat map + inverse, no value groups, no fallback semantics — ~70% of the bytes for a fraction of the risk. P2b goes last: it is the only step with fallback rules (single-half UAs, Tauri, literal pass-through). `ROLE_KEYS` resolution is step-invariant — the decoder expands `m`'s value (word or code) before resolving `u`/`n`/`e`. Golden fixtures (§9.2) pin the state of whichever step the repo is on (P1 = 185/238). A presence-only kill switch can still be used inside any step.
 
 ## 7. Server changes (`docker/nchan_meta.js`)
 
