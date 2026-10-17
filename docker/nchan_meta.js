@@ -215,8 +215,10 @@ async function publish(r) {
     if (reqText.includes('"type"') && reqText.includes('"leave"')) incrementStat("presence_leave_total");
   }
   const res = await r.subrequest("/internal" + r.uri, { method: r.method, body: body });
-  r.headersOut["Content-Type"] = "application/json";
-  r.return(res.status, body);
+  // Publishers never read the body (NchanClient.publish checks response.ok
+  // only), so return the status alone instead of echoing the enriched message
+  // back — that echo was ~4-5 MB/day of dead response body (payload.md §7.7).
+  r.return(res.status, "");
 }
 
 function presence_sub(r) {

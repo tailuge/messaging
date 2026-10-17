@@ -98,19 +98,16 @@ run_test "Table Pub/Sub" bash -c '
 	curl -fsS --max-time 5 "http://localhost/subscribe/table/tabletest" | grep -q "tableId"
 '
 
-run_test "Meta: Publish response contains meta field" bash -c '
-	response=$(curl -fsS --max-time 5 -X POST -H "Origin: http://localhost" -H "User-Agent: test-agent" -d "{\"event\": \"meta_test\"}" "http://localhost/publish/lobby/meta")
-	echo "$response" | grep -q "meta"
-'
-
-run_test "Meta: Publish response contains ts field" bash -c '
-	response=$(curl -fsS --max-time 5 -X POST -H "Origin: http://localhost" -H "User-Agent: test-agent" -d "{\"event\": \"meta_test\"}" "http://localhost/publish/lobby/meta_ts")
-	echo "$response" | grep -q "\"ts\":"
-'
-
-run_test "Meta: Publish response contains country field" bash -c '
-	response=$(curl -fsS --max-time 5 -X POST -d "{\"event\": \"meta_test\"}" "http://localhost/publish/lobby/meta_country")
-	echo "$response" | grep -q "\"country\":"
+run_test "Publish response: 2xx, empty body, CORS header" bash -c '
+	tmp=$(mktemp)
+	resp=$(curl -sS --max-time 5 -D - -o "$tmp" -w "%{http_code}" -X POST -H "Origin: http://localhost" -H "User-Agent: test-agent" -d "{\"messageType\":\"presence\",\"type\":\"leave\",\"userId\":\"probe\"}" "http://localhost/publish/presence/lobby")
+	status=$(printf "%s\n" "$resp" | tail -n 1)
+	bytes=$(wc -c < "$tmp" | tr -d "[:space:]")
+	rm -f "$tmp"
+	echo "status=$status body_bytes=$bytes"
+	case "$status" in 2??) ;; *) echo "expected 2xx status"; exit 1 ;; esac
+	[ "$bytes" = "0" ] || { echo "publish response body not empty ($bytes bytes)"; exit 1; }
+	printf "%s\n" "$resp" | grep -qi "^access-control-allow-origin:"
 '
 
 run_test "Meta: Subscribe receives meta in published message" bash -c '
