@@ -32,8 +32,10 @@ export async function setupPlayersInGame(page: Page): Promise<{ aliceFrame: Fram
   await expect(challengeBtn).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
   await challengeBtn.click();
 
-  // Alice selects Eight Ball from the modal
-  const eightBallBtn = aliceFrame.locator('challenge-modal button:has-text("Eight Ball")');
+  // Alice selects Eight Ball from the modal. Rule variants live in collapsible
+  // sections, so expand the eightball section and take its first (plain) rule.
+  await aliceFrame.locator('challenge-modal button[aria-label="eightball"]').click();
+  const eightBallBtn = aliceFrame.locator('challenge-modal .section-body.expanded button.rule').first();
   await expect(eightBallBtn).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
   await eightBallBtn.click();
 
