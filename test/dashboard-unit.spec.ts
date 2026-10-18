@@ -129,6 +129,28 @@ describe("Dashboard UI Unit Tests", () => {
     expect(mockDocument.getElementById("online-users-count").textContent).toBe("(0)");
   });
 
+  test("referrer rows roll up to the site root so one site counts together", () => {
+    const encode = (url: string) => encodeURIComponent(url);
+    updateUIFunction({
+      referrer_cache: {
+        "10.x.x.1": [
+          `2|${encode("https://tailuge.github.io/billiards/game.html")}`,
+          `1|${encode("https://tailuge.github.io/lobby.html")}`,
+          `2|${encode("https://github.com/tailuge/billiards")}`,
+          `2|${encode("https://github.com/tailuge/billiards/releases")}`,
+          `1|${encode("https://example.com/page")}`,
+        ].join(","),
+      },
+    });
+
+    const body = mockDocument.getElementById("ref-tbody").innerHTML;
+    expect(body).toBe(
+      '<tr><td class="count-col">4</td><td>https://github.com/tailuge/billiards</td></tr>' +
+        '<tr><td class="count-col">3</td><td>https://tailuge.github.io/</td></tr>' +
+        '<tr><td class="count-col">1</td><td>https://example.com/page</td></tr>'
+    );
+  });
+
   test("OS and Browser section groups by OS and sorts correctly", () => {
     const mockData = {
       ip_cache: {

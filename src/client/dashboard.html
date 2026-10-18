@@ -482,6 +482,25 @@ table td {
         }
       }
 
+      // Referrers are stored per URL, so one site's pages show up as separate
+      // rows and split its traffic. The high-volume sources roll up onto the
+      // site root, which also keeps the table short enough to read.
+      const REFERRER_ROLLUPS = [
+        { prefix: "https://tailuge.github.io/", label: "https://tailuge.github.io/" },
+        { prefix: "https://github.com/tailuge/billiards", label: "https://github.com/tailuge/billiards" },
+      ];
+
+      function rollupReferrer(ref) {
+        const lower = ref.toLowerCase();
+        for (const rollup of REFERRER_ROLLUPS) {
+          // The bare origin (no trailing slash) is the same source as its root.
+          if (lower.startsWith(rollup.prefix) || lower === rollup.prefix.replace(/\/$/, "")) {
+            return rollup.label;
+          }
+        }
+        return ref;
+      }
+
       async function fetchOnlineUsers() {
         try {
           const response = await fetch("/api/online");
@@ -649,7 +668,7 @@ table td {
               if (pipeIdx === -1) continue;
               const count = parseInt(entry.substring(0, pipeIdx)) || 1;
               const encodedRef = entry.substring(pipeIdx + 1);
-              const ref = safeDecode(encodedRef);
+              const ref = rollupReferrer(safeDecode(encodedRef));
               aggregated[ref] = (aggregated[ref] || 0) + count;
             }
           }

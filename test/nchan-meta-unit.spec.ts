@@ -45,6 +45,9 @@ const FIREFOX_WINDOWS =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:115.0) Gecko/20100101 Firefox/115.0";
 const TAURI =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) tbilliards/1.2.3 Tauri/2.0.0";
+// Pinterest's in-app browser: a WebKit app shell with no Safari token at all.
+const PINTEREST_IOS =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Pinterest/iOS";
 
 describe("nchan_meta ip_cache user agent retention", () => {
   let meta: any;
@@ -89,6 +92,17 @@ describe("nchan_meta ip_cache user agent retention", () => {
     expect(meta.parseUA(SAMSUNG_ANDROID).browser).toBe("Sam");
     expect(meta.parseUA(PLAYSTATION).browser).toBe("Saf");
     expect(meta.reduceUA(TAURI)).toBe("Tau Tau");
+  });
+
+  test("the Pinterest in-app browser is classified as Pin", () => {
+    expect(meta.parseUA(PINTEREST_IOS)).toEqual({ os: "iOS", browser: "Pin" });
+    expect(meta.reduceUA(PINTEREST_IOS)).toBe("iOS Pin");
+  });
+
+  test("a real browser token still wins over the late Pinterest rule", () => {
+    const ua =
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Pinterest/1.0";
+    expect(meta.parseUA(ua).browser).toBe("Chr");
   });
 
   test("X11 platform tokens give three-letter OS labels", () => {

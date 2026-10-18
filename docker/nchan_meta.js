@@ -78,6 +78,11 @@ function parseUA(ua) {
       else if (/Chromium\//i.test(ua)) browser = "Chro";
       else if (/Chrome\//i.test(ua) || /CriOS\//i.test(ua)) browser = "Chr";
       else if (/Firefox\//i.test(ua) || /FxiOS\//i.test(ua)) browser = "Fir";
+      // App-embedded browsers are tested late so a real browser token always
+      // wins, but before Safari: the Pinterest in-app browser on iOS keeps the
+      // WebKit/"Mobile/15E148" tokens (and some versions add Safari/), which
+      // would otherwise be logged as Safari or left unclassified.
+      else if (/Pinterest\//i.test(ua)) browser = "Pin";
       else if (/Safari\//i.test(ua)) browser = "Saf";
     }
   }
