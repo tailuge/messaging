@@ -39,6 +39,23 @@ function osLabel(token) {
   return token.substring(0, 3).replace(/^[a-z]/, function (c) { return c.toUpperCase(); });
 }
 
+// Search crawlers send a browser-shaped user agent (Bing's crawler adds a
+// Chrome token) and often no OS hint at all, so they are recognised before the
+// OS and browser rules. The trailing slash keeps model names such as "CUBOT"
+// out, since crawler tokens always carry a version.
+function crawlerName(ua) {
+  var match = ua.match(/(?:^|[\s;(])([a-z0-9._-]*(?:bot|crawler|spider))\//i);
+  return match ? match[1] : "";
+}
+
+// "bingbot" -> "Bing", "Googlebot" -> "Goog"; crawlers whose token is the
+// generic word keep "Bot".
+function crawlerLabel(name) {
+  var base = name.toLowerCase().replace(/(?:bot|crawler|spider)$/, "");
+  if (!base) return "Bot";
+  return base.substring(0, 4).replace(/^[a-z]/, function (c) { return c.toUpperCase(); });
+}
+
 // The X11 platform comment is the only OS hint in many desktop user agents:
 // "(X11; CrOS x86_64 14541.0.0)", "(X11; Ubuntu; Linux x86_64; rv:109.0)".
 // "U" is an old locale marker rather than an OS, so it is skipped.
@@ -59,7 +76,9 @@ function parseUA(ua) {
 
   if (ua) {
     var platform = x11Platform(ua);
-    if (/Tauri/i.test(ua)) { os = "Tau"; browser = "Tau"; }
+    var crawler = crawlerName(ua);
+    if (crawler) { os = "Bot"; browser = crawlerLabel(crawler); }
+    else if (/Tauri/i.test(ua)) { os = "Tau"; browser = "Tau"; }
     else if (/Android/i.test(ua)) os = "And";
     else if (/iPhone|iPad|iPod/i.test(ua)) os = "iOS";
     else if (/Windows NT/i.test(ua)) os = "Win";
@@ -84,6 +103,9 @@ function parseUA(ua) {
       // would otherwise be logged as Safari or left unclassified.
       else if (/Pinterest\//i.test(ua)) browser = "Pin";
       else if (/Safari\//i.test(ua)) browser = "Saf";
+      // An app's embedded WKWebView sends the iOS WebKit tokens with no
+      // browser token at all, so it is a WebView rather than Safari.
+      else if (/AppleWebKit\//.test(ua) && /iPhone|iPad|iPod/.test(ua)) browser = "Web";
     }
   }
 

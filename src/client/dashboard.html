@@ -483,10 +483,16 @@ table td {
       const REFERRER_ROLLUPS = [
         { prefix: "https://tailuge.github.io/", label: "https://tailuge.github.io/" },
         { prefix: "https://github.com/tailuge/billiards", label: "https://github.com/tailuge/billiards" },
+        { prefix: "http://localhost/", label: "http://localhost/" },
       ];
 
       function rollupReferrer(ref) {
         const lower = ref.toLowerCase();
+        // Map 127.* and localhost:* (with or without protocol/port/path)
+        // to http://localhost/ so all local traffic is in the same bucket.
+        if (/^(https?:\/\/)?(127\.|localhost[:/])/.test(lower)) {
+          return REFERRER_ROLLUPS[REFERRER_ROLLUPS.length - 1].label;
+        }
         for (const rollup of REFERRER_ROLLUPS) {
           // The bare origin (no trailing slash) is the same source as its root.
           if (lower.startsWith(rollup.prefix) || lower === rollup.prefix.replace(/\/$/, "")) {

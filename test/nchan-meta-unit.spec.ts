@@ -48,6 +48,15 @@ const TAURI =
 // Pinterest's in-app browser: a WebKit app shell with no Safari token at all.
 const PINTEREST_IOS =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Pinterest/iOS";
+// A bare iOS WKWebView: the app gave no browser or app token of its own.
+const IOS_WEBVIEW =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148";
+// Bing's crawler is Chrome-shaped and carries no OS hint, so both fields
+// used to fall back to the raw user agent or "Chr".
+const BINGBOT =
+  "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm) Chrome/136.0.0.0 Safari/537.36";
+const CUBOT_ANDROID =
+  "Mozilla/5.0 (Linux; Android 11; CUBOT X30) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
 
 describe("nchan_meta ip_cache user agent retention", () => {
   let meta: any;
@@ -97,6 +106,22 @@ describe("nchan_meta ip_cache user agent retention", () => {
   test("the Pinterest in-app browser is classified as Pin", () => {
     expect(meta.parseUA(PINTEREST_IOS)).toEqual({ os: "iOS", browser: "Pin" });
     expect(meta.reduceUA(PINTEREST_IOS)).toBe("iOS Pin");
+  });
+
+  test("a bare iOS WKWebView is classified as a WebView", () => {
+    expect(meta.parseUA(IOS_WEBVIEW)).toEqual({ os: "iOS", browser: "Web" });
+    expect(meta.reduceUA(IOS_WEBVIEW)).toBe("iOS Web");
+  });
+
+  test("crawlers are classified from their bot token, not their Chrome token", () => {
+    expect(meta.parseUA(BINGBOT)).toEqual({ os: "Bot", browser: "Bing" });
+    const parts = meta.formatCacheValue("US", "Boydton", 1, "", meta.parseUA(BINGBOT), BINGBOT).split("|");
+    expect(parts[4]).toBe("Bot");
+    expect(parts[5]).toBe("Bing");
+  });
+
+  test("a phone model ending in bot is not mistaken for a crawler", () => {
+    expect(meta.parseUA(CUBOT_ANDROID)).toEqual({ os: "And", browser: "Chr" });
   });
 
   test("a real browser token still wins over the late Pinterest rule", () => {
