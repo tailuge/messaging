@@ -298,7 +298,6 @@ async function summaryTopPlayers(limitElo) {
 
 async function summary(r) {
     r.headersOut['Cache-Control'] = 'public, max-age=0, s-maxage=10';
-    const startedAt = Date.now();
     const limitElo = positiveInt(r.args.limitElo, 10);
     const limitMatches = positiveInt(r.args.limitMatches, 32);
     const key = `summary:${limitElo}:${limitMatches}`;
@@ -312,7 +311,6 @@ async function summary(r) {
 
     const cached = ngx.shared.summary_cache.get(key);
     if (cached) {
-        logApi("summary hit ms=" + (Date.now() - startedAt));
         return json(r, 200, JSON.parse(cached));
     }
 
@@ -323,7 +321,6 @@ async function summary(r) {
     ]);
     const payload = { hiscores: results[0], topPlayers: results[1], recentMatches: results[2] };
     ngx.shared.summary_cache.set(key, JSON.stringify(payload));
-    logApi("summary miss ms=" + (Date.now() - startedAt));
     return json(r, 200, payload);
 }
 

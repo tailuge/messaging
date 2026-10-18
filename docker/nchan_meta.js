@@ -289,7 +289,6 @@ async function publish(r) {
 function presence_sub(r) {
   try {
     const userId = r.headersIn['X-User-Id'] || 'unknown';
-    ngx.log(ngx.WARN, `presence_sub.. ${userId}`);
     if (userId !== 'unknown') ngx.shared.online_users.set(userId, "1");
     const referrer = r.headersIn['X-Referrer'];
     if (referrer && referrer.length > 0) {
@@ -351,7 +350,6 @@ async function table_unsub(r) {
   try {
     const userId = r.headersIn['X-User-Id'] || 'unknown';
     const tableId = r.headersIn['X-Nchan-Channel-Id'];
-    ngx.log(ngx.WARN, `table_unsub ${userId} from table ${tableId}`);
     if (userId !== 'unknown' && tableId) {
       const isSpectator = r.args.spectator === "1";
       await publish_auto_leave(r, `/internal/publish/table/${tableId}`, { type: "table:leave", senderId: userId, data: isSpectator ? { isSpectator: true } : {} }, "nchan-auto-table-leave");
@@ -372,7 +370,6 @@ async function presence_unsub(r) {
     const userId = r.headersIn['X-User-Id'] || 'unknown';
     incrementStat("presence_unsubscribe_total");
     incrementStat("presence_unsubscribe_websocket_total");
-    ngx.log(ngx.WARN, `presence_unsub ${userId}`);
     if (userId !== 'unknown') {
       ngx.shared.online_users.delete(userId);
       await publish_leave(r, userId);
@@ -449,6 +446,101 @@ function getUptime() {
   } catch (e) { return null; }
 }
 
+// Container stats for the dashboard, read straight from the kernel: cgroup
+// files (v2, falling back to v1) and /proc/net/dev. Nothing is stored, so
+// these counters reset with the container, like uptime and the nchan stats.
+function readText(path) {
+  try { return require("fs").readFileSync(path, "utf8"); } catch (e) { return null; }
+}
+
+function readFirst(paths) {
+  for (let i = 0; i < paths.length; i++) {
+    const text = readText(paths[i]);
+    if (text !== null) return text;
+  }
+  return null;
+}
+
+function parseNumber(text) {
+  if (text === null || text === undefined) return null;
+  const value = parseInt(String(text).trim(), 10);
+  return isNaN(value) ? null : value;
+}
+
+function parseKeyedNumbers(text) {
+  const values = {};
+  if (!text) return values;
+  text.trim().split("\n").forEach((line) => {
+    const parts = line.trim().split(/\s+/);
+    if (parts.length > 1) values[parts[0]] = parseNumber(parts[1]);
+  });
+  return values;
+}
+
+// Eth0 and friends only: loopback would double every byte the server handles.
+function getNetworkTotals() {
+  const text = readText("/proc/net/dev");
+  if (!text) return null;
+  const totals = { rx_bytes: 0, tx_bytes: 0 };
+  text.split("\n").forEach((line) => {
+    const colon = line.indexOf(":");
+    if (colon === -1) return;
+    const name = line.substring(0, colon).trim();
+    if (name === "" || name === "lo") return;
+    const fields = line.substring(colon + 1).trim().split(/\s+/);
+    totals.rx_bytes += parseNumber(fields[0]) || 0;
+    totals.tx_bytes += parseNumber(fields[8]) || 0;
+  });
+  return totals;
+}
+
+function getSystemStats(uptime) {
+  const cpuStat = parseKeyedNumbers(readFirst(["/sys/fs/cgroup/cpu.stat"]));
+
+  let cpuUsageUsec = typeof cpuStat.usage_usec === "number" ? cpuStat.usage_usec : null;
+  if (cpuUsageUsec === null) {
+    // cgroup v1 reports nanoseconds.
+    const v1Usage = parseNumber(readFirst(["/sys/fs/cgroup/cpuacct/cpuacct.usage"]));
+    if (v1Usage !== null) cpuUsageUsec = Math.round(v1Usage / 1000);
+  }
+
+  let cpuLimitCores = null;
+  const cpuMax = readFirst(["/sys/fs/cgroup/cpu.max"]);
+  if (cpuMax) {
+    const parts = cpuMax.trim().split(/\s+/);
+    const quota = parseNumber(parts[0]);
+    const period = parseNumber(parts[1]) || 100000;
+    if (quota !== null && period > 0) cpuLimitCores = Math.round((quota / period) * 100) / 100;
+  } else {
+    const quota = parseNumber(readFirst(["/sys/fs/cgroup/cpu/cpu.cfs_quota_us"]));
+    const period = parseNumber(readFirst(["/sys/fs/cgroup/cpu/cpu.cfs_period_us"]));
+    if (quota !== null && quota > 0 && period !== null && period > 0) cpuLimitCores = Math.round((quota / period) * 100) / 100;
+  }
+
+  let memoryLimit = parseNumber(readFirst(["/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory/memory.limit_in_bytes"]));
+  // cgroup v1 reports "no limit" as a huge number rather than "max".
+  if (memoryLimit !== null && memoryLimit > 1e12) memoryLimit = null;
+
+  const uptimeSeconds = uptime && uptime.seconds ? uptime.seconds : 0;
+  const cpuAvgPct = cpuUsageUsec !== null && uptimeSeconds > 0
+    ? Math.round((cpuUsageUsec / (uptimeSeconds * 10000)) * 10) / 10
+    : null;
+
+  return {
+    memory: {
+      used_bytes: parseNumber(readFirst(["/sys/fs/cgroup/memory.current", "/sys/fs/cgroup/memory/memory.usage_in_bytes"])),
+      limit_bytes: memoryLimit,
+      peak_bytes: parseNumber(readFirst(["/sys/fs/cgroup/memory.peak", "/sys/fs/cgroup/memory/memory.max_usage_in_bytes"])),
+    },
+    cpu: {
+      used_usec: cpuUsageUsec,
+      avg_pct: cpuAvgPct,
+      limit_cores: cpuLimitCores,
+    },
+    network: getNetworkTotals(),
+  };
+}
+
 function getLastLines(path, maxLines) {
   const fs = require("fs");
   try {
@@ -468,14 +560,16 @@ async function stats(r) {
   const nginx = nginxRes.status === 200 ? parseNginxStatus(nginxRes.responseText) : null;
   const nchanRes = await r.subrequest("/nchan_stats", { method: "GET" });
   const nchan = nchanRes.status === 200 ? parseNchanStatus(nchanRes.responseText) : null;
+  const uptime = getUptime();
   const data = {
     nginx: nginx,
     nchan: nchan,
+    system: getSystemStats(uptime),
     system_stats: getStatsSnapshot(["publish_requests_total", "presence_publish_total", "presence_leave_total", "presence_unsubscribe_total", "presence_unsubscribe_websocket_total"]),
     ip_cache: getIpCache(),
     referrer_cache: getReferrerCache(),
     online_users: getOnlineUsers(),
-    uptime: getUptime(),
+    uptime: uptime,
     njs_logs: getNjsLogs(),
     ts: new Date().toISOString(),
   };

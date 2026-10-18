@@ -212,14 +212,6 @@ table td {
       .dashboard-footer a {
         color: inherit;
       }
-      #sparkline {
-        padding: 2px 1px;
-        overflow: hidden;
-      }
-      #sparkline div {
-        padding: 0 !important;
-        margin: 0 !important;
-      }
     </style>
   </head>
   <body>
@@ -231,16 +223,6 @@ table td {
           <button onclick="fetchStats()">Refresh</button>
         </div>
       </header>
-
-      <div class="card collapsed" id="sparkline-card">
-        <div class="toggle-header" onclick="toggleCard('sparkline-card')" style="cursor: pointer;">
-          <h3 style="margin: 0; display: inline;">Activity Sparklines</h3>
-          <span class="toggle-indicator">&#9656;</span>
-        </div>
-        <div class="card-content" id="sparkline-info">
-          <div id="sparkline"></div>
-        </div>
-      </div>
 
       <div class="grid">
         <div class="card">
@@ -292,28 +274,41 @@ table td {
         </div>
 
         <div class="card">
-          <header style="margin-bottom: 5px;">
-            <h3 style="margin: 0;">Online Users (via sub/unsub)
-              <span id="online-users-count" style="color: var(--secondary-color)"></span>
-            </h3>
-            <button onclick="fetchOnlineUsers()">Refresh List</button>
-          </header>
-          <div id="online-users-info">
-            <table id="online-users-table">
-              <thead id="online-users-head">
-                <tr>
-                  <th>User ID</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td colspan="1" style="text-align: center; color: var(--secondary-color)">
-                    No online users data available.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <h3>Container</h3>
+          <table id="system-table">
+            <tr>
+              <td>Memory</td>
+              <td id="sys-mem-used">-</td>
+            </tr>
+            <tr>
+              <td>Memory limit</td>
+              <td id="sys-mem-limit">-</td>
+            </tr>
+            <tr>
+              <td>Memory peak</td>
+              <td id="sys-mem-peak">-</td>
+            </tr>
+            <tr>
+              <td>CPU time</td>
+              <td id="sys-cpu-used">-</td>
+            </tr>
+            <tr>
+              <td>CPU avg</td>
+              <td id="sys-cpu-avg">-</td>
+            </tr>
+            <tr>
+              <td>CPU limit</td>
+              <td id="sys-cpu-limit">-</td>
+            </tr>
+            <tr>
+              <td>Network in (total)</td>
+              <td id="sys-net-rx">-</td>
+            </tr>
+            <tr>
+              <td>Network out (total)</td>
+              <td id="sys-net-tx">-</td>
+            </tr>
+          </table>
         </div>
       </div>
 
@@ -501,17 +496,6 @@ table td {
         return ref;
       }
 
-      async function fetchOnlineUsers() {
-        try {
-          const response = await fetch("/api/online");
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-          const data = await response.json();
-          updateOnlineUsersUI(data);
-        } catch (error) {
-          console.error("Error fetching online users:", error);
-        }
-      }
-
       async function fetchStats() {
         const dashboard = document.querySelector(".dashboard");
         // dashboard.classList.add('loading'); // Optional: show loading state
@@ -537,66 +521,6 @@ table td {
         }
       }
 
-      // /api/online and /api/stats both return the online users as an array of
-      // user ids (the keys of the online_users shared dict). An object map of
-      // userId -> connection count is still accepted for compatibility, but the
-      // "Connections" column is only rendered when counts are actually present.
-      function normalizeOnlineUsers(onlineUsers) {
-        if (Array.isArray(onlineUsers)) {
-          return onlineUsers.map((user) => ({
-            userId:
-              typeof user === "string"
-                ? user
-                : String((user && (user.userId || user.id)) || ""),
-            connections: null,
-          }));
-        }
-        if (onlineUsers && typeof onlineUsers === "object") {
-          return Object.entries(onlineUsers).map(([userId, count]) => ({
-            userId: userId,
-            connections: Number.isFinite(Number(count)) ? Number(count) : null,
-          }));
-        }
-        return [];
-      }
-
-      function updateOnlineUsersUI(onlineUsers) {
-        const countLabel = document.getElementById("online-users-count");
-        const tableHead = document.getElementById("online-users-head");
-        const tableBody = document.querySelector("#online-users-table tbody");
-        const users = normalizeOnlineUsers(onlineUsers)
-          .map((user) => ({ ...user, userId: safeDecode(user.userId) }))
-          .filter((user) => user.userId !== "");
-        const showConnections = users.some((user) => user.connections !== null);
-
-        if (showConnections) {
-          users.sort((a, b) => b.connections - a.connections);
-        } else {
-          users.sort((a, b) => a.userId.localeCompare(b.userId));
-        }
-
-        if (countLabel) countLabel.textContent = `(${users.length})`;
-        if (tableHead) {
-          tableHead.innerHTML = showConnections
-            ? '<tr><th>User ID</th><th class="count-col">Connections</th></tr>'
-            : '<tr><th>User ID</th></tr>';
-        }
-
-        const columns = showConnections ? 2 : 1;
-        if (users.length > 0) {
-          tableBody.innerHTML = users
-            .map((user) => {
-              const countCell = showConnections
-                ? `<td class="count-col">${escapeHtml(String(user.connections))}</td>`
-                : "";
-              return `<tr><td>${escapeHtml(user.userId)}</td>${countCell}</tr>`;
-            })
-            .join("");
-        } else {
-          tableBody.innerHTML = `<tr><td colspan="${columns}" style="text-align: center; color: var(--secondary-color);">No online users.</td></tr>`;
-        }
-      }
-
       function updateUI(data) {
         if (data.nginx) {
           document.getElementById("ngx-accepts").textContent = data.nginx.accepts;
@@ -616,15 +540,29 @@ table td {
             data.nchan.total_subscribed_messages || 0;
         }
 
+        if (data.system) {
+          const memory = data.system.memory || {};
+          const cpu = data.system.cpu || {};
+          const network = data.system.network || {};
+          const bytes = (value) => (typeof value === "number" ? formatBytes(value) : "-");
+          document.getElementById("sys-mem-used").textContent = bytes(memory.used_bytes);
+          document.getElementById("sys-mem-limit").textContent = bytes(memory.limit_bytes);
+          document.getElementById("sys-mem-peak").textContent = bytes(memory.peak_bytes);
+          document.getElementById("sys-cpu-used").textContent =
+            typeof cpu.used_usec === "number" ? (cpu.used_usec / 1000000).toFixed(1) + " s" : "-";
+          document.getElementById("sys-cpu-avg").textContent =
+            typeof cpu.avg_pct === "number" ? cpu.avg_pct + "%" : "-";
+          document.getElementById("sys-cpu-limit").textContent =
+            typeof cpu.limit_cores === "number" ? cpu.limit_cores + " cores" : "-";
+          document.getElementById("sys-net-rx").textContent = bytes(network.rx_bytes);
+          document.getElementById("sys-net-tx").textContent = bytes(network.tx_bytes);
+        }
+
         if (data.system_stats) {
           document.getElementById("nch-presence-leaves").textContent =
             data.system_stats.presence_leave_total || 0;
           document.getElementById("nch-presence-unsubs").textContent =
             data.system_stats.presence_unsubscribe_total || 0;
-        }
-
-        if (data.online_users) {
-          updateOnlineUsersUI(data.online_users);
         }
 
          const ipCacheTableBody = document.querySelector("#ip-cache-table tbody");
@@ -780,13 +718,9 @@ table td {
               return `<tr class="${errorClass}"><td>${timestamp}</td><td>${message}</td></tr>`;
             })
             .join("");
-
-          // Render sparkline from NJS sub/unsub events
-          generateSparkline('sparkline', njsLogs);
         } else {
           njsLogsTableBody.innerHTML =
             '<tr><td colspan="2" style="text-align: center; color: var(--secondary-color);">No logs available.</td></tr>';
-          document.getElementById('sparkline').innerHTML = '';
         }
       }
 
@@ -796,136 +730,6 @@ table td {
         const sizes = ["B", "KB", "MB", "GB"];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-      }
-
-      function generateSparkline(containerId, lines) {
-        const container = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
-        if (!container) return;
-        container.innerHTML = '';
-
-        // Ultra-compact styles matching dashboard card theme
-        Object.assign(container.style, {
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0px',
-          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-          fontSize: '9px',
-          color: '#a1a1aa',
-          lineHeight: '2',
-          userSelect: 'none'
-        });
-
-        // Accept both string and array input
-        const rawText = Array.isArray(lines) ? lines.join('\n') : lines;
-
-        // Adapted regex for NGINX error log format:
-        // 2024/01/15 10:30:00 [warn] 123#456: *789 js: presence_sub.. user123
-        const regex = /(\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2})\s+\[\w+\]\s+\d+#\d+:\s+\*(\d+)\s+js:\s+presence_(sub\.\.|unsub)\s+(\S+)/g;
-        const events = [];
-        let match;
-
-        while ((match = regex.exec(rawText)) !== null) {
-          const connId = parseInt(match[2], 10);
-          events.push({
-            timestamp: new Date(match[1].replace(/\//g, '-')).getTime(),
-            connId: connId,
-            action: match[3] === 'sub..' ? 'sub' : 'unsub',
-            user: safeDecode(match[4])
-          });
-        }
-
-        if (events.length === 0) return;
-
-        // Sort chronologically by connection sequence
-        events.sort((a, b) => a.connId - b.connId || a.timestamp - b.timestamp);
-
-        const minConn = events[0].connId;
-        const maxConn = events[events.length - 1].connId;
-        const connDiff = Math.max(1, maxConn - minConn);
-
-        // Group by user
-        const users = {};
-        events.forEach(evt => {
-          if (!users[evt.user]) users[evt.user] = { name: evt.user, events: [] };
-          users[evt.user].events.push(evt);
-        });
-
-        // Render sorted rows
-        Object.keys(users).sort().forEach(username => {
-          const userObj = users[username];
-
-          const row = document.createElement('div');
-          Object.assign(row.style, {
-            display: 'flex',
-            alignItems: 'center',
-            gap: '2px',
-            height: '6px'
-          });
-
-          const label = document.createElement('div');
-          label.innerText = safeDecode(username);
-          Object.assign(label.style, {
-            width: '75px',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            color: '#a1a1aa',
-            fontSize: '9px',
-            paddingLeft: '2px',
-            letterSpacing: '-0.05em'
-          });
-          row.appendChild(label);
-
-          const lineContainer = document.createElement('div');
-          Object.assign(lineContainer.style, {
-            flex: '1',
-            height: '3px',
-            backgroundColor: '#efefef',
-              position: 'relative',
-	      padding: '0px',
-            overflow: 'hidden'
-          });
-
-          let currentSub = null;
-          userObj.events.forEach(evt => {
-            if (evt.action === 'sub') {
-              currentSub = evt.connId;
-            } else if (evt.action === 'unsub' && currentSub !== null) {
-              const startPct = ((currentSub - minConn) / connDiff) * 100;
-              const endPct = ((evt.connId - minConn) / connDiff) * 100;
-              const widthPct = Math.max(0.3, endPct - startPct);
-
-              const activeBar = document.createElement('div');
-              Object.assign(activeBar.style, {
-                position: 'absolute',
-                height: '100%',
-                backgroundColor: '#10d961',
-                left: startPct + '%',
-                width: widthPct + '%'
-              });
-              lineContainer.appendChild(activeBar);
-              currentSub = null;
-            }
-          });
-
-          // Tail segment if still connected
-          if (currentSub !== null) {
-            const startPct = ((currentSub - minConn) / connDiff) * 100;
-            const widthPct = 100 - startPct;
-            const activeBar = document.createElement('div');
-            Object.assign(activeBar.style, {
-              position: 'absolute',
-              height: '100%',
-              backgroundColor: '#10d961',
-              left: startPct + '%',
-              width: widthPct + '%'
-            });
-            lineContainer.appendChild(activeBar);
-          }
-
-          row.appendChild(lineContainer);
-          container.appendChild(row);
-        });
       }
 
       fetchStats();

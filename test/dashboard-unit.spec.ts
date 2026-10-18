@@ -5,7 +5,6 @@ import path from "path";
 describe("Dashboard UI Unit Tests", () => {
   let safeDecode: (str: string) => string;
   let updateUIFunction: Function;
-  let updateOnlineUsersFunction: Function;
   let mockDocument: any;
 
   beforeEach(() => {
@@ -43,7 +42,6 @@ describe("Dashboard UI Unit Tests", () => {
     mockDocument = {
       querySelector: (selector: string) => {
         if (selector === ".dashboard") return createMockElement();
-        if (selector === "#online-users-table tbody") return createMockElement("online-users-tbody");
         if (selector === "#ip-cache-table tbody") return createMockElement("ip-cache-tbody");
         if (selector === "#ref-table tbody") return createMockElement("ref-tbody");
         if (selector === "#ua-table tbody") return createMockElement("ua-tbody");
@@ -70,13 +68,12 @@ describe("Dashboard UI Unit Tests", () => {
 
     const contextFunc = new Function("document", "fetchStats", `
       ${scriptContent.replace("fetchStats();", "")}
-      return { safeDecode, updateUI, updateOnlineUsersUI };
+      return { safeDecode, updateUI };
     `);
 
     const exports = contextFunc(mockDocument, () => {});
     safeDecode = exports.safeDecode;
     updateUIFunction = exports.updateUI;
-    updateOnlineUsersFunction = exports.updateOnlineUsersUI;
   });
 
   test("safeDecode correctly decodes URI components and handles double encoding and invalid input", () => {
@@ -88,45 +85,23 @@ describe("Dashboard UI Unit Tests", () => {
     expect(safeDecode("%invalid%uri%")).toBe("%invalid%uri%");
   });
 
-  test("online users (array shape from /api/online) render as decoded user ids in a single column", () => {
-    updateOnlineUsersFunction([
-      "%EC%A3%BC%EB%B2%BC%EB%A6%AC-o3dp9",
-      "Luke-84gqc",
-      "user-rd1z4",
-    ]);
+  test("container system stats render as bytes, seconds, percent and network totals", () => {
+    updateUIFunction({
+      system: {
+        memory: { used_bytes: 14848000, limit_bytes: null, peak_bytes: 17715200 },
+        cpu: { used_usec: 1070972, avg_pct: 6.6, limit_cores: null },
+        network: { rx_bytes: 400007, tx_bytes: 363641 },
+      },
+    });
 
-    const head = mockDocument.getElementById("online-users-head").innerHTML;
-    expect(head).toBe("<tr><th>User ID</th></tr>");
-    expect(head).not.toContain("Connections");
-
-    const body = mockDocument.getElementById("online-users-tbody").innerHTML;
-    expect(body).toContain(`<td>${decodeURIComponent("%EC%A3%BC%EB%B2%BC%EB%A6%AC-o3dp9")}</td>`);
-    expect(body).toContain("<td>Luke-84gqc</td>");
-    expect(body).toContain("<td>user-rd1z4</td>");
-    expect(body).not.toContain("%EC%A3%BC");
-    expect(body).not.toContain("<td>0</td>");
-
-    expect(mockDocument.getElementById("online-users-count").textContent).toBe("(3)");
-  });
-
-  test("online users (object shape with counts) keep the Connections column", () => {
-    updateOnlineUsersFunction({ "%EA%B0%80-1": 2, "Luke-84gqc": 1 });
-
-    expect(mockDocument.getElementById("online-users-head").innerHTML).toBe(
-      '<tr><th>User ID</th><th class="count-col">Connections</th></tr>'
-    );
-    expect(mockDocument.getElementById("online-users-tbody").innerHTML).toBe(
-      '<tr><td>가-1</td><td class="count-col">2</td></tr>' +
-        '<tr><td>Luke-84gqc</td><td class="count-col">1</td></tr>'
-    );
-  });
-
-  test("empty online users render the placeholder spanning the visible columns", () => {
-    updateOnlineUsersFunction([]);
-    expect(mockDocument.getElementById("online-users-tbody").innerHTML).toContain(
-      'colspan="1"'
-    );
-    expect(mockDocument.getElementById("online-users-count").textContent).toBe("(0)");
+    expect(mockDocument.getElementById("sys-mem-used").textContent).toBe("14.16 MB");
+    expect(mockDocument.getElementById("sys-mem-limit").textContent).toBe("-");
+    expect(mockDocument.getElementById("sys-mem-peak").textContent).toBe("16.89 MB");
+    expect(mockDocument.getElementById("sys-cpu-used").textContent).toBe("1.1 s");
+    expect(mockDocument.getElementById("sys-cpu-avg").textContent).toBe("6.6%");
+    expect(mockDocument.getElementById("sys-cpu-limit").textContent).toBe("-");
+    expect(mockDocument.getElementById("sys-net-rx").textContent).toBe("390.63 KB");
+    expect(mockDocument.getElementById("sys-net-tx").textContent).toBe("355.12 KB");
   });
 
   test("referrer rows roll up to the site root so one site counts together", () => {

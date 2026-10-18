@@ -1,7 +1,7 @@
 # Server CPU efficiency review
 
-Suggestions only — nothing in this document has been applied. Paths are relative to the repo
-root; line numbers are from the current `main`.
+Suggestions only. Items that have since been applied are omitted. Paths are relative to the
+repo root; line numbers are from the current `main`.
 
 The server is two things: an Nginx/Nchan process whose JS hooks run in NJS, and the `api.njs`
 router in front of Upstash Redis. Almost all "server CPU" work is one of:
@@ -13,7 +13,7 @@ router in front of Upstash Redis. Almost all "server CPU" work is one of:
 | `nchan_meta.stats` | every dashboard load (`/api/stats`) | cache size × uptime |
 | `api.router` | lobby/scoreboard/arena polling | request rate |
 | Nchan fan-out | every publish × subscribers | messages × subscribers |
-| Logging | nearly all of the above | all of it, twice |
+| Logging | nearly all of the above | all of it |
 
 ## Method
 
@@ -41,37 +41,33 @@ Ranked roughly by (savings ÷ risk):
 
 ## 1. Logging is the largest avoidable fixed cost
 
-- `docker/nginx.conf:11` sets **two** `error_log` directives, both at `info`:
-  `error.log` and `njs_error.log`. Nginx writes every line to each, so the whole server pays
-  double formatting + two file writes for every log record.
-- `docker/nchan_meta.js:292, 342, 354, 375` log at `WARN` on **every** presence/table
-  subscribe and unsubscribe (`presence_sub.. <uid>`, `table_sub …`). Between reconnects, page
-  resumes and Nchan's 7200 s subscriber-timeout cycling, these are likely the most frequent log
-  lines the server produces (the 20 s WebSocket pings themselves do not log).
+- `docker/nchan_meta.js:341` logs at `WARN` on **every** table subscribe (`table_sub …`).
+  Between reconnects, page resumes and Nchan's 7200 s subscriber-timeout cycling, these are
+  likely the most frequent log lines the server produces (the 20 s WebSocket pings themselves
+  do not log). The presence subscribe/unsubscribe `WARN`s are already gone.
 - `docker/api.njs:6-8` (`logApi`) logs at `ERR`, and it is used for routine events, not just
-  failures: `summary hit ms=…` / `summary miss ms=…` (315, 326), every tidy summary line
-  (445–581), `results archiveSnapshots=…` (664), plus **whole request bodies** on create and
-  result upload (671, 775) and the entire `leaderboard` on every accepted result (821). Each of
-  those is a `JSON.stringify` of a payload followed by a file write, on the request path.
-- `docker/nchan_meta.js:466` (`r.warn("Stats data")`) writes a line per dashboard load, and
+  failures: every tidy summary line (442–578), `results archiveSnapshots=…` (661), plus
+  **whole request bodies** on create and result upload (668, 772) and the entire `leaderboard`
+  on every accepted result (818). Each of those is a `JSON.stringify` of a payload followed by
+  a file write, on the request path.
+- `docker/nchan_meta.js:558` (`r.warn("Stats data")`) writes a line per dashboard load, and
   `:194` logs every geo-lookup failure.
 
-Cheapest fix, in order: drop one `error_log`; lower the second to `warn` (or point both at the
-same file); delete the per-connection `WARN`s or demote them to `ngx.DEBUG`; keep `logApi` for
-errors but stop stringifying request bodies and leaderboards into it. If these lines are wanted
-for debugging, gate them on a single `debug` flag evaluated once rather than logging
-unconditionally.
+Cheapest fix, in order: delete the per-connection `WARN`s or demote them to `ngx.DEBUG`; drop
+the per-load `r.warn("Stats data")`; keep `logApi` for errors but stop stringifying request
+bodies and leaderboards into it. If these lines are wanted for debugging, gate them on a single
+`debug` flag evaluated once rather than logging unconditionally.
 
 Impact: proportional to log volume, and every request path pays it. Risk: none (observability
 loss is the only trade-off).
 
 ## 2. `/api/stats` cost grows with uptime and cache size
 
-- `getNjsLogs` → `getLastLines` (`docker/nchan_meta.js:452-465`) does `fs.readFileSync` of the **entire** log,
+- `getNjsLogs` → `getLastLines` (`docker/nchan_meta.js:544-555`) does `fs.readFileSync` of the **entire** log,
   `.trim().split("\n")` and then keeps 1000 lines. Measured 2.7 ms/MB, 37 ms for a 10 MB file,
   plus an allocation of the whole file. Nothing rotates `njs_error.log` inside the container, so
   this cost only ever grows until restart — and section 1 is what makes the file grow.
-- `stats` calls `getIpCache` (411), `getReferrerCache` (422) and `getOnlineUsers`, i.e. three
+- `stats` calls `getIpCache` (408), `getReferrerCache` (419) and `getOnlineUsers`, i.e. three
   full `keys()` enumerations per load, two of them over the same `ip_cache` dict.
 - The response embeds both caches verbatim, so it is O(distinct IPs) in JSON size and every
   dashboard load pays to serialise and ship it.
@@ -79,7 +75,7 @@ loss is the only trade-off).
 Suggested shape: read only the tail of the log (`fs.open` + `read` of the last ~64 KB, or a byte
 offset from `statSync`), enumerate `ip_cache` once and split keys into the two maps in that pass,
 and cache the assembled payload in `summary_cache` for 10–30 s — `usageStats` (`api.njs:95`)
-already demonstrates exactly that pattern. Bounding the log file size (or setting the second
+already demonstrates exactly that pattern. Bounding the log file size (or setting the remaining
 `error_log` to a level that keeps routine lines out) removes the growth term entirely.
 
 ## 3. Redis round trips park a worker on every request
@@ -177,7 +173,7 @@ No server change needed; listed because they dominate the message rate the serve
   `/publish/presence/lobby` the busiest endpoint. 75 s cuts publish volume 20 % while staying
   inside the 90 s presence message timeout; 90 s would sit exactly on the retention edge and
   risks a client momentarily showing as absent.
-- **Keep `/api/stats` manual.** `src/client/dashboard.html:931` fetches once on load, with a
+- **Keep `/api/stats` manual.** `src/client/dashboard.html:679` fetches once on load, with a
   Refresh button. If it ever gains a timer, implement section 2's response cache first — each
   load is a full dict dump plus log read.
 - `active-arenas.js` deliberately loads on mount only, and `arena-view.js` refetches on presence
