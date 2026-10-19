@@ -17,7 +17,7 @@ function loadNchanMeta(): any {
     "ngx",
     "require",
     `${source}
-     return { parseUA, reduceUA, cacheSafeUA, classifyForCache, formatCacheValue };`
+     return { parseUA, reduceUA, cacheSafeUA, classifyForCache, formatCacheValue, summariseCpuThrottling };`
   )(ngx, requireStub);
 }
 
@@ -186,5 +186,59 @@ describe("nchan_meta ip_cache user agent retention", () => {
   test("an absent user agent keeps the Unknown keyword, since there is nothing to retain", () => {
     const value = meta.formatCacheValue("XX", "", 1, "", meta.parseUA(""), "");
     expect(value).toBe("XX||1||Unknown|Unknown");
+  });
+});
+
+describe("nchan_meta cpu throttling summary", () => {
+  let meta: any;
+
+  beforeEach(() => {
+    meta = loadNchanMeta();
+  });
+
+  test("reads cgroup v2 counters", () => {
+    expect(
+      meta.summariseCpuThrottling({ nr_periods: 1000, nr_throttled: 10, throttled_usec: 250000 })
+    ).toEqual({
+      nr_periods: 1000,
+      nr_throttled: 10,
+      throttled_usec: 250000,
+      throttled_pct: 1,
+      throttled_avg_ms: 25,
+    });
+  });
+
+  test("reads cgroup v1 throttled_time nanoseconds", () => {
+    expect(
+      meta.summariseCpuThrottling({ nr_periods: 200, nr_throttled: 1, throttled_time: 5000000 })
+    ).toEqual({
+      nr_periods: 200,
+      nr_throttled: 1,
+      throttled_usec: 5000,
+      throttled_pct: 0.5,
+      throttled_avg_ms: 5,
+    });
+  });
+
+  test("zero throttled periods do not divide by zero", () => {
+    expect(
+      meta.summariseCpuThrottling({ nr_periods: 400, nr_throttled: 0, throttled_usec: 0 })
+    ).toEqual({
+      nr_periods: 400,
+      nr_throttled: 0,
+      throttled_usec: 0,
+      throttled_pct: 0,
+      throttled_avg_ms: null,
+    });
+  });
+
+  test("missing counters stay null", () => {
+    expect(meta.summariseCpuThrottling({})).toEqual({
+      nr_periods: null,
+      nr_throttled: null,
+      throttled_usec: null,
+      throttled_pct: null,
+      throttled_avg_ms: null,
+    });
   });
 });

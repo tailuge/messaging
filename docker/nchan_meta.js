@@ -516,8 +516,38 @@ function getNetworkTotals() {
   return totals;
 }
 
+// CFS bandwidth counters from cpu.stat. cgroup v2 names the wait total
+// `throttled_usec`; cgroup v1 names it `throttled_time` in nanoseconds.
+// `nr_throttled` counts periods where the quota ran out, not tasks, so
+// `throttled_avg_ms` is the mean delay per throttled period.
+function summariseCpuThrottling(cpuStat) {
+  const periods = typeof cpuStat.nr_periods === "number" ? cpuStat.nr_periods : null;
+  const throttled = typeof cpuStat.nr_throttled === "number" ? cpuStat.nr_throttled : null;
+  let throttledUsec = typeof cpuStat.throttled_usec === "number" ? cpuStat.throttled_usec : null;
+  if (throttledUsec === null && typeof cpuStat.throttled_time === "number") {
+    throttledUsec = Math.round(cpuStat.throttled_time / 1000);
+  }
+  const throttledPct =
+    periods !== null && periods > 0 && throttled !== null
+      ? Math.round((throttled / periods) * 1000) / 10
+      : null;
+  const throttledAvgMs =
+    throttled !== null && throttled > 0 && throttledUsec !== null
+      ? Math.round((throttledUsec / 1000 / throttled) * 10) / 10
+      : null;
+  return {
+    nr_periods: periods,
+    nr_throttled: throttled,
+    throttled_usec: throttledUsec,
+    throttled_pct: throttledPct,
+    throttled_avg_ms: throttledAvgMs,
+  };
+}
+
 function getSystemStats(uptime) {
-  const cpuStat = parseKeyedNumbers(readFirst(["/sys/fs/cgroup/cpu.stat"]));
+  const cpuStat = parseKeyedNumbers(
+    readFirst(["/sys/fs/cgroup/cpu.stat", "/sys/fs/cgroup/cpu/cpu.stat"]),
+  );
 
   let cpuUsageUsec = typeof cpuStat.usage_usec === "number" ? cpuStat.usage_usec : null;
   if (cpuUsageUsec === null) {
@@ -527,16 +557,26 @@ function getSystemStats(uptime) {
   }
 
   let cpuLimitCores = null;
+  let quotaUsec = null;
+  let periodUsec = null;
   const cpuMax = readFirst(["/sys/fs/cgroup/cpu.max"]);
   if (cpuMax) {
     const parts = cpuMax.trim().split(/\s+/);
     const quota = parseNumber(parts[0]);
     const period = parseNumber(parts[1]) || 100000;
-    if (quota !== null && period > 0) cpuLimitCores = Math.round((quota / period) * 100) / 100;
+    if (quota !== null && period > 0) {
+      cpuLimitCores = Math.round((quota / period) * 100) / 100;
+      quotaUsec = quota;
+      periodUsec = period;
+    }
   } else {
     const quota = parseNumber(readFirst(["/sys/fs/cgroup/cpu/cpu.cfs_quota_us"]));
     const period = parseNumber(readFirst(["/sys/fs/cgroup/cpu/cpu.cfs_period_us"]));
-    if (quota !== null && quota > 0 && period !== null && period > 0) cpuLimitCores = Math.round((quota / period) * 100) / 100;
+    if (quota !== null && quota > 0 && period !== null && period > 0) {
+      cpuLimitCores = Math.round((quota / period) * 100) / 100;
+      quotaUsec = quota;
+      periodUsec = period;
+    }
   }
 
   let memoryLimit = parseNumber(readFirst(["/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory/memory.limit_in_bytes"]));
@@ -548,6 +588,8 @@ function getSystemStats(uptime) {
     ? Math.round((cpuUsageUsec / (uptimeSeconds * 10000)) * 10) / 10
     : null;
 
+  const throttling = summariseCpuThrottling(cpuStat);
+
   return {
     memory: {
       used_bytes: parseNumber(readFirst(["/sys/fs/cgroup/memory.current", "/sys/fs/cgroup/memory/memory.usage_in_bytes"])),
@@ -558,6 +600,13 @@ function getSystemStats(uptime) {
       used_usec: cpuUsageUsec,
       avg_pct: cpuAvgPct,
       limit_cores: cpuLimitCores,
+      quota_us: quotaUsec,
+      period_us: periodUsec,
+      nr_periods: throttling.nr_periods,
+      nr_throttled: throttling.nr_throttled,
+      throttled_usec: throttling.throttled_usec,
+      throttled_pct: throttling.throttled_pct,
+      throttled_avg_ms: throttling.throttled_avg_ms,
     },
     network: getNetworkTotals(),
   };

@@ -474,9 +474,6 @@ async function tidyFinishedArenas() {
             const players = Array.isArray(arena.players) ? arena.players : [];
             const entrantCount = players.length;
             const activeEntrantCount = players.filter((p) => p.active).length;
-            logApi("tidy finished id=" + id + " entrantCount=" + entrantCount +
-                " activeEntrantCount=" + activeEntrantCount + " endTime=" + arena.endTime);
-
             // An entrant remains an entrant even after leaving. The two seeded
             // players are part of players, so a real join makes this count > 2.
             if (entrantCount > 2) {
@@ -502,8 +499,6 @@ async function tidyFinishedArenas() {
                 // score preserves end-time order, so results need no MGET.
                 archiveArgs.push(String(Number(arena.endTime) || now), JSON.stringify(arena));
             } else {
-                logApi("tidy skipping archive id=" + id + " entrantCount=" + entrantCount +
-                    " <= 2 -- deleting keys");
                 const keys = arenaKeys(id);
                 await redis("DEL", keys.arena, keys.scores, keys.scored);
             }
@@ -665,7 +660,6 @@ async function arenaResultsGet(r) {
 async function arenaCreate(r) {
     const body = await readBody(r);
     if (!body) return json(r, 400, { error: "Invalid JSON" });
-    logApi("create payload=" + JSON.stringify(body));
     if (typeof body.ruleType !== "string" || !body.ruleType) {
         return json(r, 400, { error: "ruleType is required" });
     }

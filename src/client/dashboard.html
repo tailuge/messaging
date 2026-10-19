@@ -247,6 +247,14 @@ table td {
                   <td>Requests</td>
                   <td id="ngx-requests">-</td>
                 </tr>
+                <tr>
+                  <td>Active connections</td>
+                  <td id="ngx-active">-</td>
+                </tr>
+                <tr>
+                  <td>Reading / Writing / Waiting</td>
+                  <td id="ngx-rw">-</td>
+                </tr>
               </table>
             </div>
             <div>
@@ -261,12 +269,40 @@ table td {
                   <td id="nch-subscribed">-</td>
                 </tr>
                 <tr>
+                  <td>Subscribers (live)</td>
+                  <td id="nch-subscribers">-</td>
+                </tr>
+                <tr>
+                  <td>Channels</td>
+                  <td id="nch-channels">-</td>
+                </tr>
+                <tr>
+                  <td>Stored messages</td>
+                  <td id="nch-stored">-</td>
+                </tr>
+                <tr>
+                  <td>Online users</td>
+                  <td id="nch-online">-</td>
+                </tr>
+                <tr>
+                  <td>Publish Requests</td>
+                  <td id="nch-publish-requests">-</td>
+                </tr>
+                <tr>
+                  <td>Presence Publishes</td>
+                  <td id="nch-presence-publishes">-</td>
+                </tr>
+                <tr>
                   <td>Presence Leaves</td>
                   <td id="nch-presence-leaves">-</td>
                 </tr>
                 <tr>
                   <td>Presence Socket Unsubs</td>
                   <td id="nch-presence-unsubs">-</td>
+                </tr>
+                <tr>
+                  <td>WebSocket Unsubs</td>
+                  <td id="nch-presence-ws-unsubs">-</td>
                 </tr>
               </table>
             </div>
@@ -299,6 +335,14 @@ table td {
             <tr>
               <td>CPU limit</td>
               <td id="sys-cpu-limit">-</td>
+            </tr>
+            <tr>
+              <td>CPU throttled</td>
+              <td id="sys-cpu-throttled">-</td>
+            </tr>
+            <tr>
+              <td>Throttle delay</td>
+              <td id="sys-cpu-throttle-delay">-</td>
             </tr>
             <tr>
               <td>Network in (total)</td>
@@ -528,10 +572,17 @@ table td {
       }
 
       function updateUI(data) {
+        // Older Safari has no `??`; keep 0 visible instead of turning it into "-".
+        const dash = (value) => (value === undefined || value === null ? "-" : value);
+
         if (data.nginx) {
-          document.getElementById("ngx-accepts").textContent = data.nginx.accepts;
-          document.getElementById("ngx-handled").textContent = data.nginx.handled;
-          document.getElementById("ngx-requests").textContent = data.nginx.requests;
+          const nginx = data.nginx;
+          document.getElementById("ngx-accepts").textContent = nginx.accepts;
+          document.getElementById("ngx-handled").textContent = nginx.handled;
+          document.getElementById("ngx-requests").textContent = nginx.requests;
+          document.getElementById("ngx-active").textContent = dash(nginx.active);
+          document.getElementById("ngx-rw").textContent =
+            `${dash(nginx.reading)} / ${dash(nginx.writing)} / ${dash(nginx.waiting)}`;
         }
 
         if (data.uptime) {
@@ -540,10 +591,18 @@ table td {
         }
 
         if (data.nchan) {
+          const nchan = data.nchan;
           document.getElementById("nch-published").textContent =
-            data.nchan.total_published_messages || 0;
+            nchan.total_published_messages || 0;
           document.getElementById("nch-subscribed").textContent =
-            data.nchan.total_subscribed_messages || 0;
+            nchan.total_subscribed_messages || 0;
+          document.getElementById("nch-subscribers").textContent = dash(nchan.subscribers);
+          document.getElementById("nch-channels").textContent = dash(nchan.channels);
+          document.getElementById("nch-stored").textContent = dash(nchan.stored_messages);
+        }
+
+        if (Array.isArray(data.online_users)) {
+          document.getElementById("nch-online").textContent = data.online_users.length;
         }
 
         if (data.system) {
@@ -558,17 +617,40 @@ table td {
             typeof cpu.used_usec === "number" ? (cpu.used_usec / 1000000).toFixed(1) + " s" : "-";
           document.getElementById("sys-cpu-avg").textContent =
             typeof cpu.avg_pct === "number" ? cpu.avg_pct + "%" : "-";
+          const budget =
+            typeof cpu.quota_us === "number" && typeof cpu.period_us === "number"
+              ? ` (${cpu.quota_us / 1000} ms / ${cpu.period_us / 1000} ms)`
+              : "";
           document.getElementById("sys-cpu-limit").textContent =
-            typeof cpu.limit_cores === "number" ? cpu.limit_cores + " cores" : "-";
+            typeof cpu.limit_cores === "number" ? cpu.limit_cores + " cores" + budget : "-";
+          document.getElementById("sys-cpu-throttled").textContent =
+            typeof cpu.nr_throttled === "number" && typeof cpu.nr_periods === "number"
+              ? `${cpu.nr_throttled.toLocaleString()} / ${cpu.nr_periods.toLocaleString()} periods` +
+                (typeof cpu.throttled_pct === "number" ? ` (${cpu.throttled_pct}%)` : "")
+              : "-";
+          document.getElementById("sys-cpu-throttle-delay").textContent =
+            typeof cpu.throttled_usec === "number"
+              ? `${(cpu.throttled_usec / 1000000).toFixed(2)} s total` +
+                (typeof cpu.throttled_avg_ms === "number"
+                  ? `, ${cpu.throttled_avg_ms} ms/period`
+                  : "")
+              : "-";
           document.getElementById("sys-net-rx").textContent = bytes(network.rx_bytes);
           document.getElementById("sys-net-tx").textContent = bytes(network.tx_bytes);
         }
 
         if (data.system_stats) {
+          const counters = data.system_stats;
           document.getElementById("nch-presence-leaves").textContent =
-            data.system_stats.presence_leave_total || 0;
+            counters.presence_leave_total || 0;
           document.getElementById("nch-presence-unsubs").textContent =
-            data.system_stats.presence_unsubscribe_total || 0;
+            counters.presence_unsubscribe_total || 0;
+          document.getElementById("nch-presence-ws-unsubs").textContent =
+            counters.presence_unsubscribe_websocket_total || 0;
+          document.getElementById("nch-publish-requests").textContent =
+            counters.publish_requests_total || 0;
+          document.getElementById("nch-presence-publishes").textContent =
+            counters.presence_publish_total || 0;
         }
 
          const ipCacheTableBody = document.querySelector("#ip-cache-table tbody");
