@@ -17,7 +17,7 @@ function loadNchanMeta(): any {
     "ngx",
     "require",
     `${source}
-     return { parseUA, reduceUA, cacheSafeUA, classifyForCache, formatCacheValue, summariseCpuThrottling };`
+     return { parseUA, reduceUA, cacheSafeUA, classifyForCache, formatCacheValue, summariseCpuThrottling, publish, ngx };`
   )(ngx, requireStub);
 }
 
@@ -240,5 +240,81 @@ describe("nchan_meta cpu throttling summary", () => {
       throttled_pct: null,
       throttled_avg_ms: null,
     });
+  });
+});
+
+// `publish` only needs the request text, the uri, and a subrequest sink, so the
+// whole handler runs here against stubs.
+describe("nchan_meta publish meta per channel", () => {
+  function prepare(meta: any) {
+    meta.ngx.shared.system_stats = { get: () => "0", set: () => {} };
+    meta.ngx.shared.ip_cache = { get: () => undefined, set: () => {} };
+    meta.ngx.fetch = async () => ({
+      text: async () => JSON.stringify({ country: "GB", city: "Blackwood" }),
+    });
+  }
+
+  function fakeRequest(meta: any, uri: string, payload: unknown) {
+    const published: string[] = [];
+    expect(meta).toBeDefined();
+    return {
+      uri,
+      method: "POST",
+      remoteAddress: "203.0.113.5",
+      requestText: JSON.stringify(payload),
+      headersIn: {
+        origin: "https://billiards.tailuge.workers.dev",
+        "user-agent": CHROME_WINDOWS,
+      },
+      subrequest: async (_path: string, opts: { body: string }) => {
+        published.push(opts.body);
+        return { status: 200, responseText: "" };
+      },
+      return: () => {},
+      published,
+    };
+  }
+
+  test("table publishes carry only meta.t and meta.i", async () => {
+    const meta = loadNchanMeta();
+    prepare(meta);
+    const r = fakeRequest(meta, "/publish/table/table-123", {
+      type: "CHAT",
+      data: { message: "hello" },
+      senderId: "Luke-zxcos",
+    });
+
+    await meta.publish(r);
+
+    const published = JSON.parse(r.published[0]);
+    expect(Object.keys(published.meta).sort()).toEqual(["i", "t"]);
+    expect(typeof published.meta.t).toBe("number");
+    expect(published.meta.i).toMatch(/^[0-9a-f]{6}$/);
+    expect(published.senderId).toBe("Luke-zxcos");
+  });
+
+  test("presence publishes keep the full enriched meta", async () => {
+    const meta = loadNchanMeta();
+    prepare(meta);
+    const r = fakeRequest(meta, "/publish/presence/lobby", {
+      messageType: "presence",
+      type: "join",
+      userId: "user-1",
+      userName: "Alice",
+      meta: { version: "261019.07-4" },
+    });
+
+    await meta.publish(r);
+
+    const published = JSON.parse(r.published[0]);
+    expect(published.meta).toMatchObject({
+      u: "Win Chr",
+      o: "/",
+      c: "GB",
+      y: "Blackwood",
+      v: "261019.07-4",
+    });
+    expect(typeof published.meta.t).toBe("number");
+    expect(typeof published.meta.i).toBe("string");
   });
 });

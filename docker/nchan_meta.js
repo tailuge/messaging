@@ -164,17 +164,28 @@ function createMessageId() {
   });
 }
 
+// Table frames are gameplay traffic: consumers read meta.msgId (replay dedup)
+// and meta.ts (timing) only, so the geo/UA enrichment that the lobby uses is
+// skipped for that channel. Everything else stays on the common path in
+// publish().
+function isTableChannel(r) {
+  return r.uri.startsWith("/publish/table/");
+}
+
+// The two fields every message needs, whichever channel it is on.
+function createIdMeta() {
+  return { t: Date.now(), i: createMessageId() };
+}
+
 // Meta keys are the compact wire names (payload.md §3.4, phase P1). The client
 // decodes them back to canonical names in src/wire.ts.
 function createMeta(r, country, city) {
-  return {
-    t: Date.now(),
-    i: createMessageId(),
-    u: reduceUA(r.headersIn["user-agent"] || ""),
-    o: reduceOrigin(r.headersIn.origin || ""),
-    c: country,
-    y: city || "",
-  };
+  const meta = createIdMeta();
+  meta.u = reduceUA(r.headersIn["user-agent"] || "");
+  meta.o = reduceOrigin(r.headersIn.origin || "");
+  meta.c = country;
+  meta.y = city || "";
+  return meta;
 }
 
 async function buildMeta(r) {
@@ -287,10 +298,13 @@ async function publish(r) {
     r.return(res.status, res.responseText);
     return;
   }
-  const meta = await buildMeta(r);
-  const clientVersion = extractClientVersion(reqText);
-  if (clientVersion) {
-    meta.v = clientVersion;
+  const slim = isTableChannel(r);
+  const meta = slim ? createIdMeta() : await buildMeta(r);
+  if (!slim) {
+    const clientVersion = extractClientVersion(reqText);
+    if (clientVersion) {
+      meta.v = clientVersion;
+    }
   }
   const body = injectMetaString(reqText, meta);
   incrementStat("publish_requests_total");
