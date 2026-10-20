@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 1280;
+export const CLIENTVERSION = 1282;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -291,12 +291,16 @@ export const spectateUrl = ({ tableId, userId, userName, ruleType, options }) =>
     return appendOptions(url, options);
 };
 
-export const revealGameUrl = ({ imageUrl, userId, userName, lod, flip, rating, stars, custom }) => {
+// `card` is the card's display name (its text in the deck list, e.g. "BoA"). The game
+// carries it into the match result it uploads, so a finished reveal can be announced in
+// the lobby's recent matches as "<player> 🔓 <card>" alongside the rule icon.
+export const revealGameUrl = ({ imageUrl, userId, userName, lod, flip, rating, stars, card, custom }) => {
     const normalizedRating = Math.min(1, Math.max(0, Number.isFinite(rating) ? rating : 0));
     // Rank fraction (0-1) -> 1-15 reds, the most a snooker table holds.
     const reds = Math.min(15, Math.max(1, Math.round(normalizedRating * 15)));
     const starRating = stars ?? Math.min(5, Math.max(1, Math.ceil(normalizedRating * 5)));
     let url = `${BASE}?ruletype=reveal&image=${encodeURIComponent(imageUrl)}&userId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}&lod=${lod}&reds=${reds}`;
+    if (card) url += `&card=${encodeURIComponent(card)}`;
     if (starRating === 1) {
         url += '&tableSize=6';
     } else if (starRating === 2) {

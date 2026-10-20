@@ -1147,6 +1147,9 @@ class RevealApp extends LitElement {
       flip: userStore.flip,
       rating: ch.normRating ?? ch.rating,
       stars: ch.stars,
+      // The deck list's own text for this card — what the flipped card shows — so the
+      // game can name the unlocked picture in the result it uploads.
+      card: ch.name,
       custom: userStore.getCustom(),
     });
     window.location.href = url;

@@ -35,12 +35,17 @@ const ruleCell = m => typeof m.club === 'string' && m.club
 // club challenge is a solo race to the target, so there is no second player.
 const clubTag = m => typeof m.club === 'string' && m.club ? ` @ ${m.club}` : '';
 
-// The Match column is capped at 8rem and ellipsises, which a Japanese hall name will
-// overflow, so club rows carry the whole pairing in a title. Rows without a club keep
-// their plain text, which fits.
+// A reveal game names the card it unlocked on its launch link (`card=<name>`), and the game
+// carries that name into the result it uploads. Those rows read "player 🔓 card", so a
+// lobby visitor can see which picture a player just revealed without leaving the page.
+const cardTag = m => typeof m.card === 'string' && m.card ? ` 🔓 ${m.card}` : '';
+
+// The Match column is capped at 8rem and ellipsises, which a Japanese hall name (or a
+// long card name) will overflow, so club/card rows carry the whole pairing in a title.
+// Rows with neither keep their plain text, which fits.
 const matchText = m => {
     const score = v => v != null ? ` (${v})` : '';
-    return m.winner + clubTag(m) + score(m.winnerScore)
+    return m.winner + cardTag(m) + clubTag(m) + score(m.winnerScore)
         + (m.loser ? ` vs ${m.loser}${score(m.loserScore)}` : '');
 };
 
@@ -122,7 +127,7 @@ class InfoPanel extends StoreElement {
                         <div class="tbl"><table>
                         <tr><th>Rule</th><th>Match</th><th>Ago</th><th class="city-col">City</th><th></th></tr>
                             ${recentMatches.map(m => html`<tr>
-                                <td>${ruleCell(m)}</td><td title="${clubTag(m) ? matchText(m) : ''}">${m.arenaId ? '⚔️' : ''}${m.loser ? (m.tableSize != null && m.tableSize < 10 ? '🍼' : '🎖️') : ''}${m.freeaim === true ? '⌖' : ''}${m.berserk === true || m.berserk === 'true' ? '🚀' : ''}${m.winner}${clubTag(m)}${m.winnerScore != null ? html`<span class="score">(${m.winnerScore})</span>` : ''}${m.loser ? html` vs ${m.loser}${m.loserScore != null ? html`<span class="score">(${m.loserScore})</span>` : ''}` : ''}</td>
+                                <td>${ruleCell(m)}</td><td title="${clubTag(m) || cardTag(m) ? matchText(m) : ''}">${m.arenaId ? '⚔️' : ''}${m.loser ? (m.tableSize != null && m.tableSize < 10 ? '🍼' : '🎖️') : ''}${m.freeaim === true ? '⌖' : ''}${m.berserk === true || m.berserk === 'true' ? '🚀' : ''}${m.winner}${cardTag(m)}${clubTag(m)}${m.winnerScore != null ? html`<span class="score">(${m.winnerScore})</span>` : ''}${m.loser ? html` vs ${m.loser}${m.loserScore != null ? html`<span class="score">(${m.loserScore})</span>` : ''}` : ''}</td>
                                 <td class="ago">${timeAgo(m.timestamp)}</td>
                                 <td class="city-col">${m.locationCity ?? ''}</td>
 <td class="replay-col">

@@ -131,6 +131,23 @@ describe("revealGameUrl rating", () => {
         expect(param(build(2), "reds")).toBe("15");
     });
 
+    it("sends the card's display name so the result can announce it", () => {
+        const url = revealGameUrl({
+            imageUrl: "https://example.com/image.jpg",
+            userId: "alice",
+            userName: "Alice",
+            lod: 2,
+            rating: 0.5,
+            card: "Bae Seul-ki (배수지)",
+        } as any);
+        expect(param(url, "card")).toBe("Bae Seul-ki (배수지)");
+        expect(param(url, "ruletype")).toBe("reveal");
+    });
+
+    it("omits card when no card name is supplied", () => {
+        expect(param(build(0.5), "card")).toBeNull();
+    });
+
     it("appends extra query params depending on star rating", () => {
         const url1 = build(1 / 32, 1);
         expect(param(url1, "tableSize")).toBe("6");
