@@ -5,6 +5,8 @@ import path from "path";
 describe("Dashboard UI Unit Tests", () => {
   let safeDecode: (str: string) => string;
   let updateUIFunction: Function;
+  let presenceRowFunction: Function;
+  let loadPresenceFunction: Function;
   let mockDocument: any;
 
   beforeEach(() => {
@@ -25,6 +27,10 @@ describe("Dashboard UI Unit Tests", () => {
         set textContent(v) { this._textContent = v; this.innerHTML = v; },
         innerHTML: "",
         style: {},
+        children: [] as any[],
+        appendChild(child: any) {
+          this.children.push(child);
+        },
         classList: { toggle: () => {}, contains: () => false },
         querySelector: () => ({ textContent: "" }),
         querySelectorAll: (selector: string) => {
@@ -68,12 +74,14 @@ describe("Dashboard UI Unit Tests", () => {
 
     const contextFunc = new Function("document", "fetchStats", `
       ${scriptContent.replace("fetchStats();", "")}
-      return { safeDecode, updateUI };
+      return { safeDecode, updateUI, presenceRow, loadPresence };
     `);
 
     const exports = contextFunc(mockDocument, () => {});
     safeDecode = exports.safeDecode;
     updateUIFunction = exports.updateUI;
+    presenceRowFunction = exports.presenceRow;
+    loadPresenceFunction = exports.loadPresence;
   });
 
   test("safeDecode correctly decodes URI components and handles double encoding and invalid input", () => {
@@ -83,6 +91,58 @@ describe("Dashboard UI Unit Tests", () => {
     expect(safeDecode(encodeURIComponent(sample))).toBe(expected);
     expect(safeDecode("plain-username")).toBe("plain-username");
     expect(safeDecode("%invalid%uri%")).toBe("%invalid%uri%");
+  });
+
+  test("presence rows render compact frames as a plain text line", () => {
+    const row: any = presenceRowFunction({
+      m: "p",
+      t: "h",
+      u: "alice",
+      n: "Alice",
+      T: "table-3",
+      r: "nineball",
+      meta: { t: Date.now() - 8000, c: "GB", y: "London" },
+    });
+
+    expect(row.textContent).toContain("Alice (alice) — heartbeat — nineball @ table-3 — ");
+    expect(row.textContent).toMatch(/8s ago/);
+    expect(row.textContent).toContain("— GB London");
+  });
+
+  test("presence rows distinguish spectating and arena states", () => {
+    const spectating: any = presenceRowFunction({ t: "j", u: "bob", n: "Bob", T: "t1", S: true });
+    expect(spectating.textContent).toContain("game @ t1 (spectating)");
+
+    const arena: any = presenceRowFunction({ t: "h", u: "carol", n: "Carol", A: "arena-7" });
+    expect(arena.textContent).toContain("arena arena-7");
+  });
+
+  test("loadPresence renders the snapshot and reports a failed fetch", async () => {
+    const originalFetch = global.fetch;
+    try {
+      (global as any).fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ts: Date.now(),
+          ttl: 600000,
+          users: [{ m: "p", t: "h", u: "a", n: "A", meta: { t: Date.now(), c: "GB" } }],
+        }),
+      });
+
+      await loadPresenceFunction();
+      expect(mockDocument.getElementById("presence-meta").textContent).toContain("1 online");
+      const list = mockDocument.getElementById("presence-list");
+      expect(list.children.length).toBe(1);
+      expect(list.children[0].textContent).toContain("A (a) — heartbeat");
+
+      (global as any).fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 });
+      await loadPresenceFunction();
+      expect(mockDocument.getElementById("presence-meta").textContent).toContain(
+        "Presence fetch failed: HTTP 503"
+      );
+    } finally {
+      (global as any).fetch = originalFetch;
+    }
   });
 
   test("container system stats render as bytes, seconds, percent and network totals", () => {

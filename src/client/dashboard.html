@@ -185,6 +185,21 @@ table td {
         white-space: nowrap;
         width: 7%;
       }
+      .presence-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 6px;
+      }
+      #presence-list {
+        list-style: none;
+        font-size: 0.8rem;
+      }
+      #presence-list li {
+        border-bottom: 1px solid var(--border-color);
+        white-space: normal;
+        word-break: break-word;
+      }
       .card.collapsed .card-content {
         max-height: 0;
         overflow: hidden;
@@ -356,6 +371,22 @@ table td {
         </div>
       </div>
 
+      <div class="card" id="presence-card">
+        <div class="toggle-header" onclick="toggleCard('presence-card')" style="cursor: pointer;">
+          <h3 style="margin: 0; display: inline;">Presence registry</h3>
+          <span class="toggle-indicator">▾</span>
+        </div>
+        <div class="card-content" id="presence-info">
+          <div class="presence-controls">
+            <span id="presence-meta" class="refresh-tag">Not loaded.</span>
+            <button type="button" onclick="loadPresence()">Load online users</button>
+          </div>
+          <ul id="presence-list">
+            <li style="color: var(--secondary-color);">Click "Load online users" to read the server registry.</li>
+          </ul>
+        </div>
+      </div>
+
        <div class="card collapsed" id="ip-cache-card">
         <div class="toggle-header" onclick="toggleCard('ip-cache-card')" style="cursor: pointer;">
           <h3 style="margin: 0; display: inline;">IP Cache (shared dict)</h3>
@@ -518,6 +549,83 @@ table td {
           return decoded;
         } catch (e) {
           return str;
+        }
+      }
+
+      // Phase 1 presence registry view: the dashboard is the only consumer of
+      // /api/online/presence. Frames are the compact wire form (u/n/t/T/r/A/S),
+      // with mobile-friendly words for the message type and a plain text row per
+      // user. Built with textContent because names and ids are user-controlled.
+      const PRESENCE_TYPES = {
+        j: "join",
+        h: "heartbeat",
+        l: "leave",
+        join: "join",
+        heartbeat: "heartbeat",
+        leave: "leave",
+      };
+
+      function presenceState(user) {
+        const tableId = user.T || user.tableId;
+        const arenaId = user.A || user.arenaId;
+        const rule = user.r || user.ruleType;
+        const spectator = user.S === true || user.isSpectator === true;
+        if (tableId) return `${rule || "game"} @ ${tableId}${spectator ? " (spectating)" : ""}`;
+        if (arenaId) return `arena ${arenaId}`;
+        return "available";
+      }
+
+      function presenceAge(meta) {
+        const ts = meta && (typeof meta.t === "number" ? meta.t : meta.ts);
+        if (typeof ts !== "number") return "unknown age";
+        const seconds = Math.max(0, Math.round((Date.now() - ts) / 1000));
+        if (seconds < 60) return `${seconds}s ago`;
+        if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
+        return `${Math.round(seconds / 3600)}h ago`;
+      }
+
+      function presenceRow(user) {
+        const name = user.n || user.userName || "(no name)";
+        const id = user.u || user.userId || "?";
+        const type = PRESENCE_TYPES[user.t || user.type] || user.t || user.type || "?";
+        const meta = user.meta || {};
+        const country = meta.c || meta.country || "";
+        const city = meta.y || meta.city || "";
+        const place = [country, city].filter(Boolean).join(" ");
+        const li = document.createElement("li");
+        li.textContent =
+          `${name} (${id}) — ${type} — ${presenceState(user)} — ${presenceAge(meta)}` +
+          (place ? ` — ${place}` : "");
+        return li;
+      }
+
+      async function loadPresence() {
+        const meta = document.getElementById("presence-meta");
+        const list = document.getElementById("presence-list");
+        if (!meta || !list) return;
+        meta.textContent = "Loading…";
+        try {
+          const response = await fetch("/api/online/presence", { cache: "no-store" });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.json();
+          const users = Array.isArray(data.users) ? data.users : [];
+          const stamp =
+            typeof data.ts === "number"
+              ? new Date(data.ts).toLocaleTimeString()
+              : new Date().toLocaleTimeString();
+          const ttl = typeof data.ttl === "number" ? Math.round(data.ttl / 1000) : 0;
+          meta.textContent = `${users.length} online at ${stamp} (ttl ${ttl}s)`;
+          list.textContent = "";
+          if (users.length === 0) {
+            const empty = document.createElement("li");
+            empty.textContent = "No presence frames in the registry.";
+            list.appendChild(empty);
+            return;
+          }
+          users.forEach((user) => list.appendChild(presenceRow(user)));
+        } catch (error) {
+          meta.textContent = `Presence fetch failed: ${error.message}`;
+          console.error("Error fetching presence registry:", error);
         }
       }
 

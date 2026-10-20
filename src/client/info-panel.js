@@ -40,6 +40,13 @@ const clubTag = m => typeof m.club === 'string' && m.club ? ` @ ${m.club}` : '';
 // lobby visitor can see which picture a player just revealed without leaving the page.
 const cardTag = m => typeof m.card === 'string' && m.card ? ` 🔓 ${m.card}` : '';
 
+// The lock is also the way into the reveal gallery: tapping it opens ./reveal/ in the
+// same tab, so a visitor drawn in by the card name can go and play for it. Same tab on
+// purpose - it is a continuation of the lobby, not a side excursion.
+const cardLock = m => typeof m.card === 'string' && m.card
+    ? html` <a class="card-lock" href="./reveal/" title="Open the reveal gallery" aria-label="Open the reveal gallery">🔓</a> ${m.card}`
+    : '';
+
 // The Match column is capped at 8rem and ellipsises, which a Japanese hall name (or a
 // long card name) will overflow, so club/card rows carry the whole pairing in a title.
 // Rows with neither keep their plain text, which fits.
@@ -127,7 +134,7 @@ class InfoPanel extends StoreElement {
                         <div class="tbl"><table>
                         <tr><th>Rule</th><th>Match</th><th>Ago</th><th class="city-col">City</th><th></th></tr>
                             ${recentMatches.map(m => html`<tr>
-                                <td>${ruleCell(m)}</td><td title="${clubTag(m) || cardTag(m) ? matchText(m) : ''}">${m.arenaId ? '⚔️' : ''}${m.loser ? (m.tableSize != null && m.tableSize < 10 ? '🍼' : '🎖️') : ''}${m.freeaim === true ? '⌖' : ''}${m.berserk === true || m.berserk === 'true' ? '🚀' : ''}${m.winner}${cardTag(m)}${clubTag(m)}${m.winnerScore != null ? html`<span class="score">(${m.winnerScore})</span>` : ''}${m.loser ? html` vs ${m.loser}${m.loserScore != null ? html`<span class="score">(${m.loserScore})</span>` : ''}` : ''}</td>
+                                <td>${ruleCell(m)}</td><td title="${clubTag(m) || cardTag(m) ? matchText(m) : ''}">${m.arenaId ? '⚔️' : ''}${m.loser ? (m.tableSize != null && m.tableSize < 10 ? '🍼' : '🎖️') : ''}${m.freeaim === true ? '⌖' : ''}${m.berserk === true || m.berserk === 'true' ? '🚀' : ''}${m.winner}${cardLock(m)}${clubTag(m)}${m.winnerScore != null ? html`<span class="score">(${m.winnerScore})</span>` : ''}${m.loser ? html` vs ${m.loser}${m.loserScore != null ? html`<span class="score">(${m.loserScore})</span>` : ''}` : ''}</td>
                                 <td class="ago">${timeAgo(m.timestamp)}</td>
                                 <td class="city-col">${m.locationCity ?? ''}</td>
 <td class="replay-col">

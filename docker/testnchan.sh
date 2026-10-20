@@ -90,6 +90,35 @@ run_test "Presence Pub/Sub" bash -c '
 	curl -fsS --max-time 5 "http://localhost/subscribe/presence/lobby" | grep -q "userId"
 '
 
+# Phase 1 guard: the registry endpoint is additive, so the lobby channel must
+# still replay buffered frames to a late subscriber. Uses a WebSocket because a
+# long-poll GET returns only the oldest buffered message.
+run_test "Presence: channel replay still reaches a late subscriber" node "$SCRIPT_DIR/replay-check.mjs"
+
+run_test "API: online presence snapshot lists published users with full details" bash -c '
+	curl -fsS --max-time 5 -X POST -d "{\"m\":\"p\",\"t\":\"j\",\"u\":\"reg-probe-a\",\"n\":\"Reg A\",\"meta\":{\"version\":\"1.0\"}}" "http://localhost/publish/presence/lobby" >/dev/null
+	curl -fsS --max-time 5 -X POST -d "{\"m\":\"p\",\"t\":\"h\",\"u\":\"reg-probe-b\",\"n\":\"Reg B\",\"T\":\"table-9\",\"r\":\"nineball\"}" "http://localhost/publish/presence/lobby" >/dev/null
+	curl -fsS --max-time 5 -X POST -d "{\"messageType\":\"presence\",\"type\":\"join\",\"userId\":\"reg-probe-canon\",\"userName\":\"Reg Canon\"}" "http://localhost/publish/presence/lobby" >/dev/null
+	out=$(curl -fsS --max-time 5 "http://localhost/api/online/presence")
+	printf "%s\n" "$out" | grep -q "\"u\":\"reg-probe-a\""
+	printf "%s\n" "$out" | grep -q "\"u\":\"reg-probe-b\""
+	printf "%s\n" "$out" | grep -q "\"n\":\"Reg A\""
+	printf "%s\n" "$out" | grep -q "\"T\":\"table-9\""
+	printf "%s\n" "$out" | grep -q "\"v\":\"1.0\""
+	printf "%s\n" "$out" | grep -q "\"userId\":\"reg-probe-canon\""
+	printf "%s\n" "$out" | grep -q "\"ttl\":600000"
+'
+
+run_test "API: online presence snapshot drops a user on leave" bash -c '
+	curl -fsS --max-time 5 -X POST -d "{\"m\":\"p\",\"t\":\"j\",\"u\":\"reg-probe-c\",\"n\":\"Reg C\"}" "http://localhost/publish/presence/lobby" >/dev/null
+	curl -fsS --max-time 5 -X POST -d "{\"m\":\"p\",\"t\":\"l\",\"u\":\"reg-probe-c\"}" "http://localhost/publish/presence/lobby" >/dev/null
+	! curl -fsS --max-time 5 "http://localhost/api/online/presence" | grep -q "\"u\":\"reg-probe-c\""
+'
+
+run_test "API: online presence snapshot is not cached" bash -c '
+	curl -sS -i --max-time 5 "http://localhost/api/online/presence" | grep -qi "^cache-control: no-store"
+'
+
 run_test "Publish to Table" curl -fsS --max-time 5 -X POST \
 	-d '{"type": "accept", "tableId": "testtable", "userId": "player1", "userName": "Alice"}' "http://localhost/publish/table/testtable"
 

@@ -276,6 +276,41 @@ function injectMetaString(rawText, meta) {
   return trimmed.substring(0, lastBrace) + `,"meta":${metaStr}}`;
 }
 
+// Presence registry (Phase 1). The last published presence frame per user is
+// kept in a shared dict so the dashboard can read the online list in one request
+// instead of replaying the channel buffer. The channel itself is untouched: its
+// retention, replay and fan-out stay exactly as they are.
+const PRESENCE_TTL_MS = 10 * 60 * 1000;
+const PRESENCE_KEY_PREFIX = "u:";
+
+function isPresenceLobbyChannel(r) {
+  return r.uri === "/publish/presence/lobby";
+}
+
+function presenceUserId(payload) {
+  const id = payload && (payload.userId || payload.u);
+  return typeof id === "string" && id.length > 0 && id.length <= 128 ? id : null;
+}
+
+// Called after the enriched body is built and before it is forwarded. Must never
+// affect the publish: the caller wraps it in try/catch and the request continues
+// unchanged whichever way this goes.
+function updatePresenceRegistry(r, reqText, body) {
+  if (!isPresenceLobbyChannel(r)) return;
+  const payload = JSON.parse(reqText);
+  const userId = presenceUserId(payload);
+  if (!userId) return;
+  const type = payload.type || payload.t;
+  const key = PRESENCE_KEY_PREFIX + userId;
+  const dict = ngx.shared.presence_live;
+  if (type === "leave" || type === "l") {
+    dict.delete(key);
+  } else if (type === "join" || type === "heartbeat" || type === "j" || type === "h") {
+    // Same string that is published, so the snapshot needs no re-encoding.
+    dict.set(key, body, PRESENCE_TTL_MS);
+  }
+}
+
 function incrementStat(key, delta) {
   if (typeof delta === "undefined") delta = 1;
   const stats = ngx.shared.system_stats;
@@ -307,6 +342,11 @@ async function publish(r) {
     }
   }
   const body = injectMetaString(reqText, meta);
+  try {
+    updatePresenceRegistry(r, reqText, body);
+  } catch (e) {
+    ngx.log(ngx.WARN, `presence registry error: ${e.message}`);
+  }
   incrementStat("publish_requests_total");
   // Legacy (canonical) and compact (P1) key forms are both counted.
   // Compact P2a values ("m":"p", "t":"l") and canonical words are both counted.
@@ -408,6 +448,10 @@ async function presence_unsub(r) {
     incrementStat("presence_unsubscribe_websocket_total");
     if (userId !== 'unknown') {
       ngx.shared.online_users.delete(userId);
+      // Phase 1 has no socket counting: the user is removed and the next
+      // heartbeat (3 s after a join/resume, 60 s for a live tab) re-registers
+      // them. A hidden surviving tab may stay missing until it is shown again.
+      ngx.shared.presence_live.delete(PRESENCE_KEY_PREFIX + userId);
       await publish_leave(r, userId);
     }
     r.return(204);
@@ -668,4 +712,38 @@ async function online_users_api(r) {
   r.return(200, JSON.stringify(users));
 }
 
-export default { publish, presence_sub, presence_unsub, stats, online_users_api, table_unsub, table_sub };
+// Phase 1 snapshot: every online user's full enriched presence frame, in one
+// response. The dashboard is the only consumer for now; the library does not
+// call this. Entries older than the TTL are filtered here as a backstop even
+// though each entry already carries a per-entry TTL.
+function online_presence_api(r) {
+  const dict = ngx.shared.presence_live;
+  const now = Date.now();
+  const users = [];
+  const keys = dict.keys() || [];
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (key.indexOf(PRESENCE_KEY_PREFIX) !== 0) continue;
+    const raw = dict.get(key);
+    if (!raw) continue;
+    try {
+      const frame = JSON.parse(raw);
+      const meta = frame && frame.meta ? frame.meta : {};
+      const ts = typeof meta.t === "number" ? meta.t : (typeof meta.ts === "number" ? meta.ts : null);
+      if (ts !== null && now - ts > PRESENCE_TTL_MS) continue;
+      users.push(frame);
+    } catch (e) {
+      ngx.log(ngx.WARN, `presence snapshot skipped ${key}: ${e.message}`);
+    }
+  }
+  users.sort((a, b) => {
+    const an = String(a.n || a.userName || "");
+    const bn = String(b.n || b.userName || "");
+    return an < bn ? -1 : an > bn ? 1 : 0;
+  });
+  r.headersOut["Content-Type"] = "application/json";
+  r.headersOut["Cache-Control"] = "no-store";
+  r.return(200, JSON.stringify({ ts: now, ttl: PRESENCE_TTL_MS, users: users }));
+}
+
+export default { publish, presence_sub, presence_unsub, stats, online_users_api, online_presence_api, table_unsub, table_sub };
