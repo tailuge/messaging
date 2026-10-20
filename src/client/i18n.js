@@ -17,7 +17,10 @@
  * is always under the tester's control; it is deliberately not persisted, so a
  * shared test link never overwrites a visitor's own choice. The resolved locale
  * is mirrored to `document.documentElement.lang` for assistive technology and
- * for `:lang()` styling hooks.
+ * for `:lang()` styling hooks. A locale may carry an optional `htmlLang` when
+ * the code alone is too coarse for that purpose — `zh` ships Traditional, so it
+ * advertises `zh-Hant` and the browser picks Traditional glyphs rather than
+ * leaving Han unification to chance.
  */
 
 import { StoreElement } from './user-store.js';
@@ -27,6 +30,11 @@ export const LOCALES = [
   { code: 'ko', label: '한국어' },
   { code: 'ja', label: '日本語' },
   { code: 'tr', label: 'Türkçe' },
+  // One Chinese locale, in Traditional characters, so every `zh-*` browser
+  // matches it: detection strips the region subtag, which would otherwise send
+  // zh-TW / zh-HK / zh-CN visitors to English. `zh-Hant` is advertised to the
+  // document so the browser does not fall back to Simplified glyphs.
+  { code: 'zh', label: '繁體中文', htmlLang: 'zh-Hant' },
 ];
 
 const TRANSLATIONS = {
@@ -168,6 +176,52 @@ const TRANSLATIONS = {
     'Race to 11': '11 Sayıya',
     'Use these parameters': 'Bu ayarlarla başla',
   },
+  zh: {
+    'Play Solo': '單人練習',
+    'Challenge {name}': '挑戰 {name}',
+    PLAY: '開始',
+    Cancel: '取消',
+    Accept: '接受',
+    Decline: '拒絕',
+    Challenge: '挑戰',
+    'Challenge from {name}': '{name} 的挑戰',
+    'Waiting for {name} to accept.': '等待 {name} 接受。',
+    '{name} declined.': '{name} 拒絕了。',
+    'Accept challenge': '接受挑戰',
+    'Decline challenge': '拒絕挑戰',
+    Dismiss: '關閉',
+    'Select game type': '選擇球類',
+    'Select game variant': '選擇玩法',
+    'Game type': '球類',
+    '{game} variant': '{game} 玩法',
+    'Table:': '球桌：',
+    'Full size': '標準桌',
+    Mini: '迷你',
+    'Shot time:': '出桿時間：',
+    'Rule:': '規則：',
+    'Aim:': '瞄準：',
+    Free: '自由',
+    Assist: '輔助',
+    'Free aim': '自由瞄準',
+    'Aim assist': '瞄準輔助',
+    'Send message': '傳送訊息',
+    Language: '語言',
+    'Eight Ball': '八號球',
+    'Nine Ball': '九號球',
+    Snooker: '斯諾克',
+    'Three Cushion': '三顆星',
+    Sagu: '四球',
+    'Reds 3': '紅球 3',
+    'Reds 6': '紅球 6',
+    'Reds 10': '紅球 10',
+    'Reds 15': '紅球 15',
+    'Race to 7': '搶 7',
+    'Race to 15': '搶 15',
+    'Race to 25': '搶 25',
+    'Race to 5': '搶 5',
+    'Race to 11': '搶 11',
+    'Use these parameters': '使用這些設定',
+  },
 };
 
 const STORAGE_KEY = 'locale';
@@ -262,7 +316,9 @@ export class I18n {
   }
 
   #applyDocumentLang() {
-    if (typeof document !== 'undefined') document.documentElement.lang = this.#lang;
+    if (typeof document === 'undefined') return;
+    const { htmlLang } = LOCALES.find(l => l.code === this.#lang) ?? {};
+    document.documentElement.lang = htmlLang ?? this.#lang;
   }
 }
 
