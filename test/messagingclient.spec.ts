@@ -323,10 +323,11 @@ describe("MessagingClient - Phase 1", () => {
 
       clientA.setVersion("v1.2.3");
 
+      // Unique id: other tests reuse "alice", and their leaves would delete this join from the snapshot
       await clientA.joinLobby({
         messageType: "presence",
         type: "join",
-        userId: "alice",
+        userId: "alice-version",
         userName: "Alice",
       });
 
@@ -341,9 +342,9 @@ describe("MessagingClient - Phase 1", () => {
       lobbyB.onUsersChange((u) => (usersB = u));
 
       // Wait for Alice to appear in Bob's list
-      await waitUntil(() => usersB.some((u) => u.userId === "alice"));
+      await waitUntil(() => usersB.some((u) => u.userId === "alice-version"));
 
-      const aliceInB = usersB.find((u) => u.userId === "alice");
+      const aliceInB = usersB.find((u) => u.userId === "alice-version");
       expect(aliceInB?.meta?.version).toBe("v1.2.3");
     });
   });
@@ -439,7 +440,7 @@ describe("MessagingClient - Phase 1", () => {
       );
     });
 
-    it("should receive pending challenges after rejoining the lobby", async () => {
+    it("should not replay offers sent while the user was disconnected", async () => {
       const clientA = createClient();
       const clientB = createClient();
 
@@ -479,7 +480,7 @@ describe("MessagingClient - Phase 1", () => {
       // 5. B disconnects (leaves lobby without isTeardown to simulate disconnect)
       await lobbyB.leave({ isTeardown: false });
 
-      // 6. B rejoins — wait for settle so buffered offer is replayed via dedup
+      // 6. B rejoins. Challenges sent while disconnected are accepted as lost (no replay).
       const clientB2 = createClient();
       let receivedChallengeAfterReconnect: any = null;
       const lobbyB2 = await clientB2.joinLobby({
@@ -488,19 +489,15 @@ describe("MessagingClient - Phase 1", () => {
         userId: "user-bb",
         userName: "Bob",
       });
-
-      // Wait for settle — buffered offer (unresolved) will be replayed
       await new Promise<void>((r) => lobbyB2.onSettled(r));
 
       lobbyB2.onChallenge((c) => {
         receivedChallengeAfterReconnect = c;
       });
 
-      // Offer was not resolved, so dedup replays it on settle
-      expect(receivedChallengeAfterReconnect).not.toBeNull();
-      expect(receivedChallengeAfterReconnect.challengerId).toBe("user-aa");
-      expect(receivedChallengeAfterReconnect.type).toBe("offer");
-      expect(receivedChallengeAfterReconnect.tableId).toBe(tableId);
+      // Give any stray replay a chance to arrive, then assert none did
+      await new Promise((r) => setTimeout(r, 500));
+      expect(receivedChallengeAfterReconnect).toBeNull();
     });
 
     it("should notify when an opponent leaves the table explicitly", async () => {

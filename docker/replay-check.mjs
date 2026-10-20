@@ -1,8 +1,7 @@
-// Exit 0 when a frame published before a WebSocket subscriber connects is
-// replayed from the channel buffer; exit 1 otherwise. Phase 1 deliberately
-// leaves presence retention alone, so this guards the registry work from
-// accidentally removing replay. A WebSocket is used because a long-poll GET
-// returns only the oldest buffered message.
+// Exit 0 when a frame published before a WebSocket subscriber connects is NOT
+// replayed from the channel buffer (presence retention is 0; the lobby gets
+// initial state from GET /api/online/presence instead); exit 1 otherwise. A
+// WebSocket is used because a long-poll GET would hide buffered messages.
 const marker = `replay-${Date.now()}`;
 
 const publish = await fetch("http://localhost/publish/presence/lobby", {
@@ -19,5 +18,5 @@ reader.onerror = () => process.exit(1);
 
 setTimeout(() => {
   reader.close();
-  process.exit(seen.some((message) => message.includes(marker)) ? 0 : 1);
+  process.exit(seen.some((message) => message.includes(marker)) ? 1 : 0);
 }, 2000);

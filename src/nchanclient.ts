@@ -169,6 +169,32 @@ export class NchanClient {
     );
   }
 
+  // Snapshot
+
+  /**
+   * Fetches every currently online user in one call. `ts` is the server clock
+   * at snapshot time, comparable with `meta.ts` on live presence frames.
+   * Throws on non-2xx or after a short timeout; the caller decides the fallback.
+   */
+  async fetchPresenceSnapshot(): Promise<{ ts: number; users: PresenceMessage[] }> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
+    try {
+      const res = await fetch(this.getHttpUrl("/api/online/presence"), {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error(`Snapshot failed: ${res.status}`);
+      const body = await res.json();
+      return {
+        ts: body.ts,
+        users: body.users.map((u: unknown) => JSON.parse(decodeWire(JSON.stringify(u)))),
+      };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   // Subscribing
 
   subscribePresence(userId: string, onMessage: (data: string) => void): Subscription {

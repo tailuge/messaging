@@ -86,14 +86,19 @@ run_test "Publish to Presence" curl -fsS --max-time 5 -X POST \
 	-d '{"userId":"user1","userName":"Alice","type":"join"}' "http://localhost/publish/presence/lobby"
 
 run_test "Presence Pub/Sub" bash -c '
+	# Retention is 0, so subscribe first and publish while subscribed
+	curl -fsS --max-time 8 "http://localhost/subscribe/presence/lobby" >/tmp/nchan-presence-sub.out &
+	SUB_PID=$!
+	sleep 1
 	curl -fsS --max-time 5 -X POST -d "{\"userId\":\"user1\",\"userName\":\"Alice\",\"type\":\"join\"}" "http://localhost/publish/presence/lobby" >/dev/null
-	curl -fsS --max-time 5 "http://localhost/subscribe/presence/lobby" | grep -q "userId"
+	wait $SUB_PID
+	grep -q "userId" /tmp/nchan-presence-sub.out
 '
 
-# Phase 1 guard: the registry endpoint is additive, so the lobby channel must
-# still replay buffered frames to a late subscriber. Uses a WebSocket because a
-# long-poll GET returns only the oldest buffered message.
-run_test "Presence: channel replay still reaches a late subscriber" node "$SCRIPT_DIR/replay-check.mjs"
+# Presence retention is 0: a late subscriber must NOT receive buffered frames.
+# Initial state comes from GET /api/online/presence instead. Uses a WebSocket
+# because a long-poll GET would hide buffered messages.
+run_test "Presence: channel does not replay to a late subscriber" node "$SCRIPT_DIR/replay-check.mjs"
 
 run_test "API: online presence snapshot lists published users with full details" bash -c '
 	curl -fsS --max-time 5 -X POST -d "{\"m\":\"p\",\"t\":\"j\",\"u\":\"reg-probe-a\",\"n\":\"Reg A\",\"meta\":{\"version\":\"1.0\"}}" "http://localhost/publish/presence/lobby" >/dev/null

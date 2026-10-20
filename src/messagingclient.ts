@@ -339,6 +339,7 @@ export class MessagingClient {
             // Proactively re-publish presence to ensure we're seen as online
             try {
               await l.syncPresence();
+              await l.refreshSnapshot();
             } catch (e) {
               console.error("Failed to refresh presence during session resume:", e);
             }

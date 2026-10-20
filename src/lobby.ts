@@ -49,13 +49,12 @@ export class Lobby {
   private heartbeatTimer?: any;
   private presenceMessageCount = 0;
 
-  // Settle detection: sentinel-based replay completion
-  private joinSentinelTs: number | null = null;
+  // Join window: frames are buffered until the snapshot is applied, then settle
+  private isJoining = false;
   private settledListeners: (() => void)[] = [];
   private isSettled = false;
-  // Buffered messages during unsettled period (Nchan buffer replay), deduped on settle
+  private joinBufferedPresence: PresenceMessage[] = [];
   private unsettledChallengeMessages: ChallengeMessage[] = [];
-  private unsettledPresenceMessages: PresenceMessage[] = [];
 
   private readonly heartbeatInterval: number;
 
@@ -90,6 +89,7 @@ export class Lobby {
    */
   async join(): Promise<void> {
     if (this.isJoined) return;
+    this.isJoining = true;
 
     this.subscription = this.nchan.subscribePresence(this.currentUser.userId, (data) => {
       this.handleIncomingMessage(data);
@@ -103,24 +103,21 @@ export class Lobby {
         this.options.onReconnect();
       } else {
         // Fallback: Re-broadcast presence state if no external orchestrator is handling it
-        this.nchan.publishPresence({ ...this.currentUser, clientTs: Date.now() }).catch((_e) => {
-          console.error("Failed to re-broadcast presence on reconnect:", _e);
-        });
+        this.nchan
+          .publishPresence({ ...this.currentUser, clientTs: Date.now() })
+          .then(() => this.refreshSnapshot())
+          .catch((_e) => {
+            console.error("Failed to re-broadcast presence on reconnect:", _e);
+          });
       }
     };
 
     await this.subscription.ready;
 
     // Broadcast our own presence with retry on failure (e.g. slow cold start)
-    // Capture the clientTs to use as a sentinel for Nchan buffer replay completion.
     for (let attempt = 1; ; attempt++) {
       try {
-        const sentinelTs = Date.now();
-        this.joinSentinelTs = sentinelTs;
-        await this.nchan.publishPresence({
-          ...this.currentUser,
-          clientTs: sentinelTs,
-        });
+        await this.nchan.publishPresence({ ...this.currentUser, clientTs: Date.now() });
         break;
       } catch (e) {
         const delay = Math.min(Math.pow(2, attempt) * 4000, 30000);
@@ -129,8 +126,46 @@ export class Lobby {
       }
     }
 
+    // Snapshot is the initial state. If it fails, keep whatever is buffered and settle anyway.
+    const snapshot = await this.fetchSnapshot();
+    if (snapshot) this.setUsers(snapshot.users);
+
+    // Drain buffered frames. With a snapshot, drop frames it already reflects (server clock only),
+    // so a replayed join for someone who has since left cannot resurrect them.
+    const buffered = this.joinBufferedPresence;
+    this.joinBufferedPresence = [];
+    for (const msg of buffered) {
+      if (snapshot && (msg.meta?.ts ?? 0) <= snapshot.ts) continue;
+      this.applyPresence(msg);
+    }
+
+    this.isJoining = false;
+    this.fireSettled();
     this.startHeartbeat();
     this.isJoined = true;
+  }
+
+  /**
+   * Replaces the users map with the server's current snapshot. A failed fetch keeps the
+   * current map; live presence frames repair it.
+   */
+  async refreshSnapshot(): Promise<void> {
+    const snapshot = await this.fetchSnapshot();
+    if (snapshot) this.setUsers(snapshot.users);
+  }
+
+  private async fetchSnapshot(): Promise<{ ts: number; users: PresenceMessage[] } | null> {
+    try {
+      return await this.nchan.fetchPresenceSnapshot();
+    } catch (e) {
+      console.warn("[Lobby] Presence snapshot failed:", e);
+      return null;
+    }
+  }
+
+  private setUsers(list: PresenceMessage[]): void {
+    this.users = new Map(list.map((u) => [u.userId, u]));
+    this.notifyListeners();
   }
 
   /**
@@ -173,20 +208,15 @@ export class Lobby {
   }
 
   /**
-   * Whether the lobby has finished replaying buffered Nchan messages and
-   * caught up to realtime. True once the sentinel is detected.
+   * Whether join() has applied the snapshot and drained buffered frames.
    */
   public get settled(): boolean {
     return this.isSettled;
   }
 
   /**
-   * Registers a callback that fires when the lobby has caught up to realtime
-   * after Nchan buffer replay. The sentinel is our own join presence message
-   * with a matching clientTs, which Nchan delivers after all buffered messages
-   * (FIFO guarantee). The callback fires immediately on sentinel detection.
-   *
-   * Fires exactly once per join(). If already settled, fires immediately.
+   * Registers a callback that fires once join() has applied the snapshot and drained
+   * buffered frames. Fires exactly once per join(). If already settled, fires immediately.
    */
   onSettled(callback: () => void): void {
     if (this.isSettled) {
@@ -415,21 +445,10 @@ export class Lobby {
    * fields are "meaningful" (e.g. userName, tableId, arenaId) vs "noise" (e.g. meta.ts heartbeats).
    */
   private handlePresenceUpdate(msg: PresenceMessage): void {
-    // Only buffer during an active join cycle (sentinel published, waiting for echo).
-    // If joinSentinelTs is null (tests bypassing join, or pre-join), apply directly.
-    if (!this.isSettled && this.joinSentinelTs !== null) {
-      this.unsettledPresenceMessages.push(msg);
-      if (
-        msg.userId === this.currentUser.userId &&
-        msg.type === "join" &&
-        msg.clientTs === this.joinSentinelTs
-      ) {
-        this.fireSettled();
-      }
+    if (this.isJoining) {
+      this.joinBufferedPresence.push(msg);
       return;
     }
-
-    // Settled path (or no join cycle in progress): apply presence directly
     this.applyPresence(msg);
   }
 
@@ -463,12 +482,9 @@ export class Lobby {
   }
 
   private handleChallenge(msg: ChallengeMessage): void {
-    // During the unsettled period (Nchan buffer replay), buffer all challenge
-    // messages so we can dedup them when settle fires. This prevents stale
-    // offers from being emitted when a resolution (accept/decline/cancel)
-    // arrives later in the same buffer replay.
-    // Only buffer when actively in a join cycle (sentinel published, waiting for echo).
-    if (!this.isSettled && this.joinSentinelTs !== null) {
+    // During join, buffer challenges so dedupe can drop offers that were already
+    // resolved (accept/decline/cancel) in the same replayed window.
+    if (this.isJoining) {
       this.unsettledChallengeMessages.push(msg);
       return;
     }
@@ -550,25 +566,12 @@ export class Lobby {
   }
 
   /**
-   * Fires all onSettled listeners and replays deduplicated messages.
-   * Called immediately when the sentinel is detected.
-   *
-   * Delegates dedup to MessageDeduplicator, then replays the results:
-   *   - Presence: applied via applyPresence (updates users map + notifies).
-   *   - Challenges: emitted via emitIfRelevant if relevant to current user.
+   * Fires all onSettled listeners and emits the deduplicated buffered challenges.
    */
   private fireSettled(): void {
     if (this.isSettled) return;
     this.isSettled = true;
 
-    // Dedup and replay presence (per-userId last-message-wins)
-    const presenceMessages = MessageDeduplicator.dedupePresence(this.unsettledPresenceMessages);
-    for (const msg of presenceMessages) {
-      this.applyPresence(msg);
-    }
-    this.unsettledPresenceMessages = [];
-
-    // Dedup and replay challenges (offer+resolution → no-op)
     const challengeMessages = MessageDeduplicator.dedupeChallenges(this.unsettledChallengeMessages);
     for (const msg of challengeMessages) {
       this.emitIfRelevant(msg);
@@ -586,10 +589,10 @@ export class Lobby {
    * Resets all settle-related state. Called on leave().
    */
   private clearSettleState(): void {
-    this.joinSentinelTs = null;
+    this.isJoining = false;
     this.isSettled = false;
     this.settledListeners = [];
     this.unsettledChallengeMessages = [];
-    this.unsettledPresenceMessages = [];
+    this.joinBufferedPresence = [];
   }
 }
