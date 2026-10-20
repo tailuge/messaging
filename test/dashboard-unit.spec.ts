@@ -24,7 +24,11 @@ describe("Dashboard UI Unit Tests", () => {
         id,
         _textContent: "",
         get textContent() { return this._textContent; },
-        set textContent(v) { this._textContent = v; this.innerHTML = v; },
+        set textContent(v) {
+          this._textContent = v;
+          this.innerHTML = v;
+          this.children.length = 0;
+        },
         innerHTML: "",
         style: {},
         children: [] as any[],
@@ -73,7 +77,7 @@ describe("Dashboard UI Unit Tests", () => {
     };
 
     const contextFunc = new Function("document", "fetchStats", `
-      ${scriptContent.replace("fetchStats();", "")}
+      ${scriptContent.replace("fetchStats();", "").replace("loadPresence();", "")}
       return { safeDecode, updateUI, presenceRow, loadPresence };
     `);
 
@@ -140,6 +144,8 @@ describe("Dashboard UI Unit Tests", () => {
       expect(mockDocument.getElementById("presence-meta").textContent).toContain(
         "Presence fetch failed: HTTP 503"
       );
+      expect(list.children.length).toBe(1);
+      expect(list.children[0].textContent).toContain("Unable to load the presence registry");
     } finally {
       (global as any).fetch = originalFetch;
     }

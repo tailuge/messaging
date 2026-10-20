@@ -1,16 +1,17 @@
 # Efficient lobby presence
 
-Plan only — no code changes in this document. The end goal is to stop using
-Nchan's buffered replay of `presence/lobby` to decide who is online, and let the
-server keep that list in memory.
+**Status: Phase 1 shipped and verified (20 October 2026). Next: Phase 2.**
 
-**Step one is deliberately tiny and has no user-facing effect.** The server
+The end goal is to stop using Nchan's buffered replay of `presence/lobby` to
+decide who is online, and let the server keep that list in memory.
+
+Phase 1 was deliberately tiny and had no user-facing effect: the server now
 maintains the registry and exposes it *only* behind a button on the dashboard,
-rendered as a simple list. The lobby keeps replaying exactly as it does today:
+rendered as a simple list. The lobby still replays exactly as it did before —
 same `nchan.conf` retention, same client library, same `Lobby.join()` settle
-logic. If the registry is wrong, the only thing that looks wrong is a debug list
-on the dashboard. Only after that is trusted do the later phases switch the
-lobby over.
+logic. The dashboard list has been checked against a live lobby. Phase 2 is the
+first phase that changes client behaviour. Replay stays enabled server-side
+during it, but the client no longer consults it for state.
 
 ## 1. Why the replay is the problem
 
@@ -82,12 +83,12 @@ Phase 1 nothing reads it except the dashboard.
 
 ## 3. Delivery phases
 
-| Phase | What changes | Client/library | Channel retention |
-| --- | --- | --- | --- |
-| **1 (this step)** | Registry writes in NJS, snapshot endpoint, dashboard button + simple list | untouched | unchanged (2000 / 90 s) |
-| 2 | `Lobby` uses the snapshot for its initial state and on reconnect; replay still on as fallback | `src/lobby.ts`, `src/nchanclient.ts` | unchanged |
-| 3 | Turn retention off now that no client depends on it | none | buffer 0 / timeout 0 |
-| 4 | Delete replay code paths, decide challenge-inbox follow-up | `src/lobby.ts` | 0 |
+| Phase | What changes | Client/library | Channel retention | Status |
+| --- | --- | --- | --- | --- |
+| **1** | Registry writes in NJS, snapshot endpoint, dashboard button + simple list | untouched | unchanged (2000 / 90 s) | **Done 2026-10-20** |
+| 2 | `Lobby` uses the snapshot for its initial state and on reconnect; replay remains enabled but the client no longer uses it for state | `src/lobby.ts`, `src/nchanclient.ts` | unchanged | **Next** |
+| 3 | Turn retention off now that no client depends on it | none | buffer 0 / timeout 0 | Planned; gated on 2 |
+| 4 | Delete replay code paths, decide challenge-inbox follow-up | `src/lobby.ts` | 0 | Planned; gated on 3 |
 
 Each phase is independently revertible:
 
@@ -95,15 +96,17 @@ Each phase is independently revertible:
   registry work is wrapped in `try/catch` so a registry bug can never fail or
   delay a publish. Reverting means deleting the endpoint and dashboard button —
   or flipping one NJS constant.
-- Phase 2 keeps replay available, so a snapshot problem falls back to today's
-  behaviour.
+- Phase 2 is client-only. Replay remains enabled server-side but is no longer
+  consulted; a failed snapshot settles with live state.
 - Phase 3 is a config-only flip.
 - Phase 4 only removes dead code.
 
-## 4. Phase 1 — server registry + dashboard list (this step)
+## 4. Phase 1 — server registry + dashboard list (shipped)
 
 Goal: prove the server's idea of "who is online" matches reality, with zero
-change to lobby behaviour and zero new client traffic.
+change to lobby behaviour and zero new client traffic. Achieved; the exit
+criteria below were met on 20 October 2026, and the section is kept as the
+contract Phase 2 builds on.
 
 ### 4.1 What Phase 1 does not change
 
@@ -328,58 +331,158 @@ Exit criteria:
 - Revert is one commit: remove the location, the dashboard card, and the
   registry calls; no client or channel config to unwind.
 
-## 5. Phase 2 — client uses the snapshot (replay stays on)
+### 4.7 Phase 1 status (shipped 2026-10-20)
 
-Only start once Phase 1 has matched the lobby for a few days.
+Delivered:
 
-### 5.1 Join protocol in `Lobby.join()`
+- `docker/nginx.conf`: `presence_live:1M` zone (zone timeout 10 m as GC).
+- `docker/nchan_meta.js`: enriched body stored at `u:<userId>` with a 10-minute
+  per-entry TTL on join/heartbeat; delete on leave; delete in
+  `presence_unsub`; `online_presence_api` handler; registry work isolated in
+  `try/catch` so a failure cannot affect a publish.
+- `docker/nchan.conf`: `location = /api/online/presence`, 10 r burst, CORS and
+  metadata headers as the other endpoints.
+- `src/client/dashboard.html`: "Presence registry" card, on-demand
+  `Load online users` button, plain text rows, error text on failure.
+  Expanded by default; no polling and not wired into `fetchStats()`.
+- Tests: `test/dashboard-unit.spec.ts` (rows, states, render, failed fetch),
+  four `docker/testnchan.sh` cases, and `docker/replay-check.mjs` (the
+  retention/regression guard).
+
+Decisions locked in by the implementation:
+
+- TTL is 10 minutes, with a read-time `meta.t` filter as a second check.
+- No connection counting. `online_users` keeps its old socket-based behaviour.
+- NJS stays pinned at `1.0.0`; per-entry TTL already works there.
+- The endpoint is additive and unlinked; the library does not call it.
+
+Verification recorded:
+
+- `npm run lint` clean; `npm run test` 34/34 suites, 241/241 tests.
+- Image builds, container starts, `/dashboard.html` serves the card.
+- Manual/CI curls: empty snapshot, compact and canonical publishes both
+  registered with full details, leave removes, `Cache-Control: no-store`,
+  socket unsubscribe removes, WebSocket replay still works.
+- Endpoint answered in under a millisecond locally (`rt=0.000` in the access
+  log).
+- `docker/testnchan.sh`: all four new cases pass. The script still reports
+  pre-existing failures on `/publish/lobby` demo URLs and `access_logs` /
+  `error_logs` fields that do not exist in this server; those are unrelated to
+  this work and were confirmed unchanged against `HEAD`.
+
+Known Phase 1 limits, carried into Phase 2 watch items:
+
+- Multi-tab close can drop a user until the next heartbeat (3 s after a
+  join/resume, 60 s on a live tab; a hidden surviving tab can wait until shown).
+- TTL expiry was not time-tested; the read filter is the safety net.
+- The dashboard list is a point-in-time read; it does not update itself.
+
+## 5. Phase 2 — client uses the snapshot (no fallback)
+
+Phase 1 is verified, so this is the current work. The client treats the endpoint
+as available: the snapshot is the only initial-state source, and settle happens
+when the snapshot attempt finishes. There is no 404 branch, no retry ladder and
+no replay-based settle. Replay stays enabled server-side (Phase 3 turns it off)
+but the client no longer consumes it for state.
+
+If the snapshot call fails, the client settles with whatever it has (normally
+just self) and live heartbeats rebuild the list within a minute. That is the
+worst case, and it is acceptable because the endpoint is same-origin and part of
+the server the socket is already connected to.
+
+### 5.1 Next steps, in order
+
+1. **Snapshot client call.** Add `NchanClient.fetchPresenceSnapshot()` in
+   `src/nchanclient.ts`: `GET /api/online/presence` with `cache: "no-store"`,
+   a short `AbortController` timeout (~3 s), `decodeWire` on each `users[]`
+   frame, returning `{ ts: number; ttl: number; users: PresenceMessage[] }`.
+   Throw on non-2xx/timeout; the caller decides what to do in one place.
+2. **Snapshot state in `Lobby`.** Add `applySnapshot(users)` and
+   `applyFrameIfNewer(msg)` helpers. The snapshot replaces the users map; a
+   frame received while the snapshot was in flight is applied only when its
+   `meta.ts` is at least the snapshot entry's `meta.ts` (or the user is absent).
+   Merge `currentUser` so self is always present.
+3. **Join order.** In `Lobby.join()`: subscribe (WebSocket open + buffer) →
+   publish own join and await the HTTP response (registration only, existing
+   retry loop) → `fetchPresenceSnapshot()` → apply it if it succeeded → drain
+   the buffered frames with the timestamp rule → `fireSettled()`
+   unconditionally.
+4. **Delete the presence sentinel now.** Remove `joinSentinelTs`,
+   `unsettledPresenceMessages` and `MessageDeduplicator.dedupePresence()` in the
+   same change. The sentinel existed only to find the end of a replay; a
+   snapshot has no end to detect. Keep the challenge buffer/dedupe for now
+   (8.1).
+5. **Reconnect and visibility.** In `Lobby.subscription.onReconnect` and
+   `MessagingClient.resumeSession()` / `handleVisibilityChange`, refetch the
+   snapshot after re-publishing presence. One GET per resume, never a poll. A
+   failed refetch keeps the current map; live events repair it.
+6. **Tests.** Extend `test/messagingclient.spec.ts` and add a focused
+   `test/lobby.spec.ts`: snapshot-before-settle, one settle, newer-live-frame
+   wins, failed snapshot still settles with self/live state and a later
+   heartbeat adds a user, reconnect refetch removes an offline user. Delete the
+   replay/sentinel tests that no longer describe behaviour.
+7. **Deploy and watch.** Server is already live; ship the client and watch the
+   lobby user list and normal user reports for a release. No instrumentation:
+   the Phase 3 gate is the local retention-0 rehearsal (5.4).
+
+Phase 2 is done when: exactly one snapshot GET happens per join and per
+resume; `onSettled` fires exactly once even when the snapshot fails; the user
+list is complete before settle when the snapshot succeeds; and the existing
+lobby/arena UI needs no changes.
+
+### 5.2 Join protocol in `Lobby.join()`
 
 Order matters; no server-side cursor is needed:
 
-1. `subscribePresence()` — open the WebSocket first and buffer any live frames
-   locally. Nchan still replays the old window at this point, so the buffer is
-   the same one that exists today.
-2. Publish the current user's `join` presence (the existing sentinel, awaited).
-3. `GET /api/online/presence` through a new
-   `NchanClient.fetchPresenceSnapshot()` (`cache: "no-store"`, same
-   `AbortController` timeout pattern as `publish`).
-4. Apply the snapshot: replace the users map, decode each frame with
-   `decodeWire`, keep `meta.ts` per user.
-5. Replay the buffered frames in order, per user, applying a frame only when it
-   is at least as new as the snapshot's entry for that user
-   (`msg.meta.ts >= snapshotEntry.meta.ts`, or the user is absent). This covers a
-   live frame published after the snapshot was built but delivered before its
-   response.
-6. `fireSettled()`.
+1. `subscribePresence()` — open the WebSocket first and buffer incoming frames
+   locally. Replay may still deliver old frames here; they are treated as
+   ordinary frames, not as a source of state.
+2. Publish the current user's `join` presence and await the HTTP response. The
+   retry loop stays; it is about registration, not ordering. No sentinel
+   timestamp is stored.
+3. `GET /api/online/presence` (`cache: "no-store"`, ~3 s timeout).
+4. If it succeeded, apply it: replace the users map, keep `meta.ts` per user,
+   and merge `currentUser`. If it failed, log once and keep the current map
+   (usually self from the join echo).
+5. Drain the frames buffered since (1), per user, applying each only when its
+   `meta.ts` is at least the snapshot entry's `meta.ts` (or the user is absent).
+   Older replayed frames are dropped by this rule.
+6. `fireSettled()` — always, once.
 
-Keep a feature check: on a 404 (rollback to an older server), fall through to
-today's replay/sentinel settle unchanged. Keep the existing code path intact
-until Phase 4.
-
-`Lobby.settled`, `onSettled()` and `onUsersChange()` keep their semantics, so
+There is no 404/error fallback branch and no replay-based settle. `Lobby.settled`,
+`onSettled()` and `onUsersChange()` keep their semantics, so
 `src/client/online-panel.js` and `src/client/tournament/arena-view.js` need no
 changes.
 
-### 5.2 Reconnect and visibility
+### 5.3 Reconnect and visibility
 
-Network reconnects keep replaying for now, so no regression if the snapshot is
-skipped. Still refetch the snapshot on reconnect and on
-`visibilitychange → visible`: with retention still on it is redundant, but it
-exercises the path that Phase 3 depends on, and it removes a leave that replay
-might have missed. One GET instead of relying on the 90 s window.
+Refetch the snapshot on reconnect and on `visibilitychange → visible`, after
+re-publishing presence. This is what removes a user who left while the socket
+was down; replay is not consulted. If the refetch fails, keep the current map
+and let live events correct it. One GET per resume, never a poll.
 
-### 5.3 Parity check before Phase 3
+### 5.4 Retention-0 rehearsal before Phase 3
 
-Phase 2 is the comparison harness: after settling, derive the user list once
-from the snapshot and once from the replayed frames and log a mismatch counter
-(dev builds / a debug flag only). Watch it for a few days at quiet and busy
-times. When it stays at zero, the snapshot is trusted and Phase 3 can follow.
-`meta.v` in the stored frames also gives the adoption split, since the client
-version is already in every presence publish.
+No production instrumentation. The gate is to run the *end state* locally:
+
+1. Apply the Phase 3 config in the local image only: buffer 0 / timeout 0 on
+   the presence publish and subscribe locations.
+2. Run the integration suite against it, then the two-client browser check:
+   both clients see each other after one settle, a tab close removes the user,
+   a reconnect removes someone who left while offline, and a challenge redirect
+   re-registers the player in their game.
+3. Run the 18-client reconnect measurement once against the rehearsal image
+   to confirm the expected snapshot-sized outbound instead of a 90 s replay.
+4. If green, the production flip is only those two config lines and can be
+   reverted the same way. If anything fails, fix it while replay still exists.
+
+This tests the real contract without a feature flag, mismatch logging, or a
+production soak dedicated to comparing derived lists.
 
 ## 6. Phase 3 — remove replay
 
-Config only, once Phase 2 is settled and adopted:
+Config only, once Phase 2 is shipped and the local retention-0 rehearsal
+(5.4) passes:
 
 ```
 location = /internal/publish/presence/lobby {
@@ -399,23 +502,55 @@ Live fan-out, the subscribe/unsubscribe hooks and
 `nchan_websocket_ping_interval 20s` stay. `nchan_subscriber_first_message
 oldest` becomes inert with an empty buffer and can stay.
 
-Rollout caution: an old client bundle builds its list purely from replay. With
-retention 0 it settles with an empty list and fills in as others heartbeat or
-publish, i.e. up to a minute. The service worker is pass-through
-(`src/client/sw.js`), so a reload always picks up the new bundle, but tabs left
-open across the deploy keep the old one. Flip retention after adoption (5.3), or
-accept a short, self-healing degradation for those tabs.
+All clients are expected to be on the snapshot-capable bundle by then, so there
+is no legacy-fill window to design around. The flip is still reversible in one
+config change; a tab that happened to keep the old bundle just settles with an
+empty list and fills in on the next heartbeats until it reloads. The service
+worker is pass-through (`src/client/sw.js`), so a reload always picks up the
+new bundle.
+
+### 6.1 Next steps, in order
+
+1. **Confirm the gate**: Phase 2 is deployed and the local retention-0
+   rehearsal (5.4) is green, including the two-client and reconnect checks.
+2. **Flip retention** in `docker/nchan.conf` on both the internal publish and
+   the subscribe presence locations: `nchan_message_buffer_length 0`,
+   `nchan_message_timeout 0`. Nothing else in the config changes.
+3. **Invert the replay guard**: `docker/replay-check.mjs` currently asserts a
+   late subscriber *does* get buffered frames. Phase 3 should replace it with
+   the opposite assertion (a late subscriber gets nothing until the next
+   publish), so the shell suite encodes the new contract.
+4. **Measure the burst**: 18 simulated clients, concurrent reconnects, record
+   `system.network.tx_bytes` and access-log `bytes_sent`. Target is outbound
+   dominated by one snapshot per reconnect, not the previous 90 s of traffic.
+   Confirm `presence/lobby` reports no stored messages in `nchan_stats`.
+5. **Watch** `presence_publish_total`, `presence_unsubscribe_total`, the
+   dashboard registry size and the lobby's user list for a few days, including
+   a deploy where tabs stay open across the switch.
 
 ## 7. Phase 4 — cleanup and deferred decisions
 
-- Remove `joinSentinelTs` / `unsettledPresenceMessages` replay handling and the
-  presence half of `MessageDeduplicator` (`dedupePresence`) from `src/lobby.ts`.
-  The sentinel can remain a plain join acknowledgement.
+- The presence sentinel (`joinSentinelTs`, `unsettledPresenceMessages`) and
+  `MessageDeduplicator.dedupePresence()` are already gone from Phase 2; Phase 4
+  only needs to confirm no references remain.
 - Remove the replay-specific stats and the 90 s wording in docs/comments.
 - Decide the challenge-replay replacement (see 8.1). Suggested later step: store
   the last unresolved offer per challengee in the same shared dict
   (`ch:<uid>`, TTL ~60 s) and return an optional `challenges` array in the
   snapshot. Deliberately deferred so the Phase 1 contract stays small.
+
+### 7.1 Next steps, in order
+
+1. Confirm the Phase 2 deletions left no replay/sentinel references in
+   `src/lobby.ts`, keeping `dedupeChallenges` or the pending-offer replacement.
+2. Remove or invert the replay stats/comments and delete the Phase 1
+   dashboard list if it has served its purpose (or keep it as an ops view).
+3. Decide challenge delivery: accept the loss window, or implement the
+   pending-offer `ch:<uid>` entry and an optional `challenges` array. If the
+   latter, add it to the endpoint contract in one versioned step.
+4. Consider connection counting (8.3) only if the retention-0 rehearsal or
+   user reports show the heartbeat transient matters; it is additive and needs
+   no endpoint change.
 
 ## 8. Side effects of the later phases
 
@@ -450,9 +585,10 @@ heartbeat is an unconditional presence publish and the lobby re-adds them.
 `online_users` keeps its existing socket-based behaviour, so the dashboard's old
 count and the new registry list will disagree in exactly that window.
 
-If Phase 2 parity shows this transient matters (e.g. a hidden second tab keeps a
-user out of snapshots indefinitely), add the refcount then: a `presence_conns`
-zone, `incr`/decr in `presence_sub`/`presence_unsub`, and delete only at zero.
+If the retention-0 rehearsal or real use shows this transient matters (e.g. a
+hidden second tab keeps a user out of snapshots indefinitely), add the refcount
+then: a `presence_conns` zone, `incr`/decr in `presence_sub`/`presence_unsub`,
+and delete only at zero.
 That is additive to the registry and does not change the endpoint contract, which
 is why the simple version ships first.
 
@@ -482,7 +618,8 @@ the worst burst today.
 
 ## 9. Test and verification plan
 
-Phase 1 is covered in 4.6. The rest:
+Phase 1 tests are shipped and green (4.7). Remaining coverage for the later
+phases:
 
 Server (later phases, shell + curl):
 
@@ -499,14 +636,16 @@ Library (Jest, `test/messagingclient.spec.ts` plus a `lobby` unit test, Phase 2+
   the full list.
 - A live frame published after the snapshot but delivered before its response is
   applied last-write-wins, not overwritten by the snapshot.
-- Snapshot failure → retry, then fall back to replay; no unhandled rejection.
+- Snapshot failure → settles immediately with the current state, no unhandled
+  rejection; a later heartbeat adds the user.
 - Reconnect refetches the snapshot and removes a user who left while offline.
 
-Browser (Playwright, Phase 3):
+Browser (Playwright, Phase 3 rehearsal with retention 0):
 
-- Two clients join and see each other; one closes the tab, the other removes them
-  through the leave/unsubscribe path.
-- Reconnect repopulates the list without a replay.
+- Two clients join and see each other after one settle; one closes the tab, the
+  other removes them through the leave/unsubscribe path.
+- Reconnect repopulates the list from the snapshot, including removing a user
+  who left while the client was offline.
 
 Traffic measurement (the acceptance test for "spike gone", after Phase 3):
 
@@ -538,16 +677,16 @@ These apply after Phase 3/4, not to Phase 1:
 
 ## 11. Open questions
 
-1. **TTL**: 10 minutes (hidden-tab friendly, slow ghost expiry) vs 90 s (parity
-   with today's replay window, aggressive cleanup). Recommendation: 10 minutes,
-   because unsubscribe is the real cleanup path. Needed for Phase 1's read
-   filter.
-2. **Pending challenges in the snapshot** (8.1 option 2) — include at Phase 3/4
-   or defer indefinitely? Recommendation: defer; keep the Phase 1 contract small
-   and stable.
-3. **Connection counting** (8.3): revisit in Phase 2 if the heartbeat-recovery
-   transient is visible to joiners. The endpoint shape does not change either
-   way.
+1. **TTL — decided**: 10 minutes, plus the read-time `meta.t` filter. Revisit
+   only if Phase 2/3 shows hidden-tab users dropping out of snapshots in a way
+   that matters.
+2. **Connection counting** (8.3): the Phase 1 decision was to rely on the
+   heartbeat. Revisit only if the Phase 3 rehearsal or real user reports show a
+   briefly missing multi-tab user matters. The endpoint shape does not change
+   either way.
+3. **Pending challenges in the snapshot** (8.1 option 2) — decide at Phase 4,
+   after replay is gone and the real loss window is observable. Recommendation:
+   defer; keep the contract small.
 4. **Dashboard access**: `/dashboard.html` is already public and unlinked;
    the endpoint is equally public. Decide separately whether the dashboard
    should be gated — out of scope for this plan.
@@ -561,3 +700,19 @@ These apply after Phase 3/4, not to Phase 1:
 - Auth or privacy changes: presence is already public on the lobby channel.
 - An NJS version bump. The presence work needs no new njs feature; `NJS_VERSION`
   stays at `1.0.0` and per-entry dict TTL already works there.
+
+## 13. Progress log
+
+- **2026-10-20 — Phase 1 shipped and verified.** `presence_live` registry,
+  `GET /api/online/presence`, dashboard "Presence registry" card with an
+  on-demand button, plus the dashboard/shell tests and the replay regression
+  guard. Lobby behaviour and presence-channel retention unchanged. User
+  confirmed the dashboard view works. Phase 2 is next.
+- **2026-10-20 — Phase 3 gate simplified.** Dropped the Phase 2 parity counter /
+  debug instrumentation. The gate is now a local retention-0 rehearsal plus the
+  two-client and reconnect checks; the production flip stays a two-line config
+  change that can be reverted immediately.
+- **2026-10-20 — Phase 2 simplified.** No snapshot fallback branch and no
+  sentinel: the presence list settles on the snapshot attempt, and the sentinel
+  / presence-dedupe code is deleted in Phase 2 rather than Phase 4. A failed
+  snapshot settles with live state; heartbeats rebuild the list.

@@ -378,11 +378,11 @@ table td {
         </div>
         <div class="card-content" id="presence-info">
           <div class="presence-controls">
-            <span id="presence-meta" class="refresh-tag">Not loaded.</span>
-            <button type="button" onclick="loadPresence()">Load online users</button>
+            <span id="presence-meta" class="refresh-tag">Loading…</span>
+            <button type="button" onclick="loadPresence()">Refresh online users</button>
           </div>
           <ul id="presence-list">
-            <li style="color: var(--secondary-color);">Click "Load online users" to read the server registry.</li>
+            <li style="color: var(--secondary-color);">Loading presence registry…</li>
           </ul>
         </div>
       </div>
@@ -625,6 +625,10 @@ table td {
           users.forEach((user) => list.appendChild(presenceRow(user)));
         } catch (error) {
           meta.textContent = `Presence fetch failed: ${error.message}`;
+          list.textContent = "";
+          const failed = document.createElement("li");
+          failed.textContent = "Unable to load the presence registry.";
+          list.appendChild(failed);
           console.error("Error fetching presence registry:", error);
         }
       }
@@ -929,6 +933,9 @@ table td {
       }
 
       fetchStats();
+      // The registry is cheap (one shared-dict read); show it with the rest of
+      // the dashboard and keep the button above for an on-demand refresh.
+      loadPresence();
     </script>
   </body>
 </html>
