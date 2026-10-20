@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 // Seed generator for the reveal decks (`<ul id="challenge-data">` in
 // src/client/reveal/index.html). Collects one entry per famous female
-// celebrity — South Korean — one per Taiwanese pop star of either gender, plus
-// a "watches" deck of premium watch models, a "tokyo" deck of that city's
-// landmarks and a "taipei" deck of Taipei's and Taiwan's, and writes a
-// human-review page to docker/html/decks.html,
+// celebrity — South Korean — one per Taiwanese pop star of either gender, a
+// "tokyo" deck of that city's landmarks and a "taipei" deck of Taipei's and
+// Taiwan's, and writes a human-review page to docker/html/decks.html,
 // served by nginx alongside the client, so the
 // candidate links, images and licences can be eyeballed in a browser before any
 // of it is pasted into index.html. Each deck gets its own collapsed section and
@@ -32,7 +31,7 @@
 // Usage:
 //   node scripts/reveal-kidols.mjs                 # all decks, top 32 by article size
 //   node scripts/reveal-kidols.mjs --deck taiwan   # just one deck
-//   node scripts/reveal-kidols.mjs --deck watches --sort views
+//   node scripts/reveal-kidols.mjs --deck taiwan --sort views
 //   node scripts/reveal-kidols.mjs --limit 100     # a longer list
 //   node scripts/reveal-kidols.mjs --sort views    # rank by 60-day pageviews, not article size
 //   node scripts/reveal-kidols.mjs --min-score 5000 # drop the less famous tail
@@ -59,15 +58,19 @@ const USER_AGENT =
 // at our request rate; it is what keeps the walk to a few seconds. The cars deck
 // asks for far more categories than the others and is the one that gets
 // throttled, so the retry backoff above is what keeps a full run reliable.
-const CONCURRENCY = 4;// One deck per regional celebrity category, plus the Tokyo, Taipei, watches and
-// cars decks.
+const CONCURRENCY = 4;
+
+// One deck per regional celebrity category, plus the Tokyo, Taipei and cars
+// decks.
 // `seeds` are the categories walked (verbatim Wikipedia names, without the
 // "Category:" prefix); `exclude` is
 // walked at depth 0 only and dropped, because the subcategory walk below the
 // seeds reaches bands, groups and labels that are not people. `skip` drops
 // individual articles that category membership cannot — mostly men who are
-// categorised with their female counterparts. The cars deck is the exception:
-// it pins `titles` instead, because "the dream cars" is not a category.
+// categorised with their female counterparts. The pinned decks (cars, starwars,
+// anime, manga) are the exception: they list `titles` instead, because "the
+// dream cars" is not a category and no category holds exactly the films,
+// manga or characters a player would recognise.
 //
 // One optional field applies to a pinned deck: `keepOrder` skips the
 // size/pageviews ranking and treats the authored list order as the rank, which a
@@ -259,128 +262,6 @@ const DECKS = [
     ],
   },
   {
-    // Watches, not people. Same shape as the decks above, but seeded from the
-    // handful of Wikipedia categories that actually hold watch articles —
-    // "Watch models" plus the per-brand ones — because there is no "Luxury
-    // watches" tree. A hand-written list of model names was tried first and
-    // does not work: most of those models have no article at all (Rolex
-    // Explorer resolves, Nautilus and Royal Oak do not), and "Cartier Santos"
-    // redirects to an unrelated chart. Walking real categories gets real
-    // articles, so the deck is a category walk like the rest.
-    id: "watches",
-    label: "Premium watches",
-    // `seeds` are category names, not article titles. "Watch models" is the
-    // only real tree of individual references; everything else is the brand
-    // article's category, which brings its models with it. The Seiko/Swatch/
-    // Casio seeds are there so the deck is not all Swiss luxury.
-    seeds: [
-      "Watch models",
-      "Rolex watches",
-      "Omega watches",
-      "Breitling SA",
-      "Casio brands",
-      "The Swatch Group",
-      "Seiko",
-      "Cartier (brand)",
-      "Audemars Piguet",
-      "Patek Philippe",
-    ],
-    // The brand articles seed their own subtrees, and a watch company pulls in
-    // its investors, its racing sponsorships and its designers. Drop the parent
-    // brands wholesale (so Cartier the maison and Patek Philippe the company
-    // are out, but Cartier Tank and the Calatrava stay) plus the people and
-    // conglomerate categories, and skip the handful of named non-watches that
-    // survive because they sit in no excludable category.
-    exclude: [
-      "Watch brands",
-      "Watchmaking conglomerates",
-      "Rolex",
-      "Rolex people",
-      "Citizen Watch",
-      "Fossil Group",
-      "Timex watches",
-      "Soviet watch brands",
-      "Ukrainian watch brands",
-      "Watchmakers",
-      "Watch designers",
-      "Watch collecting",
-      // The "Seiko" and "The Swatch Group" seeds are the reason for most of
-      // these: both are company categories, so they drag in sister companies,
-      // suppliers (ETA, Valjoux), a Swatch retailer, Epson and two executives.
-      // Their watch articles are reached through "Watch models" and
-      // "Casio brands" instead. "Swiss watchmakers (people)" is a person list.
-      "Watch manufacturing companies of Japan",
-      "Casio",
-      "Japanese companies established in 1881",
-      "Retail companies established in 1881",
-      "Watch movement manufacturers",
-      "Swiss watchmakers (people)",
-      "Watch manufacturing companies of Switzerland",
-      "Watch manufacturing companies of the United States",
-      "Defunct watchmaking companies",
-      "Amorphous metals",
-      // Casio makes far more than watches; these are its cameras and music
-      // players, which sit in "Casio brands" alongside the F-91W.
-      "Casio digital cameras",
-      "Casio musical instruments",
-    ],
-    skip: [
-      "CVC Capital Partners",
-      "Partners Group",
-      "Antoni Patek",
-      "Adrien Philippe",
-      "Léon Breitling",
-      "Gallet & Company",
-      // A watch designer who arrives with no excludable category to filter on.
-      "Elmar Mock",
-      "Hans Wilsdorf Foundation",
-      "Paris Masters",
-      "24 Hours of Daytona",
-      "Bucherer",
-      "Epson",
-      "Swatch",
-      "Cartier (brand)",
-      "Audemars Piguet",
-      "Patek Philippe",
-      // Generic/incidental subjects rather than a watch: "Watch" is the whole
-      // topic (its image is a Casio Oceanus), and RockWatch was an aborted
-      // 1980s smartwatch. Epson and Wako arrive with no watch category to filter
-      // on, so they can only be named.
-      "Watch",
-      "RockWatch",
-      "Epson",
-      "Epson Robots",
-      "Epson MX-80",
-      "Wako (retailer)",
-      "Nicolas Hayek",
-      // Manufacturer/parent-company articles, not watches. They are highly
-      // read, so views-ranking floats them to the hardest end of the deck where
-      // a card should be a watch. Their model articles come in from the seeds.
-      "Omega SA",
-      "Longines",
-      "Tissot",
-      "Movado",
-      "Seiko",
-      "Tritium",
-      "Lume",
-      "Super-LumiNova",
-      // "Spring Drive" and "Omega 28.9 chronograph" are calibres/movements, not
-      // watches a player would recognise by its picture.
-      "Spring Drive",
-      "Omega 28.9 chronograph",
-      // The Rolex Yacht-Master card's picture is a street photo of a Basel
-      // building that happens to be in frame; nothing to reveal.
-      "Rolex Yacht-Master",
-      // Reviewed on the generated page and dropped by hand: the Casio Loopy is
-      // a child's console-and-watch set rather than a watch, and MoonSwatch and
-      // the Breitling Orbiter are Swatch/Breitling lines nobody picks out of a
-      // line-up of watches.
-      "Casio Loopy",
-      "MoonSwatch",
-      "Breitling Orbiter",
-    ],
-  },
-  {
     // The dream cars, pinned by article title. This is the one deck that is a
     // hand-written list rather than a category walk: Wikipedia has no category
     // for "the cars you wanted as a kid", and the per-marque "vehicles" trees
@@ -488,8 +369,8 @@ const DECKS = [
     // C-3PO's article has no lead image at all, and both droid articles redirect
     // to one generic "Droid (Star Wars)" photo, so those cards would otherwise
     // be dropped or show the wrong picture. These free Commons files stand in;
-    // `--nonfree` is still needed for the rest of the deck. Same as the watches
-    // deck, `images` is keyed by the title asked for above.
+    // `--nonfree` is still needed for the rest of the deck. `images` is keyed by
+    // the title asked for above.
     images: {
       "C-3PO": "File:Star Wars - C-3po.jpg",
       "IG-88": "File:IG-88.jpg",
@@ -505,9 +386,9 @@ const DECKS = [
     // which means two things worth knowing before this deck is trusted:
     //
     //   * They are all **non-free** (fair use) — Wikipedia's rule for copyrighted
-    //     covers. `--nonfree` is required to get any images at all, and unlike
-    //     the Totoro deck none of these are freely licensed or reusable. The
-    //     review page marks every one.
+    //     covers. `--nonfree` is required to get any images at all, and none of
+    //     these are freely licensed or reusable. The review page marks every
+    //     one.
     //   * They are all **small** — roughly 250–320px wide. That is not a bug in
     //     this script: Wikipedia deliberately hosts low-resolution copies of
     //     non-free files, and its thumbnailer never upscales. The sister game's
@@ -581,10 +462,10 @@ const DECKS = [
     // article rather than the franchise or disambiguation page.
     //
     // Every cover is a **non-free** (fair-use) file on enwiki, so `--nonfree`
-    // is required to get any images at all, and unlike the Totoro deck none of
-    // these covers are freely licensed or reusable. The review page marks every
-    // one. As with the anime deck they are small (Wikipedia hosts only a
-    // low-resolution copy of a non-free cover).
+    // is required to get any images at all, and none of these covers are freely
+    // licensed or reusable. The review page marks every one. As with the anime
+    // deck they are small (Wikipedia hosts only a low-resolution copy of a
+    // non-free cover).
     //
     // `keepOrder` makes the list order the rank: article size does not track how
     // well a player knows a manga, so the list below is hand-ordered, most
@@ -633,6 +514,75 @@ const DECKS = [
     // article turns out to carry no lead image (or the wrong one), add an entry
     // keyed by the title above, as the Star Wars deck does.
   },
+  {
+    // Famous Chinese women — actresses, singers and models — pinned by article
+    // title like the cars and manga decks, because Wikipedia has no category of
+    // "the Chinese women everyone recognises": the actress trees hold ~1400
+    // articles with a long tail of provincial and child actresses, and the
+    // mixed-gender "Chinese idols" category drags in men and groups.
+    //
+    // The list is the verified shortlist, ordered most recognisable first. It
+    // was built by walking Chinese film/television actress categories, the
+    // women-singer and female-model trees and "Chinese idols", filtering to
+    // Wikidata P21=female and P31=human, and ranking by 60-day pageviews; the
+    // first 28 are the household names, the last four are the models and K-pop
+    // crossover that still rank high.
+    //
+    // Every lead image here is freely licensed on Commons, so unlike the anime
+    // and manga decks this one needs no `--nonfree`. Taiwan is deliberately out
+    // (it has its own deck), as are the foreign actresses who merely worked in
+    // Hong Kong cinema (Katrina Kaif, Maggie Q, Adeline Rudolph) and the
+    // political and business figures the categories also contain.
+    //
+    // Article titles that differ from the common name: "Yang Zi (actress)" is
+    // not the disambiguation page, "Michele Reis" is spelled with one l, and
+    // the parenthesised ordinary names (Bai Lu, Sun Qian, Li Qin, Shen Yue) are
+    // needed to reach the actress rather than a similarly named page.
+    id: "china",
+    label: "Chinese actresses",
+    // The <ul> this deck is pasted into in src/client/reveal/index.html, and the
+    // id/mode the client's DECKS table in reveal.js registers it under.
+    dataId: "china-data",
+    keepOrder: true,
+    titles: [
+      // Easiest — known outside China.
+      "Liu Yifei",
+      "Yang Mi",
+      "Zhao Lusi",
+      "Shu Qi",
+      "Li Bingbing",
+      "Angelababy",
+      "Zhao Liying",
+      "Tian Xiwei",
+      "Sun Qian (actress)",
+      // Middle — very well known in Chinese-language drama and pop.
+      "Bai Lu (actress)",
+      "Tang Wei",
+      "Zhao Wei",
+      "Maggie Cheung",
+      "Cecilia Cheung",
+      "G.E.M.",
+      "Ni Ni",
+      "Zhou Dongyu",
+      "Karen Mok",
+      "Yang Zi (actress)",
+      "Guan Xiaotong",
+      "Ju Jingyi",
+      // The younger generation: idol-show pop and the post-2015 film/TV leads.
+      "Yang Chaoyue",
+      "Cheng Xiao",
+      "Zhang Zifeng",
+      "Wang Churan",
+      "Ouyang Nana",
+      "Chen Duling",
+      "Sammi Cheng",
+      // Hardest — models and the K-pop crossover.
+      "Liu Wen (model)",
+      "Ningning",
+      "Ming Xi",
+      "Michele Reis",
+    ],
+  },
 ];
 
 const SKIP_TITLE = /^(List of|Outline of|Index of)\b/i;
@@ -669,7 +619,7 @@ const SORT_KEY = argValue("--sort", "bytes");
 const AS_JSON = args.includes("--json");
 const WITH_LICENCE = !args.includes("--no-licence");
 // `pageimages` returns only freely licensed lead images unless asked otherwise.
-// Facts-only subjects (landmarks, watches, cars) are free on Commons, but
+// Facts-only subjects (landmarks, cars) are free on Commons, but
 // fictional characters and ships are almost always fair-use files hosted on
 // enwiki, so a deck of them needs this flag to have any images at all. Those
 // images are NOT reusable — the review page marks every one.
@@ -768,8 +718,8 @@ async function fetchCategory(name, withDetails) {
       gcmtype: "page|subcat",
       gcmlimit: 500,
       // Without this, category members that are redirects score 0 views and 0
-      // bytes, so redirect articles (TAG Heuer Monaco -> TAG Heuer, Reverso ->
-      // Reverso (watch)) silently fall to the bottom of a --sort views deck.
+      // bytes, so redirect articles (DeLorean DMC-12 -> DMC DeLorean) silently
+      // fall to the bottom of a --sort views deck.
       redirects: "1",
       ...(cont ? { gcmcontinue: cont } : {}),
       ...(withDetails
@@ -1182,9 +1132,8 @@ async function fetchTitles(titles, overrides) {
   // specific picture, so it wins even when the article has some generic image.
   // `fetchOverrideImages` reads them from Commons, so an override is always
   // freely licensed — clear `nonfree`, which otherwise still describes the
-  // fair-use lead image the override just replaced (the Totoro film's article
-  // picture is a non-free poster, but its override is a public-domain title
-  // card, and the review page would flag it as unusable).
+  // fair-use lead image the override just replaced, and the review page would
+  // flag the card as unusable.
   for (const [title, info] of resolvedOverrides) {
     const record = byName.get(title);
     if (record) Object.assign(record, info, { nonfree: false });

@@ -209,6 +209,7 @@ choice costs **no extra vertical height**):
 | Deck | Button | `?mode=` | Data list | On-page title |
 |---|---|---|---|---|
 | K-idols (default) | `K-idols` | `k-idols` | `<ul id="challenge-data">` (32 entries) | `Pot & Reveal` |
+| China (爱豆) | `爱豆` | `aidou` | `<ul id="china-data">` (32 entries) | `C-Pot Idol` |
 | Taipei | `Taipei` | `taipei` | `<ul id="taipei-data">` (32 entries) | `Taipei` |
 | SuperCars | `SuperCars` | `supercars` | `<ul id="cars-data">` (32 entries) | `SuperCars` |
 | Pokemon | `Pokemon` | `pokepot` | `<ul id="pokemon-data">` (32 entries) | `PokePot` |

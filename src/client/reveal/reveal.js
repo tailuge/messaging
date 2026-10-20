@@ -27,6 +27,17 @@ const DECKS = [
     dataId: "challenge-data",
   },
   {
+    // Chinese actresses, singers and models (generated deck, `<ul id="china-data">`
+    // in index.html). Label/title use the Chinese script for the vibe — 爱豆 is the
+    // loanword for "idol", the C-pop counterpart of K-idols — while `mode` stays
+    // ASCII so the shareable `?mode=` link is URL-safe.
+    id: "china",
+    label: "爱豆",
+    title: "C-Pot Idol",
+    mode: "aidou",
+    dataId: "china-data",
+  },
+  {
     id: "taipei",
     label: "Taipei",
     title: "Taipei",
