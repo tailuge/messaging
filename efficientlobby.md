@@ -135,8 +135,8 @@ Add one `js_shared_dict_zone` entry in `docker/nginx.conf` beside the existing
 js_shared_dict_zone zone=presence_live:1M type=string timeout=10m;
 ```
 
-Sizing: a compact presence frame is roughly 250–800 bytes, so 1 MB holds well
-over a thousand users. It is separate from `online_users` so the dashboard's
+Sizing: a compact presence frame is roughly 250–800 bytes, so 1 MB holds roughly
+1,300 frames at the upper size, far more than an 18-user lobby needs. It is separate from `online_users` so the dashboard's
 existing count has exactly the same inputs as before. Phase 1 deliberately has
 no connection counter (`presence_conns`); see 4.3 for why the heartbeat is an
 adequate recovery path and 8.3 for when that might change.
@@ -324,8 +324,8 @@ Exit criteria:
 - Dashboard list and a fresh lobby's user list agree for normal single-tab use
   (allowing the deliberate `/api/online` vs registry differences above).
 - One hour of normal lobby traffic: `presence_live` entry count stays within a
-  few of the lobby count and does not grow monotonically; `nginx` memory and
-  `presence_publish_total` are unchanged from baseline; no new NJS errors.
+  few of the lobby count and does not grow monotonically; `nginx` memory is unchanged
+  from baseline; no new NJS errors.
 - Endpoint latency stays in the single-digit milliseconds locally.
 - Replay behaviour is byte-for-byte as before (the replay assertion above).
 - Revert is one commit: remove the location, the dashboard card, and the
@@ -397,11 +397,12 @@ the server the socket is already connected to.
    a short `AbortController` timeout (~3 s), `decodeWire` on each `users[]`
    frame, returning `{ ts: number; ttl: number; users: PresenceMessage[] }`.
    Throw on non-2xx/timeout; the caller decides what to do in one place.
-2. **Snapshot state in `Lobby`.** Add `applySnapshot(users)` and
-   `applyFrameIfNewer(msg)` helpers. The snapshot replaces the users map; a
-   frame received while the snapshot was in flight is applied only when its
-   `meta.ts` is at least the snapshot entry's `meta.ts` (or the user is absent).
-   Merge `currentUser` so self is always present.
+2. **Snapshot state in `Lobby`.** Add `applySnapshot(ts, users)`. It replaces
+   the users map and merges `currentUser` so self is always present. Buffered
+   frames are then filtered by one rule that uses only the server clock: drop
+   any frame with `meta.ts <= snapshot.ts` (the snapshot already reflects it);
+   apply the rest in arrival order. Both timestamps are stamped by NJS on the
+   same host, so no client clock is involved.
 3. **Join order.** In `Lobby.join()`: subscribe (WebSocket open + buffer) →
    publish own join and await the HTTP response (registration only, existing
    retry loop) → `fetchPresenceSnapshot()` → apply it if it succeeded → drain
@@ -419,8 +420,11 @@ the server the socket is already connected to.
 6. **Tests.** Extend `test/messagingclient.spec.ts` and add a focused
    `test/lobby.spec.ts`: snapshot-before-settle, one settle, newer-live-frame
    wins, failed snapshot still settles with self/live state and a later
-   heartbeat adds a user, reconnect refetch removes an offline user. Delete the
-   replay/sentinel tests that no longer describe behaviour.
+   heartbeat adds a user, reconnect refetch removes an offline user.Delete the sentinel and replay tests that no longer describe behaviour:
+   `test/lobby-sentinel-failure.spec.ts`, `test/lobby_sentinel_failure.spec.ts`,
+   `test/debug_replay.ts`, and the `dedupePresence` cases in `test/replay.spec.ts`
+   (keep any challenge-dedupe cases). `test/lobby.spec.ts` does not exist yet and
+   is new in this phase.
 7. **Deploy and watch.** Server is already live; ship the client and watch the
    lobby user list and normal user reports for a release. No instrumentation:
    the Phase 3 gate is the local retention-0 rehearsal (5.4).
@@ -441,12 +445,12 @@ Order matters; no server-side cursor is needed:
    retry loop stays; it is about registration, not ordering. No sentinel
    timestamp is stored.
 3. `GET /api/online/presence` (`cache: "no-store"`, ~3 s timeout).
-4. If it succeeded, apply it: replace the users map, keep `meta.ts` per user,
-   and merge `currentUser`. If it failed, log once and keep the current map
+4. If it succeeded, apply it: replace the users map and merge `currentUser`. If it failed, log once and keep the current map
    (usually self from the join echo).
-5. Drain the frames buffered since (1), per user, applying each only when its
-   `meta.ts` is at least the snapshot entry's `meta.ts` (or the user is absent).
-   Older replayed frames are dropped by this rule.
+5. Drain the frames buffered since (1) with the rule in 5.1 step 2: drop frames
+   with `meta.ts <= snapshot.ts`, apply the rest in order. A per-user "apply if
+   the user is absent" rule must not be used: a replayed join for someone who has
+   since left would resurrect them as a ghost.
 6. `fireSettled()` — always, once.
 
 There is no 404/error fallback branch and no replay-based settle. `Lobby.settled`,
@@ -471,9 +475,7 @@ No production instrumentation. The gate is to run the *end state* locally:
    both clients see each other after one settle, a tab close removes the user,
    a reconnect removes someone who left while offline, and a challenge redirect
    re-registers the player in their game.
-3. Run the 18-client reconnect measurement once against the rehearsal image
-   to confirm the expected snapshot-sized outbound instead of a 90 s replay.
-4. If green, the production flip is only those two config lines and can be
+3. If green, the production flip is only those two config lines and can be
    reverted the same way. If anything fails, fix it while replay still exists.
 
 This tests the real contract without a feature flag, mismatch logging, or a
@@ -634,8 +636,9 @@ Library (Jest, `test/messagingclient.spec.ts` plus a `lobby` unit test, Phase 2+
 
 - Snapshot applied before settle; `onSettled` fires once; `onUsersChange` emits
   the full list.
-- A live frame published after the snapshot but delivered before its response is
-  applied last-write-wins, not overwritten by the snapshot.
+- A buffered frame with `meta.ts <= snapshot.ts` is dropped, so a replayed join
+  for a user who has since left stays gone. A frame with `meta.ts > snapshot.ts`
+  is applied on top of the snapshot.
 - Snapshot failure → settles immediately with the current state, no unhandled
   rejection; a later heartbeat adds the user.
 - Reconnect refetches the snapshot and removes a user who left while offline.
@@ -716,3 +719,8 @@ These apply after Phase 3/4, not to Phase 1:
   sentinel: the presence list settles on the snapshot attempt, and the sentinel
   / presence-dedupe code is deleted in Phase 2 rather than Phase 4. A failed
   snapshot settles with live state; heartbeats rebuild the list.
+- **2026-10-20 — Plan review.** Fixed the Phase 2 drain rule: "apply if the user
+  is absent" could resurrect users from replayed joins; replaced with a single
+  `meta.ts <= snapshot.ts` drop rule. Listed the existing sentinel/replay tests
+  to delete. Removed a meaningless `presence_publish_total` exit criterion and a
+  duplicate 18-client measurement in 5.4 (kept in 6.1).
