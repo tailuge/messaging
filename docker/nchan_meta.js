@@ -281,6 +281,7 @@ const PRESENCE_TTL_MS = 70 * 1000;
 const PRESENCE_KEY_PREFIX = "u:";
 const HISTORY_KEY_PREFIX = "s:";
 const HISTORY_LAST_KEY = "last";
+const HISTORY_BUCKET_MS = 60 * 1000;
 
 function isPresenceLobbyChannel(r) {
   return r.uri === "/publish/presence/lobby";
@@ -315,11 +316,21 @@ function updatePresenceRegistry(r, reqText, body) {
 // on every presence publish (a running counter cannot stay accurate: a frame's
 // 70 s TTL expires without a hook), but a sample is stored only when the count
 // differs from the last one, so heartbeats write nothing at all.
+//
+// Samples are bucketed by minute ("s:<minute start>") so a churning count costs
+// at most one entry per minute, not one per change: the earlier per-change
+// series filled the 64K zone in ~4 hours, after which every set() failed and
+// the chart froze while the endpoint kept reporting the live count. Within a
+// bucket the highest count wins, so a brief peak is not hidden by whatever
+// value the minute happens to end on.
 function recordPresenceCount() {
   const count = String(ngx.shared.presence_live.keys().length);
   const history = ngx.shared.presence_history;
   if (history.get(HISTORY_LAST_KEY) === count) return;
-  history.set(HISTORY_KEY_PREFIX + Date.now(), count);
+  const bucket = Math.floor(Date.now() / HISTORY_BUCKET_MS) * HISTORY_BUCKET_MS;
+  const key = HISTORY_KEY_PREFIX + bucket;
+  const peak = parseInt(history.get(key), 10);
+  if (!(peak >= parseInt(count, 10))) history.set(key, count);
   history.set(HISTORY_LAST_KEY, count);
 }
 
@@ -357,7 +368,7 @@ async function publish(r) {
   try {
     updatePresenceRegistry(r, reqText, body);
   } catch (e) {
-    ngx.log(ngx.WARN, `presence registry error: ${e.message}`);
+    ngx.log(ngx.WARN, `presence registry error: ${e && e.message ? e.message : e}`);
   }
   incrementStat("publish_requests_total");
   // Legacy (canonical) and compact (P1) key forms are both counted.
@@ -761,7 +772,8 @@ async function stats(r) {
 
 // Users-online history: [ts, count] samples oldest first, plus the live count so
 // the chart can extend the last step to "now". Samples are sparse (one per
-// change), so clients must plot them on a time axis rather than by index.
+// minute in which the count changed, holding that minute's peak), so clients
+// must plot them on a time axis rather than by index.
 function presence_history_api(r) {
   const dict = ngx.shared.presence_history;
   const keys = dict.keys() || [];

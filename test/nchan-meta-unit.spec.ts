@@ -415,21 +415,29 @@ describe("nchan_meta online users derived from presence_live", () => {
   });
 });
 
-// The history sampler stores one sample per distinct online count, so heartbeats
-// with an unchanged count write nothing.
+// The history sampler buckets samples by minute and stores that minute's peak
+// count; an unchanged count (heartbeats) writes nothing.
 describe("nchan_meta presence history sampling", () => {
   function load(count: number, last?: string) {
     const meta = loadNchanMeta();
     const writes: [string, string][] = [];
+    const store = new Map<string, string>();
+    if (last !== undefined) store.set("last", last);
+    let online = count;
     meta.ngx.shared.presence_live = {
-      keys: () => Array.from({ length: count }, (_, i) => `u:user-${i}`),
+      keys: () => Array.from({ length: online }, (_, i) => `u:user-${i}`),
     };
     meta.ngx.shared.presence_history = {
-      get: (key: string) => (key === "last" ? last : undefined),
-      set: (key: string, value: string) => writes.push([key, value]),
+      get: (key: string) => store.get(key),
+      set: (key: string, value: string) => {
+        store.set(key, value);
+        writes.push([key, value]);
+      },
     };
-    return { meta, writes };
+    return { meta, writes, store, setCount: (n: number) => { online = n; } };
   }
+
+  afterEach(() => jest.useRealTimers());
 
   test("stores a sample when the online count changes", () => {
     const { meta, writes } = load(3, "2");
@@ -456,5 +464,41 @@ describe("nchan_meta presence history sampling", () => {
     meta.recordPresenceCount();
 
     expect(writes[1]).toEqual(["last", "0"]);
+  });
+
+  test("keeps one bucket per minute, holding that minute's peak count", () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-10-21T10:00:05Z"));
+    const { meta, writes, store, setCount } = load(2, "1");
+
+    meta.recordPresenceCount();
+    setCount(5);
+    meta.recordPresenceCount();
+    setCount(3);
+    meta.recordPresenceCount();
+
+    // Same key three times: 2, then the higher 5, then the lower 3 is skipped.
+    expect(writes.filter(([key]) => key !== "last")).toEqual([
+      ["s:1792576800000", "2"],
+      ["s:1792576800000", "5"],
+    ]);
+    expect(store.get("s:1792576800000")).toBe("5");
+    expect(store.get("last")).toBe("3");
+  });
+
+  test("rolls over to a new bucket when the minute changes", () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-10-21T10:00:59Z"));
+    const { meta, writes, setCount } = load(4, "3");
+
+    meta.recordPresenceCount();
+    jest.setSystemTime(new Date("2026-10-21T10:01:00Z"));
+    setCount(1);
+    meta.recordPresenceCount();
+
+    expect(writes.map(([key]) => key)).toEqual([
+      "s:1792576800000",
+      "last",
+      "s:1792576860000",
+      "last",
+    ]);
   });
 });
