@@ -118,6 +118,12 @@
         <canvas id="game-chart" aria-label="Usage by game type"></canvas>
       </div>
     </div>
+    <div class="chart-panel">
+      <h2 class="chart-panel-title">Users Online</h2>
+      <div class="chart-canvas">
+        <canvas id="users-chart" aria-label="Users online over time"></canvas>
+      </div>
+    </div>
   </section>
 
   <footer class="source-pages" aria-label="Measured pages">
@@ -404,7 +410,57 @@
       })
     }
 
+    // Users online is sampled only when the count changes, so the points are
+    // unevenly spaced: a linear time axis keeps the gaps honest without pulling
+    // in a date adapter.
+    const usersChart = new Chart(document.getElementById("users-chart"), {
+      type: "line",
+      data: {
+        datasets: [
+          {
+            label: "USERS ONLINE",
+            data: [],
+            borderColor: "#00bcd4",
+            backgroundColor: "#00bcd4",
+            pointRadius: 2,
+            stepped: true,
+          },
+        ],
+      },
+      options: {
+        ...chartDefaults,
+        scales: {
+          x: {
+            type: "linear",
+            ticks: {
+              color: "#777",
+              font: { size: 10 },
+              callback: (value) => new Date(value).toTimeString().slice(0, 5),
+            },
+            grid: { color: "#222" },
+          },
+          y: chartDefaults.scales.y,
+        },
+      },
+    })
+
+    // The samples only live for the life of the server process, so a minute
+    // between polls is enough to keep the trailing edge current.
+    async function loadUsersOnline() {
+      try {
+        const data = await getData("/api/presence/history")
+        const points = data.samples.map(([ts, count]) => ({ x: ts, y: count }))
+        points.push({ x: data.ts, y: data.current })
+        usersChart.data.datasets[0].data = points
+        usersChart.update("none")
+      } catch (error) {
+        console.error(`Could not load users-online history: ${error.message}`)
+      }
+    }
+
     loadUsage()
+    loadUsersOnline()
+    setInterval(loadUsersOnline, 60000)
   </script>
 </body>
 

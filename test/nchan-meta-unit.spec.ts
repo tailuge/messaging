@@ -17,7 +17,7 @@ function loadNchanMeta(): any {
     "ngx",
     "require",
     `${source}
-     return { parseUA, reduceUA, cacheSafeUA, classifyForCache, formatCacheValue, summariseCpuThrottling, publish, getOnlineUsers, ngx };`
+     return { parseUA, reduceUA, cacheSafeUA, classifyForCache, formatCacheValue, summariseCpuThrottling, publish, getOnlineUsers, recordPresenceCount, ngx };`
   )(ngx, requireStub);
 }
 
@@ -412,5 +412,49 @@ describe("nchan_meta online users derived from presence_live", () => {
     const meta = load({});
 
     expect(meta.getOnlineUsers()).toEqual([]);
+  });
+});
+
+// The history sampler stores one sample per distinct online count, so heartbeats
+// with an unchanged count write nothing.
+describe("nchan_meta presence history sampling", () => {
+  function load(count: number, last?: string) {
+    const meta = loadNchanMeta();
+    const writes: [string, string][] = [];
+    meta.ngx.shared.presence_live = {
+      keys: () => Array.from({ length: count }, (_, i) => `u:user-${i}`),
+    };
+    meta.ngx.shared.presence_history = {
+      get: (key: string) => (key === "last" ? last : undefined),
+      set: (key: string, value: string) => writes.push([key, value]),
+    };
+    return { meta, writes };
+  }
+
+  test("stores a sample when the online count changes", () => {
+    const { meta, writes } = load(3, "2");
+
+    meta.recordPresenceCount();
+
+    expect(writes).toHaveLength(2);
+    expect(writes[0][0]).toMatch(/^s:\d+$/);
+    expect(writes[0][1]).toBe("3");
+    expect(writes[1]).toEqual(["last", "3"]);
+  });
+
+  test("writes nothing while heartbeats leave the count unchanged", () => {
+    const { meta, writes } = load(3, "3");
+
+    meta.recordPresenceCount();
+
+    expect(writes).toEqual([]);
+  });
+
+  test("starts the series on the first sample", () => {
+    const { meta, writes } = load(0, undefined);
+
+    meta.recordPresenceCount();
+
+    expect(writes[1]).toEqual(["last", "0"]);
   });
 });

@@ -279,6 +279,8 @@ function injectMetaString(rawText, meta) {
 // retention, replay and fan-out stay exactly as they are.
 const PRESENCE_TTL_MS = 70 * 1000;
 const PRESENCE_KEY_PREFIX = "u:";
+const HISTORY_KEY_PREFIX = "s:";
+const HISTORY_LAST_KEY = "last";
 
 function isPresenceLobbyChannel(r) {
   return r.uri === "/publish/presence/lobby";
@@ -306,6 +308,19 @@ function updatePresenceRegistry(r, reqText, body) {
     // Same string that is published, so the snapshot needs no re-encoding.
     dict.set(key, body, PRESENCE_TTL_MS);
   }
+  recordPresenceCount();
+}
+
+// Users-online history for usage.html. The count is derived from the registry
+// on every presence publish (a running counter cannot stay accurate: a frame's
+// 70 s TTL expires without a hook), but a sample is stored only when the count
+// differs from the last one, so heartbeats write nothing at all.
+function recordPresenceCount() {
+  const count = String(ngx.shared.presence_live.keys().length);
+  const history = ngx.shared.presence_history;
+  if (history.get(HISTORY_LAST_KEY) === count) return;
+  history.set(HISTORY_KEY_PREFIX + Date.now(), count);
+  history.set(HISTORY_LAST_KEY, count);
 }
 
 function incrementStat(key, delta) {
@@ -744,6 +759,26 @@ async function stats(r) {
   r.return(200, JSON.stringify(data));
 }
 
+// Users-online history: [ts, count] samples oldest first, plus the live count so
+// the chart can extend the last step to "now". Samples are sparse (one per
+// change), so clients must plot them on a time axis rather than by index.
+function presence_history_api(r) {
+  const dict = ngx.shared.presence_history;
+  const keys = dict.keys() || [];
+  const samples = [];
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (key.indexOf(HISTORY_KEY_PREFIX) !== 0) continue;
+    const count = parseInt(dict.get(key), 10);
+    const ts = parseInt(key.substring(HISTORY_KEY_PREFIX.length), 10);
+    if (!isNaN(count) && !isNaN(ts)) samples.push([ts, count]);
+  }
+  samples.sort((a, b) => a[0] - b[0]);
+  r.headersOut["Content-Type"] = "application/json";
+  r.headersOut["Cache-Control"] = "no-store";
+  r.return(200, JSON.stringify({ ts: Date.now(), current: ngx.shared.presence_live.keys().length, samples: samples }));
+}
+
 // Legacy list endpoint: kept for external callers, but served from the presence
 // registry now, so its contents match /api/online/presence.
 async function online_users_api(r) {
@@ -761,4 +796,4 @@ function online_presence_api(r) {
   r.return(200, JSON.stringify({ ts: Date.now(), ttl: PRESENCE_TTL_MS, users: getPresenceFrames() }));
 }
 
-export default { publish, presence_sub, presence_unsub, stats, online_users_api, online_presence_api, table_unsub, table_sub };
+export default { publish, presence_sub, presence_unsub, stats, online_users_api, online_presence_api, presence_history_api, table_unsub, table_sub };
