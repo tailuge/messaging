@@ -2,6 +2,9 @@ import { expect, Page, Frame } from '@playwright/test';
 
 export const TEST_URL = process.env.TEST_URL || 'http://localhost:80/test.html';
 export const VISIBILITY_TIMEOUT = 3000;
+// The lobby handoff re-issues the challenge after a reload, so the confirming
+// banner arrives a few seconds after the accept click, not instantly.
+export const HANDOFF_TIMEOUT = 15000;
 
 /**
  * Open the game page's menu dropdown. The Concede button lives inside
@@ -29,6 +32,26 @@ export async function concedeFromMenu(frame: Frame): Promise<void> {
   await openGameMenu(frame);
   await frame.locator('button[aria-label="Concede"]').click();
   await frame.locator('button[data-notification-action="concede-confirm"]').click();
+}
+
+/**
+ * After an in-game challenge accept, the game page only redirects the accepting
+ * player to the lobby; that lobby re-issues the challenge and the original
+ * challenger confirms it from the challenge banner. Waits for either outcome
+ * (already launched into the table, or asked to confirm) and confirms if asked.
+ */
+export async function confirmHandoffIfAsked(frame: Frame, timeout = HANDOFF_TIMEOUT): Promise<void> {
+  const accept = frame.locator('button[aria-label="Accept challenge"]');
+  await expect
+    .poll(
+      async () => {
+        if (/tableId=/.test(frame.url())) return true;
+        return accept.isVisible().catch(() => false);
+      },
+      { timeout },
+    )
+    .toBe(true);
+  if (!/tableId=/.test(frame.url())) await accept.click();
 }
 
 /**

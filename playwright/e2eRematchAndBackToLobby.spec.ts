@@ -7,7 +7,9 @@ import {
 } from './setupHelpers';
 
 test.describe('E2E rematch', () => {
-  test.setTimeout(20000);
+  // The iframe setup (two lobbies plus the game page's assets) takes most of the
+  // budget on a loaded machine, so leave room for the concede/rematch steps too.
+  test.setTimeout(45000);
 
   test('concede and bob rematch, alice back to lobby show challenge', async ({ page }) => {
 

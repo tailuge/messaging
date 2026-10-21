@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { getFrame, TEST_URL, VISIBILITY_TIMEOUT } from './setupHelpers';
+import { confirmHandoffIfAsked, getFrame, HANDOFF_TIMEOUT, TEST_URL, VISIBILITY_TIMEOUT } from './setupHelpers';
 import { reduce, INITIAL_STATE } from '../src/client/utils.js';
 
 test.describe('E2E rematch', () => {
-  test.setTimeout(20000);
+  test.setTimeout(45000);
 
   const shortWait = 250;
 
@@ -83,9 +83,13 @@ test.describe('E2E rematch', () => {
     await expect(bobFrame.locator('#challengePill')).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
     await bobFrame.locator('#challengeAccept').click();
 
+    // The in-game accept only redirects Bob to the lobby, which re-issues the
+    // challenge; Alice (the original challenger) confirms it from the banner.
+    await confirmHandoffIfAsked(aliceFrame);
+
     // eventually both players should be in new game with same tableid
-    await expect.poll(() => aliceFrame.url(), { timeout: VISIBILITY_TIMEOUT }).toMatch(/tableId=/);
-    await expect.poll(() => bobFrame.url(), { timeout: VISIBILITY_TIMEOUT }).toMatch(/tableId=/);
+    await expect.poll(() => aliceFrame.url(), { timeout: HANDOFF_TIMEOUT }).toMatch(/tableId=/);
+    await expect.poll(() => bobFrame.url(), { timeout: HANDOFF_TIMEOUT }).toMatch(/tableId=/);
 
     const aliceTableId = new URL(aliceFrame.url()).searchParams.get('tableId');
     const bobTableId = new URL(bobFrame.url()).searchParams.get('tableId');
