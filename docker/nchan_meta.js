@@ -280,7 +280,7 @@ function injectMetaString(rawText, meta) {
 // kept in a shared dict so the dashboard can read the online list in one request
 // instead of replaying the channel buffer. The channel itself is untouched: its
 // retention, replay and fan-out stay exactly as they are.
-const PRESENCE_TTL_MS = 10 * 60 * 1000;
+const PRESENCE_TTL_MS = 70 * 1000;
 const PRESENCE_KEY_PREFIX = "u:";
 
 function isPresenceLobbyChannel(r) {

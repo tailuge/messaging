@@ -20,7 +20,7 @@ describe("Lobby Heartbeat Limit", () => {
     await cleanupClients();
   });
 
-  it("should disconnect after 120 heartbeats", async () => {
+  it("should disconnect after 60 heartbeats", async () => {
     const client = createTestClient();
     const user: PresenceMessage = {
       messageType: "presence",
@@ -41,7 +41,7 @@ describe("Lobby Heartbeat Limit", () => {
     await waitUntil(() => users.some((u) => u.userId === "test-user"));
     expect(users.some((u) => u.userId === "test-user")).toBe(true);
 
-    // Wait for 120 heartbeats (at 10ms each, this should take ~1.2s plus some overhead)
+    // Wait for 60 heartbeats (at 10ms each, this should take ~0.6s plus some overhead)
     // We expect the user to be removed from the lobby list when they "leave" automatically
     // The Lobby.leave() call also notifies listeners with users.clear()
     await waitUntil(() => users.length === 0, 5000, 100);

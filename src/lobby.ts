@@ -264,7 +264,10 @@ export class Lobby {
    */
   async syncPresence(update: Partial<PresenceMessage> = {}): Promise<void> {
     this.presenceMessageCount++;
-    if (this.presenceMessageCount >= 120) {
+    // Cap a presence session at ~1 hour of heartbeats (60 x 60s) so a tab that
+    // is left open without activity stops publishing rather than holding a
+    // slot in the lobby indefinitely.
+    if (this.presenceMessageCount >= 60) {
       await this.leave();
       return;
     }

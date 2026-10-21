@@ -111,7 +111,7 @@ run_test "API: online presence snapshot lists published users with full details"
 	printf "%s\n" "$out" | grep -q "\"T\":\"table-9\""
 	printf "%s\n" "$out" | grep -q "\"v\":\"1.0\""
 	printf "%s\n" "$out" | grep -q "\"userId\":\"reg-probe-canon\""
-	printf "%s\n" "$out" | grep -q "\"ttl\":600000"
+	printf "%s\n" "$out" | grep -q "\"ttl\":70000"
 '
 
 run_test "API: online presence snapshot drops a user on leave" bash -c '

@@ -128,7 +128,7 @@ describe("Dashboard UI Unit Tests", () => {
         ok: true,
         json: async () => ({
           ts: Date.now(),
-          ttl: 600000,
+          ttl: 70000,
           users: [{ m: "p", t: "h", u: "a", n: "A", meta: { t: Date.now(), c: "GB" } }],
         }),
       });
