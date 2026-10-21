@@ -33,6 +33,37 @@ async function challenge( a: Page, bobName: string) {
   await a.locator('challenge-modal .section-body.expanded button.rule').first().click();
 }
 
+/**
+ * The game page only redirects the accepting player to the lobby; it never sends
+ * the accept itself. That lobby re-issues the challenge to the original
+ * challenger, who confirms it from the challenge banner. A pre-codec client
+ * instead auto-accepts the replayed offer, so allow either outcome.
+ */
+async function acceptHandoffIfAsked(challenger: Page) {
+  const accept = challenger.locator('button[aria-label="Accept challenge"]');
+  const launched = () => /tableId=/.test(challenger.url());
+  await expect
+    .poll(async () => launched() || (await accept.isVisible().catch(() => false)), { timeout: WAIT })
+    .toBe(true);
+  if (!launched()) await accept.click();
+}
+
+/**
+ * Challenges from the lobby and waits for the game page's challenge pill. An
+ * offer that arrives while the game page is still settling its own lobby is
+ * dropped before its challenge handler is registered, so a missed offer is
+ * cancelled and retried rather than leaving the test stuck.
+ */
+async function challengeFromLobby(a: Page, b: Page, bobName: string) {
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    await challenge(a, bobName);
+    if (await b.locator('#challengePill').isVisible({ timeout: 2500 }).catch(() => false)) return;
+    const cancel = a.locator('challenge-banner button.btn-leave');
+    if (await cancel.isVisible().catch(() => false)) await cancel.click();
+  }
+  await expect(b.locator('#challengePill')).toBeVisible({ timeout: WAIT });
+}
+
 async function challengeAndAcceptFromGame(
   a: Page,
   b: Page,
@@ -52,11 +83,13 @@ async function challengeAndAcceptFromGame(
   await b.goto(gameUrl(bobId, bobName));
 
   // Alice challenges Bob from the lobby.
-  await challenge(a, bobName);
+  await challengeFromLobby(a, b, bobName);
 
   // Bob accepts from inside his game; the game redirects to lobby.html?action=join...
-  await expect(b.locator('#challengePill')).toBeVisible({ timeout: WAIT });
   await b.locator('#challengeAccept').click();
+
+  // ...where Bob's lobby re-challenges Alice, who confirms it.
+  await acceptHandoffIfAsked(a);
 }
 
 function ids(label: string) {
@@ -87,10 +120,10 @@ test.describe('launch from game accept', () => {
     await b.goto(gameUrl(bobId, bobName));
     await expect(a.locator(`user-list li[aria-label="${bobName}"]:not(.is-offline)`).first()).toBeVisible({ timeout: WAIT });
 
-    await challenge(a, bobName);
-    await expect(b.locator('#challengePill')).toBeVisible({ timeout: WAIT });
+    await challengeFromLobby(a, b, bobName);
     await b.locator('#challengeAccept').click();
     console.log(`round 2 B url after accept: ${b.url()}`);
+    await acceptHandoffIfAsked(a);
 
     await expect.poll(() => a.url(), { timeout: WAIT }).toMatch(/tableId=/);
     await expect.poll(() => b.url(), { timeout: WAIT }).toMatch(/tableId=/);
