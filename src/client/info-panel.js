@@ -35,6 +35,13 @@ const ruleCell = m => typeof m.club === 'string' && m.club
 // club challenge is a solo race to the target, so there is no second player.
 const clubTag = m => typeof m.club === 'string' && m.club ? ` @ ${m.club}` : '';
 
+// The @ in the row is the way into ./map/: tapping it opens the hall directory in the
+// same tab, so a visitor wondering where a club is can go and look. Same tab on purpose,
+// like the card lock - the map is a continuation of the lobby, not a side excursion.
+const clubLink = m => typeof m.club === 'string' && m.club
+    ? html` <a class="club-link" href="./map/" title="Show ${m.club} on the map" aria-label="Show ${m.club} on the map">@</a> ${m.club}`
+    : '';
+
 // A reveal game names the card it unlocked on its launch link (`card=<name>`), and the game
 // carries that name into the result it uploads. Those rows read "player 🔓 card", so a
 // lobby visitor can see which picture a player just revealed without leaving the page.
@@ -134,7 +141,7 @@ class InfoPanel extends StoreElement {
                         <div class="tbl"><table>
                         <tr><th>Rule</th><th>Match</th><th>Ago</th><th class="city-col">City</th><th></th></tr>
                             ${recentMatches.map(m => html`<tr>
-                                <td>${ruleCell(m)}</td><td title="${clubTag(m) || cardTag(m) ? matchText(m) : ''}">${m.arenaId ? '⚔️' : ''}${m.loser ? (m.tableSize != null && m.tableSize < 10 ? '🍼' : '🎖️') : ''}${m.freeaim === true ? '⌖' : ''}${m.berserk === true || m.berserk === 'true' ? '🚀' : ''}${m.winner}${cardLock(m)}${clubTag(m)}${m.winnerScore != null ? html`<span class="score">(${m.winnerScore})</span>` : ''}${m.loser ? html` vs ${m.loser}${m.loserScore != null ? html`<span class="score">(${m.loserScore})</span>` : ''}` : ''}</td>
+                                <td>${ruleCell(m)}</td><td title="${clubTag(m) || cardTag(m) ? matchText(m) : ''}">${m.arenaId ? '⚔️' : ''}${m.loser ? (m.tableSize != null && m.tableSize < 10 ? '🍼' : '🎖️') : ''}${m.freeaim === true ? '⌖' : ''}${m.berserk === true || m.berserk === 'true' ? '🚀' : ''}${m.winner}${cardLock(m)}${clubLink(m)}${m.winnerScore != null ? html`<span class="score">(${m.winnerScore})</span>` : ''}${m.loser ? html` vs ${m.loser}${m.loserScore != null ? html`<span class="score">(${m.loserScore})</span>` : ''}` : ''}</td>
                                 <td class="ago">${timeAgo(m.timestamp)}</td>
                                 <td class="city-col">${m.locationCity ?? ''}</td>
 <td class="replay-col">
