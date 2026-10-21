@@ -3,6 +3,7 @@ import {
   setupPlayersInGame,
   expectConcedeAvailable,
   concedeFromMenu,
+  HANDOFF_TIMEOUT,
   VISIBILITY_TIMEOUT,
 } from './setupHelpers';
 
@@ -38,8 +39,10 @@ test.describe('E2E rematch', () => {
     await expect.poll(() => aliceFrame.url(), { timeout: VISIBILITY_TIMEOUT }).toMatch(/lobby\.html/);
     await expect.poll(() => bobFrame.url(), { timeout: VISIBILITY_TIMEOUT }).toMatch(/lobby\.html/);
 
-    // Alice sees challenge banner from Bob
-    await expect(aliceFrame.locator('button[aria-label="Accept challenge"]')).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
-    await expect(aliceFrame.locator('challenge-banner strong')).toContainText('Challenge from Bob');
+    // Alice sees challenge banner from Bob. Bob's re-offer races her lobby's
+    // reconnect, so allow the full handoff budget rather than the 3s used for
+    // already-rendered UI.
+    await expect(aliceFrame.locator('button[aria-label="Accept challenge"]')).toBeVisible({ timeout: HANDOFF_TIMEOUT });
+    await expect(aliceFrame.locator('challenge-banner strong')).toContainText('Challenge from Bob', { timeout: HANDOFF_TIMEOUT });
   });
 });

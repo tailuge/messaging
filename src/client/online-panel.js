@@ -30,6 +30,9 @@ class OnlinePanel extends LitElement {
     #pendingChats = new Map(); // userId → unread count
     #slotManager = new UserSlotManager();
     #autoChallenge = null;
+    // Intent carried by the game page's Accept redirect (?acceptTableId=...):
+    // accept the challenger's existing offer instead of issuing a new one.
+    #incomingAccept = null;
     #settled = false;
     #gameLaunchScheduled = false;
 
@@ -73,13 +76,25 @@ class OnlinePanel extends LitElement {
             const practice = p.get('practice');
             if (practice) options.practice = practice;
 
-            this.#autoChallenge = {
+            // The game page puts the tableId of the offer the player accepted in
+            // the redirect. Carrying it means the returning lobby can send a real
+            // accept for a table that already exists rather than re-challenging
+            // (a second offer with a new tableId loses to the simultaneous-offer
+            // tie-breaker whenever the challenger sorts higher, deadlocking both).
+            const acceptTableId = (p.get('acceptTableId') || '').trim();
+            const handoff = {
                 opponentId,
                 opponentName: p.get('opponent.userName') || opponentId,
                 ruleType: p.get('ruletype') || 'nineball',
                 nextTurnId: p.get('nextTurnId'),
                 options: Object.keys(options).length > 0 ? options : undefined
             };
+
+            if (/^[\w-]{1,64}$/.test(acceptTableId)) {
+                this.#incomingAccept = { ...handoff, tableId: acceptTableId };
+            } else {
+                this.#autoChallenge = handoff;
+            }
 
             const url = new URL(location.href);
             url.searchParams.delete('opponent.userId');
@@ -103,6 +118,8 @@ class OnlinePanel extends LitElement {
             url.searchParams.delete('freeaim');
             url.searchParams.delete('collaboration');
             url.searchParams.delete('practice');
+            // Consumed once: a reload or back-navigation must not replay the accept.
+            url.searchParams.delete('acceptTableId');
             history.replaceState(null, '', url);
         }
 
@@ -154,6 +171,46 @@ class OnlinePanel extends LitElement {
         if (!this.#sentChallenge && this.#state.users.some(u => u.userId === opponentId)) {
             this.#challenge(opponentId, this.#autoChallenge.ruleType, this.#autoChallenge.options, this.#autoChallenge.nextTurnId);
         }
+    }
+
+    /**
+     * Resolves the intent carried by the game page's Accept redirect: publish an
+     * accept for the table the challenger already offered.
+     *
+     * The pending record is seeded first. This lobby has only just loaded and,
+     * with no presence replay, holds no record of the offer being accepted, so
+     * acceptChallenge() would have nothing to accept and reduce()'s tableId
+     * guard would drop the accept locally.
+     */
+    #acceptIncomingChallenge() {
+        const handoff = this.#incomingAccept;
+        this.#incomingAccept = null;
+        if (!handoff || !this.#state.connected) return;
+
+        if (!this.#users.some(u => u.userId === handoff.opponentId)) {
+            // The challenger has gone. Accepting would strand us at an empty table,
+            // so fall back to the re-challenge path (also our auto-accept hook if
+            // their offer turns up later).
+            this.#autoChallenge = handoff;
+            this.#checkAutoChallenge();
+            return;
+        }
+
+        this.dispatch({
+            type: 'CHALLENGE_MSG',
+            payload: {
+                type: 'offer',
+                challengerId: handoff.opponentId,
+                challengerName: handoff.opponentName,
+                challengeeId: this.#myId,
+                ruleType: handoff.ruleType,
+                tableId: handoff.tableId,
+                options: handoff.options,
+                nextTurnId: handoff.nextTurnId
+            }
+        });
+        this.#acceptChallenge(handoff.opponentId, handoff.nextTurnId)
+            .catch(e => console.error('Handoff accept failed:', e));
     }
 
     #handleAutoChallengeOnMessage(msg) {
@@ -248,7 +305,8 @@ class OnlinePanel extends LitElement {
         this.#lobby.onSettled(async () => {
             this.#settled = true;
             this.dispatch({ type: 'SETTLED', payload: true });
-            this.#checkAutoChallenge();
+            if (this.#incomingAccept) this.#acceptIncomingChallenge();
+            else this.#checkAutoChallenge();
             await this.updateComplete;
             this.renderRoot.querySelector('user-list')?.autoExpandIfSupported();
         });
