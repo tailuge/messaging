@@ -123,10 +123,7 @@ function reduceUA(ua) {
 
 function reduceOrigin(origin) {
   if (!origin) return "";
-  if (origin.startsWith("https://billiards.tailuge.workers.dev") || origin.startsWith("http://billiards.tailuge.workers.dev")) {
-    var path = origin.replace(/^https?:\/\/billiards\.tailuge\.workers\.dev/, "");
-    return path.length > 0 ? path : "/";
-  }
+  if (/^https?:\/\/(?:billiards\.tailuge\.workers\.dev|tailuge\.github\.io)(?=[/:]|$)/.test(origin)) return origin.replace(/^https?:\/\/(?:billiards\.tailuge\.workers\.dev|tailuge\.github\.io)/, "") || "/";
   return origin;
 }
 
@@ -364,8 +361,6 @@ async function publish(r) {
 
 function presence_sub(r) {
   try {
-    const userId = r.headersIn['X-User-Id'] || 'unknown';
-    if (userId !== 'unknown') ngx.shared.online_users.set(userId, "1");
     const referrer = r.headersIn['X-Referrer'];
     if (referrer && referrer.length > 0) {
       const sanitized = referrer.replace(/\|/g, '');
@@ -447,10 +442,10 @@ async function presence_unsub(r) {
     incrementStat("presence_unsubscribe_total");
     incrementStat("presence_unsubscribe_websocket_total");
     if (userId !== 'unknown') {
-      ngx.shared.online_users.delete(userId);
-      // Phase 1 has no socket counting: the user is removed and the next
-      // heartbeat (3 s after a join/resume, 60 s for a live tab) re-registers
-      // them. A hidden surviving tab may stay missing until it is shown again.
+      // Phase 1 has no socket counting: the user's presence frame is dropped
+      // and the next heartbeat (3 s after a join/resume, 60 s for a live tab)
+      // re-registers them. A hidden surviving tab may stay missing until it is
+      // shown again.
       ngx.shared.presence_live.delete(PRESENCE_KEY_PREFIX + userId);
       await publish_leave(r, userId);
     }
@@ -507,7 +502,50 @@ function getReferrerCache() {
   return entries;
 }
 
-function getOnlineUsers() { return ngx.shared.online_users.keys() || []; }
+// Every live presence frame, sorted by display name. Entries carry their own
+// 70 s TTL; the meta timestamp check here is the backstop for entries whose
+// per-entry TTL could not be applied (the zone timeout is 10 minutes).
+function getPresenceFrames() {
+  const dict = ngx.shared.presence_live;
+  const now = Date.now();
+  const frames = [];
+  const keys = dict.keys() || [];
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (key.indexOf(PRESENCE_KEY_PREFIX) !== 0) continue;
+    const raw = dict.get(key);
+    if (!raw) continue;
+    try {
+      const frame = JSON.parse(raw);
+      const meta = frame && frame.meta ? frame.meta : {};
+      const ts = typeof meta.t === "number" ? meta.t : (typeof meta.ts === "number" ? meta.ts : null);
+      if (ts !== null && now - ts > PRESENCE_TTL_MS) continue;
+      frames.push(frame);
+    } catch (e) {
+      ngx.log(ngx.WARN, `presence snapshot skipped ${key}: ${e.message}`);
+    }
+  }
+  frames.sort((a, b) => {
+    const an = String(a.n || a.userName || "");
+    const bn = String(b.n || b.userName || "");
+    return an < bn ? -1 : an > bn ? 1 : 0;
+  });
+  return frames;
+}
+
+// Ids currently present, derived from the presence registry instead of the
+// retired online_users zone. A presence subscription on its own no longer
+// registers a user: they appear once their join or heartbeat frame is published,
+// and disappear when they leave or their frame expires.
+function getOnlineUsers() {
+  const users = [];
+  const frames = getPresenceFrames();
+  for (let i = 0; i < frames.length; i++) {
+    const id = presenceUserId(frames[i]);
+    if (id && users.indexOf(id) === -1) users.push(id);
+  }
+  return users;
+}
 
 function getUptime() {
   try {
@@ -706,6 +744,8 @@ async function stats(r) {
   r.return(200, JSON.stringify(data));
 }
 
+// Legacy list endpoint: kept for external callers, but served from the presence
+// registry now, so its contents match /api/online/presence.
 async function online_users_api(r) {
   const users = getOnlineUsers();
   r.headersOut["Content-Type"] = "application/json";
@@ -714,36 +754,11 @@ async function online_users_api(r) {
 
 // Phase 1 snapshot: every online user's full enriched presence frame, in one
 // response. The dashboard is the only consumer for now; the library does not
-// call this. Entries older than the TTL are filtered here as a backstop even
-// though each entry already carries a per-entry TTL.
+// call this.
 function online_presence_api(r) {
-  const dict = ngx.shared.presence_live;
-  const now = Date.now();
-  const users = [];
-  const keys = dict.keys() || [];
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i];
-    if (key.indexOf(PRESENCE_KEY_PREFIX) !== 0) continue;
-    const raw = dict.get(key);
-    if (!raw) continue;
-    try {
-      const frame = JSON.parse(raw);
-      const meta = frame && frame.meta ? frame.meta : {};
-      const ts = typeof meta.t === "number" ? meta.t : (typeof meta.ts === "number" ? meta.ts : null);
-      if (ts !== null && now - ts > PRESENCE_TTL_MS) continue;
-      users.push(frame);
-    } catch (e) {
-      ngx.log(ngx.WARN, `presence snapshot skipped ${key}: ${e.message}`);
-    }
-  }
-  users.sort((a, b) => {
-    const an = String(a.n || a.userName || "");
-    const bn = String(b.n || b.userName || "");
-    return an < bn ? -1 : an > bn ? 1 : 0;
-  });
   r.headersOut["Content-Type"] = "application/json";
   r.headersOut["Cache-Control"] = "no-store";
-  r.return(200, JSON.stringify({ ts: now, ttl: PRESENCE_TTL_MS, users: users }));
+  r.return(200, JSON.stringify({ ts: Date.now(), ttl: PRESENCE_TTL_MS, users: getPresenceFrames() }));
 }
 
 export default { publish, presence_sub, presence_unsub, stats, online_users_api, online_presence_api, table_unsub, table_sub };

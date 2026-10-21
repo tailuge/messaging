@@ -17,7 +17,7 @@ function loadNchanMeta(): any {
     "ngx",
     "require",
     `${source}
-     return { parseUA, reduceUA, cacheSafeUA, classifyForCache, formatCacheValue, summariseCpuThrottling, publish, ngx };`
+     return { parseUA, reduceUA, cacheSafeUA, classifyForCache, formatCacheValue, summariseCpuThrottling, publish, getOnlineUsers, ngx };`
   )(ngx, requireStub);
 }
 
@@ -316,5 +316,101 @@ describe("nchan_meta publish meta per channel", () => {
     });
     expect(typeof published.meta.t).toBe("number");
     expect(typeof published.meta.i).toBe("string");
+  });
+
+  function requestWithOrigin(meta: any, origin: string) {
+    const r = fakeRequest(meta, "/publish/presence/lobby", {
+      messageType: "presence",
+      type: "join",
+      userId: "user-1",
+      userName: "Alice",
+    });
+    r.headersIn.origin = origin;
+    return r;
+  }
+
+  test("the GitHub Pages origin is reduced to its path like the Workers host", async () => {
+    const meta = loadNchanMeta();
+    prepare(meta);
+
+    const root = requestWithOrigin(meta, "https://tailuge.github.io/");
+    await meta.publish(root);
+    expect(JSON.parse(root.published[0]).meta.o).toBe("/");
+
+    const deep = requestWithOrigin(meta, "https://tailuge.github.io/billiards/lobby.html");
+    await meta.publish(deep);
+    expect(JSON.parse(deep.published[0]).meta.o).toBe("/billiards/lobby.html");
+  });
+
+  test("other origins are kept verbatim", async () => {
+    const meta = loadNchanMeta();
+    prepare(meta);
+    const r = requestWithOrigin(meta, "https://example.com/x.html");
+
+    await meta.publish(r);
+
+    expect(JSON.parse(r.published[0]).meta.o).toBe("https://example.com/x.html");
+  });
+});
+
+// The online count is derived from the presence registry, not from the retired
+// online_users zone: keys are "u:<userId>" and the value is the published frame.
+describe("nchan_meta online users derived from presence_live", () => {
+  function fakePresenceDict(entries: Record<string, string>) {
+    return {
+      keys: () => Object.keys(entries),
+      get: (key: string) => entries[key],
+      set: () => undefined,
+      delete: () => undefined,
+    };
+  }
+
+  function load(frames: Record<string, unknown>) {
+    const meta = loadNchanMeta();
+    const entries: Record<string, string> = {};
+    Object.keys(frames).forEach((userId) => {
+      entries["u:" + userId] = JSON.stringify(frames[userId]);
+    });
+    meta.ngx.shared.presence_live = fakePresenceDict(entries);
+    return meta;
+  }
+
+  test("lists ids from live presence frames", () => {
+    const now = Date.now();
+    const meta = load({
+      "user-b": { u: "user-b", n: "Bob", meta: { t: now } },
+      "user-a": { u: "user-a", n: "Alice", meta: { t: now } },
+    });
+
+    // Sorted by display name, so the dashboard list is stable between polls.
+    expect(meta.getOnlineUsers()).toEqual(["user-a", "user-b"]);
+  });
+
+  test("drops frames older than the presence TTL", () => {
+    const now = Date.now();
+    const meta = load({
+      stale: { u: "stale", n: "Stale", meta: { t: now - 71 * 1000 } },
+      fresh: { u: "fresh", n: "Fresh", meta: { t: now } },
+    });
+
+    expect(meta.getOnlineUsers()).toEqual(["fresh"]);
+  });
+
+  test("skips unparseable entries instead of throwing", () => {
+    const now = Date.now();
+    const meta = load({ ok: { u: "ok", n: "Ok", meta: { t: now } } });
+    const dict = meta.ngx.shared.presence_live;
+    const get = dict.get;
+    dict.get = (key: string) => (key === "u:broken" ? "{not json" : get(key));
+    const keys = dict.keys;
+    dict.keys = () => ["u:broken"].concat(keys());
+
+    expect(meta.getOnlineUsers()).toEqual(["ok"]);
+  });
+
+  test("returns an empty list when the registry is empty", () => {
+    const meta = load({});
+
+    expect(meta.getOnlineUsers()).toEqual([]);
   });
 });
