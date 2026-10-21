@@ -185,8 +185,11 @@ stay real `<a href>` elements. The XML variant is dropped; do not reintroduce it
   ascending `data-rating` order, and the app ranks cards by their **list position**. Rank drives
   the 1–5 stars on the unsolved card and the `reds` sent when launching the game.
 - `href` = `wikipediaUrl` (English Wikipedia page) for the completed card's secondary action.
-- Display name is the anchor text (`BoA`, `Eugene (actress)` … preserved verbatim).
-- `slugify(name)` derives the card `id` for dedup/keys.
+- Display name is the anchor text. Most decks keep the English article title, but the K-idols and
+  爱豆 decks spell it in the native script (`김새론`, `刘亦菲`) for both the card back and the game's
+  `card` param; the `href` still points at the English Wikipedia article.
+- `slugify(name)` derives the card `id` for dedup/keys, falling back to the English article title in
+  `href` when the name is not ASCII (the native deck names slugify to nothing).
 
 ### 6.3 Seed
 
@@ -544,9 +547,10 @@ ${BASE}?ruletype=reveal&state=<encodeURIComponent(state)>&image=<encodeURICompon
   for new completions**; it is the persists-only-what-you-need payload for Replay/Share.
 - `replayUrl` — derived from `state` + `imageUrl` at completion time so it is stable and needs no
   recomputation; readers still fall back to deriving it from `state` when absent.
-- `id` derived from `<name>` (slugify) — unique per entry; used for dedup and stable keys. Duplicate
-  name collisions (e.g. multiple "Lee" variants) are disambiguated by distinct
-  `imageUrl`/`wikipediaUrl`.
+- `id` derived from `<name>` (slugify), or from the article title in `href` when the name is native
+  script — unique per entry; used for dedup and stable keys. Because the article title is what the
+  pre-native ASCII names slugified to, ids (and collections saved under them) survive the switch.
+  Duplicate name collisions are disambiguated by distinct `imageUrl`/`wikipediaUrl`.
 - On success: if an entry for `id` already exists, move to front (refreshing `state`/`replayUrl` when
   supplied); else `unshift`. If `length > MAX_COMPLETED`, `pop` the oldest. Wrap `localStorage` + `JSON.parse`
   in `try/catch`; on `QuotaExceededError` drop oldest and retry once. Never throw to the user. No

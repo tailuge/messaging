@@ -109,6 +109,22 @@ function slugify(name) {
     .slice(0, 48);
 }
 
+// The deck's text is the card's display name, and the K-idols and 爱豆 decks spell it in Hangul
+// and Chinese. Those names slugify to nothing, but the id is the key the saved collection is
+// stored under, so fall back to the English article title behind the Wikipedia link. That title
+// is what the ASCII names were derived from, so collections saved before the switch keep their
+// solved cards.
+function challengeId(name, wikipediaUrl) {
+  const fromName = slugify(name);
+  if (fromName) return fromName;
+  try {
+    const title = decodeURIComponent(wikipediaUrl.split("/wiki/")[1] || "");
+    return slugify(title.replace(/_/g, " "));
+  } catch {
+    return "";
+  }
+}
+
 function readChallengesFromDOM(dataId = "challenge-data") {
   const ul = document.getElementById(dataId);
   if (!ul) return [];
@@ -129,7 +145,7 @@ function readChallengesFromDOM(dataId = "challenge-data") {
         imageUrl: imageUrl.trim(),
         wikipediaUrl: wikipediaUrl.trim(),
         rating,
-        id: slugify(name),
+        id: challengeId(name, wikipediaUrl),
         // Pokémon-deck flavour metadata (undefined for kids deck)
         pokeType: a.getAttribute("data-type") || undefined,
         pokeNature: a.getAttribute("data-nature") || undefined,
@@ -398,7 +414,7 @@ async function imageToThumbDataUrl(
 }
 
 function idForChallenge(ch) {
-  return ch.id || slugify(ch.name);
+  return ch.id || challengeId(ch.name, ch.wikipediaUrl || "");
 }
 
 // ── Lit component ──────────────────────────────────────────────────────────

@@ -72,11 +72,13 @@ const CONCURRENCY = 4;
 // dream cars" is not a category and no category holds exactly the films,
 // manga or characters a player would recognise.
 //
-// One optional field applies to a pinned deck: `keepOrder` skips the
-// size/pageviews ranking and treats the authored list order as the rank, which a
-// hand-ordered deck needs when those metrics do not track how well a player
-// knows the subject (the anime deck would otherwise float the franchise entries
-// to the hardest end).
+// Two optional fields apply to any deck. `keepOrder` skips the size/pageviews
+// ranking and treats the authored list order as the rank, which a hand-ordered
+// deck needs when those metrics do not track how well a player knows the subject
+// (the anime deck would otherwise float the franchise entries to the hardest
+// end). `names` maps an English article title to the native-script spelling of
+// the name — used for the K-idols and 爱豆 decks — and changes only the card's
+// text, not the wiki link or the ranking.
 const DECKS = [
   {
     id: "korea",
@@ -112,6 +114,43 @@ const DECKS = [
       "South Korean record labels",
     ],
     skip: ["Choi Jin-sil"],
+    // Native-script display names, keyed by the English article title. The
+    // article title still drives the wiki link and the ranking; only the card's
+    // text — on the back face and in the game's `card` param — is native.
+    names: {
+      "Kim Sae-ron": "김새론",
+      "Moonbyul": "문별",
+      "Irene (singer)": "아이린",
+      "Han Ji-min": "한지민",
+      "Miyeon": "미연",
+      "Lee Hyori": "이효리",
+      "Go Youn-jung": "고윤정",
+      "Chung Ha": "청하",
+      "Hyolyn": "효린",
+      "Bae Doona": "배두나",
+      "Bae Suzy": "배수지",
+      "Choi Ye-na": "최예나",
+      "Sulli": "설리",
+      "Ha Ji-won": "하지원",
+      "Han Hyo-joo": "한효주",
+      "Yuju (singer)": "유주",
+      "Hahm Eun-jung": "함은정",
+      "Karina (South Korean singer)": "카리나",
+      "Chuu": "츄",
+      "CL (rapper)": "씨엘",
+      "Gong Hyo-jin": "공효진",
+      "Goo Hara": "구하라",
+      "Soyeon": "소연",
+      "Jung Eun-ji": "정은지",
+      "Wendy (singer)": "웬디",
+      "Rosé (singer)": "로제",
+      "Kang Ji-young": "강지영",
+      "Kim So-hyun": "김소현",
+      "BoA": "보아",
+      "Jisoo": "지수",
+      "Jennie (singer)": "제니",
+      "IU (entertainer)": "아이유",
+    },
   },
   {
     // Taiwanese pop stars of either gender, ranked by the same article-size
@@ -582,6 +621,43 @@ const DECKS = [
       "Ming Xi",
       "Michele Reis",
     ],
+    // Native-script display names, keyed by the English article title. Only the
+    // card text changes; the article title still drives the wiki link and the
+    // (hand-set) ranking.
+    names: {
+      "Liu Yifei": "刘亦菲",
+      "Yang Mi": "杨幂",
+      "Zhao Lusi": "赵露思",
+      "Shu Qi": "舒淇",
+      "Li Bingbing": "李冰冰",
+      "Angelababy": "杨颖",
+      "Zhao Liying": "赵丽颖",
+      "Tian Xiwei": "田曦薇",
+      "Sun Qian (actress)": "孙千",
+      "Bai Lu (actress)": "白鹿",
+      "Tang Wei": "汤唯",
+      "Zhao Wei": "赵薇",
+      "Maggie Cheung": "张曼玉",
+      "Cecilia Cheung": "张柏芝",
+      "G.E.M.": "邓紫棋",
+      "Ni Ni": "倪妮",
+      "Zhou Dongyu": "周冬雨",
+      "Karen Mok": "莫文蔚",
+      "Yang Zi (actress)": "杨紫",
+      "Guan Xiaotong": "关晓彤",
+      "Ju Jingyi": "鞠婧祎",
+      "Yang Chaoyue": "杨超越",
+      "Cheng Xiao": "程潇",
+      "Zhang Zifeng": "张子枫",
+      "Wang Churan": "王楚然",
+      "Ouyang Nana": "欧阳娜娜",
+      "Chen Duling": "陈都灵",
+      "Sammi Cheng": "郑秀文",
+      "Liu Wen (model)": "刘雯",
+      "Ningning": "宁艺卓",
+      "Ming Xi": "奚梦瑶",
+      "Michele Reis": "李嘉欣",
+    },
   },
 ];
 
@@ -906,6 +982,9 @@ const formatRating = (rating) => String(Number(rating.toFixed(4)));
 
 function renderHtml(entries, dataId = "challenge-data") {
   const blocks = entries.map((entry) => {
+    // The card's text is the native name when the deck has one; the href stays
+    // on the English article, which is also what the client derives the id from.
+    const label = entry.native ?? entry.name;
     const attrs = [
       `                href="${escapeHtml(wikiUrl(entry.name))}"`,
       `                data-image="${escapeHtml(entry.image)}"`,
@@ -926,7 +1005,7 @@ function renderHtml(entries, dataId = "challenge-data") {
     return `            <li>
               <a
 ${attrs.join("\n")}
-                >${escapeHtml(entry.name)}</a
+                >${escapeHtml(label)}</a
               >
             </li>`;
   });
@@ -952,7 +1031,7 @@ function renderRows(entries) {
         : `<span class="none">—</span>`;
       return `      <tr>
         <td class="num">${i + 1}</td>
-        <td class="name">${link(wikiUrl(entry.name), entry.name)}</td>
+        <td class="name">${link(wikiUrl(entry.name), entry.native ?? entry.name)}${entry.native ? ` <span class="none">${escapeHtml(entry.name)}</span>` : ""}</td>
         <td class="img">${entry.image ? `<a href="${escapeHtml(entry.image)}" target="_blank" rel="noopener"><img data-src="${escapeHtml(entry.image)}" alt="${escapeHtml(entry.name)}" width="64" height="64"></a>` : `<span class="none">—</span>`}</td>
         <td class="small">${catCell}</td>
         <td class="small">${entry.page ? `<a href="${escapeHtml(entry.page)}" target="_blank" rel="noopener" title="${escapeHtml(entry.pageimage ?? entry.page)}">🔗</a>` : ""}</td>
@@ -1141,6 +1220,11 @@ async function fetchTitles(titles, overrides) {
   return byName;
 }
 
+// A deck's optional `names` map gives a card its native-script text; the article
+// title it is keyed by still drives the wiki link and the ranking.
+const nativeName = (deck, person) =>
+  deck.names?.[person.name] ?? deck.names?.[person.asked] ?? null;
+
 async function buildDeck(deck) {
   console.error(`\n=== ${deck.label} ===`);
 
@@ -1254,11 +1338,13 @@ async function buildDeck(deck) {
   const entries = deck.keepOrder
     ? withLicence.map((person, i) => ({
         ...person,
+        native: nativeName(deck, person),
         rating: withLicence.length < 2 ? 1 : (i + 1) / withLicence.length,
       }))
     : withLicence
         .map((person) => ({
           ...person,
+          native: nativeName(deck, person),
           rating: Math.min(person[SORT_KEY] / max, 1),
         }))
         .reverse();
