@@ -12,6 +12,10 @@ test.describe('E2E rematch', () => {
   // budget on a loaded machine, so leave room for the concede/rematch steps too.
   test.setTimeout(45000);
 
+  test.afterEach(async ({ page }, testInfo) => {
+    if (testInfo.status !== 'passed') await page.screenshot({ path: `screenshots/${testInfo.title.replace(/[^a-z0-9]+/gi, '-')}-fail.png`, fullPage: true });
+  });
+
   test('concede and bob rematch, alice back to lobby show challenge', async ({ page }) => {
 
     const { aliceFrame, bobFrame } = await setupPlayersInGame(page);
