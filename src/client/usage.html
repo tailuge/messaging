@@ -444,8 +444,8 @@
       },
     })
 
-    // The samples only live for the life of the server process, so a minute
-    // between polls is enough to keep the trailing edge current.
+    // Loaded once per visit: this page does not poll or refresh on its own, so
+    // the charts stay as they were when the page was opened.
     async function loadUsersOnline() {
       try {
         const data = await getData("/api/presence/history")
@@ -460,7 +460,6 @@
 
     loadUsage()
     loadUsersOnline()
-    setInterval(loadUsersOnline, 60000)
   </script>
 </body>
 

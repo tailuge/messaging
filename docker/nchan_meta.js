@@ -130,7 +130,7 @@ function reduceOrigin(origin) {
 // A user agent that has to be stored in the ip_cache value: "|" delimits the
 // cache fields and the dashboard splits the value on it, so it can never
 // survive here; newlines would break the value's readability; the length cap
-// keeps a single entry from eating a large chunk of the 1M shared dict.
+// keeps a single entry from eating a large chunk of the ip_cache dict.
 function cacheSafeUA(ua) {
   if (!ua) return "";
   return ua.replace(/[|\r\n]+/g, " ").replace(/\s+/g, " ").trim().substring(0, 200);
