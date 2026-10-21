@@ -19,7 +19,7 @@ test.describe('E2E rematch', () => {
     await expect(bobFrame.locator(`user-list li[aria-label="Alice"]:not(.is-offline)`).first()).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
 
     // alice clicks solo 8 ball game from solo-panel
-    const soloBtn = aliceFrame.locator('button[aria-label="Play Eight Ball"]');
+    const soloBtn = aliceFrame.locator('a[aria-label="Play Eight Ball"]');
     await expect(soloBtn).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
     await soloBtn.click();
 
@@ -32,7 +32,8 @@ test.describe('E2E rematch', () => {
     const challengeBtn = bobFrame.locator('button[aria-label="Challenge Alice"]');
     await expect(challengeBtn).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
     await challengeBtn.click();
-    const eightBallBtn = bobFrame.locator('challenge-modal button:has-text("Eight Ball")');
+    await bobFrame.locator('challenge-modal button[aria-label="eightball"]').click();
+    const eightBallBtn = bobFrame.locator('challenge-modal .section-body.expanded button.rule').first();
     await expect(eightBallBtn).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
     await eightBallBtn.click();
 
@@ -62,7 +63,7 @@ test.describe('E2E rematch', () => {
     await expect(bobFrame.locator(`user-list li[aria-label="Alice"]:not(.is-offline)`).first()).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
 
     // bob clicks solo 8 ball game from solo-panel
-    const soloBtn = bobFrame.locator('button[aria-label="Play Eight Ball"]');
+    const soloBtn = bobFrame.locator('a[aria-label="Play Eight Ball"]');
     await expect(soloBtn).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
     await soloBtn.click();
 
@@ -73,7 +74,8 @@ test.describe('E2E rematch', () => {
     const challengeBtn = aliceFrame.locator('button[aria-label="Challenge Bob"]');
     await expect(challengeBtn).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
     await challengeBtn.click();
-    const eightBallBtn = aliceFrame.locator('challenge-modal button:has-text("Eight Ball")');
+    await aliceFrame.locator('challenge-modal button[aria-label="eightball"]').click();
+    const eightBallBtn = aliceFrame.locator('challenge-modal .section-body.expanded button.rule').first();
     await expect(eightBallBtn).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
     await eightBallBtn.click();
 

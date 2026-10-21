@@ -4,6 +4,34 @@ export const TEST_URL = process.env.TEST_URL || 'http://localhost:80/test.html';
 export const VISIBILITY_TIMEOUT = 3000;
 
 /**
+ * Open the game page's menu dropdown. The Concede button lives inside
+ * <details id="menuDropdown">, so it is only visible once the menu is open.
+ * Idempotent: clicking the summary of an already-open menu would close it.
+ */
+export async function openGameMenu(frame: Frame): Promise<void> {
+  const details = frame.locator('#menuDropdown');
+  const isOpen = await details.evaluate((el) => (el as HTMLDetailsElement).open);
+  if (isOpen) return;
+  await frame.locator('#menuDropdown > summary[aria-label="Menu"]').click();
+  await expect(details).toHaveJSProperty('open', true);
+}
+
+/** Assert the frame offers Concede, opening its menu first. */
+export async function expectConcedeAvailable(frame: Frame): Promise<void> {
+  await openGameMenu(frame);
+  await expect(frame.locator('button[aria-label="Concede"]')).toBeVisible({
+    timeout: VISIBILITY_TIMEOUT,
+  });
+}
+
+/** Concede through the menu: open it, hit Concede, then confirm. */
+export async function concedeFromMenu(frame: Frame): Promise<void> {
+  await openGameMenu(frame);
+  await frame.locator('button[aria-label="Concede"]').click();
+  await frame.locator('button[data-notification-action="concede-confirm"]').click();
+}
+
+/**
  * Wait for a Playwright Frame whose current URL matches the given regex.
  * Uses expect.poll internally so there is no explicit sleep delay.
  */

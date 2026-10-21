@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { setupPlayersInGame, VISIBILITY_TIMEOUT } from './setupHelpers';
+import {
+  setupPlayersInGame,
+  expectConcedeAvailable,
+  concedeFromMenu,
+  VISIBILITY_TIMEOUT,
+} from './setupHelpers';
 
 test.describe('E2E rematch', () => {
   test.setTimeout(20000);
@@ -8,16 +13,12 @@ test.describe('E2E rematch', () => {
 
     const { aliceFrame, bobFrame } = await setupPlayersInGame(page);
 
-    // Both see the concede button on the game page
-    await expect(aliceFrame.locator('button[aria-label="Concede"]')).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
-    await expect(bobFrame.locator('button[aria-label="Concede"]')).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
+    // Both see the concede button once their game menu is open
+    await expectConcedeAvailable(aliceFrame);
+    await expectConcedeAvailable(bobFrame);
 
     // Bob concedes
-    await bobFrame.locator('button[aria-label="Concede"]').click();
-    const concedeConfirm = bobFrame.locator('button[data-notification-action="concede-confirm"]');
-    if (await concedeConfirm.isVisible({ timeout: VISIBILITY_TIMEOUT }).catch(() => false)) {
-      await concedeConfirm.click();
-    }
+    await concedeFromMenu(bobFrame);
 
     // Game page shows rematch notification
     await expect(bobFrame.locator('button[data-notification-action="rematch"]')).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
