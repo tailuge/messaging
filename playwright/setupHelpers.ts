@@ -68,7 +68,7 @@ export async function getFrame(page: Page, pattern: RegExp): Promise<Frame> {
  * then drives Alice to challenge Bob and Bob to accept.
  * Returns the Playwright Frame handles for both players once they are in-game.
  */
-export async function setupPlayersInGame(page: Page): Promise<{ aliceFrame: Frame; bobFrame: Frame }> {
+export async function setupPlayersInGame(page: Page, ruleType = 'eightball'): Promise<{ aliceFrame: Frame; bobFrame: Frame }> {
   const aliceName = 'Alice';
   const bobName = 'Bob';
   await page.goto(TEST_URL);
@@ -83,12 +83,12 @@ export async function setupPlayersInGame(page: Page): Promise<{ aliceFrame: Fram
   await expect(challengeBtn).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
   await challengeBtn.click();
 
-  // Alice selects Eight Ball from the modal. Rule variants live in collapsible
-  // sections, so expand the eightball section and take its first (plain) rule.
-  await aliceFrame.locator('challenge-modal button[aria-label="eightball"]').click();
-  const eightBallBtn = aliceFrame.locator('challenge-modal .section-body.expanded button.rule').first();
-  await expect(eightBallBtn).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
-  await eightBallBtn.click();
+  // Alice selects the requested game type from the modal. Rule variants live in
+  // collapsible sections, so expand that section and take its first rule.
+  await aliceFrame.locator(`challenge-modal button[aria-label="${ruleType}"]`).click();
+  const ruleBtn = aliceFrame.locator('challenge-modal .section-body.expanded button.rule').first();
+  await expect(ruleBtn).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
+  await ruleBtn.click();
 
   // Bob sees the incoming challenge and accepts
   const acceptBtn = bobFrame.locator('button[aria-label="Accept challenge"]');

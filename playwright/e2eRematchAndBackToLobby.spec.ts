@@ -18,7 +18,7 @@ test.describe('E2E rematch', () => {
 
   test('concede and bob rematch, alice back to lobby show challenge', async ({ page }) => {
 
-    const { aliceFrame, bobFrame } = await setupPlayersInGame(page);
+    const { aliceFrame, bobFrame } = await setupPlayersInGame(page, 'threecushion');
 
     // Both see the concede button once their game menu is open
     await expectConcedeAvailable(aliceFrame);
