@@ -355,7 +355,6 @@
           data: dates.map((date) => values[date] || 0),
           borderColor: color,
           backgroundColor: color,
-          pointRadius: 2,
           tension: 0,
         }
       })
@@ -365,6 +364,8 @@
       animation: false,
       responsive: true,
       maintainAspectRatio: false,
+      // Lines only, matching the Plotly panels: no markers at data values.
+      elements: { point: { radius: 0 } },
       plugins: {
         legend: {
           labels: {
@@ -422,7 +423,6 @@
             data: [],
             borderColor: "#00bcd4",
             backgroundColor: "#00bcd4",
-            pointRadius: 2,
             tension: 0,
           },
         ],
@@ -449,8 +449,17 @@
     async function loadUsersOnline() {
       try {
         const data = await getData("/api/presence/history")
-        const points = data.samples.map(([ts, count]) => ({ x: ts, y: count }))
-        points.push({ x: data.ts, y: data.current })
+        const raw = data.samples.map(([ts, count]) => ({ x: ts, y: Number(count) }))
+        raw.push({ x: data.ts, y: Number(data.current) })
+
+        // Same trailing mean as the CHALLENGES & ACCEPTS panel, so single-step
+        // blips in the presence count don't dominate the shape of the line.
+        const points = raw.map((point, index) => {
+          const slice = raw.slice(Math.max(0, index - SMOOTHING_WINDOW + 1), index + 1)
+          const total = slice.reduce((sum, d) => sum + d.y, 0)
+          return { x: point.x, y: total / slice.length }
+        })
+
         usersChart.data.datasets[0].data = points
         usersChart.update("none")
       } catch (error) {
