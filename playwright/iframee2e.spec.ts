@@ -3,8 +3,6 @@ import { getFrame, TEST_URL, VISIBILITY_TIMEOUT } from './setupHelpers';
 import { reduce, INITIAL_STATE } from '../src/client/utils.js';
 
 test.describe('E2E rematch', () => {
-  test.setTimeout(20000);
-
   const shortWait = 250;
 
   test('alice plays solo, bob challenges, alice accepts from game, both go to new game', async ({ page }) => {

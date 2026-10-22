@@ -14,11 +14,20 @@ const STALE_BUNDLE = process.env.STALE_LOBBY_JS || '/tmp/precodec-lobby.js';
 // Without it those two tests skip, so the suite still runs on a clean checkout.
 const hasStaleBundle = existsSync(STALE_BUNDLE);
 
+// Page console output is noisy, so it is only forwarded with PW_DEBUG=1.
+const DEBUG_CONSOLE = !!process.env.PW_DEBUG;
+
 const WAIT = 10000;
 
 const gameUrl = (userId: string, userName: string) =>
   `${GAME_BASE}?ruletype=eightball&userId=${encodeURIComponent(userId)}&userName=${encodeURIComponent(userName)}` +
   `&lod=4&lobbyUrl=ws://localhost:80&test=1`;
+
+function forwardConsole(page: Page, label: 'A' | 'B') {
+  if (!DEBUG_CONSOLE) return;
+  page.on('console', (m) => console.log(`[${label}:${m.type()}] ${m.text()}`));
+  page.on('pageerror', (e) => console.log(`[${label}:error] ${e.message}`));
+}
 
 /** Serves the pre-codec (1.42-era) lobby bundle, i.e. a cached / long-open tab. */
 async function serveStaleLobby(ctx: BrowserContext) {
@@ -98,20 +107,17 @@ function ids(label: string) {
 }
 
 test.describe('launch from game accept', () => {
-  test.setTimeout(90000);
-
   test('two in-game accept handoffs in a row (same pair, within nchan retention)', async ({ browser }) => {
     const { aliceId, bobId, bobName } = ids('x');
     const a = await (await browser.newContext()).newPage();
     const b = await (await browser.newContext()).newPage();
-    a.on('console', (m) => console.log(`[A:${m.type()}] ${m.text()}`));
-    b.on('console', (m) => console.log(`[B:${m.type()}] ${m.text()}`));
+    forwardConsole(a, 'A');
+    forwardConsole(b, 'B');
 
     await challengeAndAcceptFromGame(a, b, aliceId, bobId, bobName, 'none');
     await expect.poll(() => a.url(), { timeout: WAIT }).toMatch(/tableId=/);
     const first = new URL(a.url()).searchParams.get('tableId');
     expect(new URL(b.url()).searchParams.get('tableId')).toBe(first);
-    console.log(`round 1 table: ${first}`);
 
     // Both come back out of the first game: Alice returns to the lobby, Bob to
     // a solo game (a game page whose presence has no tableId, so he stays
@@ -122,7 +128,6 @@ test.describe('launch from game accept', () => {
 
     await challengeFromLobby(a, b, bobName);
     await b.locator('#challengeAccept').click();
-    console.log(`round 2 B url after accept: ${b.url()}`);
     await acceptHandoffIfAsked(a);
 
     await expect.poll(() => a.url(), { timeout: WAIT }).toMatch(/tableId=/);
@@ -139,14 +144,13 @@ test.describe('launch from game accept', () => {
     const { aliceId, bobId, bobName } = ids('r');
     const a = await (await browser.newContext()).newPage();
     const b = await (await browser.newContext()).newPage();
-    a.on('console', (m) => console.log(`[A:${m.type()}] ${m.text()}`));
-    b.on('console', (m) => console.log(`[B:${m.type()}] ${m.text()}`));
+    forwardConsole(a, 'A');
+    forwardConsole(b, 'B');
 
     await challengeAndAcceptFromGame(a, b, aliceId, bobId, bobName, 'none');
     await expect.poll(() => a.url(), { timeout: WAIT }).toMatch(/tableId=/);
     const first = new URL(a.url()).searchParams.get('tableId');
     expect(new URL(b.url()).searchParams.get('tableId')).toBe(first);
-    console.log(`round 1 table: ${first}`);
 
     // The game's Rematch button: getLobbyUrl() + opponent params + nextTurnId.
     const handoff = (me: string, myName: string, opponentId: string, opponentName: string, nextTurnId: string) =>
@@ -171,14 +175,11 @@ test.describe('launch from game accept', () => {
       const { aliceId, bobId, bobName } = ids(staleSide);
       const a = await (await browser.newContext()).newPage();
       const b = await (await browser.newContext()).newPage();
-      a.on('console', (m) => console.log(`[A:${m.type()}] ${m.text()}`));
-      b.on('console', (m) => console.log(`[B:${m.type()}] ${m.text()}`));
-      a.on('pageerror', (e) => console.log(`[A:error] ${e.message}`));
-      b.on('pageerror', (e) => console.log(`[B:error] ${e.message}`));
+      forwardConsole(a, 'A');
+      forwardConsole(b, 'B');
 
       await challengeAndAcceptFromGame(a, b, aliceId, bobId, bobName, staleSide);
 
-      console.log(`B url after accept: ${b.url()}`);
       await expect.poll(() => a.url(), { timeout: WAIT }).toMatch(/tableId=/);
       await expect.poll(() => b.url(), { timeout: WAIT }).toMatch(/tableId=/);
       expect(new URL(a.url()).searchParams.get('tableId')).toBe(new URL(b.url()).searchParams.get('tableId'));

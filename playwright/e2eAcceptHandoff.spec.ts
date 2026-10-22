@@ -9,8 +9,6 @@ import { getFrame, HANDOFF_TIMEOUT, TEST_URL, VISIBILITY_TIMEOUT } from './setup
  * it from the challenger's own pending challenge and replays the redirect.
  */
 test.describe('in-game accept handoff', () => {
-  test.setTimeout(45000);
-
   /** The tableId the challenger is currently offering. */
   const offeredTableId = (frame: import('@playwright/test').Frame) =>
     frame.evaluate(() => {

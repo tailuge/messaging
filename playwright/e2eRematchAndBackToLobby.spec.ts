@@ -8,10 +8,6 @@ import {
 } from './setupHelpers';
 
 test.describe('E2E rematch', () => {
-  // The iframe setup (two lobbies plus the game page's assets) takes most of the
-  // budget on a loaded machine, so leave room for the concede/rematch steps too.
-  test.setTimeout(45000);
-
   test.afterEach(async ({ page }, testInfo) => {
     if (testInfo.status !== 'passed') await page.screenshot({ path: `screenshots/${testInfo.title.replace(/[^a-z0-9]+/gi, '-')}-fail.png`, fullPage: true });
   });

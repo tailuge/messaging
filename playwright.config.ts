@@ -8,6 +8,8 @@ export default defineConfig({
     baseURL: 'http://localhost',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    actionTimeout: 5000,
+    navigationTimeout: 15000,
   },
   projects: [
     {

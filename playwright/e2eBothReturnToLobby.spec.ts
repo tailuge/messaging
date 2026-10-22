@@ -7,8 +7,6 @@ import {
 } from './setupHelpers';
 
 test.describe('E2E rematch', () => {
-  test.setTimeout(20000);
-
   test('alice sees bob, bob sees alice after game', async ({ page }) => {
 
     const { aliceFrame, bobFrame } = await setupPlayersInGame(page);

@@ -7,8 +7,6 @@ import {
 } from './setupHelpers';
 
 test.describe('E2E rematch', () => {
-  test.setTimeout(20000);
-
   test('concede and both rematch automatically starts new game', async ({ page }) => {
 
     const { aliceFrame, bobFrame } = await setupPlayersInGame(page);
