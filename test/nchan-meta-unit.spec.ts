@@ -1,23 +1,26 @@
 // @ts-nocheck — the suite has no @types/node, matching the other unit specs.
 import fs from "fs";
+import os from "os";
 import path from "path";
 
 // docker/nchan_meta.js runs inside NJS, where `ngx` and `require` are globals.
 // None of the classification helpers touch either, so the module body can be
-// evaluated over stubs and its pure functions exercised directly.
-function loadNchanMeta(): any {
+// evaluated over stubs and its pure functions exercised directly. The fs-backed
+// log reader gets Node's `fs` when a test supplies it.
+function loadNchanMeta(fsImpl: any = null): any {
   const file = path.resolve(process.cwd(), "docker/nchan_meta.js");
   const source = fs.readFileSync(file, "utf-8").replace(/export default \{[\s\S]*?\};/, "");
   expect(source).not.toContain("export default");
   const ngx = { log: () => {}, WARN: "warn", shared: {}, fetch: () => Promise.reject(new Error("no fetch")) };
-  const requireStub = () => {
+  const requireStub = (name: string) => {
+    if (name === "fs" && fsImpl) return fsImpl;
     throw new Error("require is not available in this test");
   };
   return new Function(
     "ngx",
     "require",
     `${source}
-     return { parseUA, reduceUA, cacheSafeUA, classifyForCache, formatCacheValue, summariseCpuThrottling, publish, getOnlineUsers, recordPresenceCount, ngx };`
+     return { parseUA, reduceUA, cacheSafeUA, classifyForCache, formatCacheValue, summariseCpuThrottling, publish, getOnlineUsers, recordPresenceCount, readLogTail, LOG_TAIL_LINES, LOG_TAIL_START_BYTES, LOG_TAIL_MAX_BYTES, ngx };`
   )(ngx, requireStub);
 }
 
@@ -500,5 +503,94 @@ describe("nchan_meta presence history sampling", () => {
       "s:1792576860000",
       "last",
     ]);
+  });
+});
+
+// /api/stats must not park the worker on a whole-log read, so the reader takes a
+// bounded window from the end of the file and only widens it for long lines.
+describe("nchan_meta error log tail reader", () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "njs-log-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  function writeLog(name: string, lines: string[]): string {
+    const file = path.join(dir, name);
+    fs.writeFileSync(file, lines.join("\n"));
+    return file;
+  }
+
+  // Wraps readSync so a test can prove the whole file was not read.
+  function countingFs() {
+    const bytes = { read: 0 };
+    return {
+      fs: {
+        openSync: fs.openSync,
+        closeSync: fs.closeSync,
+        fstatSync: fs.fstatSync,
+        readSync: (fd: number, buffer: any, offset: number, length: number, position: number) => {
+          const n = fs.readSync(fd, buffer, offset, length, position);
+          bytes.read += n;
+          return n;
+        },
+      },
+      bytesRead: () => bytes.read,
+    };
+  }
+
+  test("returns the whole log when it fits in one window", () => {
+    const file = writeLog("small.log", ["first", "second", "third"]);
+    const meta = loadNchanMeta(fs);
+
+    expect(meta.readLogTail(file, 100)).toEqual(["first", "second", "third"]);
+  });
+
+  test("does not keep the empty record after the final newline", () => {
+    const file = path.join(dir, "newline.log");
+    fs.writeFileSync(file, "one\ntwo\n");
+    const meta = loadNchanMeta(fs);
+
+    expect(meta.readLogTail(file, 100)).toEqual(["one", "two"]);
+  });
+
+  test("returns complete records from a log larger than the window", () => {
+    const lines = Array.from({ length: 500 }, (_, i) => `line-${i} ${"x".repeat(100)}`);
+    const file = writeLog("large.log", lines);
+    const counting = countingFs();
+    const meta = loadNchanMeta(counting.fs);
+
+    const tail = meta.readLogTail(file, 100);
+
+    // The window begins mid-file, so the leading fragment must be discarded and
+    // the first record returned whole.
+    expect(tail).toHaveLength(100);
+    expect(tail[0]).toBe(lines[400]);
+    expect(tail[99]).toBe(lines[499]);
+    expect(counting.bytesRead()).toBeLessThan(fs.statSync(file).size);
+  });
+
+  test("widens the window when the tail holds long records", () => {
+    const lines = Array.from({ length: 150 }, (_, i) => `line-${i} ${"y".repeat(900)}`);
+    const file = writeLog("long.log", lines);
+    const meta = loadNchanMeta(fs);
+
+    const tail = meta.readLogTail(file, 100);
+
+    expect(tail).toHaveLength(100);
+    expect(tail[0]).toBe(lines[50]);
+    expect(tail[99]).toBe(lines[149]);
+  });
+
+  test("missing and empty logs have an empty tail", () => {
+    const meta = loadNchanMeta(fs);
+    const empty = writeLog("empty.log", []);
+
+    expect(meta.readLogTail(path.join(dir, "absent.log"), 100)).toEqual([]);
+    expect(meta.readLogTail(empty, 100)).toEqual([]);
   });
 });
