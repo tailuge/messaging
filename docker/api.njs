@@ -19,7 +19,7 @@ async function hello(r) {
 // challenges, accepts). GET /api/usage returns them all in one response, which
 // is cached for an hour as a single summary_cache entry below, so a dashboard
 // load costs one cached read instead of one backend read per metric.
-const USAGE_KEYS = ["chineseUsage", "koreanUsage", "germanUsage", "turkishUsage", "vietnameseUsage", "japaneseUsage", "spanishUsage", "dutchUsage", "snookerUsage", "nineballUsage", "eightballUsage", "mapUsage", "revealUsage", "lobbyUsage", "gameUsage", "createTableUsage", "joinTableUsage"];
+const USAGE_KEYS = ["chineseUsage", "koreanUsage", "germanUsage", "turkishUsage", "vietnameseUsage", "japaneseUsage", "spanishUsage", "dutchUsage", "snookerUsage", "nineballUsage", "eightballUsage", "mapUsage", "revealUsage", "lobbyUsage", "gameUsage", "createTableUsage", "joinTableUsage", "completeUsage"];
 const USAGE_METRIC_RE = /^[a-zA-Z0-9_-]+$/;
 // Daily counts only change once a day, so the usage dashboard reads are cached
 // for an hour via an explicit per-entry TTL overriding summary_cache's 30s zone
