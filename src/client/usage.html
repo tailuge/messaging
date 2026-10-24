@@ -367,6 +367,24 @@
       })
     }
 
+    // The language and game-blog charts have one x label per day, which crowds
+    // the axis. Keep every data point but only label (and grid) quarter starts,
+    // so the dates tick every 3 months.
+    const quarterlyAxis = {
+      ticks: { color: "#777", font: { size: 10 } },
+      grid: { color: "#222" },
+      afterBuildTicks(axis) {
+        const all = axis.ticks
+        const quarterly = all.filter((tick) =>
+          new Date(`${tick.label}T00:00:00Z`).getUTCMonth() % 3 === 0
+        )
+        // A short range may not contain a quarter start; fall back to the ends.
+        axis.ticks = quarterly.length
+          ? quarterly
+          : all.filter((_, index) => index === 0 || index === all.length - 1)
+      },
+    }
+
     const chartDefaults = {
       animation: false,
       responsive: true,
@@ -405,7 +423,10 @@
           labels: langDates,
           datasets: makeDatasets(data, langSeries, langDates),
         },
-        options: chartDefaults,
+        options: {
+          ...chartDefaults,
+          scales: { ...chartDefaults.scales, x: quarterlyAxis },
+        },
       })
 
       new Chart(document.getElementById("game-chart"), {
@@ -414,7 +435,10 @@
           labels: gameDates,
           datasets: makeDatasets(data, gameSeries, gameDates),
         },
-        options: chartDefaults,
+        options: {
+          ...chartDefaults,
+          scales: { ...chartDefaults.scales, x: quarterlyAxis },
+        },
       })
     }
 

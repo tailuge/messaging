@@ -907,7 +907,6 @@ table td {
 
         if (njsLogs && njsLogs.length > 0) {
           njsLogsTableBody.innerHTML = njsLogs
-            .filter(line => !line.includes('closed keepalive connection') && !line.includes('107: Socket not connected'))
             .map((logLine) => {
               const isError = logLine.toLowerCase().includes("api error");
               const errorClass = isError ? "log-error" : "";

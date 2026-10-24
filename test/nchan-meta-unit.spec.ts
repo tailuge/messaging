@@ -20,7 +20,7 @@ function loadNchanMeta(fsImpl: any = null): any {
     "ngx",
     "require",
     `${source}
-     return { parseUA, reduceUA, cacheSafeUA, classifyForCache, formatCacheValue, summariseCpuThrottling, publish, getOnlineUsers, recordPresenceCount, readLogTail, LOG_TAIL_LINES, LOG_TAIL_START_BYTES, LOG_TAIL_MAX_BYTES, ngx };`
+     return { parseUA, reduceUA, cacheSafeUA, classifyForCache, formatCacheValue, summariseCpuThrottling, publish, getOnlineUsers, recordPresenceCount, readLogTail, LOG_TAIL_LINES, LOG_TAIL_BYTES, LOG_TAIL_NOISE, ngx };`
   )(ngx, requireStub);
 }
 
@@ -507,7 +507,8 @@ describe("nchan_meta presence history sampling", () => {
 });
 
 // /api/stats must not park the worker on a whole-log read, so the reader takes a
-// bounded window from the end of the file and only widens it for long lines.
+// bounded window from the end of the file and filters the noisy records out of
+// that window.
 describe("nchan_meta error log tail reader", () => {
   let dir: string;
 
@@ -574,16 +575,31 @@ describe("nchan_meta error log tail reader", () => {
     expect(counting.bytesRead()).toBeLessThan(fs.statSync(file).size);
   });
 
-  test("widens the window when the tail holds long records", () => {
+  test("returns only the complete records inside the read window", () => {
     const lines = Array.from({ length: 150 }, (_, i) => `line-${i} ${"y".repeat(900)}`);
     const file = writeLog("long.log", lines);
     const meta = loadNchanMeta(fs);
 
     const tail = meta.readLogTail(file, 100);
 
-    expect(tail).toHaveLength(100);
-    expect(tail[0]).toBe(lines[50]);
-    expect(tail[99]).toBe(lines[149]);
+    // Approximate by design: 16 KB holds ~18 of these records.
+    expect(tail.length).toBeGreaterThan(0);
+    expect(tail.length).toBeLessThan(100);
+    expect(tail.every((line) => line.startsWith("line-"))).toBe(true);
+    expect(tail[tail.length - 1]).toBe(lines[149]);
+  });
+
+  test("drops keepalive and socket noise before taking the tail", () => {
+    const lines = [
+      "2026/10/24 12:00:00 [warn] 29#29: *1 js: Stats data",
+      "2026/10/24 12:00:01 [info] 29#29: *2 client 1.2.3.4 closed keepalive connection",
+      "2026/10/24 12:00:02 [error] 29#29: *3 recv() failed (107: Socket not connected)",
+      "2026/10/24 12:00:03 [warn] 29#29: *4 js: API: tidy removed 1",
+    ];
+    const file = writeLog("noise.log", lines);
+    const meta = loadNchanMeta(fs);
+
+    expect(meta.readLogTail(file, 100)).toEqual([lines[0], lines[3]]);
   });
 
   test("missing and empty logs have an empty tail", () => {

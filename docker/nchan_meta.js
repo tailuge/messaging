@@ -734,19 +734,19 @@ function getSystemStats(uptime) {
   };
 }
 
-// The dashboard shows only the tail of the error log, and this runs on the njs
-// worker thread: readFileSync on a log that has grown to tens of MB blocks that
-// worker for the whole read. Read a byte window from the end instead, widening
-// it when the tail holds fewer lines than asked for (long lines). Each read is
-// capped at LOG_TAIL_MAX_BYTES, so the work stays bounded however large the log
-// grows.
-const LOG_TAIL_START_BYTES = 32 * 1024;
-const LOG_TAIL_MAX_BYTES = 256 * 1024;
+// The dashboard shows the tail of the error log, and this runs on the njs
+// worker thread: reading the whole file would block it. The last 16 KB is read
+// instead, so the result is approximate — a quiet log returns all of its lines,
+// a busy one returns as many clean records as fit in that window.
+const LOG_TAIL_BYTES = 16 * 1024;
 const LOG_TAIL_LINES = 100;
+// Logged routinely at info level by keepalive and socket churn; never useful.
+const LOG_TAIL_NOISE = /closed keepalive connection|107: Socket not connected/;
 
-// Returns the last `maxLines` records of `path`, or [] when the file is missing
-// or empty. A window that starts mid-file also starts mid-line, so the leading
-// fragment (and any UTF-8 character split by the window edge) is discarded.
+// Returns the last `maxLines` useful records of `path`, or [] when the file is
+// missing or empty. A window that starts mid-file also starts mid-line, so the
+// leading fragment (and any UTF-8 character split by the window edge) is
+// discarded.
 function readLogTail(path, maxLines) {
   const fs = require("fs");
   let fd;
@@ -762,30 +762,15 @@ function readLogTail(path, maxLines) {
     const size = fs.fstatSync(fd).size;
     if (size === 0) return [];
 
-    let windowSize = Math.min(size, LOG_TAIL_START_BYTES);
-    for (;;) {
-      const start = size - windowSize;
-      const buf = Buffer.alloc(windowSize);
-      let read = 0;
-      while (read < windowSize) {
-        const n = fs.readSync(fd, buf, read, windowSize - read, start + read);
-        if (n <= 0) break;
-        read += n;
-      }
+    const start = Math.max(0, size - LOG_TAIL_BYTES);
+    const buf = Buffer.alloc(size - start);
+    const read = fs.readSync(fd, buf, 0, buf.length, start);
 
-      let text = buf.toString("utf8", 0, read);
-      if (start > 0) {
-        const firstBreak = text.indexOf("\n");
-        text = firstBreak === -1 ? "" : text.substring(firstBreak + 1);
-      }
-      const lines = text.split("\n");
-      if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+    const lines = buf.toString("utf8", 0, read).split("\n");
+    if (start > 0) lines.shift();
+    if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
 
-      if (lines.length >= maxLines || start === 0 || windowSize >= LOG_TAIL_MAX_BYTES) {
-        return lines.slice(-maxLines);
-      }
-      windowSize = Math.min(size, windowSize * 2, LOG_TAIL_MAX_BYTES);
-    }
+    return lines.filter((line) => !LOG_TAIL_NOISE.test(line)).slice(-maxLines);
   } catch (e) {
     return ["Error reading " + path + ": " + e.message];
   } finally {
