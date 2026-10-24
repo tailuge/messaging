@@ -436,6 +436,16 @@ function table_sub(r) {
     const userId = r.headersIn['X-User-Id'] || 'unknown';
     const tableId = r.headersIn['X-Nchan-Channel-Id'];
     ngx.log(ngx.WARN, `table_sub ${userId} to table ${tableId}`);
+    // Remember the table for /api/tables/recent. A failed set (zone full) must
+    // not fail the subscribe, so it is caught and ignored.
+    if (tableId) {
+      try {
+        // The zone is type=string, so the timestamp is stored as a string.
+        ngx.shared.tables_seen.set(tableId, String(Date.now()));
+      } catch (e) {
+        ngx.log(ngx.WARN, `tables_seen set failed: ${e.message}`);
+      }
+    }
     r.return(200);
   } catch (e) {
     r.error(`table_sub error: ${e.message}`);
@@ -826,6 +836,23 @@ function presence_history_api(r) {
   r.return(200, JSON.stringify({ ts: Date.now(), current: ngx.shared.presence_live.keys().length, samples: samples }));
 }
 
+// Recently subscribed tables for active.html: newest first, capped so the
+// response stays small. Filled by table_sub.
+const RECENT_TABLES_LIMIT = 50;
+function tables_api(r) {
+  const dict = ngx.shared.tables_seen;
+  const keys = dict.keys() || [];
+  const tables = [];
+  for (let i = 0; i < keys.length; i++) {
+    const lastSeen = parseInt(dict.get(keys[i]), 10);
+    if (!isNaN(lastSeen)) tables.push({ tableId: keys[i], lastSeen: lastSeen });
+  }
+  tables.sort((a, b) => b.lastSeen - a.lastSeen);
+  r.headersOut["Content-Type"] = "application/json";
+  r.headersOut["Cache-Control"] = "no-store";
+  r.return(200, JSON.stringify({ ts: Date.now(), tables: tables.slice(0, RECENT_TABLES_LIMIT) }));
+}
+
 // Legacy list endpoint: kept for external callers, but served from the presence
 // registry now, so its contents match /api/online/presence.
 async function online_users_api(r) {
@@ -843,4 +870,4 @@ function online_presence_api(r) {
   r.return(200, JSON.stringify({ ts: Date.now(), ttl: PRESENCE_TTL_MS, users: getPresenceFrames() }));
 }
 
-export default { publish, presence_sub, presence_unsub, stats, online_users_api, online_presence_api, presence_history_api, table_unsub, table_sub };
+export default { publish, presence_sub, presence_unsub, stats, online_users_api, online_presence_api, presence_history_api, tables_api, table_unsub, table_sub };

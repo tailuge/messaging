@@ -95,23 +95,34 @@
       const spectatorStatus = document.getElementById('spectator-status');
       const eventList = document.getElementById('event-list');
 
-      // 1. Parse active tables from URL parameters
-      const params = new URLSearchParams(location.search);
-      const activeTables = params.getAll('active');
-
-      if (activeTables.length === 0) {
-        tableListEl.innerHTML = '<li>No active tables specified.</li>';
-      } else {
-        activeTables.forEach(tableId => {
-          const li = document.createElement('li');
-          const span = document.createElement('span');
-          span.className = 'table-link';
-          span.textContent = tableId;
-          span.onclick = () => selectTable(tableId);
-          li.appendChild(span);
-          tableListEl.appendChild(li);
-        });
+      // Fill the list from the server's recently subscribed tables.
+      async function loadTables() {
+        try {
+          const res = await fetch('/api/tables/recent', { cache: 'no-store' });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const { tables } = await res.json();
+          tableListEl.innerHTML = '';
+          if (tables.length === 0) {
+            tableListEl.innerHTML = '<li>No recent tables.</li>';
+            return;
+          }
+          tables.forEach(({ tableId }) => {
+            const li = document.createElement('li');
+            const span = document.createElement('span');
+            span.className = 'table-link';
+            span.textContent = tableId;
+            span.onclick = () => selectTable(tableId);
+            li.appendChild(span);
+            tableListEl.appendChild(li);
+          });
+        } catch (e) {
+          console.error('Failed to load tables:', e);
+          tableListEl.innerHTML = '<li>Could not load tables.</li>';
+        }
       }
+
+      loadTables();
+      setInterval(loadTables, 10000);
 
       let currentClient = null;
       let currentTable = null;
