@@ -37,6 +37,10 @@
       .table-link:hover {
         color: #551a8b;
       }
+      .table-uids {
+        color: #666;
+        font-size: 0.9em;
+      }
       #spectator-section {
         margin-top: 15px;
         display: none;
@@ -106,13 +110,19 @@
             tableListEl.innerHTML = '<li>No recent tables.</li>';
             return;
           }
-          tables.forEach(({ tableId }) => {
+          tables.forEach(({ tableId, uids }) => {
             const li = document.createElement('li');
             const span = document.createElement('span');
             span.className = 'table-link';
             span.textContent = tableId;
             span.onclick = () => selectTable(tableId);
             li.appendChild(span);
+            if (uids && uids.length > 0) {
+              const uidSpan = document.createElement('span');
+              uidSpan.className = 'table-uids';
+              uidSpan.textContent = ` (${uids.join(', ')})`;
+              li.appendChild(uidSpan);
+            }
             tableListEl.appendChild(li);
           });
         } catch (e) {
@@ -122,7 +132,6 @@
       }
 
       loadTables();
-      setInterval(loadTables, 10000);
 
       let currentClient = null;
       let currentTable = null;

@@ -438,10 +438,16 @@ function table_sub(r) {
     ngx.log(ngx.WARN, `table_sub ${userId} to table ${tableId}`);
     // Remember the table for /api/tables/recent. A failed set (zone full) must
     // not fail the subscribe, so it is caught and ignored.
-    if (tableId) {
+    // Spectators (active.html) are not players, so they are not listed.
+    if (tableId && r.args.spectator !== '1') {
       try {
-        // The zone is type=string, so the timestamp is stored as a string.
-        ngx.shared.tables_seen.set(tableId, String(Date.now()));
+        const entry = readTableEntry(ngx.shared.tables_seen.get(tableId));
+        const uids = entry.uids.filter((u) => u !== userId);
+        if (userId !== 'unknown') uids.unshift(userId);
+        ngx.shared.tables_seen.set(
+          tableId,
+          JSON.stringify({ ts: Date.now(), uids: uids.slice(0, TABLE_UIDS_LIMIT) })
+        );
       } catch (e) {
         ngx.log(ngx.WARN, `tables_seen set failed: ${e.message}`);
       }
@@ -837,15 +843,24 @@ function presence_history_api(r) {
 }
 
 // Recently subscribed tables for active.html: newest first, capped so the
-// response stays small. Filled by table_sub.
+// response stays small. Filled by table_sub. Each entry is a JSON string
+// {ts, uids}; uids are the players who subscribed, most recent first.
 const RECENT_TABLES_LIMIT = 50;
+const TABLE_UIDS_LIMIT = 8;
+function readTableEntry(raw) {
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.ts === 'number' && Array.isArray(parsed.uids)) return { ts: parsed.ts, uids: parsed.uids };
+  } catch (e) {}
+  return { ts: NaN, uids: [] };
+}
 function tables_api(r) {
   const dict = ngx.shared.tables_seen;
   const keys = dict.keys() || [];
   const tables = [];
   for (let i = 0; i < keys.length; i++) {
-    const lastSeen = parseInt(dict.get(keys[i]), 10);
-    if (!isNaN(lastSeen)) tables.push({ tableId: keys[i], lastSeen: lastSeen });
+    const entry = readTableEntry(dict.get(keys[i]));
+    if (!isNaN(entry.ts)) tables.push({ tableId: keys[i], lastSeen: entry.ts, uids: entry.uids });
   }
   tables.sort((a, b) => b.lastSeen - a.lastSeen);
   r.headersOut["Content-Type"] = "application/json";
