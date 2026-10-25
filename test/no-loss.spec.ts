@@ -2,7 +2,7 @@
  * Proof tests for the "no message lost" contract on table channels.
  *
  * The outbox guarantees the message reaches the Nchan server; the channel
- * replay buffer (2000 / 90s) must guarantee a late or mid-connection
+ * replay buffer (3000 messages / 5h) must guarantee a late or mid-connection
  * subscriber still receives it. These tests deliberately publish WITHOUT
  * waiting on bothJoined — the delivery must not depend on consumer-side
  * synchronization.

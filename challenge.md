@@ -96,22 +96,32 @@ The library filters incoming messages on the lobby subscription. Only `Challenge
 A common concern is whether a challenged person can see a challenge sent while they were briefly disconnected or if they refresh the page.
 
 ### Message Retention
-The Nchan server is configured to retain messages in a buffer:
-- `nchan_message_buffer_length 2000`
-- `nchan_message_timeout 90s`
+The lobby channel (`/publish/presence/lobby`) has message buffering disabled:
+- `nchan_message_buffer_length 0`
+- `nchan_message_timeout 0`
+
+Presence and challenge frames are live-only. Nchan keeps no replay buffer for the lobby.
+(Table channels do retain history — 3000 messages for 5 hours — but challenges are
+published to the lobby channel, not a table channel.)
 
 ### Reconnection Behavior
-When a client connects (or reconnects) to the lobby, it uses:
+When a client connects (or reconnects) to the lobby, it still uses:
 - `nchan_subscriber_first_message oldest`
 
-**Result**: Upon joining the lobby, the Nchan server sends the entire buffer of recent messages (up to 90 seconds old) to the client.
+**Result**: there is nothing to replay on the lobby channel, so a client only sees
+presence and challenge messages published after its subscription is live.
 
 ### Can a challenged person see a previous challenge?
-**Yes.** If Alice sends a challenge to Bob, and Bob refreshes his page or loses connection for 30 seconds:
-1. Bob reconnects and joins the lobby.
-2. Nchan replays the buffered messages to Bob.
-3. The library parses the `offer` message from Alice.
-4. The library triggers Bob's `onChallenge` callback.
-5. Bob sees the challenge and can accept it.
+**No, not if the offer was published while they were disconnected or refreshing.**
+If Alice sends a challenge to Bob and Bob is not subscribed at that moment:
+1. Alice's `offer` is published to the lobby channel and discarded (no buffering).
+2. Bob reconnects and joins the lobby.
+3. Nchan has nothing to replay, so Bob's `onChallenge` is never called and he cannot
+   accept the offer.
 
-**Note**: Since challenges are P2P and rely on buffered replay, it is the responsibility of the UI to handle "stale" challenges (e.g., if Alice has already left the lobby, her presence heartbeat will be missing from the user list).
+Alice's client should not assume delivery: if an offer goes unanswered because the
+target missed it, it is resolved like an ignored challenge (the lobby UI can use
+presence heartbeats to tell whether the target is still online).
+
+**Note**: The game-redirect flow does not rely on replay — the accepted challenge's
+`tableId` is carried in the game URL and the game page joins the table directly.

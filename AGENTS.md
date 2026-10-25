@@ -120,11 +120,38 @@ The Docker container uses Nginx with the Nchan module and an NJS script (`nchan_
 
 ## Nchan Message Retention
 
-The Nchan server is configured with message retention:
-- `nchan_message_timeout`: 90 seconds
-- `nchan_message_buffer_length`: 2000 messages
+Retention is configured per endpoint in `docker/nchan.conf`. Nchan applies a channel's
+settings from its last-used **publishing** location, so the values below are the
+publisher-side ones (the matching subscriber locations do not override retention).
 
-This ensures late subscribers receive buffered presence messages, making the system resilient to brief network interruptions and allowing reconnecting clients to see active users immediately.
+**Table channels** (`/internal/publish/table/:tableId`):
+- `nchan_message_buffer_length`: 3000 messages
+- `nchan_message_timeout`: 5 hours
+
+A table keeps its most recent 3000 messages for 5 hours after publication. Late joiners
+and spectators (`/subscribe/table/:tableId` uses `nchan_subscriber_first_message oldest`)
+receive those retained messages in order before live traffic. Nchan's built-in default
+for this setting is 1 hour (`NCHAN_DEFAULT_MESSAGE_TIMEOUT 3600` in the pinned nchan
+v1.3.8), so the explicit `5h` is what extends table history beyond an hour.
+
+**Presence channel** (`/internal/publish/presence/lobby`):
+- `nchan_message_buffer_length`: 0 (message buffering disabled)
+- `nchan_message_timeout`: 0
+
+Presence is live-only: joining or reconnecting clients do **not** receive replayed
+presence frames and rely on live join events and heartbeats. The presence snapshot served by
+`/api/online/presence` comes from the `presence_live` NJS dict, not from an Nchan buffer.
+
+**Arena chat channels**: 20 messages, 1 hour.
+
+Nchan stores this in its in-memory shared slab (`nchan_shared_memory_size 32M`); no
+Redis or disk-backed store is configured. Retained messages are lost on restart/reload
+(including container redeploys), messages above nginx's body buffer can spill to temp
+files, and Nchan evicts old messages/channels when the slab fills.
+
+Note: `/api/tables/recent` (read by `active.html`) is independent of channel retention.
+It lists the `tables_seen` NJS dict, populated when a player subscribes and expiring
+after 2 days, so it can list a table long after that table's message history is gone.
 
 ## Joining with TableId for External Games
 

@@ -60,7 +60,7 @@ export class Table<T = any> {
    * round-trip (the server stamps it; src/wire.ts restores its compact key). Server `meta.ts` has millisecond
    * granularity, so two DISTINCT messages can share a ts — a ts-only dedup
    * would drop the second one and, e.g., strand the bothJoined handshake.
-   * FIFO-bounded to the message buffer size (2000) with headroom.
+   * FIFO-bounded to the message buffer size (3000) with headroom.
    */
   private seenMsgIds = new Map<string, true>();
   private static readonly MAX_SEEN_MSG_IDS = 8192;
@@ -419,7 +419,7 @@ export class Table<T = any> {
     if (typeof msgId === "string") {
       if (this.seenMsgIds.has(msgId)) return;
       this.seenMsgIds.set(msgId, true);
-      // FIFO-bounded: the channel buffer holds 2000 messages, so only that
+      // FIFO-bounded: the channel buffer holds 3000 messages, so only that
       // many need remembering across a reconnect replay.
       if (this.seenMsgIds.size > Table.MAX_SEEN_MSG_IDS) {
         const oldest = this.seenMsgIds.keys().next().value;

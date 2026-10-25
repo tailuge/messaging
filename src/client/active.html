@@ -137,6 +137,16 @@
       let currentTable = null;
       let idleTimer = null;
       let messageCount = 0;
+      // Approximate wire size of every received message, in UTF-8 bytes.
+      let messageBytes = 0;
+      const encoder = new TextEncoder();
+
+      // "Count (KB)" summary for the received messages so far.
+      function messageStatsText(count, bytes) {
+        const kb = bytes / 1024;
+        const kbText = kb < 10 ? kb.toFixed(2) : kb.toFixed(1);
+        return `${count} message${count === 1 ? '' : 's'} (${kbText} KB)`;
+      }
 
       // Format epoch ms as MM:SS:mmm (minutes:seconds:milliseconds of the time-of-day)
       function formatTimestamp(ts) {
@@ -234,7 +244,7 @@
         idleTimer = setTimeout(async () => {
           spectatorStatus.textContent =
             messageCount > 0
-              ? `Received ${messageCount} message${messageCount === 1 ? '' : 's'}`
+              ? `Received ${messageStatsText(messageCount, messageBytes)}`
               : 'No events received';
           await cleanup();
         }, 1000);
@@ -250,6 +260,7 @@
         eventList.innerHTML = '';
         spectatorSection.style.display = 'block';
         messageCount = 0;
+        messageBytes = 0;
 
         // Base URL logic
         let baseUrl = 'https://billiards-network.onrender.com';
@@ -268,6 +279,11 @@
               // Reset idle timer whenever a message is received
               resetIdleTimer();
               messageCount++;
+              messageBytes += encoder.encode(JSON.stringify(msg)).length;
+              spectatorStatus.textContent = `Received ${messageStatsText(
+                messageCount,
+                messageBytes
+              )}`;
 
               // Only collapse consecutive AIM bursts from the same sender.
               // Every other message type is shown individually.

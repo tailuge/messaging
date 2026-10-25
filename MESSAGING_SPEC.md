@@ -398,12 +398,26 @@ Returns true if:
 
 ### 3. Message Retention
 
-The Nchan server retains presence messages for a configurable duration (default: 90 seconds, 2000 messages). This ensures:
-- Late subscribers receive buffered presence messages from existing users
-- Clients reconnecting can see active users without waiting for the next heartbeat
-- The system is resilient to brief network interruptions
+Retention is enforced by Nchan per channel (see `docker/nchan.conf`). A channel's
+settings come from its last-used **publishing** location, not from the subscriber
+location.
 
-**Note**: This is handled by the Nchan server configuration (`nchan_message_timeout` and `nchan_message_buffer_length`).
+- **Table channels**: 3000 messages retained for 5 hours (`nchan_message_timeout 5h`).
+  The subscriber endpoint uses `nchan_subscriber_first_message oldest`, so a late
+  joiner or spectator receives the retained messages, oldest first, before live
+  traffic.
+- **Presence channel**: buffering is disabled (`nchan_message_buffer_length 0`), so
+  there is no replay. Clients build lobby state from live join events and heartbeats;
+  a reconnecting client re-registers with a join and waits for peers' heartbeats
+  rather than receiving buffered presence frames.
+- **Arena chat**: 20 messages retained for 1 hour.
+
+Nchan's built-in default for `nchan_message_timeout` is 1 hour (nchan v1.3.8 defines
+`NCHAN_DEFAULT_MESSAGE_TIMEOUT 3600`), so longer retention must be set explicitly.
+
+Retention is in-memory only (`nchan_shared_memory_size 32M`): it is lost on
+restart/reload, and Nchan evicts old messages/channels when the slab fills. Messages
+larger than nginx's body buffer may be stored in temp files.
 
 ### 3. Page Visibility & Browser Lifecycle
 
@@ -446,7 +460,7 @@ private handlePageShow = (event: PageTransitionEvent): void => {
 
 ### 3. State Reconstruction
 
-Since the transport retains messages server-side, a new client joining the lobby will receive buffered presence messages from existing users.
+The presence channel does not buffer messages, so a new client joining the lobby receives no replayed presence. It learns about existing users from live presence heartbeats and join events, and its own join is broadcast to peers; the client prunes users that stop heartbeating. Table channels are different: their retained messages are replayed to late joiners and spectators (up to 3000 messages, 5 hours).
 
 ---
 

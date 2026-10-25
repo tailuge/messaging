@@ -118,9 +118,9 @@ describe("MessagingClient - Phase 1", () => {
       expect(userNames).toEqual(["Alice", "Bob", "Charlie"]);
     });
 
-    it("should show B sees A even when joining after initial heartbeat (message retention)", async () => {
-      // Nchan message retention (message_buffer_length=2000, message_timeout=90s)
-      // ensures late subscribers receive buffered presence messages.
+    it("should show B sees A even when joining after initial heartbeat (presence snapshot)", async () => {
+      // The lobby channel has no message buffering (nchan_message_buffer_length 0),
+      // so late joiners get existing users from the presence snapshot API, not a replay.
       const clientA = createClient();
       const clientB = createClient();
 
@@ -170,7 +170,7 @@ describe("MessagingClient - Phase 1", () => {
       expect(userIdsB).toContain("user-a");
     }, 10000);
 
-    it("should show A sees B after reconnecting (message retention)", async () => {
+    it("should show A sees B after reconnecting (presence snapshot)", async () => {
       const clientA = createClient();
       const clientB = createClient();
 
@@ -691,7 +691,7 @@ describe("MessagingClient - Phase 1", () => {
       });
 
       // 3. A publishes a move immediately (possibly before B's socket is live).
-      //    The channel replay buffer (nchan_message_buffer_length 2000 / 90s) must
+      //    The channel replay buffer (nchan_message_buffer_length 3000 / 5h) must
       //    guarantee delivery — no message may be lost.
       await tableA.publish("MOVE", { x: 5, y: 10 });
 
