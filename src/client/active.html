@@ -29,6 +29,15 @@
       li {
         margin: 3px 0;
       }
+      #table-list li {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+      }
+      .table-age {
+        color: #888;
+        min-width: 7em;
+      }
       .table-link {
         color: #0000ee;
         text-decoration: underline;
@@ -40,6 +49,15 @@
       .table-uids {
         color: #666;
         font-size: 0.9em;
+      }
+      /* Tables idle longer than the table channel retention are empty. */
+      li.stale .table-age,
+      li.stale .table-link,
+      li.stale .table-uids {
+        color: #bbb;
+      }
+      li.stale .table-link:hover {
+        color: #bbb;
       }
       #spectator-section {
         margin-top: 15px;
@@ -81,7 +99,7 @@
     </style>
   </head>
   <body>
-    <h1>Active Tables</h1>
+    <h1>Recent 2 Player Games</h1>
     <ul id="table-list"></ul>
 
     <div id="spectator-section">
@@ -99,6 +117,17 @@
       const spectatorStatus = document.getElementById('spectator-status');
       const eventList = document.getElementById('event-list');
 
+      // Table channels retain 12 hours of messages, so anything last seen
+      // longer ago than that has no history left to spectate.
+      const STALE_AFTER_MS = 12 * 60 * 60 * 1000;
+
+      // "3h 12m ago" from an epoch-ms timestamp.
+      function formatAge(ts) {
+        if (typeof ts !== 'number' || !isFinite(ts)) return '--';
+        const mins = Math.max(0, Math.floor((Date.now() - ts) / 60000));
+        return `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m ago`;
+      }
+
       // Fill the list from the server's recently subscribed tables.
       async function loadTables() {
         try {
@@ -110,8 +139,18 @@
             tableListEl.innerHTML = '<li>No recent tables.</li>';
             return;
           }
-          tables.forEach(({ tableId, uids }) => {
+          tables.forEach(({ tableId, lastSeen, uids }) => {
             const li = document.createElement('li');
+            if (
+              typeof lastSeen === 'number' &&
+              Date.now() - lastSeen > STALE_AFTER_MS
+            ) {
+              li.className = 'stale';
+            }
+            const ageSpan = document.createElement('span');
+            ageSpan.className = 'table-age';
+            ageSpan.textContent = formatAge(lastSeen);
+            li.appendChild(ageSpan);
             const span = document.createElement('span');
             span.className = 'table-link';
             span.textContent = tableId;
