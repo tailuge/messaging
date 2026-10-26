@@ -155,10 +155,19 @@ function formatCacheValue(country, city, count, origins, parsedUA, ua) {
   return `${country}|${city}|${count}|${origins}|${classified.os}|${classified.browser}`;
 }
 
+// Message identity, base36 so it stays short: 6 chars covers 36^6 = 2.2 billion
+// messages. This is a shared-dict counter, not a random draw, because
+// src/table.ts drops any message whose id it has seen before (that is how
+// reconnect replays are suppressed) — a collision there silently swallows a
+// real message rather than a duplicate. incr() keeps the count atomic across
+// both workers; get/set would let them read the same value and issue the same
+// id twice. The zone is in memory, so a container restart resumes from 0, which
+// is accepted: the same restart wipes the retained buffer that replayed those
+// old ids in the first place.
+const MSG_ID_KEY = "m";
+
 function createMessageId() {
-  return "xxxxxx".replace(/x/g, function () {
-    return Math.floor(Math.random() * 16).toString(16);
-  });
+  return ngx.shared.msg_ids.incr(MSG_ID_KEY, 1, 0).toString(36);
 }
 
 // Table frames are gameplay traffic: consumers read meta.msgId (replay dedup)

@@ -11,7 +11,18 @@ function loadNchanMeta(fsImpl: any = null): any {
   const file = path.resolve(process.cwd(), "docker/nchan_meta.js");
   const source = fs.readFileSync(file, "utf-8").replace(/export default \{[\s\S]*?\};/, "");
   expect(source).not.toContain("export default");
-  const ngx = { log: () => {}, WARN: "warn", shared: {}, fetch: () => Promise.reject(new Error("no fetch")) };
+  // The msg_ids zone from docker/nginx.conf: a number-typed shared dict holding a
+  // single counter that starts at 0. njs returns init + delta for an absent key,
+  // so the first incr() is 1. Fresh per load, which keeps ids deterministic.
+  let messageIdCounter = 0;
+  const ngx = {
+    log: () => {},
+    WARN: "warn",
+    shared: {
+      msg_ids: { incr: (_key: string, delta: number) => (messageIdCounter += delta) },
+    },
+    fetch: () => Promise.reject(new Error("no fetch")),
+  };
   const requireStub = (name: string) => {
     if (name === "fs" && fsImpl) return fsImpl;
     throw new Error("require is not available in this test");
@@ -292,8 +303,23 @@ describe("nchan_meta publish meta per channel", () => {
     const published = JSON.parse(r.published[0]);
     expect(Object.keys(published.meta).sort()).toEqual(["i", "t"]);
     expect(typeof published.meta.t).toBe("number");
-    expect(published.meta.i).toMatch(/^[0-9a-f]{6}$/);
+    // A base36 counter, not a random hex draw: 6 chars covers 36^6 = 2.2 billion
+    // messages, and a counter cannot collide.
+    expect(published.meta.i).toMatch(/^[0-9a-z]+$/);
     expect(published.senderId).toBe("Luke-zxcos");
+  });
+
+  test("msgId is a counter, so two messages can never share one", async () => {
+    const meta = loadNchanMeta();
+    prepare(meta);
+    const first = fakeRequest(meta, "/publish/table/table-123", { type: "CHAT", senderId: "a" });
+    const second = fakeRequest(meta, "/publish/table/table-123", { type: "CHAT", senderId: "b" });
+
+    await meta.publish(first);
+    await meta.publish(second);
+
+    expect(JSON.parse(first.published[0]).meta.i).toBe("1");
+    expect(JSON.parse(second.published[0]).meta.i).toBe("2");
   });
 
   test("presence publishes keep the full enriched meta", async () => {
