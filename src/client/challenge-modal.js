@@ -81,7 +81,7 @@ class ChallengeModal extends I18nElement {
                 { id: 'libre', label: 'Small Table (11)', img: 'assets/baby.png', options: { raceTo: '11', tableSize: '5', shotClock: '60' } },
                 { id: 'libre', label: 'Race to 11',      img: 'assets/libre.png', options: { raceTo: '11', shotClock: '60' } },
                 { id: 'libre', label: 'Race to 25',      img: 'assets/libre.png', options: { raceTo: '25', shotClock: '60' } },		
-                { id: 'libre', label: 'Free Aim (5)',      img: 'assets/libre.png', options: { freeaim: 'true', raceTo: '5', shotClock: '60' } },
+                { id: 'libre', label: 'Free Aim (5)',      img: 'assets/baby.png', options: { freeaim: 'true', raceTo: '5', tableSize: '5', shotClock: '60' } },
             ],
         },
     ];
