@@ -12,10 +12,10 @@ const GAMES = [
     options: { reds: "6", tableSize: "12" },
   },
   {
-    label: "Snooker 10r",
-    img: "assets/snooker.png",
-    ruletype: "snooker",
-    options: { reds: "10", tableSize: "12" },
+    label: "Libre",
+    img: "assets/libre.png",
+    ruletype: "libre",
+    options: { raceTo: "11" },
   },    
   {
     label: "3-Cushion 5ft",

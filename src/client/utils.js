@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 1327;
+export const CLIENTVERSION = 1330;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -156,6 +156,7 @@ export function getEmoji(origin = "", ruleType = "", status = "", options = {}, 
     threecushion: { emoji: "③", title: "threecushion" },
     sagu: { emoji: "④", title: "sagu" },
     reveal: { emoji: "\u{1F0A1}", title: "reveal" },
+    libre: { emoji: "🆓", title: "libre" },
   };
 
     const mapped = ruleMap[ruleType];
@@ -360,7 +361,7 @@ export const shortenUrl = async (url) => {
     }
 };
 
-const RULE_ASSETS = { eightball: 'eightball', snooker: 'snooker', threecushion: 'threecushion', nineball: 'nineball', sagu: 'sagu' };
+const RULE_ASSETS = { eightball: 'eightball', snooker: 'snooker', threecushion: 'threecushion', nineball: 'nineball', sagu: 'sagu', libre: 'libre' };
 const RULE_EMOJI = { eightball: '🎱', snooker: '🔴', threecushion: '③', nineball: '⑨', sagu: '④' };
 const RULE_SUFFIXES = { '-club': '⛩️', '-bot': '🤖', '-exam': '📜', '-speedrun': '👟' };
 export const ruleIcon = rule => {
