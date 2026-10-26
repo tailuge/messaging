@@ -38,7 +38,6 @@ export interface PresenceMessage {
   arenaId?: string; // Current Arena
   isSpectator?: boolean; // True when user is spectating (not playing) at tableId
   isLeaving?: boolean; // True when user has sent 'leave' but grace period has not expired
-  clientTs?: number; // Client-side timestamp for message ordering resilience
   readonly options?: Record<string, string>; // Optional: game-specific configuration
   custom?: Record<string, unknown>; // Optional: customisation settings (nested objects flatten to custom.*.* URL params)
 }

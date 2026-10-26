@@ -451,9 +451,10 @@ class ArenaView extends LitElement {
             // Runs after _busy is cleared, not inside the try: _refetchArenaFor skips
             // while _busy is set, so a presence change that landed during this load
             // was dropped, and nothing else would retry it. A bare heartbeat will not
-            // either — onUsersChange only fires on a meaningful change, and
-            // hasMeaningfulChange ignores clientTs — so the missed player would wait
-            // for someone else to change state. This can start one more load; each
+            // either — onUsersChange only fires on a meaningful change, and a
+            // heartbeat only restamps meta.ts, which hasMeaningfulChange ignores
+            // — so the missed player would wait for someone else to change state.
+            // This can start one more load; each
             // call records a distinct player before fetching, so it terminates.
             this._checkStaleArenaPresence();
         }

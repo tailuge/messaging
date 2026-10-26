@@ -9,7 +9,6 @@ describe("wire codec (P1 keys)", () => {
     type: "heartbeat",
     userId: "user-vsa4a",
     userName: "Anon-US",
-    clientTs: 1792215833126,
     meta: {
       ts: 1792215833126,
       msgId: "7dd7af",
@@ -33,7 +32,6 @@ describe("wire codec (P1 keys)", () => {
       t: "h",
       u: "user-vsa4a",
       n: "Anon-US",
-      c: 1792215833126,
       meta: {
         t: 1792215833126,
         i: "7dd7af",
@@ -101,7 +99,6 @@ describe("wire codec (P1 keys)", () => {
       seek: { tableId: "t1", ruleType: "eightball" },
       isSpectator: false,
       isLeaving: true,
-      clientTs: 1,
     };
     expect(JSON.parse(decodeWire(encodeWire(presence)))).toEqual(presence);
   });
@@ -169,13 +166,13 @@ describe("wire codec (P1 keys)", () => {
   });
 
   describe("golden sizes (payload.md §4, phase P1)", () => {
-    it("sample 1 heartbeat with meta.ts is exactly 170 bytes on the wire (P1 + P2a)", () => {
-      expect(bytes(encodeWire(canonicalHeartbeat))).toBe(170);
+    it("sample 1 heartbeat with meta.ts is exactly 152 bytes on the wire (P1 + P2a)", () => {
+      expect(bytes(encodeWire(canonicalHeartbeat))).toBe(152);
     });
 
-    it("sample 1 heartbeat without meta.ts is 152 bytes (P1 + P2a)", () => {
+    it("sample 1 heartbeat without meta.ts is 134 bytes (P1 + P2a)", () => {
       const { ts: _ts, ...meta } = canonicalHeartbeat.meta;
-      expect(bytes(encodeWire({ ...canonicalHeartbeat, meta }))).toBe(152);
+      expect(bytes(encodeWire({ ...canonicalHeartbeat, meta }))).toBe(134);
     });
   });
 });

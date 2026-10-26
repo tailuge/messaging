@@ -29,7 +29,6 @@ const TOP_ENCODE = new Map<string, string>([
   ["seek", "s"],
   ["isSpectator", "S"],
   ["isLeaving", "L"],
-  ["clientTs", "c"],
   ["nextTurnId", "w"],
   ["text", "b"],
 ]);

@@ -1,10 +1,13 @@
 import { LitElement } from 'lit';
 import { isVercel } from './utils.js';
 
+// The random suffix is what separates ids that share a name prefix, and every unnamed
+// player shares the `user` prefix, so its width is the whole collision budget for them:
+// 4 chars is 36^4 = 1.68M ids per prefix, about a 0.07% clash chance across 50 anon ids.
 const genId = (userName) => {
     const prefix = (userName || 'user').slice(0, 4);
     const sep = /Tauri/i.test(navigator.userAgent) ? '-t-' : '-';
-    return prefix + sep + Math.random().toString(36).slice(2, 7);
+    return prefix + sep + Math.random().toString(36).slice(2, 6);
 };
 
 // A fresh player is named from their browser locale, so the default is a little more

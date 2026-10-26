@@ -104,7 +104,7 @@ export class Lobby {
       } else {
         // Fallback: Re-broadcast presence state if no external orchestrator is handling it
         this.nchan
-          .publishPresence({ ...this.currentUser, clientTs: Date.now() })
+          .publishPresence({ ...this.currentUser })
           .then(() => this.refreshSnapshot())
           .catch((_e) => {
             console.error("Failed to re-broadcast presence on reconnect:", _e);
@@ -117,7 +117,7 @@ export class Lobby {
     // Broadcast our own presence with retry on failure (e.g. slow cold start)
     for (let attempt = 1; ; attempt++) {
       try {
-        await this.nchan.publishPresence({ ...this.currentUser, clientTs: Date.now() });
+        await this.nchan.publishPresence({ ...this.currentUser });
         break;
       } catch (e) {
         const delay = Math.min(Math.pow(2, attempt) * 4000, 30000);
@@ -274,7 +274,6 @@ export class Lobby {
     await this.nchan.publishPresence({
       ...this.currentUser,
       ...update,
-      clientTs: Date.now(),
     });
   }
 
@@ -410,7 +409,7 @@ export class Lobby {
 
     try {
       await this.nchan.publishPresence(
-        { ...this.currentUser, type: "leave", clientTs: Date.now() },
+        { ...this.currentUser, type: "leave" },
         { keepalive: options.isTeardown },
       );
     } catch (e) {
@@ -550,7 +549,7 @@ export class Lobby {
     if (existing.type === "leave") return false;
 
     const leaveTs = msg.meta?.ts;
-    const existingTs = existing.meta?.ts ?? existing.clientTs;
+    const existingTs = existing.meta?.ts;
     if (leaveTs === undefined || existingTs === undefined) return false;
 
     return leaveTs >= existingTs && leaveTs - existingTs <= AUTO_LEAVE_REJOIN_GRACE_MS;
