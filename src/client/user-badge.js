@@ -1,5 +1,6 @@
 import { html } from 'lit';
-import { userStore, StoreElement, anonName } from './user-store.js';
+import { userStore, anonName, isAnonymousName } from './user-store.js';
+import { I18nElement, i18n } from './i18n.js';
 import { USER_BADGE_STYLES } from './styles.js';
 import { isVercel } from './utils.js';
 
@@ -34,7 +35,7 @@ const displayWidth = (s) => {
     return `calc(${latin}ch + ${+wide.toFixed(2)}em)`;
 };
 
-class UserBadge extends StoreElement {
+class UserBadge extends I18nElement {
     static properties = { _dotColor: { state: true } };
     static styles = USER_BADGE_STYLES;
 
@@ -55,18 +56,29 @@ class UserBadge extends StoreElement {
         }));
     }
 
+    _onBadgeClick(e) {
+        const input = this.renderRoot?.querySelector('input');
+        if (input && e.target !== input) {
+            input.focus();
+        }
+    }
+
     render() {
         if (isVercel) return html``;
+        const name = userStore.userName;
+        const isAnon = isAnonymousName(name);
+        const titleText = isAnon ? i18n.t('Click to change name') : undefined;
         return html`
-            <div class="badge" style="--dot-color:${this._dotColor}">
+            <div class="badge" style="--dot-color:${this._dotColor}" title=${titleText} @click=${this._onBadgeClick}>
                 <span class="dot"></span>
-                <input size="1" maxlength="12" .value=${this._name}
+                <input size="1" maxlength="12" .value=${name}
                     name="name" autocomplete="nickname"
-                    style="width: ${displayWidth(this._name)}"
+                    style="width: ${displayWidth(name)}"
                     aria-label="Display name"
                     @input=${e => e.target.style.width = displayWidth(e.target.value)}
                     @change=${e => this._commit(e.target.value)}
                     @keydown=${e => e.key === 'Enter' && e.target.blur()}>
+                ${isAnon ? html`<span class="pencil">✎</span>` : ''}
             </div>`;
     }
 }

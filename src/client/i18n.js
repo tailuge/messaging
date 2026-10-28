@@ -83,6 +83,8 @@ const TRANSLATIONS = {
     'Race to 5': '5점 선취',
     'Race to 11': '11점 선취',
     'Use these parameters': '이 설정으로 시작',
+    'Click to change name': '클릭하여 이름 변경',
+    'Customise settings': '설정 맞춤설정',
   },
   ja: {
     'Play Solo': 'ひとりでプレイ',
@@ -129,6 +131,8 @@ const TRANSLATIONS = {
     'Race to 5': '5点先取',
     'Race to 11': '11点先取',
     'Use these parameters': 'この設定で開始',
+    'Click to change name': 'クリックして名前を変更',
+    'Customise settings': '設定をカスタマイズ',
   },
   tr: {
     'Play Solo': 'Tek Oyna',
@@ -175,6 +179,8 @@ const TRANSLATIONS = {
     'Race to 5': '5 Sayıya',
     'Race to 11': '11 Sayıya',
     'Use these parameters': 'Bu ayarlarla başla',
+    'Click to change name': 'İsmi değiştirmek için tıklayın',
+    'Customise settings': 'Ayarları özelleştir',
   },
   zh: {
     'Play Solo': '單人練習',
@@ -221,6 +227,8 @@ const TRANSLATIONS = {
     'Race to 5': '搶 5',
     'Race to 11': '搶 11',
     'Use these parameters': '使用這些設定',
+    'Click to change name': '點擊修改名稱',
+    'Customise settings': '自訂設定',
   },
 };
 

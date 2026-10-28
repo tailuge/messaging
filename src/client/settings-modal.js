@@ -1,9 +1,10 @@
 import { html, css } from 'lit';
-import { userStore, StoreElement } from './user-store.js';
+import { userStore } from './user-store.js';
+import { I18nElement, i18n } from './i18n.js';
 import { SHARED_STYLES, CHALLENGE_MODAL_STYLES } from './styles.js';
 import './stats-panel.js';
 
-class SettingsModal extends StoreElement {
+class SettingsModal extends I18nElement {
     static properties = {
         _open: { state: true },
         _notifEnabled: { state: true },
@@ -182,7 +183,7 @@ class SettingsModal extends StoreElement {
 
     render() {
         return html`
-            <button class="burger" aria-label="Settings" aria-expanded="${this._open}" @click=${this._toggle}>&#9776;</button>
+            <button class="burger" aria-label=${i18n.t('Customise settings')} title=${i18n.t('Customise settings')} aria-expanded="${this._open}" @click=${this._toggle}>&#9776;</button>
             ${this._open ? html`
                 <div class="backdrop" @click=${e => e.target === e.currentTarget && this._close()}>
                     <div class="modal" role="dialog" aria-modal="true" aria-label="Settings">
