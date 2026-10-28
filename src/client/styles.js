@@ -252,6 +252,13 @@ export const USER_BADGE_STYLES = css`
         width: auto;
         min-width: 0;
     }
+    .pencil {
+        font-size: 0.95rem;
+        line-height: 1;
+        opacity: 0.8;
+        user-select: none;
+        flex-shrink: 0;
+    }
 `;
 
 export const SOLO_PANEL_STYLES = css`
