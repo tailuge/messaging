@@ -121,6 +121,18 @@
       // longer ago than that has no history left to spectate.
       const STALE_AFTER_MS = 12 * 60 * 60 * 1000;
 
+      // Player ids and table ids can arrive percent-encoded (e.g. non-ASCII
+      // player ids), so decode them for display only. The raw value is kept for
+      // API calls and channel names.
+      function displayText(str) {
+        if (typeof str !== 'string') return str;
+        try {
+          return decodeURIComponent(str);
+        } catch (e) {
+          return str;
+        }
+      }
+
       // "3h 12m ago" from an epoch-ms timestamp.
       function formatAge(ts) {
         if (typeof ts !== 'number' || !isFinite(ts)) return '--';
@@ -153,13 +165,13 @@
             li.appendChild(ageSpan);
             const span = document.createElement('span');
             span.className = 'table-link';
-            span.textContent = tableId;
+            span.textContent = displayText(tableId);
             span.onclick = () => selectTable(tableId);
             li.appendChild(span);
             if (uids && uids.length > 0) {
               const uidSpan = document.createElement('span');
               uidSpan.className = 'table-uids';
-              uidSpan.textContent = ` (${uids.join(', ')})`;
+              uidSpan.textContent = ` (${uids.map(displayText).join(', ')})`;
               li.appendChild(uidSpan);
             }
             tableListEl.appendChild(li);
@@ -294,7 +306,7 @@
         await cleanup();
 
         // Setup UI
-        spectatorTitle.textContent = `Spectating: ${tableId}`;
+        spectatorTitle.textContent = `Spectating: ${displayText(tableId)}`;
         spectatorStatus.textContent = 'Connecting...';
         eventList.innerHTML = '';
         spectatorSection.style.display = 'block';

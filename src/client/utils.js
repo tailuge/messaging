@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 1334;
+export const CLIENTVERSION = 1339;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -156,7 +156,7 @@ export function getEmoji(origin = "", ruleType = "", status = "", options = {}, 
     threecushion: { emoji: "③", title: "threecushion" },
     sagu: { emoji: "④", title: "sagu" },
     reveal: { emoji: "\u{1F0A1}", title: "reveal" },
-    libre: { emoji: "🆓", title: "libre" },
+    libre: { emoji: "Ⓛ", title: "libre" },
   };
 
     const mapped = ruleMap[ruleType];

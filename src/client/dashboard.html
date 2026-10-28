@@ -280,10 +280,6 @@ table td {
                   <td id="nch-published">-</td>
                 </tr>
                 <tr>
-                  <td>Total Subscribed</td>
-                  <td id="nch-subscribed">-</td>
-                </tr>
-                <tr>
                   <td>Subscribers (live)</td>
                   <td id="nch-subscribers">-</td>
                 </tr>
@@ -706,8 +702,6 @@ table td {
           const nchan = data.nchan;
           document.getElementById("nch-published").textContent =
             nchan.total_published_messages || 0;
-          document.getElementById("nch-subscribed").textContent =
-            nchan.total_subscribed_messages || 0;
           document.getElementById("nch-subscribers").textContent = dash(nchan.subscribers);
           document.getElementById("nch-channels").textContent = dash(nchan.channels);
           document.getElementById("nch-stored").textContent = dash(nchan.stored_messages);
