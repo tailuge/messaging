@@ -1,7 +1,7 @@
 # Lost challenges when returning to the lobby after a game
 
-**Status:** problem definition only. This document describes the problem and what is known
-about it. It does not propose or choose a solution.
+**Status:** problem definition, plus one candidate solution in section 10. Sections 1–9
+describe the problem and what is known about it; they do not choose a solution.
 
 ## 1. The problem
 
@@ -130,4 +130,44 @@ defined.
 - Refreshing or reconnecting while already in the lobby.
 - Presence join/leave races (`AUTO_LEAVE_REJOIN_GRACE_MS`), which affect the user list, not
   challenge delivery.
-- Where and how a challenge is stored or retained.
+- Where and how a challenge is stored or retained (section 10 proposes one answer).
+
+## 10. Solution #1 — hold offers in server memory and re-deliver them on join
+
+**In short:** offers keep travelling on the lobby presence channel exactly as they do now.
+Alongside the channel, the server keeps a short-lived in-memory record of offers that have not
+yet been resolved, and re-delivers the waiting ones to a player when they (re)join the lobby.
+
+**What is kept in memory:** one entry per outstanding offer, identified by the
+challenger/challengee pair — the channel's resolutions (accept, decline, cancel) carry no table
+id, so the pair is the only stable identity they share with the offer. The entry holds the offer
+as it was published, so it can be sent again unchanged. Nothing else is stored, nothing is
+written to disk, and entries disappear as soon as the offer is resolved.
+
+**Lifecycle:**
+
+- Written when an offer passes through the server, whether or not anyone was subscribed to
+  receive it. That is what closes the gap: a dropped delivery and a held offer are the same
+  event.
+- Removed on accept, decline or cancel.
+- Removed when the challenger goes offline (a deliberate leave or a dropped connection), so a
+  target cannot accept an offer from someone who has left.
+- Removed on expiry, which only needs to be a little longer than the measured ~5 second gap.
+- **Not** removed when the challengee leaves — that departure is the case being fixed.
+
+**Delivery:** when a player joins the lobby, any offer still held for them is published to the
+presence channel again as an ordinary offer. It reaches the client on the path it already uses:
+the offer arrives during the join window, is deduplicated against any resolutions in that
+window, and is emitted once the lobby settles. There is no new endpoint, no client or library
+change, and nothing for the joining client to fetch or merge.
+
+**Caveats:**
+
+- Memory only and per server instance: a restart drops held offers, and the approach assumes a
+  single Nchan instance — a target's join has to reach the instance holding their offer.
+- Challenger-offline detection is presence-based, so a challenger whose connection dies without
+  a leave is only noticed when their presence expires (about 70 seconds). Until then an offer
+  can be re-delivered for a challenger who has effectively gone.
+- It removes the "offer was never delivered" case, not the "challenger was never answered"
+  case: the sent-challenge banner still has no timeout, which is today's behaviour.
+- The accept race (third row of section 4) is unchanged — accepts remain live-only.
