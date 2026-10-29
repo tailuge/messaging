@@ -50,6 +50,24 @@ These are facts found in the code. They explain the symptom; they are not a fix.
 | **Seen, then left** | The offer reaches the game page, but the player leaves before answering. | The target may see it briefly, then nothing in the lobby. The challenger waits. |
 | **Accept during the move** | The player accepts and leaves at the same moment. | One player may end up at a table alone. The accept outcome is not yet defined (see section 6). |
 
+## 4a. Expected behaviour when the challenger goes offline
+
+This is the behaviour the user has confirmed for an offer that is being held for a target who
+has not yet returned to the lobby.
+
+- **A held offer stays held** until the target accepts, the target declines, the challenger
+  cancels, or its time limit expires. The time limit has not been chosen yet (see section 6).
+- **A held offer is cleared when the challenger goes offline.** The target should not be able to
+  accept an offer whose challenger has left. This replaces the earlier "keep regardless" answer.
+- **The challenger going offline includes leaving the page.** A challenger who moves to another
+  page loses their held offers in the same way. This is the intended behaviour, not a side effect.
+- **Going offline is detected from presence.** A deliberate leave clears the offer immediately. A
+  tab that closes without leaving is only detected once its presence times out, which is about
+  70 seconds. Until then the offer may still be held, and the target may be able to accept an
+  offer from a challenger who is already gone.
+- **The target is told nothing** when a held offer is cleared because the challenger went
+  offline. This is not yet confirmed (see section 6).
+
 ## 5. How to reproduce
 
 **Sent during the gap:**
@@ -83,6 +101,14 @@ defined.
   conflict. Confirm whether both apply.
 - **Frequency detail.** The user says this happens regularly. The exact share of challenges
   affected is not measured.
+- **Time limit for a held offer.** Not chosen. It must be long enough to cover the game-to-lobby
+  gap, which the user measured at one second or more.
+- **Target notified on clearing.** Whether the target should see anything when a held offer is
+  cleared because the challenger went offline is not decided.
+- **Accept after the time limit.** What happens if the target accepts an offer after its time
+  limit has expired is not decided.
+- **Stale window for an offline challenger.** A challenger who closes the tab without leaving
+  keeps their offer for up to about 70 seconds. Whether that is acceptable is not decided.
 
 ## 7. Impact
 
