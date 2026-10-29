@@ -78,7 +78,7 @@ class UserBadge extends I18nElement {
                     @input=${e => e.target.style.width = displayWidth(e.target.value)}
                     @change=${e => this._commit(e.target.value)}
                     @keydown=${e => e.key === 'Enter' && e.target.blur()}>
-                ${isAnon ? html`<span class="pencil">✎</span>` : ''}
+                ${isAnon ? html`<span class="pencil">🖉</span>` : ''}
             </div>`;
     }
 }
