@@ -314,11 +314,48 @@ function updatePresenceRegistry(r, reqText, body) {
   const dict = ngx.shared.presence_live;
   if (type === "leave" || type === "l") {
     dict.delete(key);
+    clearChallengesFrom(userId);
   } else if (type === "join" || type === "heartbeat" || type === "j" || type === "h") {
     // Same string that is published, so the snapshot needs no re-encoding.
     dict.set(key, body, PRESENCE_TTL_MS);
   }
   recordPresenceCount();
+}
+
+// Open challenges for the dashboard (/api/challenges). One entry per pair,
+// "c:<challengerId>|<challengeeId>" -> offer time (ms). Matched by string search
+// on the compact wire keys of the raw request, so the hot path does no JSON parse.
+// Entries expire on the zone timeout (1 min), so a missed resolution cannot linger.
+const CHALLENGE_KEY_PREFIX = "c:";
+
+// A challenger who leaves no longer has open offers. Only offers they sent are
+// removed; the target's own leave does nothing.
+function clearChallengesFrom(userId) {
+  const dict = ngx.shared.challenges_live;
+  const prefix = CHALLENGE_KEY_PREFIX + userId + "|";
+  const keys = dict.keys() || [];
+  for (let i = 0; i < keys.length; i++) {
+    if (keys[i].indexOf(prefix) === 0) dict.delete(keys[i]);
+  }
+}
+
+function updateChallengeRegistry(r, reqText) {
+  if (!isPresenceLobbyChannel(r) || reqText.indexOf('"m":"c"') === -1) return;
+  // The first "t", "u" and "e" are the top-level fields: the client builds the
+  // object with type and the ids before any options or custom payload.
+  const type = /"t":"([a-z])"/.exec(reqText);
+  const challenger = /"u":"([^"]*)"/.exec(reqText);
+  const challengee = /"e":"([^"]*)"/.exec(reqText);
+  if (!type || !challenger || !challengee) return;
+  // accept, decline and cancel all carry the same challenger/challengee pair
+  // as the offer, so one key covers the whole lifecycle.
+  const key = CHALLENGE_KEY_PREFIX + challenger[1] + "|" + challengee[1];
+  const dict = ngx.shared.challenges_live;
+  if (type[1] === "o") {
+    dict.set(key, String(Date.now()));
+  } else if (type[1] === "a" || type[1] === "d" || type[1] === "x") {
+    dict.delete(key);
+  }
 }
 
 // Users-online history for usage.html. The count is derived from the registry
@@ -376,6 +413,7 @@ async function publish(r) {
   const body = injectMetaString(reqText, meta);
   try {
     updatePresenceRegistry(r, reqText, body);
+    updateChallengeRegistry(r, reqText);
   } catch (e) {
     ngx.log(ngx.WARN, `presence registry error: ${e && e.message ? e.message : e}`);
   }
@@ -863,6 +901,24 @@ function readTableEntry(raw) {
   } catch (e) {}
   return { ts: NaN, uids: [] };
 }
+function challenges_api(r) {
+  const dict = ngx.shared.challenges_live;
+  const keys = dict.keys() || [];
+  const challenges = [];
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (key.indexOf(CHALLENGE_KEY_PREFIX) !== 0) continue;
+    const sep = key.indexOf("|");
+    const since = parseInt(dict.get(key), 10);
+    if (sep < 0 || isNaN(since)) continue;
+    challenges.push({ challenger: key.slice(CHALLENGE_KEY_PREFIX.length, sep), challengee: key.slice(sep + 1), since: since });
+  }
+  challenges.sort((a, b) => b.since - a.since);
+  r.headersOut["Content-Type"] = "application/json";
+  r.headersOut["Cache-Control"] = "no-store";
+  r.return(200, JSON.stringify({ ts: Date.now(), challenges: challenges }));
+}
+
 function tables_api(r) {
   const dict = ngx.shared.tables_seen;
   const keys = dict.keys() || [];
@@ -894,4 +950,4 @@ function online_presence_api(r) {
   r.return(200, JSON.stringify({ ts: Date.now(), ttl: PRESENCE_TTL_MS, users: getPresenceFrames() }));
 }
 
-export default { publish, presence_sub, presence_unsub, stats, online_users_api, online_presence_api, presence_history_api, tables_api, table_unsub, table_sub };
+export default { publish, presence_sub, presence_unsub, stats, online_users_api, online_presence_api, presence_history_api, challenges_api, tables_api, table_unsub, table_sub };

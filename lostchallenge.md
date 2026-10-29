@@ -1,7 +1,8 @@
 # Lost challenges when returning to the lobby after a game
 
-**Status:** problem definition, plus one candidate solution in section 10. Sections 1–9
-describe the problem and what is known about it; they do not choose a solution.
+**Status:** problem definition, one candidate solution in section 10, and a first step built
+in section 11. Sections 1–9 describe the problem and what is known about it; they do not choose
+a solution.
 
 ## 1. The problem
 
@@ -91,6 +92,21 @@ snapshot (3 s timeout) and settle all widen the gap.
 These were not settled in the interview and must be answered before the problem is fully
 defined.
 
+**Answers so far:**
+
+- **Accept race:** if the target accepts and leaves at the same moment, the accept is dropped.
+  The challenger is told it was not accepted and nothing starts.
+- **User-list marker:** no marker. The user list stays unchanged.
+- **In-game visibility:** out of scope. Challenges already show in-game, so this is not a gap.
+- **Frequency:** not measured. The fix is built without a measured rate.
+- **Accept after the time limit:** allowed. A late accept goes through.
+- **Stale window:** accepted. A challenger who closes the tab without leaving stays for up to
+  about 70 seconds, using the existing presence-based detection.
+- **Held offer time limit:** 60 seconds. A held offer is kept for up to 60 seconds, then dropped
+  if it has not been answered.
+- **Target notified on clearing:** no message. When a held offer is cleared because the challenger
+  went offline, the target sees nothing.
+
 - **Accept race.** If the target accepts on the game page and leaves at the same moment, what
   is the expected outcome? The user called this "impossible" as a framing and did not state a
   preferred result.
@@ -138,36 +154,90 @@ defined.
 Alongside the channel, the server keeps a short-lived in-memory record of offers that have not
 yet been resolved, and re-delivers the waiting ones to a player when they (re)join the lobby.
 
-**What is kept in memory:** one entry per outstanding offer, identified by the
-challenger/challengee pair — the channel's resolutions (accept, decline, cancel) carry no table
-id, so the pair is the only stable identity they share with the offer. The entry holds the offer
-as it was published, so it can be sent again unchanged. Nothing else is stored, nothing is
-written to disk, and entries disappear as soon as the offer is resolved.
+**Where it lives:** one NJS shared dict (`held_offers`), next to the existing `presence_live`
+dict and using the same pattern. Key: `challengerId|challengeeId`. Value: the offer body exactly
+as published. The pair is the only identity that accept, decline and cancel share with the
+offer. Nothing is written to disk and no new service is added.
 
-**Lifecycle:**
+**Expiry is free:** the dict's `timeout=` (set in `docker/nginx.conf`, like `presence_live`)
+removes entries automatically. Use 60 s, the time limit chosen in section 6. No timers in code.
 
-- Written when an offer passes through the server, whether or not anyone was subscribed to
-  receive it. That is what closes the gap: a dropped delivery and a held offer are the same
-  event.
-- Removed on accept, decline or cancel.
-- Removed when the challenger goes offline (a deliberate leave or a dropped connection), so a
-  target cannot accept an offer from someone who has left.
-- Removed on expiry, which only needs to be a little longer than the measured ~5 second gap.
-- **Not** removed when the challengee leaves — that departure is the case being fixed.
+**Lifecycle (three hooks, all in `nchan_meta.js` on the existing publish path):**
 
-**Delivery:** when a player joins the lobby, any offer still held for them is published to the
-presence channel again as an ordinary offer. It reaches the client on the path it already uses:
-the offer arrives during the join window, is deduplicated against any resolutions in that
-window, and is emitted once the lobby settles. There is no new endpoint, no client or library
-change, and nothing for the joining client to fetch or merge.
+- **Offer seen** (any publish with type `offer`): store it. Stored whether or not anyone was
+  subscribed, so a dropped delivery and a held offer are the same event.
+- **Resolution seen** (`accept`, `decline`, `cancel`): delete the key for that pair.
+- **Presence leave seen** (`leave` from user X): delete every key with prefix `X|`. This is the
+  challenger going offline. The target's own leave does nothing, because that departure is the
+  case being fixed.
+
+**Delivery:** when a presence `join` for user Y is published, look for keys with suffix `|Y`
+and re-publish each held offer to the lobby channel, as `publish_auto_leave` already does for
+its own publishes. The re-publish follows the join frame on the same channel, so ordering is
+kept. The re-published offer passes the offer hook again, which only rewrites the same key, so
+there is no loop and no special case is needed. The joining client handles it as an ordinary offer: it is buffered during join and
+deduplicated against resolutions in that window. No new endpoint, no client or library change.
+
+**Scan cost:** both lookups scan `keys()` of a dict that holds only offers from the last 60 s,
+so they stay small. This is the same scan cost `presence_live` already pays.
+
+**Failure mode:** every hook runs inside the existing try/catch in the publish path, so a bug
+here must not break presence or challenges. If it fails, the system falls back to today's
+behaviour.
 
 **Caveats:**
 
 - Memory only and per server instance: a restart drops held offers, and the approach assumes a
-  single Nchan instance — a target's join has to reach the instance holding their offer.
+  single Nchan instance. A target's join has to reach the instance holding their offer.
 - Challenger-offline detection is presence-based, so a challenger whose connection dies without
   a leave is only noticed when their presence expires (about 70 seconds). Until then an offer
-  can be re-delivered for a challenger who has effectively gone.
+  can be re-delivered for a challenger who has effectively gone. Accepted for now (see section 6).
+- A target who already saw an offer live and then re-joins within the 60 s window gets it
+  again. The client should treat a repeat offer with the same pair as the same challenge, so the
+  banner is not duplicated. This is a small client check, not a server change.
 - It removes the "offer was never delivered" case, not the "challenger was never answered"
   case: the sent-challenge banner still has no timeout, which is today's behaviour.
 - The accept race (third row of section 4) is unchanged — accepts remain live-only.
+
+## 11. Progress: open-challenges view (built)
+
+Built as the first step toward section 10, with no change to what players see. The server now
+records open challenges, and the dashboard shows them. Nothing is re-delivered yet.
+
+**What was built:**
+
+- **Store** (`docker/nchan_meta.js`): a sibling of the presence hook, inside the same try/catch,
+  run on each lobby publish. It matches the compact keys by string search (`"m":"c"`, `"t"` of
+  `o`, `a`, `d` or `x`), with no JSON parse. An offer stores `challengerId|challengeeId` with its
+  time. Accept, decline and cancel delete that key.
+- **Dict** (`docker/nginx.conf`): `challenges_live`, with a 1 minute timeout. An entry also drops
+  one minute after its offer, so a missed resolution cannot stay listed.
+- **Endpoint** (`docker/nchan.conf`): `GET /api/challenges`, with the same rate limit, `no-store`
+  and CORS handling as `/api/tables/recent`. It returns `{ ts, challenges: [{ challenger,
+  challengee, since }] }`, newest first.
+- **Dashboard** (`src/client/dashboard.html`): an "Open challenges" card, loaded once at page
+  load, with no refresh. Rows read like `p1 → p2 — pending — 12s ago`. The card sits beside the
+  presence card in a two-column row and uses a smaller font.
+
+**Differences from section 10:**
+
+- The dict is `challenges_live`, not `held_offers`, and it is read-only. Nothing is re-delivered
+  on join, so the target still does not see an offer that was missed.
+- Presence `leave` from a challenger clears their open offers at once (`clearChallengesFrom` in
+  `docker/nchan_meta.js`). The target's own leave does nothing. A challenger whose tab closes
+  without a leave still shows until the one-minute timeout.
+
+**Checks:**
+
+- `npm run lint` passes (0 warnings, 0 errors).
+- `node --check` passes on `docker/nchan_meta.js`.
+- The dashboard layout was checked by eye and the user confirmed it works.
+- The Jest spec `test/nchan-meta-unit.spec.ts` already fails to parse before this change. It is
+  not fixed here.
+- The matching has not been run against a live Nchan. The regex assumes the compact top-level key
+  order the client already sends.
+
+**Next steps (not started):**
+
+1. Re-deliver held offers on join, as section 10 describes.
+2. Settle the open questions in section 6 that these steps depend on.

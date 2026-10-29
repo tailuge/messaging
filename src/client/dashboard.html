@@ -195,6 +195,24 @@ table td {
         list-style: none;
         font-size: 0.8rem;
       }
+      .side-by-side {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1px;
+        align-items: flex-start;
+      }
+      .side-by-side > .card {
+        flex: 1 1 320px;
+      }
+      #challenges-list {
+        list-style: none;
+        font-size: 0.7rem;
+      }
+      #challenges-list li {
+        border-bottom: 1px solid var(--border-color);
+        white-space: normal;
+        word-break: break-word;
+      }
       #presence-list li {
         border-bottom: 1px solid var(--border-color);
         white-space: normal;
@@ -367,6 +385,20 @@ table td {
         </div>
       </div>
 
+      <div class="side-by-side">
+      <div class="card" id="challenges-card">
+        <div class="toggle-header" onclick="toggleCard('challenges-card')" style="cursor: pointer;">
+          <h3 style="margin: 0; display: inline;">Open challenges</h3>
+          <span class="toggle-indicator">▾</span>
+        </div>
+        <div class="card-content" id="challenges-info">
+          <span id="challenges-meta" class="refresh-tag">Loading…</span>
+          <ul id="challenges-list">
+            <li style="color: var(--secondary-color);">Loading open challenges…</li>
+          </ul>
+        </div>
+      </div>
+
       <div class="card" id="presence-card">
         <div class="toggle-header" onclick="toggleCard('presence-card')" style="cursor: pointer;">
           <h3 style="margin: 0; display: inline;">Presence registry</h3>
@@ -381,6 +413,7 @@ table td {
             <li style="color: var(--secondary-color);">Loading presence registry…</li>
           </ul>
         </div>
+      </div>
       </div>
 
        <div class="card collapsed" id="ip-cache-card">
@@ -593,6 +626,35 @@ table td {
           `${name} (${id}) — ${type} — ${presenceState(user)} — ${presenceAge(meta)}` +
           (place ? ` — ${place}` : "");
         return li;
+      }
+
+      async function loadChallenges() {
+        const meta = document.getElementById("challenges-meta");
+        const list = document.getElementById("challenges-list");
+        if (!meta || !list) return;
+        try {
+          const response = await fetch("/api/challenges", { cache: "no-store" });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.json();
+          const challenges = Array.isArray(data.challenges) ? data.challenges : [];
+          meta.textContent = `${challenges.length} pending`;
+          list.textContent = "";
+          if (challenges.length === 0) {
+            const empty = document.createElement("li");
+            empty.textContent = "No open challenges.";
+            list.appendChild(empty);
+            return;
+          }
+          challenges.forEach((c) => {
+            const age = Math.max(0, Math.round((data.ts - c.since) / 1000));
+            const li = document.createElement("li");
+            li.textContent = `${c.challenger} → ${c.challengee} — pending — ${age}s ago`;
+            list.appendChild(li);
+          });
+        } catch (error) {
+          meta.textContent = `Challenges fetch failed: ${error.message}`;
+          console.error("Error fetching challenges:", error);
+        }
       }
 
       async function loadPresence() {
@@ -929,6 +991,7 @@ table td {
       // The registry is cheap (one shared-dict read); show it with the rest of
       // the dashboard and keep the button above for an on-demand refresh.
       loadPresence();
+      loadChallenges();
     </script>
   </body>
 </html>
