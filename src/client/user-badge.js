@@ -68,6 +68,9 @@ class UserBadge extends I18nElement {
         const name = userStore.userName;
         const isAnon = isAnonymousName(name);
         const titleText = isAnon ? i18n.t('Click to change name') : undefined;
+        // The anon glow is styled on the host: a shadow on the inner .badge is
+        // clipped by the host's overflow: hidden and reads as an inner tint.
+        this.classList.toggle('anon', isAnon);
         return html`
             <div class="badge" style="--dot-color:${this._dotColor}" title=${titleText} @click=${this._onBadgeClick}>
                 <span class="dot"></span>

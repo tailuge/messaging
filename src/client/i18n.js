@@ -234,8 +234,11 @@ const TRANSLATIONS = {
 
 const STORAGE_KEY = 'locale';
 // Keys written by earlier versions of this module; still honoured so a returning
-// visitor keeps the language they already picked.
-const LEGACY_STORAGE_KEYS = ['lang', 'selector_lang'];
+// visitor keeps the language they already picked. `lang` is deliberately not
+// read: it was the old storage key for the old `?lang=` parameter, and the MOTD
+// was the last thing keyed off that name, so a stale "ko" there could disagree
+// with the `?locale=` the visitor is using now.
+const LEGACY_STORAGE_KEYS = ['selector_lang'];
 const URL_PARAM = 'locale';
 
 const isKnown = (code) => LOCALES.some(l => l.code === code);

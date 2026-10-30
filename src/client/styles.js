@@ -244,6 +244,11 @@ export const USER_BADGE_STYLES = css`
         max-width: 100%;
     }
     .badge:hover { filter: brightness(1.3); }
+    /* Players who have not chosen a name yet keep the generated "Anon-*" name.
+       A faint green aura draws the eye without being loud. It lives on
+       the host because the host's own overflow: hidden would clip a shadow
+       drawn by the inner .badge. */
+    :host(.anon) { border-radius: 4px; box-shadow: 0 0 3px rgba(100, 255, 131, 0.35), 0 0 7px rgba(100, 255, 131, 0.2); }
     .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: var(--dot-color, #888); }
     input {
         background: transparent; border: none; color: inherit;
