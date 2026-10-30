@@ -171,12 +171,14 @@ removes entries automatically. Use 60 s, the time limit chosen in section 6. No 
   challenger going offline. The target's own leave does nothing, because that departure is the
   case being fixed.
 
-**Delivery:** when a presence `join` for user Y is published, look for keys with suffix `|Y`
-and re-publish each held offer to the lobby channel, as `publish_auto_leave` already does for
-its own publishes. The re-publish follows the join frame on the same channel, so ordering is
-kept. The re-published offer passes the offer hook again, which only rewrites the same key, so
-there is no loop and no special case is needed. The joining client handles it as an ordinary offer: it is buffered during join and
-deduplicated against resolutions in that window. No new endpoint, no client or library change.
+**Delivery (revised):** the first design re-published held offers to `presence/lobby` from inside
+the presence `join` publish. That deadlocked the join request in Nchan (see `status.md`), so it
+was dropped. Held offers are instead returned by the presence snapshot: `GET
+/api/online/presence?uid=Y` adds a `challenges` array of the offers held for Y. `NchanClient.
+fetchPresenceSnapshot(userId)` decodes them, and `Lobby.join()` adds them to the buffered
+challenges before `fireSettled()`. An offer the live subscription already delivered is skipped by
+`tableId`. No nested publish. This is a small library change (`src/nchanclient.ts`,
+`src/lobby.ts`), so the "no client or library change" point above no longer holds.
 
 **Scan cost:** both lookups scan `keys()` of a dict that holds only offers from the last 60 s,
 so they stay small. This is the same scan cost `presence_live` already pays.

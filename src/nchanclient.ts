@@ -176,19 +176,24 @@ export class NchanClient {
    * at snapshot time, comparable with `meta.ts` on live presence frames.
    * Throws on non-2xx or after a short timeout; the caller decides the fallback.
    */
-  async fetchPresenceSnapshot(): Promise<{ ts: number; users: PresenceMessage[] }> {
+  async fetchPresenceSnapshot(
+    userId?: string,
+  ): Promise<{ ts: number; users: PresenceMessage[]; challenges: ChallengeMessage[] }> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 3000);
     try {
-      const res = await fetch(this.getHttpUrl("/api/online/presence"), {
+      const query = userId ? `?uid=${encodeURIComponent(userId)}` : "";
+      const res = await fetch(this.getHttpUrl(`/api/online/presence${query}`), {
         cache: "no-store",
         signal: controller.signal,
       });
       if (!res.ok) throw new Error(`Snapshot failed: ${res.status}`);
       const body = await res.json();
+      const decode = (u: unknown) => JSON.parse(decodeWire(JSON.stringify(u)));
       return {
         ts: body.ts,
-        users: body.users.map((u: unknown) => JSON.parse(decodeWire(JSON.stringify(u)))),
+        users: body.users.map(decode),
+        challenges: (body.challenges ?? []).map(decode),
       };
     } finally {
       clearTimeout(timer);

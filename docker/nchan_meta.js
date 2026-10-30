@@ -955,13 +955,32 @@ async function online_users_api(r) {
   r.return(200, JSON.stringify(users));
 }
 
+// Open offers addressed to `userId`, as published. The key ends with "|<challengee>".
+function heldOffersFor(userId) {
+  const dict = ngx.shared.challenges_live;
+  const suffix = "|" + userId;
+  const keys = dict.keys() || [];
+  const offers = [];
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (key.indexOf(CHALLENGE_KEY_PREFIX) !== 0) continue;
+    if (key.length <= suffix.length || key.slice(-suffix.length) !== suffix) continue;
+    try {
+      offers.push(JSON.parse(dict.get(key)));
+    } catch (e) {}
+  }
+  return offers;
+}
+
 // Phase 1 snapshot: every online user's full enriched presence frame, in one
-// response. The dashboard is the only consumer for now; the library does not
-// call this.
+// response. With ?uid=<userId> it also carries that user's held offers, so a
+// target who (re)joins the lobby receives offers sent while they were away.
 function online_presence_api(r) {
+  const uid = r.args.uid;
+  const challenges = uid ? heldOffersFor(uid) : [];
   r.headersOut["Content-Type"] = "application/json";
   r.headersOut["Cache-Control"] = "no-store";
-  r.return(200, JSON.stringify({ ts: Date.now(), ttl: PRESENCE_TTL_MS, users: getPresenceFrames() }));
+  r.return(200, JSON.stringify({ ts: Date.now(), ttl: PRESENCE_TTL_MS, users: getPresenceFrames(), challenges: challenges }));
 }
 
 export default { publish, presence_sub, presence_unsub, stats, online_users_api, online_presence_api, presence_history_api, challenges_api, tables_api, table_unsub, table_sub };

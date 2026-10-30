@@ -127,8 +127,17 @@ export class Lobby {
     }
 
     // Snapshot is the initial state. If it fails, keep whatever is buffered and settle anyway.
-    const snapshot = await this.fetchSnapshot();
+    const snapshot = await this.fetchSnapshot(this.currentUser.userId);
     if (snapshot) this.setUsers(snapshot.users);
+
+    // Offers held for us while we were away. A live copy of the same offer may
+    // already be buffered, so match on tableId to avoid emitting it twice.
+    if (snapshot) {
+      const seen = new Set(this.unsettledChallengeMessages.map((m) => m.tableId));
+      for (const offer of snapshot.challenges) {
+        if (!seen.has(offer.tableId)) this.unsettledChallengeMessages.push(offer);
+      }
+    }
 
     // Drain buffered frames. With a snapshot, drop frames it already reflects (server clock only),
     // so a replayed join for someone who has since left cannot resurrect them.
@@ -154,9 +163,11 @@ export class Lobby {
     if (snapshot) this.setUsers(snapshot.users);
   }
 
-  private async fetchSnapshot(): Promise<{ ts: number; users: PresenceMessage[] } | null> {
+  private async fetchSnapshot(
+    userId?: string,
+  ): Promise<{ ts: number; users: PresenceMessage[]; challenges: ChallengeMessage[] } | null> {
     try {
-      return await this.nchan.fetchPresenceSnapshot();
+      return await this.nchan.fetchPresenceSnapshot(userId);
     } catch (e) {
       console.warn("[Lobby] Presence snapshot failed:", e);
       return null;
