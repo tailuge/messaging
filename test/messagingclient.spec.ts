@@ -440,7 +440,7 @@ describe("MessagingClient - Phase 1", () => {
       );
     });
 
-    it("should not replay offers sent while the user was disconnected", async () => {
+    it("should re-deliver offers sent while the user was disconnected (lostchallenge.md §10)", async () => {
       const clientA = createClient();
       const clientB = createClient();
 
@@ -480,7 +480,8 @@ describe("MessagingClient - Phase 1", () => {
       // 5. B disconnects (leaves lobby without isTeardown to simulate disconnect)
       await lobbyB.leave({ isTeardown: false });
 
-      // 6. B rejoins. Challenges sent while disconnected are accepted as lost (no replay).
+      // 6. B rejoins. The server holds the unanswered offer for 60 s and replays
+      //    it on B's join, so the challenge survives B's trip through the lobby.
       const clientB2 = createClient();
       let receivedChallengeAfterReconnect: any = null;
       const lobbyB2 = await clientB2.joinLobby({
@@ -495,9 +496,10 @@ describe("MessagingClient - Phase 1", () => {
         receivedChallengeAfterReconnect = c;
       });
 
-      // Give any stray replay a chance to arrive, then assert none did
-      await new Promise((r) => setTimeout(r, 500));
-      expect(receivedChallengeAfterReconnect).toBeNull();
+      await waitUntil(() => receivedChallengeAfterReconnect !== null, 5000);
+      expect(receivedChallengeAfterReconnect.challengerId).toBe("user-aa");
+      expect(receivedChallengeAfterReconnect.type).toBe("offer");
+      expect(receivedChallengeAfterReconnect.tableId).toBe(tableId);
     });
 
     it("should notify when an opponent leaves the table explicitly", async () => {

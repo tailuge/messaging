@@ -322,10 +322,12 @@ function updatePresenceRegistry(r, reqText, body) {
   recordPresenceCount();
 }
 
-// Open challenges for the dashboard (/api/challenges). One entry per pair,
-// "c:<challengerId>|<challengeeId>" -> offer time (ms). Matched by string search
-// on the compact wire keys of the raw request, so the hot path does no JSON parse.
-// Entries expire on the zone timeout (1 min), so a missed resolution cannot linger.
+// Open challenges: one entry per pair, "c:<challengerId>|<challengeeId>" -> the
+// enriched offer body. The body is kept rather than just a time so a target who
+// (re)joins can be sent the original offer, options included. Matched by string
+// search on the compact wire keys, so the hot path does no JSON parse. Entries
+// expire on the zone timeout (1 min), the held-offer limit from lostchallenge.md
+// section 6, so a missed resolution cannot linger.
 const CHALLENGE_KEY_PREFIX = "c:";
 
 // A challenger who leaves no longer has open offers. Only offers they sent are
@@ -339,23 +341,35 @@ function clearChallengesFrom(userId) {
   }
 }
 
-function updateChallengeRegistry(r, reqText) {
-  if (!isPresenceLobbyChannel(r) || reqText.indexOf('"m":"c"') === -1) return;
+function updateChallengeRegistry(r, body) {
+  if (!isPresenceLobbyChannel(r) || body.indexOf('"m":"c"') === -1) return;
   // The first "t", "u" and "e" are the top-level fields: the client builds the
   // object with type and the ids before any options or custom payload.
-  const type = /"t":"([a-z])"/.exec(reqText);
-  const challenger = /"u":"([^"]*)"/.exec(reqText);
-  const challengee = /"e":"([^"]*)"/.exec(reqText);
+  const type = /"t":"([a-z])"/.exec(body);
+  const challenger = /"u":"([^"]*)"/.exec(body);
+  const challengee = /"e":"([^"]*)"/.exec(body);
   if (!type || !challenger || !challengee) return;
   // accept, decline and cancel all carry the same challenger/challengee pair
   // as the offer, so one key covers the whole lifecycle.
   const key = CHALLENGE_KEY_PREFIX + challenger[1] + "|" + challengee[1];
   const dict = ngx.shared.challenges_live;
   if (type[1] === "o") {
-    dict.set(key, String(Date.now()));
+    // The enriched body is exactly what was published, so a replay is the original
+    // offer rather than a reconstruction of it.
+    dict.set(key, body);
   } else if (type[1] === "a" || type[1] === "d" || type[1] === "x") {
     dict.delete(key);
   }
+}
+
+// The stored value is a published offer, so its time is the meta timestamp:
+// compact "t" or canonical "ts". Meta is a flat object, so the first match is it.
+function challengeSince(body) {
+  if (typeof body !== "string") return NaN;
+  const meta = /"meta"\s*:\s*\{([^{}]*)\}/.exec(body);
+  if (!meta) return NaN;
+  const ts = /"(?:t|ts)"\s*:\s*(\d+)/.exec(meta[1]);
+  return ts ? parseInt(ts[1], 10) : NaN;
 }
 
 // Users-online history for usage.html. The count is derived from the registry
@@ -413,7 +427,7 @@ async function publish(r) {
   const body = injectMetaString(reqText, meta);
   try {
     updatePresenceRegistry(r, reqText, body);
-    updateChallengeRegistry(r, reqText);
+    updateChallengeRegistry(r, body);
   } catch (e) {
     ngx.log(ngx.WARN, `presence registry error: ${e && e.message ? e.message : e}`);
   }
@@ -909,7 +923,7 @@ function challenges_api(r) {
     const key = keys[i];
     if (key.indexOf(CHALLENGE_KEY_PREFIX) !== 0) continue;
     const sep = key.indexOf("|");
-    const since = parseInt(dict.get(key), 10);
+    const since = challengeSince(dict.get(key));
     if (sep < 0 || isNaN(since)) continue;
     challenges.push({ challenger: key.slice(CHALLENGE_KEY_PREFIX.length, sep), challengee: key.slice(sep + 1), since: since });
   }
