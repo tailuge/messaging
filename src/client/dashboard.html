@@ -7,6 +7,7 @@
       href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>D</text></svg>"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Dashboard for Nchan and Nginx server metrics and system status.">
     <title>Nchan Dashboard</title>
     <style>
       * {
@@ -46,11 +47,11 @@ h1 {
   margin: 0;
   font-size: 0.85rem;
 }
-h3 {
+h2 {
   margin: 0;
   font-size: 0.75rem;
 }
-h4 {
+h3 {
   margin: 0;
   font-size: 0.7rem;
   color: var(--secondary-color);
@@ -135,7 +136,7 @@ table td {
       }
       .refresh-tag {
         font-size: 0.7rem;
-        color: var(--secondary-color);
+        color: #333333;
       }
       input[type="text"] {
         padding: 5px 1px;
@@ -234,7 +235,7 @@ table td {
         align-items: center;
         gap: 5px;
       }
-      .toggle-header h3 {
+      .toggle-header h2 {
         margin: 0;
       }
       .dashboard-footer {
@@ -248,7 +249,7 @@ table td {
     </style>
   </head>
   <body>
-    <div class="dashboard">
+    <main class="dashboard">
       <header>
         <h1>Nchan Dashboard</h1>
         <div class="controls">
@@ -259,10 +260,10 @@ table td {
 
       <div class="grid">
         <div class="card">
-          <h3>System Status</h3>
+          <h2>System Status</h2>
           <div class="grid">
             <div>
-              <h4>Nginx</h4>
+              <h3>Nginx</h3>
               <table id="nginx-table">
                 <tr>
                   <td>Uptime</td>
@@ -291,7 +292,7 @@ table td {
               </table>
             </div>
             <div>
-              <h4>Nchan Global</h4>
+              <h3>Nchan Global</h3>
               <table id="nchan-table">
                 <tr>
                   <td>Total Published</td>
@@ -339,7 +340,7 @@ table td {
         </div>
 
         <div class="card">
-          <h3>Container</h3>
+          <h2>Container</h2>
           <table id="system-table">
             <tr>
               <td>Memory</td>
@@ -388,7 +389,7 @@ table td {
       <div class="side-by-side">
       <div class="card" id="challenges-card">
         <div class="toggle-header" onclick="toggleCard('challenges-card')" style="cursor: pointer;">
-          <h3 style="margin: 0; display: inline;">Open challenges</h3>
+          <h2 style="margin: 0; display: inline;">Open challenges</h2>
           <span class="toggle-indicator">▾</span>
         </div>
         <div class="card-content" id="challenges-info">
@@ -401,7 +402,7 @@ table td {
 
       <div class="card" id="presence-card">
         <div class="toggle-header" onclick="toggleCard('presence-card')" style="cursor: pointer;">
-          <h3 style="margin: 0; display: inline;">Presence registry</h3>
+          <h2 style="margin: 0; display: inline;">Presence registry</h2>
           <span class="toggle-indicator">▾</span>
         </div>
         <div class="card-content" id="presence-info">
@@ -418,7 +419,7 @@ table td {
 
        <div class="card collapsed" id="ip-cache-card">
         <div class="toggle-header" onclick="toggleCard('ip-cache-card')" style="cursor: pointer;">
-          <h3 style="margin: 0; display: inline;">IP Cache (shared dict)</h3>
+          <h2 style="margin: 0; display: inline;">IP Cache (shared dict)</h2>
           <span class="toggle-indicator">&#9656;</span>
         </div>
          <div id="ip-cache-meta" class="refresh-tag"></div>
@@ -447,7 +448,7 @@ table td {
       <div class="grid">
         <div class="card" id="ref-card">
           <div class="toggle-header" onclick="toggleCard('ref-card')" style="cursor: pointer;">
-            <h3 style="margin: 0; display: inline;">Referrer Sources</h3>
+            <h2 style="margin: 0; display: inline;">Referrer Sources</h2>
             <span class="toggle-indicator">▾</span>
           </div>
           <div id="ref-meta" class="refresh-tag"></div>
@@ -472,7 +473,7 @@ table td {
 
         <div class="card" id="ua-card">
           <div class="toggle-header" onclick="toggleCard('ua-card')" style="cursor: pointer;">
-            <h3 style="margin: 0; display: inline;">OS & Browser</h3>
+            <h2 style="margin: 0; display: inline;">OS & Browser</h2>
             <span class="toggle-indicator">▾</span>
           </div>
           <div id="ua-meta" class="refresh-tag"></div>
@@ -498,7 +499,7 @@ table td {
 
         <div class="card" id="geo-card">
           <div class="toggle-header" onclick="toggleCard('geo-card')" style="cursor: pointer;">
-            <h3 style="margin: 0; display: inline;">Country & Cities</h3>
+            <h2 style="margin: 0; display: inline;">Country & Cities</h2>
             <span class="toggle-indicator">▾</span>
           </div>
           <div id="geo-meta" class="refresh-tag"></div>
@@ -524,7 +525,7 @@ table td {
 
 <div class="card collapsed" id="njs-logs-card">
         <div class="toggle-header" onclick="toggleCard('njs-logs-card')" style="cursor: pointer;">
-          <h3 style="margin: 0; display: inline;">NJS Logs</h3>
+          <h2 style="margin: 0; display: inline;">NJS Logs</h2>
           <span class="toggle-indicator">▾</span>
         </div>
         <div id="njs-logs-meta" class="refresh-tag"></div>
@@ -548,7 +549,7 @@ table td {
       </div>
 
       <footer class="dashboard-footer"><a href="/">main</a></footer>
-    </div>
+    </main>
 
     <script>
       function toggleCard(cardId) {

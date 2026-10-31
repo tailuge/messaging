@@ -28,7 +28,7 @@
       margin: 0;
     }
     .server-stats-links a {
-      color: #0055ff;
+      color: #58a6ff;
       text-decoration: none;
       margin-left: 20px;
       font-size: 0.8rem;
@@ -86,7 +86,7 @@
       font-size: 0.7rem;
     }
     .source-pages a {
-      color: #0055ff;
+      color: #58a6ff;
       text-decoration: none;
     }
     .source-pages a:hover {
@@ -103,7 +103,11 @@
       <a href="https://dashboard.render.com/web/srv-ctk5bmtds78s73eteil0/metrics" target="_blank">RENDER</a>
     </div>
   </header>
-  <main id="chart-grid" class="chart-grid"></main>
+  <main id="chart-grid" class="chart-grid">
+    <div id="lobby-game" class="chart-container"></div>
+    <div id="challenges-accepts" class="chart-container"></div>
+    <div id="games-completed" class="chart-container"></div>
+  </main>
 
   <section class="chart-section">
     <div class="chart-panel">
@@ -186,10 +190,12 @@
     const chartGrid = document.getElementById("chart-grid")
 
     GROUPS.forEach((group) => {
-      const container = document.createElement("div")
-      container.id = group.id
-      container.className = "chart-container"
-      chartGrid.appendChild(container)
+      if (!document.getElementById(group.id)) {
+        const container = document.createElement("div")
+        container.id = group.id
+        container.className = "chart-container"
+        chartGrid.appendChild(container)
+      }
     })
 
     // One fetch feeds every panel on the page: the Plotly groups, the language
