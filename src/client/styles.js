@@ -69,13 +69,13 @@ export const SHARED_STYLES = css`
     button:focus-visible { outline: 2px solid #007bff; outline-offset: 2px; }
     /* Shared bevel treatment: inset highlight + drop shadow + tinted glow.
        :active inverts the bevel and nudges the button down 1 px so clicks feel physical. */
-    .btn-challenge, .btn-accept, .btn-decline, .btn-leave {
+    .btn-challenge, .btn-accept, .btn-decline, .btn-leave, .btn-spectate {
         background-image: linear-gradient(180deg, rgb(255 255 255 / 12%), rgb(0 0 0 / 6%));
         border: none;
         transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
     }
-    .btn-challenge, .btn-accept, .btn-decline, .btn-leave { color: #fff; }
-    .btn-challenge:active, .btn-accept:active, .btn-decline:active, .btn-leave:active {
+    .btn-challenge, .btn-accept, .btn-decline, .btn-leave, .btn-spectate { color: #fff; }
+    .btn-challenge:active, .btn-accept:active, .btn-decline:active, .btn-leave:active, .btn-spectate:active {
         transform: translateY(1px);
     }
 
@@ -94,6 +94,10 @@ export const SHARED_STYLES = css`
     .btn-leave     { background-color: #6c757d; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 1px 2px rgb(0 0 0 / 20%), 0 2px 6px rgb(108 117 125 / 25%); }
     .btn-leave:hover { background-color: #5a6268; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 2px 4px rgb(0 0 0 / 22%), 0 4px 10px rgb(108 117 125 / 30%); }
     .btn-leave:active { box-shadow: inset 0 1px 2px rgb(0 0 0 / 25%), 0 1px 1px rgb(0 0 0 / 15%); }
+
+    .btn-spectate  { background-color: #7c3aed; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 1px 2px rgb(0 0 0 / 20%), 0 2px 6px rgb(124 58 237 / 25%); }
+    .btn-spectate:hover { background-color: #6d28d9; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 2px 4px rgb(0 0 0 / 22%), 0 4px 10px rgb(124 58 237 / 30%); }
+    .btn-spectate:active { box-shadow: inset 0 1px 2px rgb(0 0 0 / 25%), 0 1px 1px rgb(0 0 0 / 15%); }
 `;
 
 export const USER_LIST_STYLES = css`

@@ -35,8 +35,6 @@ export class UserList extends I18nElement {
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         li { animation: fadeIn 0.2s ease-out; anchor-scope: --user-name; }
         .btn-chat { animation: throb 2s ease-in-out infinite; font-size: 1rem; border: none; background: none; padding: 0 0.2rem; }
-        .btn-spectate { background: #7c3aed; color: #fff; border: none; border-radius: 4px; padding: 0.25rem 0.6rem; cursor: pointer; }
-        .btn-spectate:hover { background: #6d28d9; }
         .name-wrap {
             position: relative;
             display: inline-block;
