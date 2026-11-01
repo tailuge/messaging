@@ -28,10 +28,10 @@ export const ARENA_ROW_STYLES = css`
     .arena-item-name { font-weight: 400; }
     .arena-item-meta { color: var(--text-muted); font-size: .72rem; font-weight: 400; white-space: nowrap; }
     .arena-winner { margin-left: auto; max-width: 35%; overflow: hidden; text-overflow: ellipsis; color: var(--text-muted); font-size: .72rem; white-space: nowrap; flex-shrink: 0; }
-    .arena-join { cursor: pointer; border: 1px solid #0d6efd; border-radius: 4px; background: #0d6efd; color: #fff; font: inherit; font-size: .75rem; padding: .15rem .4rem; flex-shrink: 0; }
-    .arena-join:hover { background-color: #0b5ed7; border-color: #0a58ca; }
-    .arena-join:active { background-color: #0a58ca; }
-    .arena-join:focus-visible { outline: 2px solid #007bff; outline-offset: 1px; }
+    .arena-join { cursor: pointer; border: none; border-radius: 4px; background-color: #0d6efd; background-image: linear-gradient(180deg, rgb(255 255 255 / 12%), rgb(0 0 0 / 6%)); color: #fff; font: inherit; font-size: .75rem; padding: .15rem .4rem; flex-shrink: 0; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 1px 2px rgb(0 0 0 / 20%), 0 2px 6px rgb(13 110 253 / 25%); transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease; }
+    .arena-join:hover { background-color: #0b5ed7; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 2px 4px rgb(0 0 0 / 22%), 0 4px 10px rgb(13 110 253 / 30%); }
+    .arena-join:active { transform: translateY(1px); box-shadow: inset 0 1px 2px rgb(0 0 0 / 25%), 0 1px 1px rgb(0 0 0 / 15%); }
+    .arena-join:focus-visible { outline: 2px solid #1e3a8a; outline-offset: 2px; }
     .empty { color: var(--text-muted); text-align: center; padding: .5rem 0; }
 `;
 

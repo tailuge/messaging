@@ -67,14 +67,33 @@ export const SHARED_STYLES = css`
     button:hover { background-color: var(--btn-hover); }
     button:active { background-color: var(--btn-active); }
     button:focus-visible { outline: 2px solid #007bff; outline-offset: 2px; }
-    .btn-challenge { background: #0d6efd; color: #fff; border-color: #0d6efd; }
-    .btn-challenge:hover { background: #0b5ed7; border-color: #0a58ca; }
-    .btn-accept    { background: #198754; color: #fff; border-color: #198754; }
-    .btn-accept:hover { background: #157347; border-color: #146c43; }
-    .btn-decline   { background: #bb2d3b; color: #fff; border-color: #bb2d3b; }
-    .btn-decline:hover { background: #a52834; border-color: #9b2531; }
-    .btn-leave     { background: #6c757d; color: #fff; border-color: #6c757d; }
-    .btn-leave:hover { background: #5a6268; border-color: #545b62; }
+    /* Shared bevel treatment: inset highlight + drop shadow + tinted glow.
+       :active inverts the bevel and nudges the button down 1 px so clicks feel physical. */
+    .btn-challenge, .btn-accept, .btn-decline, .btn-leave {
+        background-image: linear-gradient(180deg, rgb(255 255 255 / 12%), rgb(0 0 0 / 6%));
+        border: none;
+        transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+    }
+    .btn-challenge, .btn-accept, .btn-decline, .btn-leave { color: #fff; }
+    .btn-challenge:active, .btn-accept:active, .btn-decline:active, .btn-leave:active {
+        transform: translateY(1px);
+    }
+
+    .btn-challenge { background-color: #0d6efd; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 1px 2px rgb(0 0 0 / 20%), 0 2px 6px rgb(13 110 253 / 25%); }
+    .btn-challenge:hover { background-color: #0b5ed7; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 2px 4px rgb(0 0 0 / 22%), 0 4px 10px rgb(13 110 253 / 30%); }
+    .btn-challenge:active { box-shadow: inset 0 1px 2px rgb(0 0 0 / 25%), 0 1px 1px rgb(0 0 0 / 15%); }
+
+    .btn-accept    { background-color: #198754; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 1px 2px rgb(0 0 0 / 20%), 0 2px 6px rgb(25 135 84 / 25%); }
+    .btn-accept:hover { background-color: #157347; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 2px 4px rgb(0 0 0 / 22%), 0 4px 10px rgb(25 135 84 / 30%); }
+    .btn-accept:active { box-shadow: inset 0 1px 2px rgb(0 0 0 / 25%), 0 1px 1px rgb(0 0 0 / 15%); }
+
+    .btn-decline   { background-color: #bb2d3b; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 1px 2px rgb(0 0 0 / 20%), 0 2px 6px rgb(187 45 59 / 25%); }
+    .btn-decline:hover { background-color: #a52834; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 2px 4px rgb(0 0 0 / 22%), 0 4px 10px rgb(187 45 59 / 30%); }
+    .btn-decline:active { box-shadow: inset 0 1px 2px rgb(0 0 0 / 25%), 0 1px 1px rgb(0 0 0 / 15%); }
+
+    .btn-leave     { background-color: #6c757d; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 1px 2px rgb(0 0 0 / 20%), 0 2px 6px rgb(108 117 125 / 25%); }
+    .btn-leave:hover { background-color: #5a6268; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 2px 4px rgb(0 0 0 / 22%), 0 4px 10px rgb(108 117 125 / 30%); }
+    .btn-leave:active { box-shadow: inset 0 1px 2px rgb(0 0 0 / 25%), 0 1px 1px rgb(0 0 0 / 15%); }
 `;
 
 export const USER_LIST_STYLES = css`
