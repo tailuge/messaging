@@ -188,15 +188,24 @@
       let currentTable = null;
       let idleTimer = null;
       let messageCount = 0;
+      // Subset of messageCount carrying type HIT (as sent by the game).
+      let hitCount = 0;
       // Approximate wire size of every received message, in UTF-8 bytes.
       let messageBytes = 0;
       const encoder = new TextEncoder();
 
-      // "Count (KB)" summary for the received messages so far.
-      function messageStatsText(count, bytes) {
+      // Game messages arrive with the type as published, so compare it
+      // case-insensitively rather than assuming a single casing.
+      function isHitMessage(msg) {
+        return String(msg?.type ?? '').toUpperCase() === 'HIT';
+      }
+
+      // "Count (KB)" summary for the received messages so far, plus how many
+      // of them were HIT messages.
+      function messageStatsText(count, bytes, hits) {
         const kb = bytes / 1024;
         const kbText = kb < 10 ? kb.toFixed(2) : kb.toFixed(1);
-        return `${count} message${count === 1 ? '' : 's'} (${kbText} KB)`;
+        return `${count} message${count === 1 ? '' : 's'} (${kbText} KB) · ${hits} HIT`;
       }
 
       // Format epoch ms as MM:SS:mmm (minutes:seconds:milliseconds of the time-of-day)
@@ -295,7 +304,11 @@
         idleTimer = setTimeout(async () => {
           spectatorStatus.textContent =
             messageCount > 0
-              ? `Received ${messageStatsText(messageCount, messageBytes)}`
+              ? `Received ${messageStatsText(
+                  messageCount,
+                  messageBytes,
+                  hitCount
+                )}`
               : 'No events received';
           await cleanup();
         }, 1000);
@@ -311,6 +324,7 @@
         eventList.innerHTML = '';
         spectatorSection.style.display = 'block';
         messageCount = 0;
+        hitCount = 0;
         messageBytes = 0;
 
         // Base URL logic
@@ -330,10 +344,12 @@
               // Reset idle timer whenever a message is received
               resetIdleTimer();
               messageCount++;
+              if (isHitMessage(msg)) hitCount++;
               messageBytes += encoder.encode(JSON.stringify(msg)).length;
               spectatorStatus.textContent = `Received ${messageStatsText(
                 messageCount,
-                messageBytes
+                messageBytes,
+                hitCount
               )}`;
 
               // Only collapse consecutive AIM bursts from the same sender.
