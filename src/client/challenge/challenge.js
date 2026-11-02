@@ -154,6 +154,12 @@ function selectDish(idx) {
 // The list the rail is drawn from; the top-20 gate reads it before uploading.
 let saguScores = [];
 
+// The rail's identity for a row: player and score.
+const rowKey = (entry) => `${entry?.name ?? ""}|${Number(entry?.score) || 0}`;
+
+// Rows this page uploaded, so the draw can mark the one that just arrived.
+const newRowKeys = new Set();
+
 // Draw the rail from `saguScores` alone, so a run uploaded this session can be
 // shown without waiting for the server's cached feed to catch up.
 function renderSaguHiscores() {
@@ -163,20 +169,14 @@ function renderSaguHiscores() {
     return;
   }
   breakStatus.textContent = "";
-  saguScores.forEach((entry, idx) => {
+  saguScores.forEach((entry) => {
     const row = document.createElement("li");
-
-    const rank = document.createElement("span");
-    rank.className = "break-rank";
-    rank.textContent = idx + 1;
 
     const name = document.createElement("span");
     name.className = "break-name";
     name.textContent = entry?.name ?? "";
     name.title = entry?.name ?? "";
 
-    // Same replay link the lobby uses: the rank endpoint redirects to the
-    // stored replay, and the link opens in this tab.
     // The dish a score unlocks: score N is the Nth dish in list order.
     const dish = foodItems[Number(entry?.score) - 1];
     const emoji = document.createElement("span");
@@ -185,18 +185,30 @@ function renderSaguHiscores() {
     emoji.title = dish?.nameKr ?? "";
     emoji.setAttribute("aria-hidden", "true");
 
-    const score = document.createElement("a");
+    const score = document.createElement("span");
     score.className = "break-score";
     score.textContent = entry?.score ?? "";
+
+    // The row itself is the link, so the whole line is one comfortably sized
+    // target instead of a two-digit score. Same replay link the lobby uses: the
+    // rank endpoint redirects to the stored replay, and it opens in this tab.
+    const link = document.createElement("a");
+    link.className = "break-row";
     if (entry?.id) {
-      score.href = replayUrl(
+      link.href = replayUrl(
         `${SCOREBOARD_URL}/api/rank/${entry.id}?ruletype=sagu&lod=${userStore.lod}`,
         userStore.clientId,
         userStore.userName
       );
+      link.setAttribute(
+        "aria-label",
+        `${name.textContent} ${score.textContent}점 리플레이`
+      );
     }
 
-    row.append(rank, emoji, name, score);
+    link.append(emoji, name, score);
+    row.appendChild(link);
+    if (newRowKeys.has(rowKey(entry))) row.classList.add("is-new");
     breakList.appendChild(row);
   });
 }
@@ -228,6 +240,9 @@ function addLocalSaguScore(entry) {
   const at = rows.findIndex((row) => Number(row?.score) < entry.score);
   rows.splice(at === -1 ? rows.length : at, 0, entry);
   saguScores = rows.slice(0, HISCORE_TOP_N);
+  // Marked so the draw can pick the row out of the rest of the list.
+  newRowKeys.add(rowKey(entry));
+  console.log("hiscores: row added locally", entry, saguScores);
 }
 
 // Sagu runs in speedrun mode (see speedrun/index.html): the shot that
@@ -327,6 +342,7 @@ async function maybeUploadSaguScore(data, run) {
     [...(userStore.userName || "").trim()].slice(0, 12).join("") || "Anon";
   const url = `${SCOREBOARD_URL}/api/hiscore?ruletype=sagu&id=${encodeURIComponent(name)}`;
   const body = `?ruletype=sagu&state=${encodeURIComponent(replayData)}&score=${score}&v=1`;
+  console.log("upload hiscore", { url, score, name });
 
   for (let attempt = 0; attempt < 2; attempt++) {
     let res;
@@ -350,18 +366,24 @@ async function maybeUploadSaguScore(data, run) {
     if (res.ok) {
       localStorage.setItem(key, String(score));
       showUploadNote(run, "기록 등록 완료");
+      // The row is drawn before the response body is read: the body only
+      // supplies the stored row's id, and a slow or unreadable body must not
+      // hold back the update this page already has the score for.
+      const entry = { id: undefined, name, score };
+      addLocalSaguScore(entry);
+      renderSaguHiscores();
       // The stored row's id comes back from the server when it sends one; a row
       // without it is listed unlinked rather than linked to a missing id.
       const saved = await res.json().catch(() => null);
-      addLocalSaguScore({
-        id: typeof saved?.id === "string" ? saved.id : undefined,
-        name: typeof saved?.name === "string" ? saved.name : name,
-        score,
-      });
-      renderSaguHiscores();
+      if (typeof saved?.id === "string" || typeof saved?.name === "string") {
+        if (typeof saved.id === "string") entry.id = saved.id;
+        if (typeof saved.name === "string" && saved.name) entry.name = saved.name;
+        newRowKeys.add(rowKey(entry));
+        renderSaguHiscores();
+      }
       return;
     }
-    console.warn("sagu hiscore upload failed:", res.status, await res.text());
+    console.warn("upload hiscore failed:", res.status, await res.text());
     // Only server errors are retried; a 4xx means the request itself is rejected.
     if (res.status < 500) break;
     if (attempt === 0) await new Promise((r) => setTimeout(r, UPLOAD_RETRY_MS));
