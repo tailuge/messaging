@@ -4,6 +4,7 @@
 // score/gallery behaviour.
 import "../topbar.js";
 import { logUsage } from "../logusage.js";
+import { API_BASE } from "../utils.js";
 
 logUsage("challenge");
 
@@ -39,19 +40,25 @@ const wikiLink = document.getElementById("wiki-link");
 const reqScore = document.getElementById("required-score");
 const galleryGrid = document.getElementById("gallery-grid");
 const foodCard = document.getElementById("food-card");
+const breakList = document.getElementById("break-list");
+const breakStatus = document.getElementById("break-status");
 
 let currentIndex = -1;
+// The dish the user picked from the collection; null means "follow the score".
+let selectedIndex = null;
 
 // Build Gallery Grid. Every dish starts as its emoji; the photo swaps in once
 // the dish is unlocked (see `update`).
 function initGallery() {
   galleryGrid.replaceChildren();
   foodItems.forEach((item, idx) => {
-    const el = document.createElement("div");
+    const el = document.createElement("button");
+    el.type = "button";
     el.id = `gallery-${idx}`;
     el.className = "gallery-item";
     el.title = item.nameKr;
     el.setAttribute("aria-label", item.nameKr);
+    el.addEventListener("click", () => selectDish(idx));
 
     const emoji = document.createElement("span");
     emoji.className = "gallery-emoji";
@@ -97,19 +104,22 @@ function update(score) {
   // nothing is unlocked, but the card previews the first dish up for grabs.
   const unlockedCount = Math.min(foodItems.length, Math.max(0, score));
   const activeIdx = Math.max(0, unlockedCount - 1);
-  const food = foodItems[activeIdx];
-  const obtained = unlockedCount > activeIdx;
+  // Clicking a tile shows that dish in the card above; a new best score hands
+  // the card back to the newest dish.
+  const shownIdx = selectedIndex ?? activeIdx;
+  const food = foodItems[shownIdx];
+  const obtained = shownIdx < unlockedCount;
 
   // Card Pop Animation
-  if (currentIndex !== activeIdx) {
-    currentIndex = activeIdx;
+  if (currentIndex !== shownIdx) {
+    currentIndex = shownIdx;
     foodCard.classList.remove("animate-pop");
     void foodCard.offsetWidth;
     foodCard.classList.add("animate-pop");
   }
 
   // Text & Link updates
-  reqScore.textContent = activeIdx + 1;
+  reqScore.textContent = shownIdx + 1;
   foodNameKr.textContent = food.nameKr;
   foodDesc.textContent = food.desc;
   foodDesc.hidden = !food.desc;
@@ -121,8 +131,57 @@ function update(score) {
     const itemEl = document.getElementById(`gallery-${idx}`);
     if (itemEl) {
       itemEl.classList.toggle("unlocked", idx < unlockedCount);
+      itemEl.classList.toggle("selected", idx === shownIdx);
+      itemEl.setAttribute("aria-pressed", idx === shownIdx ? "true" : "false");
     }
   });
+}
+
+// Show one dish in the card above, obtained or not: a locked dish keeps its
+// emoji and its (higher) target score.
+function selectDish(idx) {
+  if (idx < 0 || idx >= foodItems.length) return;
+  selectedIndex = idx;
+  update(bestScore);
+}
+
+// The rail lists the sagu HiScores from `/api/hiscores/sagu`, the one-rule feed
+// this page needs: the lobby's `/api/summary` would also read the other four
+// rules' sets, the ELO hashes and the recent matches. Rows arrive best first.
+function renderSaguHiscores() {
+  fetch(`${API_BASE}/api/hiscores/sagu`, { mode: "cors" })
+    .then((response) => response.json())
+    .then((data) => {
+      const scores = Array.isArray(data?.hiscores) ? data.hiscores : [];
+      breakList.replaceChildren();
+      if (!scores.length) {
+        breakStatus.textContent = "아직 기록이 없습니다.";
+        return;
+      }
+      breakStatus.textContent = "";
+      scores.forEach((entry, idx) => {
+        const row = document.createElement("li");
+
+        const rank = document.createElement("span");
+        rank.className = "break-rank";
+        rank.textContent = idx + 1;
+
+        const name = document.createElement("span");
+        name.className = "break-name";
+        name.textContent = entry?.name ?? "";
+        name.title = entry?.name ?? "";
+
+        const score = document.createElement("span");
+        score.className = "break-score";
+        score.textContent = entry?.score ?? "";
+
+        row.append(rank, name, score);
+        breakList.appendChild(row);
+      });
+    })
+    .catch(() => {
+      breakStatus.textContent = "기록을 불러올 수 없습니다.";
+    });
 }
 
 // Sagu runs in speedrun mode (see speedrun/index.html): the shot that
@@ -171,6 +230,8 @@ let bestScore = 0;
 function scoreFromSagu(score) {
   const runScore = Math.min(MAX_SCORE, Math.max(0, Number(score) || 0));
   bestScore = Math.max(bestScore, runScore);
+  // A finished run takes the card back to the newest dish it unlocked.
+  selectedIndex = null;
   update(bestScore);
 }
 
@@ -201,3 +262,4 @@ window.addEventListener("message", (event) => {
 
 initGallery();
 update(0);
+renderSaguHiscores();

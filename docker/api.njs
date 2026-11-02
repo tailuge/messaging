@@ -282,6 +282,30 @@ async function readRecentMatches(limitMatches) {
     return (Array.isArray(members) ? members : []).map((member) => JSON.parse(member));
 }
 
+// GET /api/hiscores/sagu — only the sagu HiScores, best run first. The lobby's
+// /api/summary reads all five rules' sorted sets plus the ELO hashes and the
+// recent matches; a page that shows one rule should not pay for the other four.
+// No TTL argument, so the entry lives for the summary_cache zone's 30s default,
+// the same lifetime the summary response gets.
+async function saguHiscores(r) {
+    r.headersOut['Cache-Control'] = 'public, max-age=0, s-maxage=10';
+    const rule = "sagu";
+    const cacheKey = "hiscores:" + rule;
+    const cached = ngx.shared.summary_cache.get(cacheKey);
+    if (cached) return json(r, 200, JSON.parse(cached));
+
+    let result;
+    try {
+        result = await redis("ZRANGE", `hiscore${rule}`, "0", "9");
+    } catch (e) {
+        logApi("sagu hiscores read failed: " + (e && e.message ? e.message : e));
+        return json(r, 502, { error: "Upstream error", message: e && e.message ? e.message : String(e) });
+    }
+    const payload = { ruleType: rule, hiscores: parseHiscores(result) };
+    ngx.shared.summary_cache.set(cacheKey, JSON.stringify(payload));
+    return json(r, 200, payload);
+}
+
 async function summaryTopPlayers(limitElo) {
     const key = `topPlayers:${limitElo}`;
     const cached = ngx.shared.summary_cache.get(key);
@@ -817,6 +841,7 @@ async function router(r) {
     try {
         if (r.uri === '/api/hello' && r.method === 'GET') return await hello(r);
         if (r.uri === '/api/summary' && r.method === 'GET') return await summary(r);
+        if (r.uri === '/api/hiscores/sagu' && r.method === 'GET') return await saguHiscores(r);
         if (r.uri === '/api/usage' && r.method === 'GET') return await usageStats(r);
         if (r.uri.startsWith('/api/usage/')) {
             if (r.method === 'PUT') return await usage(r);
