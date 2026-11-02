@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 1386;
+export const CLIENTVERSION = 1389;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -214,12 +214,12 @@ export function getEmoji(origin = "", ruleType = "", status = "", options = {}, 
     return decorate({ emoji: (maprule ? maprule.emoji : "") + "⛩️", title: "map" });
   }
 
-  // The food challenge page: its own bowl of noodles, with the underlying rule's
-  // icon when one is named, e.g. a bare `challenge` (the page itself) -> 🍜 or
-  // `sagu-challenge` -> ④🍜.
-  if (ruleType.includes("challenge")) {
-    const challengerule = ruleMap[ruleType.replace("challenge", "").replace(/-$/, "")];
-    return decorate({ emoji: (challengerule ? challengerule.emoji : "") + "🍜", title: "challenge" });
+  // The food challenge, spotted by the `eat` suffix the way the map uses `-club`:
+  // keep the underlying rule's icon and add the bowl of noodles, e.g. `sagu-eat`
+  // -> ④🍜, or a bare `eat` (the challenge page itself) -> 🍜.
+  if (ruleType.includes("eat")) {
+    const eatrule = ruleMap[ruleType.replace("eat", "").replace(/-$/, "")];
+    return decorate({ emoji: (eatrule ? eatrule.emoji : "") + "🍜", title: "eat" });
   }
 
   // 2. Check origin patterns

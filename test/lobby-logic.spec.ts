@@ -65,9 +65,9 @@ describe("Lobby Logic", () => {
       expect(getEmoji("", "sagu", "", {})).toEqual({ emoji: "④", title: "sagu" });
     });
 
-    it("should mark the food challenge page with a bowl of noodles", () => {
-      expect(getEmoji("", "challenge")).toEqual({ emoji: "🍜", title: "challenge" });
-      expect(getEmoji("", "sagu-challenge")).toEqual({ emoji: "④🍜", title: "challenge" });
+    it("should mark the food challenge with a bowl of noodles", () => {
+      expect(getEmoji("", "eat")).toEqual({ emoji: "🍜", title: "eat" });
+      expect(getEmoji("", "sagu-eat")).toEqual({ emoji: "④🍜", title: "eat" });
     });
 
     it("should handle origin starting with / or containing workers", () => {
