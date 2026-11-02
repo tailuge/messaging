@@ -259,13 +259,18 @@ const SAGU_PHYSICS =
 const SAGU_GAME_BASE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
   ? `http://${location.hostname}:8080/index.html`
   : "../index.html";
-const SAGU_URL =
+// Identity is read when the game is launched, not at module load, the same way the map
+// page builds its club URL: the run is uploaded under the player's name, and a rename in
+// the header should carry into the next launch.
+const saguUrl = () =>
   SAGU_GAME_BASE +
   "?ruletype=sagu&speedrun&practice&raceTo=" +
   MAX_SCORE +
   SAGU_PHYSICS +
   `&init=${encodeURIComponent(JSON.stringify(SAGU_BALLS.flat()))}` +
-  `&initShot=${encodeURIComponent(JSON.stringify(SAGU_SHOT))}`;
+  `&initShot=${encodeURIComponent(JSON.stringify(SAGU_SHOT))}` +
+  `&userId=${encodeURIComponent(userStore.clientId)}` +
+  `&userName=${encodeURIComponent(userStore.userName)}`;
 const saguOverlay = document.getElementById("sagu-overlay");
 const saguFrame = document.getElementById("sagu-frame");
 const saguResult = document.getElementById("sagu-result");
@@ -367,7 +372,7 @@ async function maybeUploadSaguScore(data, run) {
 
 document.getElementById("play-sagu").addEventListener("click", () => {
   saguResult.textContent = "";
-  saguFrame.src = SAGU_URL;
+  saguFrame.src = saguUrl();
   saguOverlay.classList.add("active");
 });
 
