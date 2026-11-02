@@ -4,7 +4,7 @@
 // score/gallery behaviour.
 import "../topbar.js";
 import { logUsage } from "../logusage.js";
-import { API_BASE, SCOREBOARD_URL } from "../utils.js";
+import { API_BASE, SCOREBOARD_URL, replayUrl } from "../utils.js";
 import { userStore } from "../user-store.js";
 
 logUsage("challenge");
@@ -176,9 +176,18 @@ function renderSaguHiscores() {
         name.textContent = entry?.name ?? "";
         name.title = entry?.name ?? "";
 
-        const score = document.createElement("span");
+        // Same replay link the lobby uses: the rank endpoint redirects to the
+        // stored replay, and the link opens in this tab.
+        const score = document.createElement("a");
         score.className = "break-score";
         score.textContent = entry?.score ?? "";
+        if (entry?.id) {
+          score.href = replayUrl(
+            `${SCOREBOARD_URL}/api/rank/${entry.id}?ruletype=sagu&lod=${userStore.lod}`,
+            userStore.clientId,
+            userStore.userName
+          );
+        }
 
         row.append(rank, name, score);
         breakList.appendChild(row);
@@ -282,8 +291,9 @@ async function maybeUploadSaguScore(data, run) {
   const body = `?ruletype=sagu&state=${encodeURIComponent(replayData)}&score=${score}&v=1`;
 
   for (let attempt = 0; attempt < 2; attempt++) {
+    let res;
     try {
-      const res = await fetch(url, {
+      res = await fetch(url, {
         method: "POST",
         mode: "cors",
         cache: "no-cache",
@@ -293,16 +303,21 @@ async function maybeUploadSaguScore(data, run) {
         referrerPolicy: "no-referrer",
         body,
       });
-      if (res.ok) {
-        localStorage.setItem(key, String(score));
-        showUploadNote(run, "기록 등록 완료");
-        renderSaguHiscores();
-        return;
-      }
-      console.warn("sagu hiscore upload failed:", res.status, await res.text());
     } catch (err) {
+      // A thrown fetch can be a CORS/redirect failure after the server already
+      // stored the run, so retrying here would post a duplicate.
       console.warn("sagu hiscore upload error:", err);
+      break;
     }
+    if (res.ok) {
+      localStorage.setItem(key, String(score));
+      showUploadNote(run, "기록 등록 완료");
+      renderSaguHiscores();
+      return;
+    }
+    console.warn("sagu hiscore upload failed:", res.status, await res.text());
+    // Only server errors are retried; a 4xx means the request itself is rejected.
+    if (res.status < 500) break;
     if (attempt === 0) await new Promise((r) => setTimeout(r, UPLOAD_RETRY_MS));
   }
   // Not recorded locally, so a later run can retry the upload.
