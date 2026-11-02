@@ -135,7 +135,7 @@ class ChallengeModal extends I18nElement {
                                     aria-expanded=${this._expanded === s.key}
                                 >
                                     <img src=${s.img} alt=${s.key} />
-                                    <span class="section-label">${s.label}</span>
+                                    <span class="section-label">${i18n.t(s.label)}</span>
                                 </button>
                                 <div class="section-body${this._expanded === s.key ? ' expanded' : ''}">
                                         ${s.rules.map(r => html`
