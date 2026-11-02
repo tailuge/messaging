@@ -812,7 +812,12 @@ class RevealApp extends LitElement {
          reads as plain text -- no background or border, the padding alone carries the hit area
          -- but the box is large enough to tap. inline-block is load-bearing: padding does not
          grow the line box of an inline anchor, so without it the target stays one text line
-         tall. A miss here lands on the card, which flips the card shut. */
+         tall. A miss here lands on the card, which flips the card shut.
+
+         max-height keeps a long name from pushing the Play button off the face, and it fits three
+         whole lines: 3 x 1.15em of line-height plus the 0.6rem of vertical padding is 4.33em at
+         this font size. Anything less (it was 3.4em) cut a three-line name -- e.g. 양념치킨
+         (Yangnyeom Chicken) -- across its last line. */
       .back-name {
         display: inline-block;
         min-width: 24px;
@@ -826,7 +831,7 @@ class RevealApp extends LitElement {
         text-decoration: none;
         text-align: center;
         overflow-wrap: anywhere;
-        max-height: 3.4em;
+        max-height: 4.4em;
         overflow: hidden;
         cursor: pointer;
       }
