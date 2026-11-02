@@ -85,6 +85,16 @@ const DECKS = [
     mode: "manga",
     dataId: "manga-data",
   },
+  {
+    // Korean late-night food and street snacks (generated deck, `<ul id="kfood-data">`
+    // in index.html, read from ko.wikipedia). Label/title are the Korean deck name the
+    // script ships; `mode` stays ASCII so the shareable `?mode=` link is URL-safe.
+    id: "kfood",
+    label: "야식 대잔치",
+    title: "야식 대잔치",
+    mode: "yasik",
+    dataId: "kfood-data",
+  },
 ];
 
 // The collection is shared by every deck, so its cap has to cover all of them: a flat 20 silently

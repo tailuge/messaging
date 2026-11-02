@@ -2,8 +2,9 @@
 // Seed generator for the reveal decks (`<ul id="challenge-data">` in
 // src/client/reveal/index.html). Collects one entry per famous female
 // celebrity — South Korean — one per Taiwanese pop star of either gender, a
-// "tokyo" deck of that city's landmarks and a "taipei" deck of Taipei's and
-// Taiwan's, and writes a human-review page to docker/html/decks.html,
+// "tokyo" deck of that city's landmarks, a "taipei" deck of Taipei's and
+// Taiwan's, a "kfood" deck of Korean late-night food and street snacks linked to
+// ko.wikipedia, and writes a human-review page to docker/html/decks.html,
 // served by nginx alongside the client, so the
 // candidate links, images and licences can be eyeballed in a browser before any
 // of it is pasted into index.html. Each deck gets its own collapsed section and
@@ -49,6 +50,10 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const API = "https://en.wikipedia.org/w/api.php";
+// Pinned decks can be authored in another language: the Korean food deck is
+// written in Korean, so its articles are read from ko.wikipedia and its links
+// point there. Everything ship-wrong defaults to enwiki.
+const wikiApi = (lang = "en") => `https://${lang}.wikipedia.org/w/api.php`;
 // The image files live here; only their attribution metadata is read.
 const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
 const USER_AGENT =
@@ -659,6 +664,110 @@ const DECKS = [
       "Michele Reis": "李嘉欣",
     },
   },
+  {
+    // Korean late-night food and street snacks — the things you order to a KTV
+    // room or grab from a stall on the way to a billiard hall. Pinned by title
+    // like the cars deck: no Wikipedia category holds "the food everyone wants at
+    // midnight", and the "한국 요리" trees are mostly dishes rather than snacks.
+    //
+    // `wiki: "ko"` sizes the articles on, and links the cards to, Korean
+    // Wikipedia, where every one of these has a native-language article. The
+    // titles are therefore Korean, and the parenthesised redirects
+    // (순대국밥 -> 순댓국, 김말이 -> 김말이튀김) are resolved by the API. The
+    // `names` map only adds the romanised spelling next to the Korean on the
+    // card face — the Korean name is what a player reads.
+    //
+    // `keepOrder` makes the authored order the rank, easiest first: article size
+    // on kowiki says nothing about whether a foreign player knows 닭발, and it
+    // would float the long encyclopedic entries (라면, 감자탕) above the snacks.
+    //
+    // Two duplicates are deliberately left out: 해물파전 redirects to 파전 and
+    // 군만두 to 만두, so both would render the same article and the same photo as
+    // the card above them. 족발, 삼겹살, 치킨, 양꼬치 and 주꾸미볶음 have no lead
+    // image on kowiki at all, so they cannot be cards.
+    id: "kfood",
+    label: "야식 대잔치",
+    dataId: "kfood-data",
+    wiki: "ko",
+    keepOrder: true,
+    titles: [
+      // Easiest — the ones the every-night delivery order is built from.
+      "라면",
+      "떡볶이",
+      "김밥",
+      "양념치킨",
+      "순대",
+      "짜장면",
+      "만두",
+      "부대찌개",
+      "파전",
+      "곱창",
+      "닭발",
+      "탕수육",
+      // Middle — the rest of the late-night menu.
+      "짬뽕",
+      "김치찌개",
+      "감자탕",
+      "순대국밥",
+      "닭갈비",
+      "닭강정",
+      "쫄면",
+      "라볶이",
+      "김치볶음밥",
+      "계란말이",
+      "두부김치",
+      "골뱅이무침",
+      // Hardest — the food you eat standing up on the way there.
+      "어묵",
+      "붕어빵",
+      "호떡",
+      "계란빵",
+      "닭꼬치",
+      "떡꼬치",
+      "소떡소떡",
+      "김말이",
+    ],
+    // The lead image on the 호떡 article is a fair-use file hosted on kowiki
+    // (중국식 호떡.JPG), which cannot be reused. This Commons photo is freely
+    // licensed and keeps the card usable.
+    images: {
+      호떡: "File:Hotteok.jpg",
+    },
+    names: {
+      라면: "라면 (Ramyeon)",
+      떡볶이: "떡볶이 (Tteokbokki)",
+      김밥: "김밥 (Gimbap)",
+      양념치킨: "양념치킨 (Yangnyeom Chicken)",
+      순대: "순대 (Sundae)",
+      짜장면: "짜장면 (Jajangmyeon)",
+      만두: "만두 (Mandu)",
+      부대찌개: "부대찌개 (Budae Jjigae)",
+      파전: "파전 (Pajeon)",
+      곱창: "곱창 (Gopchang)",
+      닭발: "닭발 (Dakbal)",
+      탕수육: "탕수육 (Tangsuyuk)",
+      짬뽕: "짬뽕 (Jjamppong)",
+      김치찌개: "김치찌개 (Kimchi Jjigae)",
+      감자탕: "감자탕 (Gamjatang)",
+      순대국밥: "순대국밥 (Sundae Gukbap)",
+      닭갈비: "닭갈비 (Dakgalbi)",
+      닭강정: "닭강정 (Dakgangjeong)",
+      쫄면: "쫄면 (Jjolmyeon)",
+      라볶이: "라볶이 (Rabokki)",
+      김치볶음밥: "김치볶음밥 (Kimchi Bokkeumbap)",
+      계란말이: "계란말이 (Gyeran Mari)",
+      두부김치: "두부김치 (Dubu Kimchi)",
+      골뱅이무침: "골뱅이무침 (Golbaengi Muchim)",
+      어묵: "어묵 (Eomuk)",
+      붕어빵: "붕어빵 (Bungeoppang)",
+      호떡: "호떡 (Hotteok)",
+      계란빵: "계란빵 (Gyeranppang)",
+      닭꼬치: "닭꼬치 (Dak Kkochi)",
+      떡꼬치: "떡꼬치 (Tteok Kkochi)",
+      소떡소떡: "소떡소떡 (Sotteok Sotteok)",
+      김말이: "김말이 (Gimmari)",
+    },
+  },
 ];
 
 const SKIP_TITLE = /^(List of|Outline of|Index of)\b/i;
@@ -974,19 +1083,19 @@ const escapeHtml = (text) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
-const wikiUrl = (title) =>
-  `https://en.wikipedia.org/wiki/${encodeURI(title.replace(/ /g, "_"))}`;
+const wikiUrl = (title, lang = "en") =>
+  `https://${lang}.wikipedia.org/wiki/${encodeURI(title.replace(/ /g, "_"))}`;
 
 // 0.1711 / 0.208 / 0.39 / 1 — four decimals, trailing zeros trimmed, like the seed data.
 const formatRating = (rating) => String(Number(rating.toFixed(4)));
 
-function renderHtml(entries, dataId = "challenge-data") {
+function renderHtml(entries, dataId = "challenge-data", lang = "en") {
   const blocks = entries.map((entry) => {
     // The card's text is the native name when the deck has one; the href stays
-    // on the English article, which is also what the client derives the id from.
+    // on the source article, which is also what the client derives the id from.
     const label = entry.native ?? entry.name;
     const attrs = [
-      `                href="${escapeHtml(wikiUrl(entry.name))}"`,
+      `                href="${escapeHtml(wikiUrl(entry.name, lang))}"`,
       `                data-image="${escapeHtml(entry.image)}"`,
       `                data-bytes="${entry.bytes}"`,
       `                data-views="${entry.views}"`,
@@ -1016,7 +1125,7 @@ ${attrs.join("\n")}
 // the image actually used, its licence/author, and the raw metrics the deck ranks
 // on. Images are parked in data-src: the section script below only moves them to
 // src when the deck section is opened, so a closed deck costs no image requests.
-function renderRows(entries) {
+function renderRows(entries, lang = "en") {
   return entries
     .map((entry, i) => {
       const link = (href, text) =>
@@ -1031,7 +1140,7 @@ function renderRows(entries) {
         : `<span class="none">—</span>`;
       return `      <tr>
         <td class="num">${i + 1}</td>
-        <td class="name">${link(wikiUrl(entry.name), entry.native ?? entry.name)}${entry.native ? ` <span class="none">${escapeHtml(entry.name)}</span>` : ""}</td>
+        <td class="name">${link(wikiUrl(entry.name, lang), entry.native ?? entry.name)}${entry.native ? ` <span class="none">${escapeHtml(entry.name)}</span>` : ""}</td>
         <td class="img">${entry.image ? `<a href="${escapeHtml(entry.image)}" target="_blank" rel="noopener"><img data-src="${escapeHtml(entry.image)}" alt="${escapeHtml(entry.name)}" width="64" height="64"></a>` : `<span class="none">—</span>`}</td>
         <td class="small">${catCell}</td>
         <td class="small">${entry.page ? `<a href="${escapeHtml(entry.page)}" target="_blank" rel="noopener" title="${escapeHtml(entry.pageimage ?? entry.page)}">🔗</a>` : ""}</td>
@@ -1047,6 +1156,7 @@ function renderRows(entries) {
 }
 
 function renderDeck(deck, { metric, minScore, depth }) {
+  const lang = deck.wiki ?? "en";
   const nonfree = deck.entries.filter((entry) => entry.nonfree).length;
   return `<details class="deck" id="${deck.id}">
   <summary>${escapeHtml(deck.label)} — ${deck.entries.length} entries</summary>
@@ -1058,14 +1168,13 @@ function renderDeck(deck, { metric, minScore, depth }) {
         <th>licence</th><th>author</th><th>restrictions</th>
         <th class="num">bytes</th><th class="num">views</th><th class="num">rating</th>
       </tr>
-    </thead>
-    <tbody>
-${renderRows(deck.entries)}
+    </thead>      <tbody>
+${renderRows(deck.entries, lang)}
     </tbody>
   </table>
   <details>
     <summary>Deck markup — paste into <code>&lt;ul id="${deck.dataId ?? "challenge-data"}"&gt;</code> in <code>src/client/reveal/index.html</code></summary>
-    <pre>${escapeHtml(renderHtml(deck.entries, deck.dataId))}</pre>
+    <pre>${escapeHtml(renderHtml(deck.entries, deck.dataId, lang))}</pre>
   </details>
 </details>`;
 }
@@ -1162,21 +1271,24 @@ async function fetchOverrideImages(overrides) {
 // generation duplicates. `redirects` is set so a requested name that is a
 // redirect resolves to its article, and so pageviews are populated at all.
 //
-async function fetchTitles(titles, overrides) {
+async function fetchTitles(titles, overrides, lang = "en") {
   const byName = new Map();
   let cont;
   do {
-    const data = await api({
-      action: "query",
-      titles: titles.join("|"),
-      redirects: "1",
-      prop: "pageimages|info|pageviews|pageprops",
-      piprop: "thumbnail|original|name",
-      pithumbsize: 1280,
-      ppprop: "disambiguation|wikibase_item",
-      ...(WITH_NONFREE ? { pilicense: "any" } : {}),
-      ...(cont ? { continue: cont } : {}),
-    });
+    const data = await api(
+      {
+        action: "query",
+        titles: titles.join("|"),
+        redirects: "1",
+        prop: "pageimages|info|pageviews|pageprops",
+        piprop: "thumbnail|original|name",
+        pithumbsize: 1280,
+        ppprop: "disambiguation|wikibase_item",
+        ...(WITH_NONFREE ? { pilicense: "any" } : {}),
+        ...(cont ? { continue: cont } : {}),
+      },
+      { host: wikiApi(lang) },
+    );
     // Follow the normalisation/redirect chain from each requested name to the
     // page it lands on, so "DeLorean DMC-12" is credited to the "DMC DeLorean"
     // it resolves to. Walking per requested title (rather than reverse-mapping
@@ -1233,7 +1345,7 @@ async function buildDeck(deck) {
   let excluded = 0;
   if (deck.titles) {
     console.error(`Fetching ${deck.titles.length} pinned titles…`);
-    const found = await fetchTitles(deck.titles, deck.images);
+    const found = await fetchTitles(deck.titles, deck.images, deck.wiki);
     candidates = [];
     for (const title of deck.titles) {
       const person = found.get(title);
