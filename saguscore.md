@@ -156,10 +156,6 @@ the replay afterwards.
      score lower than the 20th is not uploaded; a tie with the 20th is uploaded.
      The check uses only the list already in memory and does not fetch again.
      With fewer than 20 rows loaded, always upload (§7.10).
-   - skip when the score is not an improvement on the last uploaded score for
-     this client. Persist it, e.g.
-     `localStorage["sagu.hiscore." + u.clientId]`, because `G` is only an
-     in-memory session best that resets on reload;
    - skip duplicates within one run (a run can emit more than one message on
      odd teardown paths) with a per-run flag or the score+timestamp pair;
    - pick the name: `u.userName.trim()`, limited to 12 characters, falling back to `"Anon"` when empty;
@@ -176,7 +172,7 @@ the replay afterwards.
    - on `response.ok`: record the uploaded score, refresh the rail with `_s()`,
      and show a short success note in `#sagu-result` (e.g. "HiScore uploade").
      Do **not** navigate to `/leaderboard` or `hiscore.html`;
-   - on failure (network error, non-2xx): keep the local best, show a retry note,
+   - on failure (network error, non-2xx): show a retry note,
      and retry once with a short backoff. Never lose the run because the upload
      failed.
 4. **Refresh the rail**: `_s()` already re-reads `GET ${L}/api/hiscores/sagu`;
@@ -195,8 +191,6 @@ async function uploadSagu({ score, replayData, status }) {
   if (!(score >= 2) || !replayData) return
   if (status === "fail" && !replayData) return
   const name = (u.userName || "Anon").trim() || "Anon"
-  const key = `sagu.hiscore.${u.clientId}`
-  if (Number(localStorage.getItem(key) || 0) >= score) return
 
   const url = `${SCOREBOARD_BASE}/api/hiscore?ruletype=sagu&id=${encodeURIComponent(name)}`
   const body = `?ruletype=sagu&state=${fullyEncodeURI(replayData)}&score=${score}&v=1`
@@ -211,7 +205,6 @@ async function uploadSagu({ score, replayData, status }) {
     body,
   })
   if (res.ok) {
-    localStorage.setItem(key, String(score))
     _s()
   }
 }
@@ -261,8 +254,8 @@ async function uploadSagu({ score, replayData, status }) {
   navigation away from the challenge page.
 - Complete run (`raceTo=32`): still uploads the `matchResult.replayData` state
   and keeps the existing overlay behaviour.
-- Failure paths: offline, 4xx, repeated run with a lower score (no second POST),
-  reload (local best resumes), and `?userName=` override.
+- Failure paths: offline, 4xx, repeated run with a lower score (POSTs again),
+  and `?userName=` override.
 - Top-20 gate: with 20 loaded scores, a score below the 20th does not POST; a
   score above or equal to it does. With fewer than 20 loaded, it always POSTs.
 - Regression: the other rules' HiScore flow (`hiscore.html`) is untouched.

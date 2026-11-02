@@ -192,22 +192,25 @@ function renderSaguHiscores() {
     // The row itself is the link, so the whole line is one comfortably sized
     // target instead of a two-digit score. Same replay link the lobby uses: the
     // rank endpoint redirects to the stored replay, and it opens in this tab.
-    const link = document.createElement("a");
-    link.className = "break-row";
+    // A row without a stored id (just uploaded) is drawn as a plain line with no link.
+    const line = entry?.id
+      ? document.createElement("a")
+      : document.createElement("div");
+    line.className = "break-row";
     if (entry?.id) {
-      link.href = replayUrl(
+      line.href = replayUrl(
         `${SCOREBOARD_URL}/api/rank/${entry.id}?ruletype=sagu&lod=${userStore.lod}`,
         userStore.clientId,
         userStore.userName
       );
-      link.setAttribute(
+      line.setAttribute(
         "aria-label",
         `${name.textContent} ${score.textContent}점 리플레이`
       );
     }
 
-    link.append(emoji, name, score);
-    row.appendChild(link);
+    line.append(emoji, name, score);
+    row.appendChild(line);
     if (newRowKeys.has(rowKey(entry))) row.classList.add("is-new");
     breakList.appendChild(row);
   });
@@ -310,23 +313,16 @@ function scoreFromSagu(score) {
 // Sagu HiScore upload. The scoreboard keeps the top 20 of the rail list; a run
 // is uploaded only when it would rank there, or when the list is not yet full.
 const HISCORE_TOP_N = 20;
-const UPLOAD_RETRY_MS = 2000;
 
 // Replay states already sent this session, so one run never uploads twice.
 const sentStates = new Set();
-// Bumped on each run so a slow upload does not overwrite the next run's note.
-let runCounter = 0;
 
 function wouldRankInTopN(score) {
   if (saguScores.length < HISCORE_TOP_N) return true;
   return score >= Number(saguScores[HISCORE_TOP_N - 1].score);
 }
 
-function showUploadNote(run, text) {
-  if (run === runCounter) saguResult.textContent += ` · ${text}`;
-}
-
-async function maybeUploadSaguScore(data, run) {
+async function maybeUploadSaguScore(data) {
   const { score, replayData } = data;
   // Any run that scored at least one dish is worth a hiscore; a zero-score run
   // is not, because it carries no break to replay.
@@ -334,8 +330,6 @@ async function maybeUploadSaguScore(data, run) {
   if (!replayData || sentStates.has(replayData)) return;
   if (!wouldRankInTopN(score)) return;
 
-  const key = `sagu.hiscore.${userStore.clientId}`;
-  if (Number(localStorage.getItem(key) || 0) >= score) return;
   sentStates.add(replayData);
 
   const name =
@@ -344,53 +338,20 @@ async function maybeUploadSaguScore(data, run) {
   const body = `?ruletype=sagu&state=${encodeURIComponent(replayData)}&score=${score}&v=1`;
   console.log("upload hiscore", { url, score, name });
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    let res;
-    try {
-      res = await fetch(url, {
-        method: "POST",
-        mode: "cors",
-        cache: "no-cache",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        redirect: "follow",
-        referrerPolicy: "no-referrer",
-        body,
-      });
-    } catch (err) {
-      // A thrown fetch can be a CORS/redirect failure after the server already
-      // stored the run, so retrying here would post a duplicate.
-      console.warn("sagu hiscore upload error:", err);
-      break;
-    }
-    if (res.ok) {
-      localStorage.setItem(key, String(score));
-      showUploadNote(run, "기록 등록 완료");
-      // The row is drawn before the response body is read: the body only
-      // supplies the stored row's id, and a slow or unreadable body must not
-      // hold back the update this page already has the score for.
-      const entry = { id: undefined, name, score };
-      addLocalSaguScore(entry);
-      renderSaguHiscores();
-      // The stored row's id comes back from the server when it sends one; a row
-      // without it is listed unlinked rather than linked to a missing id.
-      const saved = await res.json().catch(() => null);
-      if (typeof saved?.id === "string" || typeof saved?.name === "string") {
-        if (typeof saved.id === "string") entry.id = saved.id;
-        if (typeof saved.name === "string" && saved.name) entry.name = saved.name;
-        newRowKeys.add(rowKey(entry));
-        renderSaguHiscores();
-      }
-      return;
-    }
-    console.warn("upload hiscore failed:", res.status, await res.text());
-    // Only server errors are retried; a 4xx means the request itself is rejected.
-    if (res.status < 500) break;
-    if (attempt === 0) await new Promise((r) => setTimeout(r, UPLOAD_RETRY_MS));
-  }
-  // Not recorded locally, so a later run can retry the upload.
-  sentStates.delete(replayData);
-  showUploadNote(run, "기록 등록에 실패했어요");
+  // Fire and forget: the row is added and drawn before the request goes out,
+  // and the request is neither awaited nor retried.
+  addLocalSaguScore({ id: undefined, name, score });
+  renderSaguHiscores();
+  fetch(url, {
+    method: "POST",
+    mode: "cors",
+    cache: "no-cache",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    redirect: "follow",
+    referrerPolicy: "no-referrer",
+    body,
+  }).catch((err) => console.warn("sagu hiscore upload error:", err));
 }
 
 document.getElementById("play-sagu").addEventListener("click", () => {
@@ -414,8 +375,7 @@ window.addEventListener("message", (event) => {
       : `한 브레이크가 끝났습니다 (${data.reason}) ${data.score}점`;
   saguResult.textContent = `${summary} · 이번 브레이크 ${breakScore} · 최고 기록 ${bestScore}점`;
   // Start the upload before the fail path unloads the iframe.
-  const run = ++runCounter;
-  void maybeUploadSaguScore(data, run);
+  void maybeUploadSaguScore(data);
   if (data.status === "fail") {
     closeSagu();
   }
