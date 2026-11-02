@@ -69,7 +69,9 @@ function initGallery() {
     const img = document.createElement("img");
     img.className = "gallery-img";
     img.loading = "lazy";
-    img.alt = "";
+    // The tile is a picture of one dish, so it carries a name for search and
+    // for a reader whose images load before the photo is revealed.
+    img.alt = `${item.nameKr} 사진`;
     if (item.imageUrl) img.src = item.imageUrl;
 
     el.append(emoji, img);
@@ -149,53 +151,83 @@ function selectDish(idx) {
 // The rail lists the sagu HiScores from `/api/hiscores/sagu`, the one-rule feed
 // this page needs: the lobby's `/api/summary` would also read the other four
 // rules' sets, the ELO hashes and the recent matches. Rows arrive best first.
-// The last list loaded for the rail; the top-20 gate reads it before uploading.
+// The list the rail is drawn from; the top-20 gate reads it before uploading.
 let saguScores = [];
 
+// Draw the rail from `saguScores` alone, so a run uploaded this session can be
+// shown without waiting for the server's cached feed to catch up.
 function renderSaguHiscores() {
+  breakList.replaceChildren();
+  if (!saguScores.length) {
+    breakStatus.textContent = "아직 기록이 없습니다. 첫 기록을 남겨보세요.";
+    return;
+  }
+  breakStatus.textContent = "";
+  saguScores.forEach((entry, idx) => {
+    const row = document.createElement("li");
+
+    const rank = document.createElement("span");
+    rank.className = "break-rank";
+    rank.textContent = idx + 1;
+
+    const name = document.createElement("span");
+    name.className = "break-name";
+    name.textContent = entry?.name ?? "";
+    name.title = entry?.name ?? "";
+
+    // Same replay link the lobby uses: the rank endpoint redirects to the
+    // stored replay, and the link opens in this tab.
+    // The dish a score unlocks: score N is the Nth dish in list order.
+    const dish = foodItems[Number(entry?.score) - 1];
+    const emoji = document.createElement("span");
+    emoji.className = "break-emoji";
+    emoji.textContent = dish?.emoji ?? "";
+    emoji.title = dish?.nameKr ?? "";
+    emoji.setAttribute("aria-hidden", "true");
+
+    const score = document.createElement("a");
+    score.className = "break-score";
+    score.textContent = entry?.score ?? "";
+    if (entry?.id) {
+      score.href = replayUrl(
+        `${SCOREBOARD_URL}/api/rank/${entry.id}?ruletype=sagu&lod=${userStore.lod}`,
+        userStore.clientId,
+        userStore.userName
+      );
+    }
+
+    row.append(rank, emoji, name, score);
+    breakList.appendChild(row);
+  });
+}
+
+// Read the feed once per page load. It is deliberately not re-read after an
+// upload: see addLocalSaguScore.
+function loadSaguHiscores() {
   fetch(`${API_BASE}/api/hiscores/sagu`, { mode: "cors" })
     .then((response) => response.json())
     .then((data) => {
-      const scores = Array.isArray(data?.hiscores) ? data.hiscores : [];
-      saguScores = scores;
-      breakList.replaceChildren();
-      if (!scores.length) {
-        breakStatus.textContent = "아직 기록이 없습니다.";
-        return;
-      }
-      breakStatus.textContent = "";
-      scores.forEach((entry, idx) => {
-        const row = document.createElement("li");
-
-        const rank = document.createElement("span");
-        rank.className = "break-rank";
-        rank.textContent = idx + 1;
-
-        const name = document.createElement("span");
-        name.className = "break-name";
-        name.textContent = entry?.name ?? "";
-        name.title = entry?.name ?? "";
-
-        // Same replay link the lobby uses: the rank endpoint redirects to the
-        // stored replay, and the link opens in this tab.
-        const score = document.createElement("a");
-        score.className = "break-score";
-        score.textContent = entry?.score ?? "";
-        if (entry?.id) {
-          score.href = replayUrl(
-            `${SCOREBOARD_URL}/api/rank/${entry.id}?ruletype=sagu&lod=${userStore.lod}`,
-            userStore.clientId,
-            userStore.userName
-          );
-        }
-
-        row.append(rank, name, score);
-        breakList.appendChild(row);
-      });
+      saguScores = Array.isArray(data?.hiscores) ? data.hiscores : [];
+      renderSaguHiscores();
     })
     .catch(() => {
-      breakStatus.textContent = "기록을 불러올 수 없습니다.";
+      breakStatus.textContent = "기록을 불러오지 못했어요.";
     });
+}
+
+// Fold a run this page just uploaded into its own copy of the scoreboard. The
+// feed is cached — the scoreboard host keeps its own copy, and the arena host
+// serves /api/hiscores/sagu from a cache zone — so refetching straight after a
+// successful upload would usually hand back the old list, without the new row.
+// The row goes in best first, replacing that player's earlier entry, and the
+// list stops at the length the rail shows.
+function addLocalSaguScore(entry) {
+  const rows = saguScores.filter((row) =>
+    entry.id ? row?.id !== entry.id : row?.name !== entry.name
+  );
+  const at = rows.findIndex((row) => Number(row?.score) < entry.score);
+  rows.splice(at === -1 ? rows.length : at, 0, entry);
+  saguScores = rows.slice(0, HISCORE_TOP_N);
 }
 
 // Sagu runs in speedrun mode (see speedrun/index.html): the shot that
@@ -312,6 +344,14 @@ async function maybeUploadSaguScore(data, run) {
     if (res.ok) {
       localStorage.setItem(key, String(score));
       showUploadNote(run, "기록 등록 완료");
+      // The stored row's id comes back from the server when it sends one; a row
+      // without it is listed unlinked rather than linked to a missing id.
+      const saved = await res.json().catch(() => null);
+      addLocalSaguScore({
+        id: typeof saved?.id === "string" ? saved.id : undefined,
+        name: typeof saved?.name === "string" ? saved.name : name,
+        score,
+      });
       renderSaguHiscores();
       return;
     }
@@ -322,7 +362,7 @@ async function maybeUploadSaguScore(data, run) {
   }
   // Not recorded locally, so a later run can retry the upload.
   sentStates.delete(replayData);
-  showUploadNote(run, "기록 등록 실패");
+  showUploadNote(run, "기록 등록에 실패했어요");
 }
 
 document.getElementById("play-sagu").addEventListener("click", () => {
@@ -343,8 +383,8 @@ window.addEventListener("message", (event) => {
   const summary =
     data.status === "complete"
       ? `사구 클리어! ${data.score}점`
-      : `브레이크 종료 (${data.reason}) ${data.score}점`;
-  saguResult.textContent = `${summary} · 브레이크 ${breakScore} · 최고 ${bestScore}점`;
+      : `한 브레이크가 끝났습니다 (${data.reason}) ${data.score}점`;
+  saguResult.textContent = `${summary} · 이번 브레이크 ${breakScore} · 최고 기록 ${bestScore}점`;
   // Start the upload before the fail path unloads the iframe.
   const run = ++runCounter;
   void maybeUploadSaguScore(data, run);
@@ -355,4 +395,4 @@ window.addEventListener("message", (event) => {
 
 initGallery();
 update(0);
-renderSaguHiscores();
+loadSaguHiscores();
