@@ -294,9 +294,11 @@ async function saguHiscores(r) {
     const cached = ngx.shared.summary_cache.get(cacheKey);
     if (cached) return json(r, 200, JSON.parse(cached));
 
+    // The challenge page's rail lists the top 20, so the read matches it (an
+    // inclusive 0-19 range). The summary keeps its own 10-row read above.
     let result;
     try {
-        result = await redis("ZRANGE", `hiscore${rule}`, "0", "9");
+        result = await redis("ZRANGE", `hiscore${rule}`, "0", "19");
     } catch (e) {
         logApi("sagu hiscores read failed: " + (e && e.message ? e.message : e));
         return json(r, 502, { error: "Upstream error", message: e && e.message ? e.message : String(e) });

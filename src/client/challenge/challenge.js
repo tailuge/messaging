@@ -312,9 +312,10 @@ function showUploadNote(run, text) {
 }
 
 async function maybeUploadSaguScore(data, run) {
-  const { status, score, replayData } = data;
-  // A fail counts only for breaks of 2+, matching BallTray.addBreak().
-  if (status === "fail" && !(score >= 2)) return;
+  const { score, replayData } = data;
+  // Any run that scored at least one dish is worth a hiscore; a zero-score run
+  // is not, because it carries no break to replay.
+  if (!(score > 0)) return;
   if (!replayData || sentStates.has(replayData)) return;
   if (!wouldRankInTopN(score)) return;
 
