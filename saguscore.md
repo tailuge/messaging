@@ -150,13 +150,19 @@ the replay afterwards.
      always eligible; `e.status === "fail"` is eligible only when
      `e.score >= 2` (matching `BallTray.addBreak()`, which only offers a hi-score
      for breaks of 2+) and `e.replayData` exists;
+   - **top-20 gate:** skip the upload unless the score would enter the top 20 of
+     the hiscores already loaded for the rail (the `_s()` result for
+     `ruletype=sagu`). Compare against the 20th-ranked score in that list; a
+     score lower than the 20th is not uploaded; a tie with the 20th is uploaded.
+     The check uses only the list already in memory and does not fetch again.
+     With fewer than 20 rows loaded, always upload (§7.10).
    - skip when the score is not an improvement on the last uploaded score for
      this client. Persist it, e.g.
      `localStorage["sagu.hiscore." + u.clientId]`, because `G` is only an
      in-memory session best that resets on reload;
    - skip duplicates within one run (a run can emit more than one message on
      odd teardown paths) with a per-run flag or the score+timestamp pair;
-   - pick the name: `u.userName.trim()`, falling back to `"Anon"` when empty;
+   - pick the name: `u.userName.trim()`, limited to 12 characters, falling back to `"Anon"` when empty;
      URL-encode it for the `id` parameter (`encodeURIComponent`);
    - build the request exactly as §1:
      ```js
@@ -213,17 +219,11 @@ async function uploadSagu({ score, replayData, status }) {
 
 ## 7. Open questions / risks to settle before coding
 
-1. **Two hosts, one leaderboard?** Writes go to
-   `scoreboard-tailuge.vercel.app/api/hiscore`; reads in the challenge rail come
-   from `billiards-network.onrender.com/api/hiscores/sagu`. Confirm they share
-   storage (post a test score under a throwaway name and re-read `/api/hiscores/sagu`).
-   If they do not, either point the rail at the scoreboard host (add
-   `/api/hiscores/sagu` there) or add the write endpoint to the arena host.
-2. **`id` length/format.** `hiscore.html`'s input allows 3 characters and the
-   existing rows are 3 characters (`LKY`, `AOM`, `***`), yet the user asked for
-   the full current username. Check what `/api/hiscore` does with a longer `id`
-   (truncate, reject, or store as-is) and decide: full name, or initials
-   derived from it.
+1. **Shared storage: confirmed.** Writes to `scoreboard-tailuge.vercel.app/api/hiscore`
+   and reads from `billiards-network.onrender.com/api/hiscores/sagu` share storage.
+   The rail keeps reading from the arena host.
+2. **`id` length: decided.** The full username is uploaded, up to 12 characters,
+   applied on the client before sending. Initials are not used.
 3. **Response shape and status codes.** `hiscore.html` ignores the response; a
    direct upload should treat `res.ok` as success and log the body for
    diagnosis. Confirm whether the endpoint returns 200/201 JSON and whether it
@@ -236,14 +236,19 @@ async function uploadSagu({ score, replayData, status }) {
    `dist/challenge/index.html` also ships from other hosts (the Docker image and
    `../billiards/dist`, per its own header comment), so those origins must be
    allowed too or the upload will fail there.
-6. **Localhost/dev.** On localhost the page uses `""` for `L`; a local
-   scoreboard will not have `/api/hiscore` unless it is running. Skip the upload
-   or point `SCOREBOARD_BASE` at the dev server.
+6. **Localhost/dev: decided.** Uploads are not skipped on localhost. They go to
+   `SCOREBOARD_BASE` like in any other environment.
 7. **Privacy.** The posted `state` is public (the scoreboard renders it as a
    replay). Strip `players`/`userName`/`userId` like `LinkFormatter` does, even
    though the display name is included separately as `id`.
 8. **Ties and ranking.** The rail does not sort; the server does. After the
    first successful upload, check where an equal score lands.
+9. **Top-20 gate: ties decided.** A score equal to the 20th-ranked score is uploaded.
+10. **Top-20 gate: fewer than 20 decided.** With fewer than 20 rows loaded
+    (including an empty list after a failed fetch), the upload always goes ahead.
+11. **Top-20 gate: stale list decided.** The gate uses the list already loaded and
+    does not re-read it. A stale list may occasionally skip or allow an upload
+    incorrectly; this is accepted.
 
 ## 8. Test plan
 
@@ -258,4 +263,6 @@ async function uploadSagu({ score, replayData, status }) {
   and keeps the existing overlay behaviour.
 - Failure paths: offline, 4xx, repeated run with a lower score (no second POST),
   reload (local best resumes), and `?userName=` override.
+- Top-20 gate: with 20 loaded scores, a score below the 20th does not POST; a
+  score above or equal to it does. With fewer than 20 loaded, it always POSTs.
 - Regression: the other rules' HiScore flow (`hiscore.html`) is untouched.

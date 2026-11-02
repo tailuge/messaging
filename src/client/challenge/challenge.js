@@ -4,7 +4,8 @@
 // score/gallery behaviour.
 import "../topbar.js";
 import { logUsage } from "../logusage.js";
-import { API_BASE } from "../utils.js";
+import { API_BASE, SCOREBOARD_URL } from "../utils.js";
+import { userStore } from "../user-store.js";
 
 logUsage("challenge");
 
@@ -148,11 +149,15 @@ function selectDish(idx) {
 // The rail lists the sagu HiScores from `/api/hiscores/sagu`, the one-rule feed
 // this page needs: the lobby's `/api/summary` would also read the other four
 // rules' sets, the ELO hashes and the recent matches. Rows arrive best first.
+// The last list loaded for the rail; the top-20 gate reads it before uploading.
+let saguScores = [];
+
 function renderSaguHiscores() {
   fetch(`${API_BASE}/api/hiscores/sagu`, { mode: "cors" })
     .then((response) => response.json())
     .then((data) => {
       const scores = Array.isArray(data?.hiscores) ? data.hiscores : [];
+      saguScores = scores;
       breakList.replaceChildren();
       if (!scores.length) {
         breakStatus.textContent = "아직 기록이 없습니다.";
@@ -208,8 +213,14 @@ const SAGU_PHYSICS =
   "&cushionModel=mathavan&%CE%BCs=0.2&%CE%BCw=0.175&ee=0.85&mu=0.0055" +
   "&muS=0.126&stronge_omega_ratio=1.76&stronge_e_n=0.77&stronge_%CE%BC=0.25";
 
+// Locally the game is served on port 8080; on the deployed site it sits one
+// level up from /challenge/.
+const SAGU_GAME_BASE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
+  ? `http://${location.hostname}:8080/index.html`
+  : "../index.html";
 const SAGU_URL =
-  "../index.html?ruletype=sagu&speedrun&practice&raceTo=" +
+  SAGU_GAME_BASE +
+  "?ruletype=sagu&speedrun&practice&raceTo=" +
   MAX_SCORE +
   SAGU_PHYSICS +
   `&init=${encodeURIComponent(JSON.stringify(SAGU_BALLS.flat()))}` +
@@ -235,6 +246,70 @@ function scoreFromSagu(score) {
   update(bestScore);
 }
 
+// Sagu HiScore upload. The scoreboard keeps the top 20 of the rail list; a run
+// is uploaded only when it would rank there, or when the list is not yet full.
+const HISCORE_TOP_N = 20;
+const UPLOAD_RETRY_MS = 2000;
+
+// Replay states already sent this session, so one run never uploads twice.
+const sentStates = new Set();
+// Bumped on each run so a slow upload does not overwrite the next run's note.
+let runCounter = 0;
+
+function wouldRankInTopN(score) {
+  if (saguScores.length < HISCORE_TOP_N) return true;
+  return score >= Number(saguScores[HISCORE_TOP_N - 1].score);
+}
+
+function showUploadNote(run, text) {
+  if (run === runCounter) saguResult.textContent += ` · ${text}`;
+}
+
+async function maybeUploadSaguScore(data, run) {
+  const { status, score, replayData } = data;
+  // A fail counts only for breaks of 2+, matching BallTray.addBreak().
+  if (status === "fail" && !(score >= 2)) return;
+  if (!replayData || sentStates.has(replayData)) return;
+  if (!wouldRankInTopN(score)) return;
+
+  const key = `sagu.hiscore.${userStore.clientId}`;
+  if (Number(localStorage.getItem(key) || 0) >= score) return;
+  sentStates.add(replayData);
+
+  const name =
+    [...(userStore.userName || "").trim()].slice(0, 12).join("") || "Anon";
+  const url = `${SCOREBOARD_URL}/api/hiscore?ruletype=sagu&id=${encodeURIComponent(name)}`;
+  const body = `?ruletype=sagu&state=${encodeURIComponent(replayData)}&score=${score}&v=1`;
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        mode: "cors",
+        cache: "no-cache",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        redirect: "follow",
+        referrerPolicy: "no-referrer",
+        body,
+      });
+      if (res.ok) {
+        localStorage.setItem(key, String(score));
+        showUploadNote(run, "기록 등록 완료");
+        renderSaguHiscores();
+        return;
+      }
+      console.warn("sagu hiscore upload failed:", res.status, await res.text());
+    } catch (err) {
+      console.warn("sagu hiscore upload error:", err);
+    }
+    if (attempt === 0) await new Promise((r) => setTimeout(r, UPLOAD_RETRY_MS));
+  }
+  // Not recorded locally, so a later run can retry the upload.
+  sentStates.delete(replayData);
+  showUploadNote(run, "기록 등록 실패");
+}
+
 document.getElementById("play-sagu").addEventListener("click", () => {
   saguResult.textContent = "";
   saguFrame.src = SAGU_URL;
@@ -255,6 +330,9 @@ window.addEventListener("message", (event) => {
       ? `사구 클리어! ${data.score}점`
       : `브레이크 종료 (${data.reason}) ${data.score}점`;
   saguResult.textContent = `${summary} · 브레이크 ${breakScore} · 최고 ${bestScore}점`;
+  // Start the upload before the fail path unloads the iframe.
+  const run = ++runCounter;
+  void maybeUploadSaguScore(data, run);
   if (data.status === "fail") {
     closeSagu();
   }
