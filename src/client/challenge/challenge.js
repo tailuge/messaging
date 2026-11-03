@@ -177,17 +177,20 @@ function renderSaguHiscores() {
     name.textContent = entry?.name ?? "";
     name.title = entry?.name ?? "";
 
-    // The dish a score unlocks: score N is the Nth dish in list order.
-    const dish = foodItems[Number(entry?.score) - 1];
+    // The dishes the score unlocked: score N opens the first N dishes, so the
+    // rail shows every one of them (a 2 is 🍜🍢), not just the newest.
+    const points = Number(entry?.score) || 0;
+    const dishes = foodItems.slice(0, Math.min(foodItems.length, points));
     const emoji = document.createElement("span");
     emoji.className = "break-emoji";
-    emoji.textContent = dish?.emoji ?? "";
-    emoji.title = dish?.nameKr ?? "";
+    emoji.textContent = dishes.map((dish) => dish.emoji).join("");
+    emoji.title = dishes.map((dish) => dish.nameKr).join(", ");
     emoji.setAttribute("aria-hidden", "true");
 
+    // Points in Korean, the way a billiards score is read.
     const score = document.createElement("span");
     score.className = "break-score";
-    score.textContent = entry?.score ?? "";
+    score.textContent = `${points}점`;
 
     // The row itself is the link, so the whole line is one comfortably sized
     // target instead of a two-digit score. Same replay link the lobby uses: the
@@ -205,11 +208,11 @@ function renderSaguHiscores() {
       );
       line.setAttribute(
         "aria-label",
-        `${name.textContent} ${score.textContent}점 리플레이`
+        `${name.textContent} ${score.textContent} 리플레이`
       );
     }
 
-    line.append(emoji, name, score);
+    line.append(name, emoji, score);
     row.appendChild(line);
     if (newRowKeys.has(rowKey(entry))) row.classList.add("is-new");
     breakList.appendChild(row);
