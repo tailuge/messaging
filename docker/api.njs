@@ -17,16 +17,18 @@ async function hello(r) {
 // Every metric the usage dashboard charts: the language pages, the game/blog
 // pages (map, reveal), and the activity counters (lobby traffic, game activity,
 // challenges, accepts). GET /api/usage returns them all in one response, which
-// is cached for an hour as a single summary_cache entry below, so a dashboard
-// load costs one cached read instead of one backend read per metric.
+// is cached for ten minutes as a single summary_cache entry below, so a
+// dashboard load costs one cached read instead of one backend read per metric.
 const USAGE_KEYS = ["chineseUsage", "koreanUsage", "germanUsage", "turkishUsage", "vietnameseUsage", "japaneseUsage", "spanishUsage", "dutchUsage", "snookerUsage", "nineballUsage", "eightballUsage", "mapUsage", "revealUsage", "challengeUsage", "lobbyUsage", "gameUsage", "createTableUsage", "joinTableUsage", "completeUsage"];
 const USAGE_METRIC_RE = /^[a-zA-Z0-9_-]+$/;
 // Daily counts only change once a day, so the usage dashboard reads are cached
-// for an hour via an explicit per-entry TTL overriding summary_cache's 30s zone
-// default. Mind the units: the njs shared-dict TTL argument is MILLISECONDS,
-// while the zone's `timeout=` directive takes nginx time syntax (seconds).
+// for ten minutes via an explicit per-entry TTL overriding summary_cache's 30s
+// zone default. Mind the units: the njs shared-dict TTL argument is
+// MILLISECONDS, while the zone's `timeout=` directive takes nginx time syntax
+// (seconds).
+const TEN_MINUTES_MS = 10 * 60 * 1000;
 const ONE_HOUR_MS = 60 * 60 * 1000;
-const USAGE_CACHE_TTL_MS = ONE_HOUR_MS;
+const USAGE_CACHE_TTL_MS = TEN_MINUTES_MS;
 
 // Records one occurrence of `metric` for today (UTC). Counters live in the same
 // Upstash sorted sets the scoreboard's usage dashboard reads: key
@@ -95,8 +97,8 @@ function normalizeUsage(result) {
 async function usageStats(r) {
     // One entry for the whole set, so the dashboard's single fetch is served
     // from the shared dict for USAGE_CACHE_TTL_MS and only a miss reaches
-    // Upstash. Counts change at most once a day, so the hour is invisible —
-    // there is deliberately no invalidation on write.
+    // Upstash. Counts change at most once a day, so the ten minutes are
+    // invisible — there is deliberately no invalidation on write.
     const cacheKey = "usage:all";
     const cached = ngx.shared.summary_cache.get(cacheKey);
     if (cached) return json(r, 200, JSON.parse(cached));
@@ -213,7 +215,7 @@ async function redisPipeline(commands) {
 const RULE_TYPES = ["snooker", "nineball", "threecushion", "eightball", "sagu"];
 // The ELO ranking reads every player in every rule type, so it is cached for an
 // hour independently of the response cache's 30s zone default. Same
-// milliseconds rule as USAGE_CACHE_TTL_MS above.
+// milliseconds rule as ONE_HOUR_MS above.
 const ELO_CACHE_TTL_MS = ONE_HOUR_MS;
 
 function positiveInt(value, fallback) {

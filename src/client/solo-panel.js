@@ -47,9 +47,9 @@ const GAMES = [
     absolute: true,
   },
   {
-    label: "Books",
-    img: "assets/book.png",
-    url: "book/index.html",
+    label: "Sagu Challenge",
+    img: "assets/food.png",
+    url: "https://billiards.tailuge.workers.dev/challenge",
   },    
   {
     label: "3-Cushion (30)",

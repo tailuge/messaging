@@ -201,7 +201,7 @@
 
     // One fetch feeds every panel on the page: the Plotly groups, the language
     // chart and the game-blog chart all read the same aggregate response, which
-    // the server caches for an hour.
+    // the server caches for ten minutes.
     async function loadUsage() {
       try {
         const data = await getData("/api/usage")

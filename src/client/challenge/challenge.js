@@ -145,7 +145,7 @@ function update(score) {
 function selectDish(idx) {
   if (idx < 0 || idx >= foodItems.length) return;
   selectedIndex = idx;
-  update(bestScore);
+  update(currentScore);
 }
 
 // The rail lists the sagu HiScores from `/api/hiscores/sagu`, the one-rule feed
@@ -156,6 +156,19 @@ let saguScores = [];
 
 // The rail's identity for a row: player and score.
 const rowKey = (entry) => `${entry?.name ?? ""}|${Number(entry?.score) || 0}`;
+
+// The dishes a score unlocked are shown in shuffled order, so the rail does not
+// read as the same growing prefix row after row. Every draw gets a fresh shuffle
+// from Math.random: two rows with the same name and score are separate runs and
+// must not come out in the same order.
+function shuffleDishes(dishes) {
+  const shuffled = dishes.slice();
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
 
 // Rows this page uploaded, so the draw can mark the one that just arrived.
 const newRowKeys = new Set();
@@ -178,9 +191,12 @@ function renderSaguHiscores() {
     name.title = entry?.name ?? "";
 
     // The dishes the score unlocked: score N opens the first N dishes, so the
-    // rail shows every one of them (a 2 is 🍜🍢), not just the newest.
+    // rail shows every one of them (a 2 is two of 🍜🍢), not just the newest.
+    // Their order is shuffled per row; the tooltip follows the same order.
     const points = Number(entry?.score) || 0;
-    const dishes = foodItems.slice(0, Math.min(foodItems.length, points));
+    const dishes = shuffleDishes(
+      foodItems.slice(0, Math.min(foodItems.length, points))
+    );
     const emoji = document.createElement("span");
     emoji.className = "break-emoji";
     emoji.textContent = dishes.map((dish) => dish.emoji).join("");
@@ -237,12 +253,12 @@ function loadSaguHiscores() {
 // feed is cached — the scoreboard host keeps its own copy, and the arena host
 // serves /api/hiscores/sagu from a cache zone — so refetching straight after a
 // successful upload would usually hand back the old list, without the new row.
-// The row goes in best first, replacing that player's earlier entry, and the
-// list stops at the length the rail shows.
+// The row goes in best first and the list stops at the length the rail shows.
+// A player keeps every run already in the list: only an exact repeat of one of
+// them (same name, same score) is dropped, so a new score is added rather than
+// replacing the player's earlier ones.
 function addLocalSaguScore(entry) {
-  const rows = saguScores.filter((row) =>
-    entry.id ? row?.id !== entry.id : row?.name !== entry.name
-  );
+  const rows = saguScores.filter((row) => rowKey(row) !== rowKey(entry));
   const at = rows.findIndex((row) => Number(row?.score) < entry.score);
   rows.splice(at === -1 ? rows.length : at, 0, entry);
   saguScores = rows.slice(0, HISCORE_TOP_N);
@@ -295,22 +311,56 @@ const saguUrl = () =>
 const saguOverlay = document.getElementById("sagu-overlay");
 const saguFrame = document.getElementById("sagu-frame");
 const saguResult = document.getElementById("sagu-result");
+const hiscoreToast = document.getElementById("hiscore-toast");
+const hiscoreToastOk = document.getElementById("hiscore-toast-ok");
+
+// The popover that tells the player a run made the hi-score rail. It closes
+// itself after two seconds, or at once on 확인; a run landing inside that
+// window restarts the timer instead of stacking a second card.
+const TOAST_MS = 2000;
+let toastTimer = null;
+
+function hideHiscoreToast() {
+  clearTimeout(toastTimer);
+  toastTimer = null;
+  hiscoreToast.classList.remove("show");
+}
+
+function showHiscoreToast() {
+  clearTimeout(toastTimer);
+  hiscoreToast.classList.add("show");
+  toastTimer = setTimeout(hideHiscoreToast, TOAST_MS);
+}
+
+hiscoreToastOk.addEventListener("click", hideHiscoreToast);
+
+// How long to wait before re-asserting presence after the game iframe is torn
+// down. The iframe's own client leaves under this page's userId as it unloads,
+// in two frames: its pagehide publish, then the server's auto-leave when its
+// presence socket closes. Publishing before those land would be undone by
+// them, so the refresh waits just past both.
+const PRESENCE_REFRESH_MS = 500;
 
 function closeSagu() {
   saguOverlay.classList.remove("active");
   saguFrame.src = "about:blank";
+  // The page's own presence went out with the iframe's leave; put it back now
+  // rather than leaving the player missing until the next 60 s heartbeat.
+  setTimeout(() => {
+    document.querySelector("app-topbar")?.refreshPresence?.();
+  }, PRESENCE_REFRESH_MS);
 }
 
-// The best run is what counts: a weaker run must not take unlocked food
-// away again.
-let bestScore = 0;
+// The run's own score: the page follows the run that just finished, so a
+// second, weaker run shows its own (smaller) dish count instead of holding on
+// to the best of the session.
+let currentScore = 0;
 
 function scoreFromSagu(score) {
-  const runScore = Math.min(MAX_SCORE, Math.max(0, Number(score) || 0));
-  bestScore = Math.max(bestScore, runScore);
+  currentScore = Math.min(MAX_SCORE, Math.max(0, Number(score) || 0));
   // A finished run takes the card back to the newest dish it unlocked.
   selectedIndex = null;
-  update(bestScore);
+  update(currentScore);
 }
 
 // Sagu HiScore upload. The scoreboard keeps the top 20 of the rail list; a run
@@ -345,6 +395,7 @@ async function maybeUploadSaguScore(data) {
   // and the request is neither awaited nor retried.
   addLocalSaguScore({ id: undefined, name, score });
   renderSaguHiscores();
+  showHiscoreToast();
   fetch(url, {
     method: "POST",
     mode: "cors",
@@ -359,6 +410,11 @@ async function maybeUploadSaguScore(data) {
 
 document.getElementById("play-sagu").addEventListener("click", () => {
   saguResult.textContent = "";
+  // A new run starts from nothing; the dishes it unlocks arrive with its result.
+  currentScore = 0;
+  selectedIndex = null;
+  update(0);
+  hideHiscoreToast();
   saguFrame.src = saguUrl();
   saguOverlay.classList.add("active");
 });
@@ -376,7 +432,7 @@ window.addEventListener("message", (event) => {
     data.status === "complete"
       ? `사구 클리어! ${data.score}점`
       : `한 브레이크가 끝났습니다 (${data.reason}) ${data.score}점`;
-  saguResult.textContent = `${summary} · 이번 브레이크 ${breakScore} · 최고 기록 ${bestScore}점`;
+  saguResult.textContent = `${summary} · 이번 브레이크 ${breakScore} · 현재 점수 ${currentScore}점`;
   // Start the upload before the fail path unloads the iframe.
   void maybeUploadSaguScore(data);
   if (data.status === "fail") {

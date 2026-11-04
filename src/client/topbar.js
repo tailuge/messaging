@@ -348,6 +348,16 @@ class AppTopbar extends LitElement {
     });
   }
 
+  // Re-assert this page's presence while it is still open. A second document
+  // sharing the same userId (the challenge page's game iframe) publishes its
+  // own leave when it unloads, which drops the single `u:<userId>` presence
+  // record; this puts ours back without waiting for the next heartbeat.
+  refreshPresence() {
+    this._lobby
+      ?.syncPresence()
+      .catch((err) => console.error("topbar: refreshPresence failed", err));
+  }
+
   // Keep presence fresh on name change via updatePresence
   _updatePresence(e) {
     if (!this._lobby) return;
