@@ -279,6 +279,21 @@ const SAGU_BALLS = [
   [-1.443794, 0.318252],
   [-1.32848, 0.335773],
 ];
+// Each launch lifts the two reds (rack positions 2 and 3) by the same random
+// share of this offset, so the opening varies within the range the physics was
+// tuned in. Negative y is towards the far end of the table.
+const SAGU_RACK_DELTA_Y = -0.8;
+const SAGU_SHIFTED_BALLS = [2, 3];
+
+function saguBalls() {
+  const deltaY = SAGU_RACK_DELTA_Y * Math.random();
+  return SAGU_BALLS.map(([x, y], i) =>
+    SAGU_SHIFTED_BALLS.includes(i)
+      ? [x, Number((y + deltaY).toFixed(6))]
+      : [x, y]
+  );
+}
+
 const SAGU_SHOT = {
   cueBallId: 0,
   angle: 2.446864,
@@ -304,7 +319,7 @@ const saguUrl = () =>
   "?ruletype=sagu&speedrun&practice&raceTo=" +
   MAX_SCORE +
   SAGU_PHYSICS +
-  `&init=${encodeURIComponent(JSON.stringify(SAGU_BALLS.flat()))}` +
+  `&init=${encodeURIComponent(JSON.stringify(saguBalls().flat()))}` +
   `&initShot=${encodeURIComponent(JSON.stringify(SAGU_SHOT))}` +
   `&userId=${encodeURIComponent(userStore.clientId)}` +
   `&userName=${encodeURIComponent(userStore.userName)}`;
