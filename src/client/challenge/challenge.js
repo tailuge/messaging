@@ -157,6 +157,10 @@ let saguScores = [];
 // The rail's identity for a row: player and score.
 const rowKey = (entry) => `${entry?.name ?? ""}|${Number(entry?.score) || 0}`;
 
+// The emoji column is a fixed eight slots wide — the most a 32-point run shows
+// at one glyph per 4 points — so the names and scores line up down the rail.
+const EMOJI_SLOTS = 8;
+
 // The dishes a score unlocked are shown in shuffled order, so the rail does not
 // read as the same growing prefix row after row. Every draw gets a fresh shuffle
 // from Math.random: two rows with the same name and score are separate runs and
@@ -190,18 +194,33 @@ function renderSaguHiscores() {
     name.textContent = entry?.name ?? "";
     name.title = entry?.name ?? "";
 
-    // The dishes the score unlocked: score N opens the first N dishes, so the
-    // rail shows every one of them (a 2 is two of 🍜🍢), not just the newest.
-    // Their order is shuffled per row; the tooltip follows the same order.
+    // The dishes the score unlocked: score N opens the first N dishes. The rail
+    // shows a sample of them rather than all N — one glyph per 4 points, so a
+    // 32-point run reads as eight emojis instead of a wall of them. Their order
+    // is shuffled per row, after the cut, so the sample varies between rows;
+    // the tooltip lists the sampled dishes in the same order.
     const points = Number(entry?.score) || 0;
+    const shown = Math.min(
+      EMOJI_SLOTS,
+      Math.max(1, Math.ceil(points / 4))
+    );
     const dishes = shuffleDishes(
-      foodItems.slice(0, Math.min(foodItems.length, points))
+      foodItems.slice(0, Math.min(foodItems.length, points)).slice(0, shown)
     );
     const emoji = document.createElement("span");
     emoji.className = "break-emoji";
     emoji.textContent = dishes.map((dish) => dish.emoji).join("");
     emoji.title = dishes.map((dish) => dish.nameKr).join(", ");
     emoji.setAttribute("aria-hidden", "true");
+
+    // Invisible eight-glyph run sharing the emoji's cell: it holds the column at
+    // its full width on rows that show fewer dishes, so the score column and the
+    // points stay aligned however long the run is. Rendered in the same font, so
+    // the width matches a real eight-emoji row exactly.
+    const emojiSlots = document.createElement("span");
+    emojiSlots.className = "break-emoji-slots";
+    emojiSlots.textContent = "🍜".repeat(EMOJI_SLOTS);
+    emojiSlots.setAttribute("aria-hidden", "true");
 
     // Points in Korean, the way a billiards score is read.
     const score = document.createElement("span");
@@ -228,7 +247,7 @@ function renderSaguHiscores() {
       );
     }
 
-    line.append(name, emoji, score);
+    line.append(name, emoji, emojiSlots, score);
     row.appendChild(line);
     if (newRowKeys.has(rowKey(entry))) row.classList.add("is-new");
     breakList.appendChild(row);
@@ -379,7 +398,8 @@ function scoreFromSagu(score) {
 }
 
 // Sagu HiScore upload. The scoreboard keeps the top 20 of the rail list; a run
-// is uploaded only when it would rank there, or when the list is not yet full.
+// is uploaded only when it would rank there, or when the list is not yet full,
+// and only when it beats the player's own worst row already in the table.
 const HISCORE_TOP_N = 20;
 
 // Replay states already sent this session, so one run never uploads twice.
@@ -390,18 +410,32 @@ function wouldRankInTopN(score) {
   return score >= Number(saguScores[HISCORE_TOP_N - 1].score);
 }
 
+// The second gate: a player keeps every run of theirs that already made the
+// table, so a new run is only worth sending if it beats their own worst row in
+// it. A player with no row yet has nothing to beat and goes in on the top-20
+// gate alone.
+function wouldBeatOwnWorst(name, score) {
+  const own = saguScores
+    .filter((row) => (row?.name ?? "") === name)
+    .map((row) => Number(row?.score) || 0);
+  if (!own.length) return true;
+  return score > Math.min(...own);
+}
+
 async function maybeUploadSaguScore(data) {
   const { score, replayData } = data;
   // Any run that scored at least one dish is worth a hiscore; a zero-score run
   // is not, because it carries no break to replay.
   if (!(score > 0)) return;
   if (!replayData || sentStates.has(replayData)) return;
-  if (!wouldRankInTopN(score)) return;
-
-  sentStates.add(replayData);
 
   const name =
     [...(userStore.userName || "").trim()].slice(0, 12).join("") || "Anon";
+  if (!wouldRankInTopN(score)) return;
+  if (!wouldBeatOwnWorst(name, score)) return;
+
+  sentStates.add(replayData);
+
   const url = `${SCOREBOARD_URL}/api/hiscore?ruletype=sagu&id=${encodeURIComponent(name)}`;
   const body = `?ruletype=sagu&state=${encodeURIComponent(replayData)}&score=${score}&v=1`;
   console.log("upload hiscore", { url, score, name });
