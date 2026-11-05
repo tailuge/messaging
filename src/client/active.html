@@ -33,6 +33,56 @@
         display: flex;
         align-items: baseline;
         gap: 6px;
+        padding: 2px 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #table-list li.game-row {
+        cursor: pointer;
+      }
+      #table-list li.game-row:hover {
+        background: #f7f7f7;
+      }
+      #table-list li.selected {
+        background: #eef1ff;
+      }
+      #table-list li.selected .table-link {
+        font-weight: bold;
+      }
+      /* List on the left, details of the selected game on the right. */
+      #layout {
+        display: flex;
+        align-items: flex-start;
+        gap: 15px;
+      }
+      #list-panel {
+        flex: 0 0 240px;
+        max-width: 240px;
+        min-width: 0;
+        position: sticky;
+        top: 10px;
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+      }
+      #spectator-section {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+      @media (max-width: 700px) {
+        #layout {
+          flex-direction: column;
+        }
+        #list-panel {
+          flex: 1 1 auto;
+          max-width: none;
+          width: 100%;
+          position: static;
+          max-height: none;
+        }
+        #spectator-section {
+          width: 100%;
+        }
       }
       .table-age {
         color: #888;
@@ -58,10 +108,6 @@
       }
       li.stale .table-link:hover {
         color: #bbb;
-      }
-      #spectator-section {
-        margin-top: 15px;
-        display: none;
       }
       .status {
         font-style: italic;
@@ -100,19 +146,25 @@
   </head>
   <body>
     <h1>Recent 2 Player Games</h1>
-    <ul id="table-list"></ul>
+    <div id="layout">
+      <aside id="list-panel">
+        <h2>Games</h2>
+        <ul id="table-list"></ul>
+      </aside>
 
-    <div id="spectator-section">
-      <h2 id="spectator-title">Spectating Table</h2>
-      <div id="spectator-status" class="status">Connecting...</div>
-      <ul id="event-list"></ul>
+      <div id="spectator-section">
+        <h2 id="spectator-title">Game Details</h2>
+        <div id="spectator-status" class="status">
+          Select a game to spectate.
+        </div>
+        <ul id="event-list"></ul>
+      </div>
     </div>
 
     <script type="module">
       import { MessagingClient } from './messaging.js';
 
       const tableListEl = document.getElementById('table-list');
-      const spectatorSection = document.getElementById('spectator-section');
       const spectatorTitle = document.getElementById('spectator-title');
       const spectatorStatus = document.getElementById('spectator-status');
       const eventList = document.getElementById('event-list');
@@ -153,11 +205,14 @@
           }
           tables.forEach(({ tableId, lastSeen, uids }) => {
             const li = document.createElement('li');
+            li.className = 'game-row';
+            li.dataset.tableId = tableId;
+            li.onclick = () => selectTable(tableId);
             if (
               typeof lastSeen === 'number' &&
               Date.now() - lastSeen > STALE_AFTER_MS
             ) {
-              li.className = 'stale';
+              li.classList.add('stale');
             }
             const ageSpan = document.createElement('span');
             ageSpan.className = 'table-age';
@@ -166,7 +221,6 @@
             const span = document.createElement('span');
             span.className = 'table-link';
             span.textContent = displayText(tableId);
-            span.onclick = () => selectTable(tableId);
             li.appendChild(span);
             if (uids && uids.length > 0) {
               const uidSpan = document.createElement('span');
@@ -322,7 +376,13 @@
         spectatorTitle.textContent = `Spectating: ${displayText(tableId)}`;
         spectatorStatus.textContent = 'Connecting...';
         eventList.innerHTML = '';
-        spectatorSection.style.display = 'block';
+        for (const row of tableListEl.querySelectorAll('li.selected')) {
+          row.classList.remove('selected');
+        }
+        const selectedRow = Array.from(tableListEl.children).find(
+          (li) => li.dataset.tableId === tableId
+        );
+        if (selectedRow) selectedRow.classList.add('selected');
         messageCount = 0;
         hitCount = 0;
         messageBytes = 0;
