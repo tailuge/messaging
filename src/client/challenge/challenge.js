@@ -300,7 +300,8 @@ const SAGU_BALLS = [
 ];
 // Each launch lifts the two reds (rack positions 2 and 3) by the same random
 // share of this offset, so the opening varies within the range the physics was
-// tuned in. Negative y is towards the far end of the table.
+// tuned in. Negative y is towards the far end of the table. These are also the
+// balls the break aims at, so the aim is taken from the moved positions.
 const SAGU_RACK_DELTA_Y = -0.8;
 const SAGU_SHIFTED_BALLS = [2, 3];
 
@@ -313,13 +314,31 @@ function saguBalls() {
   );
 }
 
+// The fixed parts of the break. The aim is not fixed: it is worked out per
+// launch from the randomised rack (see saguShot).
 const SAGU_SHOT = {
   cueBallId: 0,
-  angle: 2.446864,
   power: 0.524,
   offset: { x: 0, y: 0, z: 0 },
   elevation: 0,
 };
+
+// Point the cue ball at the centroid of the reds in the rack it is played with,
+// i.e. after the random delta above has moved them: average their positions to
+// get the point, then read the angle from the cue ball to it back with acos.
+// acos returns only 0..π — the angle above the x-axis — so a centroid below the
+// cue ball (which most deltas produce) is reflected under the axis as
+// 2π - angle instead of mirrored to the wrong side.
+function saguShot(balls) {
+  const [cueX, cueY] = balls[SAGU_SHOT.cueBallId];
+  const avg = (k) =>
+    SAGU_SHIFTED_BALLS.reduce((sum, i) => sum + balls[i][k], 0) /
+    SAGU_SHIFTED_BALLS.length;
+  const dx = avg(0) - cueX;
+  const dy = avg(1) - cueY;
+  const above = Math.acos(dx / Math.hypot(dx, dy));
+  return { ...SAGU_SHOT, angle: dy >= 0 ? above : 2 * Math.PI - above };
+}
 // Physics the position was tuned with; drop this line to play the defaults.
 const SAGU_PHYSICS =
   "&cushionModel=mathavan&%CE%BCs=0.2&%CE%BCw=0.175&ee=0.85&mu=0.0055" +
@@ -333,15 +352,21 @@ const SAGU_GAME_BASE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
 // Identity is read when the game is launched, not at module load, the same way the map
 // page builds its club URL: the run is uploaded under the player's name, and a rename in
 // the header should carry into the next launch.
-const saguUrl = () =>
-  SAGU_GAME_BASE +
-  "?ruletype=sagu&speedrun&practice&raceTo=" +
-  MAX_SCORE +
-  SAGU_PHYSICS +
-  `&init=${encodeURIComponent(JSON.stringify(saguBalls().flat()))}` +
-  `&initShot=${encodeURIComponent(JSON.stringify(SAGU_SHOT))}` +
-  `&userId=${encodeURIComponent(userStore.clientId)}` +
-  `&userName=${encodeURIComponent(userStore.userName)}`;
+const saguUrl = () => {
+  // One randomised rack feeds both parameters, so the shot always aims at the
+  // reds where this launch put them.
+  const balls = saguBalls();
+  return (
+    SAGU_GAME_BASE +
+    "?ruletype=sagu&speedrun&practice&raceTo=" +
+    MAX_SCORE +
+    SAGU_PHYSICS +
+    `&init=${encodeURIComponent(JSON.stringify(balls.flat()))}` +
+    `&initShot=${encodeURIComponent(JSON.stringify(saguShot(balls)))}` +
+    `&userId=${encodeURIComponent(userStore.clientId)}` +
+    `&userName=${encodeURIComponent(userStore.userName)}`
+  );
+};
 const saguOverlay = document.getElementById("sagu-overlay");
 const saguFrame = document.getElementById("sagu-frame");
 const saguResult = document.getElementById("sagu-result");
