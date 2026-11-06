@@ -29,21 +29,30 @@
       li {
         margin: 3px 0;
       }
+      /* One compact line per entry: age, table id and player ids share a row,
+         truncating with an ellipsis rather than wrapping. */
       #table-list li {
         display: flex;
-        flex-direction: column;
-        padding: 2px 4px;
+        flex-direction: row;
+        align-items: baseline;
+        gap: 6px;
+        margin: 0;
+        padding: 0 4px;
         min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
       }
-      /* Age and table id on one row, the player ids on the next, so a long
-         id list stays inside the narrow list panel. */
       #table-list .table-main {
         display: flex;
         align-items: baseline;
         gap: 6px;
+        flex: 0 1 auto;
         min-width: 0;
         white-space: nowrap;
         overflow: hidden;
+      }
+      #table-list .table-main .table-age {
+        flex: 0 0 auto;
       }
       #table-list .table-main .table-link {
         min-width: 0;
@@ -69,8 +78,8 @@
         gap: 15px;
       }
       #list-panel {
-        flex: 0 0 240px;
-        max-width: 240px;
+        flex: 0 0 360px;
+        max-width: 360px;
         min-width: 0;
         position: sticky;
         top: 10px;
@@ -108,10 +117,11 @@
       .table-link:hover {
         color: #551a8b;
       }
-      .table-uids {
+      #table-list .table-uids {
+        flex: 1 1 auto;
+        min-width: 0;
         color: #666;
         font-size: 0.9em;
-        padding-left: 8px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
