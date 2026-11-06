@@ -31,10 +31,22 @@
       }
       #table-list li {
         display: flex;
+        flex-direction: column;
+        padding: 2px 4px;
+        min-width: 0;
+      }
+      /* Age and table id on one row, the player ids on the next, so a long
+         id list stays inside the narrow list panel. */
+      #table-list .table-main {
+        display: flex;
         align-items: baseline;
         gap: 6px;
-        padding: 2px 4px;
+        min-width: 0;
         white-space: nowrap;
+        overflow: hidden;
+      }
+      #table-list .table-main .table-link {
+        min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
       }
@@ -99,6 +111,10 @@
       .table-uids {
         color: #666;
         font-size: 0.9em;
+        padding-left: 8px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       /* Tables idle longer than the table channel retention are empty. */
       li.stale .table-age,
@@ -214,18 +230,21 @@
             ) {
               li.classList.add('stale');
             }
+            const main = document.createElement('div');
+            main.className = 'table-main';
             const ageSpan = document.createElement('span');
             ageSpan.className = 'table-age';
             ageSpan.textContent = formatAge(lastSeen);
-            li.appendChild(ageSpan);
+            main.appendChild(ageSpan);
             const span = document.createElement('span');
             span.className = 'table-link';
             span.textContent = displayText(tableId);
-            li.appendChild(span);
+            main.appendChild(span);
+            li.appendChild(main);
             if (uids && uids.length > 0) {
               const uidSpan = document.createElement('span');
               uidSpan.className = 'table-uids';
-              uidSpan.textContent = ` (${uids.map(displayText).join(', ')})`;
+              uidSpan.textContent = `(${uids.map(displayText).join(', ')})`;
               li.appendChild(uidSpan);
             }
             tableListEl.appendChild(li);
@@ -246,6 +265,9 @@
       let hitCount = 0;
       // Approximate wire size of every received message, in UTF-8 bytes.
       let messageBytes = 0;
+      // Server timestamps of the first and last message, for the byte rate.
+      let firstMessageTs = null;
+      let lastMessageTs = null;
       const encoder = new TextEncoder();
 
       // Game messages arrive with the type as published, so compare it
@@ -254,12 +276,50 @@
         return String(msg?.type ?? '').toUpperCase() === 'HIT';
       }
 
+      // Server timestamp of a message as epoch ms, or null when it has none.
+      // Table-channel meta is decoded by the client, so `ts` is normally a
+      // number; an ISO string is accepted too.
+      function messageEpochMs(msg) {
+        const ts = msg?.meta?.ts;
+        if (typeof ts === 'number' && isFinite(ts)) return ts;
+        if (typeof ts === 'string') {
+          const parsed = Date.parse(ts);
+          if (isFinite(parsed)) return parsed;
+        }
+        return null;
+      }
+
+      function formatBytes(bytes) {
+        if (typeof bytes !== 'number' || !isFinite(bytes)) return '--';
+        if (bytes < 1024) return `${Math.round(bytes)} B`;
+        const kb = bytes / 1024;
+        return `${kb < 10 ? kb.toFixed(2) : kb.toFixed(1)} KB`;
+      }
+
+      // Rough throughput: bytes over the time the server saw them span. The
+      // server stamp is used rather than arrival time so a replayed backlog
+      // does not look like a burst. "--" until two distinct stamps exist.
+      function bytesPerMinuteText(bytes, firstTs, lastTs) {
+        if (
+          typeof firstTs !== 'number' ||
+          typeof lastTs !== 'number' ||
+          !isFinite(firstTs) ||
+          !isFinite(lastTs)
+        ) {
+          return '--';
+        }
+        const minutes = (lastTs - firstTs) / 60000;
+        if (!(minutes > 0)) return '--';
+        return `~${formatBytes(bytes / minutes)}/min`;
+      }
+
       // "Count (KB)" summary for the received messages so far, plus how many
-      // of them were HIT messages.
-      function messageStatsText(count, bytes, hits) {
+      // of them were HIT messages and the estimated byte rate.
+      function messageStatsText(count, bytes, hits, firstTs, lastTs) {
         const kb = bytes / 1024;
         const kbText = kb < 10 ? kb.toFixed(2) : kb.toFixed(1);
-        return `${count} message${count === 1 ? '' : 's'} (${kbText} KB) · ${hits} HIT`;
+        const rateText = bytesPerMinuteText(bytes, firstTs, lastTs);
+        return `${count} message${count === 1 ? '' : 's'} (${kbText} KB) · ${hits} HIT · ${rateText}`;
       }
 
       // Format epoch ms as MM:SS:mmm (minutes:seconds:milliseconds of the time-of-day)
@@ -274,12 +334,14 @@
 
       // Build a single event item row showing the latest payload. When the
       // incoming message is a duplicate-AIM burst from the same sender as the
-      // previous row, the previous row is silently replaced (no count badge).
-      function createEventItem(msg) {
+      // previous row, only the latest payload is kept, with `count` recording
+      // how many messages the row stands for.
+      function createEventItem(msg, count = 1) {
         const li = document.createElement('li');
         li.className = 'event-item';
         li.dataset.type = msg.type || '';
         li.dataset.senderId = msg.senderId || '';
+        li.dataset.count = String(count);
 
         const dataObj = msg.data || {};
         const senderName =
@@ -297,7 +359,8 @@
         timeSpan.textContent = `[${tsText}]`;
         headerDiv.appendChild(timeSpan);
 
-        headerDiv.append(`[${msg.type}] from ${senderDisplay}`);
+        const countBadge = count > 1 ? ` x ${count}` : '';
+        headerDiv.append(`[${msg.type}]${countBadge} from ${senderDisplay}`);
         li.appendChild(headerDiv);
 
         // Privacy: redact chat payloads before serializing into the JSON
@@ -361,7 +424,9 @@
               ? `Received ${messageStatsText(
                   messageCount,
                   messageBytes,
-                  hitCount
+                  hitCount,
+                  firstMessageTs,
+                  lastMessageTs
                 )}`
               : 'No events received';
           await cleanup();
@@ -386,6 +451,8 @@
         messageCount = 0;
         hitCount = 0;
         messageBytes = 0;
+        firstMessageTs = null;
+        lastMessageTs = null;
 
         // Base URL logic
         let baseUrl = 'https://billiards-network.onrender.com';
@@ -406,10 +473,17 @@
               messageCount++;
               if (isHitMessage(msg)) hitCount++;
               messageBytes += encoder.encode(JSON.stringify(msg)).length;
+              const msgTs = messageEpochMs(msg);
+              if (msgTs !== null) {
+                if (firstMessageTs === null) firstMessageTs = msgTs;
+                lastMessageTs = msgTs;
+              }
               spectatorStatus.textContent = `Received ${messageStatsText(
                 messageCount,
                 messageBytes,
-                hitCount
+                hitCount,
+                firstMessageTs,
+                lastMessageTs
               )}`;
 
               // Only collapse consecutive AIM bursts from the same sender.
@@ -424,9 +498,10 @@
                 lastLi.dataset.senderId === msg.senderId;
 
               if (sameAimAsLast) {
-                // Silently delete duplicates: replace lastLi with the latest
-                // payload only. No count badge, no duration label.
-                const replacement = createEventItem(msg);
+                // Keep one row per burst, holding only the latest payload but
+                // showing how many messages it collapsed.
+                const count = Number(lastLi.dataset.count || '1') + 1;
+                const replacement = createEventItem(msg, count);
                 if (
                   lastLi.querySelector('.raw-data').classList.contains('expanded')
                 ) {
