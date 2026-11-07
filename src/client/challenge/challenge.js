@@ -157,9 +157,24 @@ let saguScores = [];
 // The rail's identity for a row: player and score.
 const rowKey = (entry) => `${entry?.name ?? ""}|${Number(entry?.score) || 0}`;
 
-// The emoji column is a fixed eight slots wide — the most a 32-point run shows
-// at one glyph per 4 points — so the names and scores line up down the rail.
-const EMOJI_SLOTS = 8;
+// The emoji column is a fixed number of slots wide — the most a 32-point run
+// shows at one glyph per 4 points — so the names and scores line up down the
+// rail. The count lives in CSS (`--emoji-slots` on `.rail`) because it is a
+// layout decision: the narrow rail drops slots so the name column keeps most of
+// the row instead of the emojis taking it.
+const DEFAULT_EMOJI_SLOTS = 8;
+
+function emojiSlotCount() {
+  const slots = parseInt(
+    getComputedStyle(breakList).getPropertyValue("--emoji-slots"),
+    10
+  );
+  return slots > 0 ? slots : DEFAULT_EMOJI_SLOTS;
+}
+
+// The slot count the list was last drawn with, so a resize only redraws it when
+// the rail crossed one of the CSS breakpoints.
+let drawnSlots = null;
 
 // The dishes a score unlocked are shown in shuffled order, so the rail does not
 // read as the same growing prefix row after row. Every draw gets a fresh shuffle
@@ -186,6 +201,8 @@ function renderSaguHiscores() {
     return;
   }
   breakStatus.textContent = "";
+  const slots = emojiSlotCount();
+  drawnSlots = slots;
   saguScores.forEach((entry) => {
     const row = document.createElement("li");
 
@@ -196,14 +213,12 @@ function renderSaguHiscores() {
 
     // The dishes the score unlocked: score N opens the first N dishes. The rail
     // shows a sample of them rather than all N — one glyph per 4 points, so a
-    // 32-point run reads as eight emojis instead of a wall of them. Their order
-    // is shuffled per row, after the cut, so the sample varies between rows;
-    // the tooltip lists the sampled dishes in the same order.
+    // 32-point run reads as a full row of emojis instead of a wall of them, and
+    // a narrow rail cuts that row down to its slot count. Their order is shuffled
+    // per row, after the cut, so the sample varies between rows; the tooltip
+    // lists the sampled dishes in the same order.
     const points = Number(entry?.score) || 0;
-    const shown = Math.min(
-      EMOJI_SLOTS,
-      Math.max(1, Math.ceil(points / 4))
-    );
+    const shown = Math.min(slots, Math.max(1, Math.ceil(points / 4)));
     const dishes = shuffleDishes(
       foodItems.slice(0, Math.min(foodItems.length, points)).slice(0, shown)
     );
@@ -213,13 +228,13 @@ function renderSaguHiscores() {
     emoji.title = dishes.map((dish) => dish.nameKr).join(", ");
     emoji.setAttribute("aria-hidden", "true");
 
-    // Invisible eight-glyph run sharing the emoji's cell: it holds the column at
+    // Invisible slot-wide run sharing the emoji's cell: it holds the column at
     // its full width on rows that show fewer dishes, so the score column and the
     // points stay aligned however long the run is. Rendered in the same font, so
-    // the width matches a real eight-emoji row exactly.
+    // the width matches a real full row exactly.
     const emojiSlots = document.createElement("span");
     emojiSlots.className = "break-emoji-slots";
-    emojiSlots.textContent = "🍜".repeat(EMOJI_SLOTS);
+    emojiSlots.textContent = "🍜".repeat(slots);
     emojiSlots.setAttribute("aria-hidden", "true");
 
     // Points in Korean, the way a billiards score is read.
@@ -253,6 +268,16 @@ function renderSaguHiscores() {
     breakList.appendChild(row);
   });
 }
+
+// The slot count is a breakpoint decision, so a rotation or a window resize can
+// change how many dishes a row shows. Only a change of count redraws the list;
+// a redraw re-shuffles each row's sample, which the count change pays for.
+window.addEventListener("resize", () => {
+  // Nothing to redraw before the feed arrives, and no rail to measure until the
+  // list has been drawn once.
+  if (!saguScores.length || emojiSlotCount() === drawnSlots) return;
+  renderSaguHiscores();
+});
 
 // Read the feed once per page load. It is deliberately not re-read after an
 // upload: see addLocalSaguScore.

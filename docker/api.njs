@@ -279,9 +279,44 @@ async function readHiscores() {
     return hiscores;
 }
 
+// Only these fields are read by the lobby's match table (src/client/info-panel.js):
+// the rule icon, winner/loser and scores, the Ago and City columns, the replay
+// button (id, hasReplay, locationCountry) and the arena/club/card decorations.
+// Everything else in the uploaded result - user agent, browser, os, version,
+// winner/loser ids, the bot flag - is dropped before the response is cached, so
+// it is not re-served on every summary request. The full entry stays untouched
+// in Upstash for the scoreboard.
+const LOBBY_MATCH_FIELDS = [
+    "id",
+    "ruleType",
+    "winner",
+    "winnerScore",
+    "loser",
+    "loserScore",
+    "timestamp",
+    "locationCity",
+    "locationCountry",
+    "hasReplay",
+    "arenaId",
+    "club",
+    "card",
+    "tableSize",
+    "freeaim",
+    "berserk",
+];
+
+function lobbyMatch(entry) {
+    const match = {};
+    for (let i = 0; i < LOBBY_MATCH_FIELDS.length; i += 1) {
+        const field = LOBBY_MATCH_FIELDS[i];
+        if (entry[field] !== undefined) match[field] = entry[field];
+    }
+    return match;
+}
+
 async function readRecentMatches(limitMatches) {
     const members = await redis("ZREVRANGE", "match_results", "0", String(limitMatches - 1));
-    return (Array.isArray(members) ? members : []).map((member) => JSON.parse(member));
+    return (Array.isArray(members) ? members : []).map((member) => lobbyMatch(JSON.parse(member)));
 }
 
 // GET /api/hiscores/sagu — only the sagu HiScores, best run first. The lobby's
