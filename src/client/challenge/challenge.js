@@ -428,10 +428,11 @@ const PRESENCE_REFRESH_MS = 500;
 function closeSagu() {
   saguOverlay.classList.remove("active");
   saguFrame.src = "about:blank";
-  // The page's own presence went out with the iframe's leave; put it back now
-  // rather than leaving the player missing until the next 60 s heartbeat.
+  // The page's own presence went out with the iframe's leave; resume it (heartbeat
+  // plus an immediate publish) once that leave has landed, rather than leaving the
+  // player missing until the record expires or the player changes tabs.
   setTimeout(() => {
-    document.querySelector("app-topbar")?.refreshPresence?.();
+    document.querySelector("app-topbar")?.resumePresence?.();
   }, PRESENCE_REFRESH_MS);
 }
 
@@ -514,6 +515,9 @@ document.getElementById("play-sagu").addEventListener("click", () => {
   selectedIndex = null;
   update(0);
   hideHiscoreToast();
+  // The game iframe publishes its own presence under this page's userId, so this
+  // page stops heartbeating while it is open rather than overwriting that record.
+  document.querySelector("app-topbar")?.pausePresence?.();
   saguFrame.src = saguUrl();
   saguOverlay.classList.add("active");
 });

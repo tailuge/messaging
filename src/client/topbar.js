@@ -358,6 +358,20 @@ class AppTopbar extends LitElement {
       .catch((err) => console.error("topbar: refreshPresence failed", err));
   }
 
+  // Stop this page's heartbeat while another document owns the shared `u:<userId>`
+  // presence record (the challenge page's game iframe), so the two do not overwrite
+  // each other. The subscription stays open, so chat and challenges still arrive.
+  pausePresence() {
+    this._lobby?.pauseHeartbeat();
+  }
+
+  // Hand presence back after the other document has closed: restart the heartbeat
+  // (it would otherwise lapse on the server's TTL) and republish at once.
+  resumePresence() {
+    this._lobby?.resumeHeartbeat();
+    this.refreshPresence();
+  }
+
   // Keep presence fresh on name change via updatePresence
   _updatePresence(e) {
     if (!this._lobby) return;
