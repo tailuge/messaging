@@ -162,7 +162,7 @@ export class UserList extends I18nElement {
         const actions = unread
             ? html`<button class="btn-chat" aria-label="Unread message from ${u.userName}" @click=${() => emit(this, 'open-chat', u.userId)}>💬</button>`
             : spectatable
-                ? html`<button class="btn-spectate" aria-label="Spectate ${u.userName}'s game" @click=${() => emit(this, 'spectate', u)}>Spectate</button>`
+                ? html`<button class="btn-spectate" aria-label="Spectate ${u.userName}'s game" @click=${() => emit(this, 'spectate', u)}>${i18n.t('Spectate')}</button>`
                 : challengeable
                     ? html`<button class="btn-challenge" aria-label=${i18n.t('Challenge {name}', { name: u.userName })} ?disabled=${this.isChallengePending} @click=${() => isVercel ? window.location.href = 'https://billiards.tailuge.workers.dev/lobby' : emit(this, 'challenge', u.userId)}>${i18n.t('Challenge')}</button>`
                     : html``;

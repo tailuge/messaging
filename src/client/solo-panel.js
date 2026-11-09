@@ -1,5 +1,6 @@
 import { html } from "lit";
-import { userStore, StoreElement } from "./user-store.js";
+import { userStore } from "./user-store.js";
+import { I18nElement, i18n } from "./i18n.js";
 import { soloUrl, badgeText } from "./utils.js";
 import { SOLO_PANEL_STYLES, BADGE_STYLES } from "./styles.js";
 
@@ -88,7 +89,7 @@ const GAMES = [
   },
 ];
 
-class SoloPanel extends StoreElement {
+class SoloPanel extends I18nElement {
   static styles = [SOLO_PANEL_STYLES, BADGE_STYLES];
   #games = [...GAMES].sort(() => Math.random() - 0.5);
   render() {
@@ -98,7 +99,7 @@ class SoloPanel extends StoreElement {
         (g) =>
           html` <a
             href=${soloUrl(g, clientId, userName, lod, flip, userStore.getCustom())}
-            title=${g.label}
+            title=${i18n.t(g.label)}
             aria-label="Play ${g.label}"
           >
             <span class="icon-wrap">

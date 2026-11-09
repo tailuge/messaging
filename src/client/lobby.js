@@ -1,4 +1,5 @@
-import { LitElement, html } from 'lit';
+import { html } from 'lit';
+import { I18nElement, i18n } from './i18n.js';
 import { LOBBY_APP_STYLES } from './styles.js';
 import './solo-panel.js';
 import './info-panel.js';
@@ -10,7 +11,7 @@ import './active-arenas.js';
 import './arena-panel.js';
 import { CLIENTVERSION, formatVersion } from './utils.js';
 
-class LobbyApp extends LitElement {
+class LobbyApp extends I18nElement {
     static properties = {
         _theme: { type: String, reflect: true, attribute: 'theme' },
         _sidebarOpen: { type: Boolean },
@@ -101,7 +102,7 @@ class LobbyApp extends LitElement {
                 <main class="${this._sidebarOpen ? 'has-sidebar' : ''}">
                     <div class="solo">
                         <div class="panel">
-                            <div class="panel-title">Solo Practice</div>
+                            <div class="panel-title">${i18n.t('Solo Practice')}</div>
                             <solo-panel></solo-panel>
                         </div>
                     </div>

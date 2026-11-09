@@ -186,10 +186,10 @@ class SettingsModal extends I18nElement {
             <button class="burger" aria-label=${i18n.t('Customise settings')} title=${i18n.t('Customise settings')} aria-expanded="${this._open}" @click=${this._toggle}>&#9776;</button>
             ${this._open ? html`
                 <div class="backdrop" @click=${e => e.target === e.currentTarget && this._close()}>
-                    <div class="modal" role="dialog" aria-modal="true" aria-label="Settings">
-                        <h3>Settings</h3>
+                    <div class="modal" role="dialog" aria-modal="true" aria-label=${i18n.t('Settings')}>
+                        <h3>${i18n.t('Settings')}</h3>
 
-                        <div class="section-title">Preferences</div>
+                        <div class="section-title">${i18n.t('Preferences')}</div>
                         <div class="row">
                             <span>Dark mode</span>
                             <label class="switch">
@@ -219,19 +219,19 @@ class SettingsModal extends I18nElement {
                             </label>
                         </div>
 
-                        <div class="section-title">Graphics</div>
+                        <div class="section-title">${i18n.t('Graphics')}</div>
                         <div class="row" style="flex-direction: column; align-items: flex-start; gap: 2px;">
                             <label for="quality-range" style="font-size: 0.75rem;">Quality: <span class="lod-label">${SettingsModal.LOD_LABELS[userStore.lod] || userStore.lod}</span></label>
                             <input id="quality-range" type="range" min="0" max="4" step="1" .value=${userStore.lod} @input=${e => userStore.setLod(e.target.value)}>
                         </div>
 
-                        <div class="section-title">Customise</div>
+                        <div class="section-title">${i18n.t('Customise')}</div>
                         <div class="row">
                             <button class="customise-btn" @click=${() => this._picker = 'cue'}>Cue</button>
                             <button class="customise-btn" @click=${() => this._picker = 'wall'}>Wall</button>
                         </div>
 
-                        <div class="section-title">Links</div>
+                        <div class="section-title">${i18n.t('Links')}</div>
                         <div class="row"><a href="https://github.com/tailuge/wbilliards/releases/latest" target="_blank" rel="noopener">Download for Android</a></div>
                         <div class="row"><a href="https://github.com/tailuge/tbilliards/releases/latest" target="_blank" rel="noopener">Download for Mac / Windows / Linux</a></div>
                         <div class="row">
@@ -245,7 +245,7 @@ class SettingsModal extends I18nElement {
                         <div class="row"><a href="https://github.com/tailuge/billiards" target="_blank" rel="noopener">Contribute</a></div>
                         <div class="row"><a href="https://billiards-network.onrender.com/usage.html" target="_blank" rel="noopener">Usage</a></div>
 
-                        <div><strong style="font-size:0.82rem">Recent visitors</strong><stats-panel></stats-panel></div>
+                        <div><strong style="font-size:0.82rem">${i18n.t('Recent visitors')}</strong><stats-panel></stats-panel></div>
 
                         <button class="cancel" @click=${this._close} style="margin-top: 0.4rem;">Close</button>
                     </div>

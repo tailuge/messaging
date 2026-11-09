@@ -1,4 +1,5 @@
-import { LitElement, html } from 'lit';
+import { html } from 'lit';
+import { I18nElement, i18n } from './i18n.js';
 import { MessagingClient, activeGames } from '../index.ts';
 import { userStore } from './user-store.js';
 import { gameUrl, spectateUrl, flag, ACTIVE_PAGE, INITIAL_STATE, reduce, CLIENTVERSION, formatVersion, NCHANBASE, GAME_LAUNCH_DELAY_MS } from './utils.js';
@@ -17,7 +18,7 @@ const BOTS = [
 
 // ── OnlinePanel ───────────────────────────────────────────────────────────────
 
-class OnlinePanel extends LitElement {
+class OnlinePanel extends I18nElement {
     static styles = [SHARED_STYLES, PLAYER_PANEL_STYLES];
 
     #state = { ...INITIAL_STATE, settled: false };
@@ -425,7 +426,7 @@ class OnlinePanel extends LitElement {
         return html`
             <div class="panel-header">
                 <span class="dot ${this.#connected ? (this.#settled ? 'green' : 'blue') : ''}" role="status" aria-label="${this.#connected ? (this.#settled ? 'Settled' : 'Connecting') : 'Disconnected'}" @click=${this._openActiveTables} style="cursor:pointer"></span>
-                <span class="panel-title" @click=${() => this.#info()}>Play Online (${this.#visibleUsers.filter(u => u.userId !== this.#myId).length})</span>
+                <span class="panel-title" @click=${() => this.#info()}>${i18n.t('Play Online')} (${this.#visibleUsers.filter(u => u.userId !== this.#myId).length})</span>
             </div>
             <challenge-banner
                 .challenge=${this.#activeChallenge}
