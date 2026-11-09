@@ -1,7 +1,8 @@
 import { html } from 'lit';
 import { INFO_PANEL_STYLES } from './styles.js';
 import { SCOREBOARD_URL, API_BASE, timeAgo, flag, ruleIcon, renderTrophy, replayUrl, isVercel } from './utils.js';
-import { userStore, StoreElement } from './user-store.js';
+import { userStore } from './user-store.js';
+import { I18nElement, i18n } from './i18n.js';
 import './replay-button.js';
 import './cabinate.js';
 import './motd-panel.js';
@@ -63,7 +64,7 @@ const matchText = m => {
         + (m.loser ? ` vs ${m.loser}${score(m.loserScore)}` : '');
 };
 
-class InfoPanel extends StoreElement {
+class InfoPanel extends I18nElement {
     static styles = INFO_PANEL_STYLES;
     connectedCallback() {
         super.connectedCallback();
@@ -122,7 +123,7 @@ class InfoPanel extends StoreElement {
         const { hiscores } = this._data;
         const hiscoreGames = Object.keys(hiscores).filter(game => game !== 'eightball' && game !== 'sagu');
         return hiscoreGames.map(game => html`
-            <div class="tbl${game === 'sagu' ? ' sagu-hi' : ''}"><table><caption><a href="${SCOREBOARD_URL}/leaderboard" target="_blank" rel="noopener" style="font-weight:200;font-size:0.75rem">${ruleIcon(game)} HiScore</a></caption>
+            <div class="tbl${game === 'sagu' ? ' sagu-hi' : ''}"><table><caption><a href="${SCOREBOARD_URL}/leaderboard" target="_blank" rel="noopener" style="font-weight:200;font-size:0.75rem">${ruleIcon(game)} ${i18n.t('HiScore')}</a></caption>
             <tr><th>Name</th><th></th></tr>
                 ${hiscores[game].slice(0, 4).map((s, i) => html`<tr><td>${renderTrophy(i)} ${s.name}</td><td><replay-button url="${replayUrl(`${SCOREBOARD_URL}/api/rank/${s.id}?ruletype=${game}&lod=${userStore.lod}`, userStore.clientId, userStore.userName)}" label="${s.score}" .ariaLabel=${`Replay ${game} HiScore #${i + 1}: ${s.name} ${s.score}`}></replay-button></td></tr>`)}
             </table></div>
@@ -156,7 +157,7 @@ class InfoPanel extends StoreElement {
                 <div class="group top-players">
                     <div class="group-body">
                         ${games.map(game => html`
-                            <div class="tbl"><table><caption><a href="${SCOREBOARD_URL}/elo" target="_blank" rel="noopener">${ruleIcon(game)} <span style="font-size:0.75rem;font-weight:200">Rankings</span></a></caption>
+                            <div class="tbl"><table><caption><a href="${SCOREBOARD_URL}/elo" target="_blank" rel="noopener">${ruleIcon(game)} <span style="font-size:0.75rem;font-weight:200">${i18n.t('Rankings')}</span></a></caption>
                              <tr><th>Name</th><th>Score</th></tr><!-- A player can lead several rules, which repeats the trophy and
                                       name in each table, so the link name carries the rule too.
                                       Score is the conservative rating (rating - 2*RD after

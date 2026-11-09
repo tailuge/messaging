@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 1435;
+export const CLIENTVERSION = 1437;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -369,6 +369,9 @@ export const shortenUrl = async (url) => {
     }
 };
 
+export const RULE_LABELS = { eightball: 'Eight Ball', nineball: 'Nine Ball', snooker: 'Snooker', threecushion: 'Three Cushion', sagu: 'Sagu', libre: 'Libre' };
+/** Map a raw ruleType id to its English dictionary key (falls back to the raw id). */
+export const ruleLabel = rule => RULE_LABELS[rule] ?? rule;
 const RULE_ASSETS = { eightball: 'eightball', snooker: 'snooker', threecushion: 'threecushion', nineball: 'nineball', sagu: 'sagu', libre: 'libre' };
 const RULE_EMOJI = { eightball: '🎱', snooker: '🔴', threecushion: '③', nineball: '⑨', sagu: '④' };
 const RULE_SUFFIXES = { '-club': '⛩️', '-bot': '🤖', '-exam': '📜', '-speedrun': '👟' };

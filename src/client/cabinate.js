@@ -1,4 +1,5 @@
-import { LitElement, html, css } from 'lit';
+import { html, css } from 'lit';
+import { I18nElement, i18n } from './i18n.js';
 import { fetchWinners } from './trophy.js';
 
 // The cabinet lives in the narrow lobby column, so cap the trophies it draws at
@@ -61,7 +62,7 @@ const topHolders = winners => {
  * request. Rendered by info-panel to the left of the HiScore group; `limit`
  * sets how many holders are listed (default 3).
  */
-class TrophyCabinet extends LitElement {
+class TrophyCabinet extends I18nElement {
     static properties = {
         limit: { type: Number },
         _leaderboard: { state: true },
@@ -103,7 +104,7 @@ class TrophyCabinet extends LitElement {
     render() {
         const holders = this._leaderboard.slice(0, Math.max(1, this.limit));
         return html`
-            <div class="panel-title">Trophy Cabinet</div>
+            <div class="panel-title">${i18n.t('Trophy Cabinet')}</div>
             ${holders.length
                 ? html`<div class="cabinet-list" aria-label="Top trophy holders">
                     ${holders.map(holder => html`

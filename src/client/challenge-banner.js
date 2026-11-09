@@ -1,5 +1,5 @@
 import { html } from 'lit';
-import { ruleIcon } from './utils.js';
+import { ruleIcon, ruleLabel } from './utils.js';
 import { I18nElement, i18n } from './i18n.js';
 import {
     SHARED_STYLES, CHALLENGE_BANNER_STYLES, SENT_CHALLENGE_BANNER_STYLES
@@ -62,7 +62,7 @@ class ChallengeBanner extends I18nElement {
         const extras = formatOptions(opts, this.myId);
         return html`
             <div class="banner">
-                <div class="details">${ruleIcon(c.ruleType)} ${c.ruleType}</div>
+                <div class="details">${ruleIcon(c.ruleType)} ${i18n.t(ruleLabel(c.ruleType))}</div>
                 <strong>${i18n.t('Challenge from {name}', { name: c.challengerName })}</strong>
                 <div class="details">${extras.map(e => html`<span>${e}</span>`)}</div>
                 <div class="row">
@@ -77,7 +77,7 @@ class ChallengeBanner extends I18nElement {
         const extras = formatOptions(c.options, this.myId);
         return html`
             <div class="banner ${c.status}">
-                <div class="details">${ruleIcon(c.ruleType)} ${c.ruleType}</div>
+                <div class="details">${ruleIcon(c.ruleType)} ${i18n.t(ruleLabel(c.ruleType))}</div>
                 ${extras.length > 0 ? html`<div class="details">${extras.map(e => html`<span>${e}</span>`)}</div>` : ''}
                 <strong>${isWaiting
                     ? i18n.t('Waiting for {name} to accept.', { name: c.recipientName })

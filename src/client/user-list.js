@@ -9,13 +9,14 @@ const emit = (el, type, detail) =>
     el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
 
 /**
- * Tooltip for a player: the city on the first line and the reduced user agent on the second,
- * e.g. "London" over "Win Chr". Each part is its own line so a long city cannot push the
- * user agent off to the side, and either part is omitted when absent.
+ * Tooltip for a player: the city on the first line, the reduced user agent on the second,
+ * and the version string on the third, e.g. "London" over "Win Chr" over "v14.35".
+ * Each part is its own line so a long city cannot push the user agent off to the side.
  */
 const locTip = (u) => html`
-    ${u.meta?.city ? html`<span class="loc-city">${u.meta.city}</span>` : ''}
-    ${u.meta?.ua ? html`<span class="loc-ua">${u.meta.ua}</span>` : ''}`;
+    <span class="loc-city">${u.meta?.city}</span>
+    <span class="loc-ua">${u.meta?.ua}</span>
+    <span class="loc-ver">${u.meta?.version}</span>`;
 
 export class UserList extends I18nElement {
     static properties = {
@@ -70,7 +71,7 @@ export class UserList extends I18nElement {
         }
         /* nowrap moved off the tooltip and onto its lines: the two parts stack, but neither
            wraps mid-word on a long city or a long user agent. */
-        .loc-city, .loc-ua { display: block; white-space: nowrap; }
+        .loc-city, .loc-ua, .loc-ver { display: block; white-space: nowrap; }
         .loc-ua { opacity: 0.75; }
         .name-wrap:hover .loc-tip { opacity: 1; transition: opacity 0.2s ease 4s; }
         .status-link { text-decoration: none; color: inherit; }

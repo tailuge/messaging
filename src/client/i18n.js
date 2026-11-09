@@ -108,6 +108,9 @@ const TRANSLATIONS = {
     Customise: 'Personalizar',
     Links: 'Enlaces',
     'Recent visitors': 'Visitantes recientes',
+    HiScore: 'Récord',
+    Rankings: 'Clasificación',
+    'Trophy Cabinet': 'Vitrina de trofeos',
   },
   ko: {
     'Play Solo': '혼자 플레이',
@@ -178,6 +181,9 @@ const TRANSLATIONS = {
     Customise: '사용자 지정',
     Links: '링크',
     'Recent visitors': '최근 방문자',
+    HiScore: '하이스코어',
+    Rankings: '랭킹',
+    'Trophy Cabinet': '트로피 진열장',
   },
   ja: {
     'Play Solo': 'ひとりでプレイ',
@@ -248,6 +254,9 @@ const TRANSLATIONS = {
     Customise: 'カスタマイズ',
     Links: 'リンク',
     'Recent visitors': '最近の訪問者',
+    HiScore: 'ハイスコア',
+    Rankings: 'ランキング',
+    'Trophy Cabinet': 'トロフィーキャビネット',
   },
   tr: {
     'Play Solo': 'Tek Oyna',
@@ -318,6 +327,9 @@ const TRANSLATIONS = {
     Customise: 'Özelleştir',
     Links: 'Bağlantılar',
     'Recent visitors': 'Son ziyaretçiler',
+    HiScore: 'Rekor',
+    Rankings: 'Sıralama',
+    'Trophy Cabinet': 'Kupa Dolabı',
   },
   zh: {
     'Play Solo': '單人練習',
@@ -388,6 +400,9 @@ const TRANSLATIONS = {
     Customise: '自訂',
     Links: '連結',
     'Recent visitors': '最近訪客',
+    HiScore: '最高分',
+    Rankings: '排名',
+    'Trophy Cabinet': '獎盃櫃',
   },
 };
 
