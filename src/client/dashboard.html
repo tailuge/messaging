@@ -614,7 +614,27 @@ table td {
         return `${Math.round(seconds / 3600)}h ago`;
       }
 
-      function presenceRow(user) {
+      // Time since first join as compact H.MM (dashboard-only firstSeen in
+      // meta.f; falls back to the frame time for legacy entries without one).
+      function presenceJoinDur(meta, nowMs) {
+        const now = typeof nowMs === "number" ? nowMs : Date.now();
+        const first =
+          meta && (typeof meta.f === "number"
+            ? meta.f
+            : typeof meta.firstSeen === "number"
+              ? meta.firstSeen
+              : null);
+        const base =
+          first !== null
+            ? first
+            : meta && (typeof meta.t === "number" ? meta.t : meta.ts);
+        if (typeof base !== "number") return "?";
+        const mins = Math.max(0, Math.floor((now - base) / 60000));
+        const mm = mins % 60;
+        return `${Math.floor(mins / 60)}.${mm < 10 ? "0" + mm : mm}`;
+      }
+
+      function presenceRow(user, nowMs) {
         const name = user.n || user.userName || "(no name)";
         const id = user.u || user.userId || "?";
         const type = PRESENCE_TYPES[user.t || user.type] || user.t || user.type || "?";
@@ -624,7 +644,7 @@ table td {
         const place = [country, city].filter(Boolean).join(" ");
         const li = document.createElement("li");
         li.textContent =
-          `${name} (${id}) — ${type} — ${presenceState(user)} — ${presenceAge(meta)}` +
+          `${name} (${id}) — ${type} — ${presenceState(user)} — ${presenceAge(meta)} — ${presenceJoinDur(meta, nowMs)}` +
           (place ? ` — ${place}` : "");
         return li;
       }
@@ -681,7 +701,8 @@ table td {
             list.appendChild(empty);
             return;
           }
-          users.forEach((user) => list.appendChild(presenceRow(user)));
+          const nowMs = typeof data.ts === "number" ? data.ts : Date.now();
+          users.forEach((user) => list.appendChild(presenceRow(user, nowMs)));
         } catch (error) {
           meta.textContent = `Presence fetch failed: ${error.message}`;
           list.textContent = "";

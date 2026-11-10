@@ -301,6 +301,30 @@ function presenceUserId(payload) {
   return typeof id === "string" && id.length > 0 && id.length <= 128 ? id : null;
 }
 
+// Dashboard-only first-join tracking. The dict value is a wrapper
+// {f:<firstSeen ms>,b:<enriched body>} so heartbeats refresh the frame and its
+// 70 s TTL without resetting the join time. Leaves delete the key, so the next
+// join starts a new clock; TTL expiry does the same implicitly. The published
+// channel body is untouched — only the snapshot reader unwraps this.
+function presenceBodyTs(body) {
+  try {
+    const frame = JSON.parse(body);
+    const meta = (frame && frame.meta) || {};
+    const ts = typeof meta.t === "number" ? meta.t : meta.ts;
+    return typeof ts === "number" ? ts : null;
+  } catch (e) { return null; }
+}
+
+function presenceStoredFirstSeen(raw) {
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.f === "number" && typeof parsed.b === "string") return parsed.f;
+    const meta = (parsed && parsed.meta) || {};
+    const ts = typeof meta.t === "number" ? meta.t : meta.ts;
+    return typeof ts === "number" ? ts : null;
+  } catch (e) { return null; }
+}
+
 // Called after the enriched body is built and before it is forwarded. Must never
 // affect the publish: the caller wraps it in try/catch and the request continues
 // unchanged whichever way this goes.
@@ -316,8 +340,14 @@ function updatePresenceRegistry(r, reqText, body) {
     dict.delete(key);
     clearChallengesFrom(userId);
   } else if (type === "join" || type === "heartbeat" || type === "j" || type === "h") {
-    // Same string that is published, so the snapshot needs no re-encoding.
-    dict.set(key, body, PRESENCE_TTL_MS);
+    // Preserve the first-join time across heartbeats; a missing/invalid entry
+    // (fresh join, leave, TTL expiry) starts the clock at this frame's time.
+    var firstSeen = presenceStoredFirstSeen(dict.get(key));
+    if (firstSeen === null) {
+      var ts = presenceBodyTs(body);
+      firstSeen = ts === null ? Date.now() : ts;
+    }
+    dict.set(key, JSON.stringify({ f: firstSeen, b: body }), PRESENCE_TTL_MS);
   }
   recordPresenceCount();
 }
@@ -608,6 +638,8 @@ function getReferrerCache() {
 // Every live presence frame, sorted by display name. Entries carry their own
 // 70 s TTL; the meta timestamp check here is the backstop for entries whose
 // per-entry TTL could not be applied (the zone timeout is 10 minutes).
+// Values are {f:firstSeen,b:body} wrappers (legacy plain bodies still decode);
+// the join time is exposed as compact meta.f for the dashboard only.
 function getPresenceFrames() {
   const dict = ngx.shared.presence_live;
   const now = Date.now();
@@ -619,10 +651,23 @@ function getPresenceFrames() {
     const raw = dict.get(key);
     if (!raw) continue;
     try {
-      const frame = JSON.parse(raw);
+      var firstSeen = null;
+      var frame;
+      var parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.f === "number" && typeof parsed.b === "string") {
+        firstSeen = parsed.f;
+        frame = JSON.parse(parsed.b);
+      } else {
+        frame = parsed;
+      }
       const meta = frame && frame.meta ? frame.meta : {};
       const ts = typeof meta.t === "number" ? meta.t : (typeof meta.ts === "number" ? meta.ts : null);
       if (ts !== null && now - ts > PRESENCE_TTL_MS) continue;
+      if (firstSeen === null) firstSeen = ts;
+      if (firstSeen !== null) {
+        frame.meta = meta;
+        frame.meta.f = firstSeen;
+      }
       frames.push(frame);
     } catch (e) {
       ngx.log(ngx.WARN, `presence snapshot skipped ${key}: ${e.message}`);
