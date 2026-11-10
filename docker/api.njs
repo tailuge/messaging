@@ -270,11 +270,15 @@ function parseTopPlayers(result, limitElo) {
     return players.slice(0, limitElo);
 }
 
+// Sagu has its own feed (/api/hiscores/sagu) for the challenge page, so the
+// summary skips it and only reads the other four rules' sets.
+const HISCORE_RULE_TYPES = RULE_TYPES.filter((rule) => rule !== "sagu");
+
 async function readHiscores() {
-    const results = await Promise.all(RULE_TYPES.map((rule) => redis("ZRANGE", `hiscore${rule}`, "0", "9")));
+    const results = await Promise.all(HISCORE_RULE_TYPES.map((rule) => redis("ZRANGE", `hiscore${rule}`, "0", "9")));
     const hiscores = {};
-    for (let i = 0; i < RULE_TYPES.length; i += 1) {
-        hiscores[RULE_TYPES[i]] = parseHiscores(results[i]);
+    for (let i = 0; i < HISCORE_RULE_TYPES.length; i += 1) {
+        hiscores[HISCORE_RULE_TYPES[i]] = parseHiscores(results[i]);
     }
     return hiscores;
 }
@@ -320,22 +324,23 @@ async function readRecentMatches(limitMatches) {
 }
 
 // GET /api/hiscores/sagu — only the sagu HiScores, best run first. The lobby's
-// /api/summary reads all five rules' sorted sets plus the ELO hashes and the
-// recent matches; a page that shows one rule should not pay for the other four.
-// No TTL argument, so the entry lives for the summary_cache zone's 30s default,
-// the same lifetime the summary response gets.
+// /api/summary reads the other rules' sorted sets plus the ELO hashes and the
+// recent matches (no sagu hiscores); a page that shows one rule should not pay
+// for the other four. No TTL argument, so the entry lives for the
+// summary_cache zone's 30s default, the same lifetime the summary response gets.
 async function saguHiscores(r) {
     r.headersOut['Cache-Control'] = 'public, max-age=0, s-maxage=10';
     const rule = "sagu";
-    const cacheKey = "hiscores:" + rule;
+    const limit = Math.min(Math.max(positiveInt(r.args.limit, 40), 1), 100);
+    const cacheKey = "hiscores:" + rule + ":" + limit;
     const cached = ngx.shared.summary_cache.get(cacheKey);
     if (cached) return json(r, 200, JSON.parse(cached));
 
-    // The challenge page's rail lists the top 20, so the read matches it (an
-    // inclusive 0-19 range). The summary keeps its own 10-row read above.
+    // The challenge page's rail lists the top 40, so the read matches it (an
+    // inclusive 0-39 range).
     let result;
     try {
-        result = await redis("ZRANGE", `hiscore${rule}`, "0", "19");
+        result = await redis("ZRANGE", `hiscore${rule}`, "0", String(limit - 1));
     } catch (e) {
         logApi("sagu hiscores read failed: " + (e && e.message ? e.message : e));
         return json(r, 502, { error: "Upstream error", message: e && e.message ? e.message : String(e) });

@@ -205,15 +205,6 @@ table td {
       .side-by-side > .card {
         flex: 1 1 320px;
       }
-      #challenges-list {
-        list-style: none;
-        font-size: 0.7rem;
-      }
-      #challenges-list li {
-        border-bottom: 1px solid var(--border-color);
-        white-space: normal;
-        word-break: break-word;
-      }
       #presence-list li {
         border-bottom: 1px solid var(--border-color);
         white-space: normal;
@@ -387,19 +378,6 @@ table td {
       </div>
 
       <div class="side-by-side">
-      <div class="card" id="challenges-card">
-        <div class="toggle-header" onclick="toggleCard('challenges-card')" style="cursor: pointer;">
-          <h2 style="margin: 0; display: inline;">Open challenges</h2>
-          <span class="toggle-indicator">▾</span>
-        </div>
-        <div class="card-content" id="challenges-info">
-          <span id="challenges-meta" class="refresh-tag">Loading…</span>
-          <ul id="challenges-list">
-            <li style="color: var(--secondary-color);">Loading open challenges…</li>
-          </ul>
-        </div>
-      </div>
-
       <div class="card" id="presence-card">
         <div class="toggle-header" onclick="toggleCard('presence-card')" style="cursor: pointer;">
           <h2 style="margin: 0; display: inline;">Presence registry</h2>
@@ -584,17 +562,8 @@ table td {
 
       // Phase 1 presence registry view: the dashboard is the only consumer of
       // /api/online/presence. Frames are the compact wire form (u/n/t/T/r/A/S),
-      // with mobile-friendly words for the message type and a plain text row per
-      // user. Built with textContent because names and ids are user-controlled.
-      const PRESENCE_TYPES = {
-        j: "join",
-        h: "heartbeat",
-        l: "leave",
-        join: "join",
-        heartbeat: "heartbeat",
-        leave: "leave",
-      };
-
+      // with a plain text row per user. Built with textContent because names
+      // and ids are user-controlled.
       function presenceState(user) {
         const tableId = user.T || user.tableId;
         const arenaId = user.A || user.arenaId;
@@ -614,7 +583,7 @@ table td {
         return `${Math.round(seconds / 3600)}h ago`;
       }
 
-      // Time since first join as compact H.MM (dashboard-only firstSeen in
+      // Time since firstseen as compact 2h34m (dashboard-only firstSeen in
       // meta.f; falls back to the frame time for legacy entries without one).
       function presenceJoinDur(meta, nowMs) {
         const now = typeof nowMs === "number" ? nowMs : Date.now();
@@ -630,52 +599,24 @@ table td {
             : meta && (typeof meta.t === "number" ? meta.t : meta.ts);
         if (typeof base !== "number") return "?";
         const mins = Math.max(0, Math.floor((now - base) / 60000));
+        const hours = Math.floor(mins / 60);
         const mm = mins % 60;
-        return `${Math.floor(mins / 60)}.${mm < 10 ? "0" + mm : mm}`;
+        if (hours === 0) return `${mm}m`;
+        return `${hours}h${mm < 10 ? "0" + mm : mm}m`;
       }
 
       function presenceRow(user, nowMs) {
         const name = user.n || user.userName || "(no name)";
         const id = user.u || user.userId || "?";
-        const type = PRESENCE_TYPES[user.t || user.type] || user.t || user.type || "?";
         const meta = user.meta || {};
         const country = meta.c || meta.country || "";
         const city = meta.y || meta.city || "";
         const place = [country, city].filter(Boolean).join(" ");
         const li = document.createElement("li");
         li.textContent =
-          `${name} (${id}) — ${type} — ${presenceState(user)} — ${presenceAge(meta)} — ${presenceJoinDur(meta, nowMs)}` +
+          `${name} (${id}) — ${presenceState(user)} — ${presenceAge(meta)} — ${presenceJoinDur(meta, nowMs)}` +
           (place ? ` — ${place}` : "");
         return li;
-      }
-
-      async function loadChallenges() {
-        const meta = document.getElementById("challenges-meta");
-        const list = document.getElementById("challenges-list");
-        if (!meta || !list) return;
-        try {
-          const response = await fetch("/api/challenges", { cache: "no-store" });
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          const data = await response.json();
-          const challenges = Array.isArray(data.challenges) ? data.challenges : [];
-          meta.textContent = `${challenges.length} pending`;
-          list.textContent = "";
-          if (challenges.length === 0) {
-            const empty = document.createElement("li");
-            empty.textContent = "No open challenges.";
-            list.appendChild(empty);
-            return;
-          }
-          challenges.forEach((c) => {
-            const age = Math.max(0, Math.round((data.ts - c.since) / 1000));
-            const li = document.createElement("li");
-            li.textContent = `${c.challenger} → ${c.challengee} — pending — ${age}s ago`;
-            list.appendChild(li);
-          });
-        } catch (error) {
-          meta.textContent = `Challenges fetch failed: ${error.message}`;
-          console.error("Error fetching challenges:", error);
-        }
       }
 
       async function loadPresence() {
@@ -1013,7 +954,6 @@ table td {
       // The registry is cheap (one shared-dict read); show it with the rest of
       // the dashboard and keep the button above for an on-demand refresh.
       loadPresence();
-      loadChallenges();
     </script>
   </body>
 </html>
