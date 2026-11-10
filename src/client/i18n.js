@@ -11,16 +11,17 @@
  * The module is a singleton with a change subscription because the lobby is a
  * live Lit app: switching language re-renders subscribed components in place.
  *
- * Start-up order: `?locale=` query param, then localStorage, then the browser's
- * preferred languages, then English. A `?locale=` naming a locale we do not ship
+ * Start-up order: `?locale=` query param, then the browser's preferred
+ * languages, then English. A `?locale=` naming a locale we do not ship
  * resolves to English rather than falling through to the browser, so an override
- * is always under the tester's control; it is deliberately not persisted, so a
- * shared test link never overwrites a visitor's own choice. The resolved locale
- * is mirrored to `document.documentElement.lang` for assistive technology and
- * for `:lang()` styling hooks. A locale may carry an optional `htmlLang` when
- * the code alone is too coarse for that purpose — `zh` ships Traditional, so it
- * advertises `zh-Hant` and the browser picks Traditional glyphs rather than
- * leaving Han unification to chance.
+ * is always under the tester's control. The choice is in-memory only and is
+ * never persisted to localStorage, so a reload always falls back to the
+ * default above. The resolved locale is mirrored to
+ * `document.documentElement.lang` for assistive technology and for `:lang()`
+ * styling hooks. A locale may carry an optional `htmlLang` when the code alone
+ * is too coarse for that purpose — `zh` ships Traditional, so it advertises
+ * `zh-Hant` and the browser picks Traditional glyphs rather than leaving Han
+ * unification to chance.
  */
 
 import { StoreElement } from './user-store.js';
@@ -406,14 +407,13 @@ const TRANSLATIONS = {
   },
 };
 
-const STORAGE_KEY = 'locale';
-// Keys written by earlier versions of this module; still honoured so a returning
-// visitor keeps the language they already picked. `lang` is deliberately not
-// read: it was the old storage key for the old `?lang=` parameter, and the MOTD
-// was the last thing keyed off that name, so a stale "ko" there could disagree
-// with the `?locale=` the visitor is using now.
-const LEGACY_STORAGE_KEYS = ['selector_lang'];
 const URL_PARAM = 'locale';
+// Earlier versions persisted the choice under these keys. They are removed on
+// load so no locale lingers in localStorage; the choice is in-memory only.
+const STALE_STORAGE_KEYS = ['locale', 'selector_lang'];
+try {
+  for (const key of STALE_STORAGE_KEYS) localStorage.removeItem(key);
+} catch { /* localStorage unavailable — nothing to clean up */ }
 
 const isKnown = (code) => LOCALES.some(l => l.code === code);
 
@@ -421,19 +421,6 @@ const isKnown = (code) => LOCALES.some(l => l.code === code);
 function fromUrl() {
   if (typeof location === 'undefined') return undefined;
   return new URLSearchParams(location.search).get(URL_PARAM)?.trim().toLowerCase() || undefined;
-}
-
-/** Locale the visitor last chose, read from localStorage. */
-function fromStorage() {
-  try {
-    for (const key of [STORAGE_KEY, ...LEGACY_STORAGE_KEYS]) {
-      const stored = localStorage.getItem(key);
-      if (stored && isKnown(stored)) return stored;
-    }
-    return undefined;
-  } catch {
-    return undefined; // localStorage unavailable
-  }
 }
 
 /** First shipped locale in the browser's preference list ("ko-KR" -> "ko"). */
@@ -451,7 +438,7 @@ function fromBrowser() {
 function detectLanguage() {
   const requested = fromUrl();
   if (requested) return isKnown(requested) ? requested : 'en';
-  return fromStorage() ?? fromBrowser() ?? 'en';
+  return fromBrowser() ?? 'en';
 }
 
 export class I18n {
@@ -483,13 +470,10 @@ export class I18n {
     return text;
   }
 
-  /** Switch language; persisted and broadcast to every subscriber. */
+  /** Switch language for this page load only; broadcast to every subscriber. */
   set(lang) {
     if (!isKnown(lang) || lang === this.#lang) return;
     this.#lang = lang;
-    try {
-      localStorage.setItem(STORAGE_KEY, lang);
-    } catch { /* ignore */ }
     this.#applyDocumentLang();
     for (const listener of this.#listeners) listener(lang);
   }
