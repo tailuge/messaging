@@ -145,11 +145,11 @@ class ChallengeModal extends I18nElement {
                                                 emit(this, 'confirm', { ruleType: r.id, options: opts });
                                             }}>
                                                 <span class="icon-wrap">
-                                                    <img src=${r.img} alt=${r.label} />
+                                                    <img src=${r.img} alt=${i18n.t(r.label)} />
                                                     ${r.options && r.options.handicap !== true ? html`<span class="badge">${badgeText(r.options)}</span>` : ''}
                                                 </span>
                                                 ${r.options?.handicap === true ? html`
-                                                    <span class="handicap-label">Handicap (${this._handicap})</span>
+                                                    <span class="handicap-label">${i18n.t('Handicap')} (${this._handicap})</span>
                                                     <input
                                                         type="range"
                                                         min="5"
@@ -161,7 +161,7 @@ class ChallengeModal extends I18nElement {
                                                         class="handicap-inline-slider"
                                                         aria-label="Handicap level"
                                                     />
-                                                ` : html`${r.label}`}
+                                                ` : html`${i18n.t(r.label)}`}
                                             </button>`)}
                                     </div>
                             </div>`)}
