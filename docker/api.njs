@@ -275,7 +275,7 @@ function parseTopPlayers(result, limitElo) {
 const HISCORE_RULE_TYPES = RULE_TYPES.filter((rule) => rule !== "sagu");
 
 async function readHiscores() {
-    const results = await Promise.all(HISCORE_RULE_TYPES.map((rule) => redis("ZRANGE", `hiscore${rule}`, "0", "9")));
+    const results = await Promise.all(HISCORE_RULE_TYPES.map((rule) => redis("ZRANGE", `hiscore${rule}`, "0", "3")));
     const hiscores = {};
     for (let i = 0; i < HISCORE_RULE_TYPES.length; i += 1) {
         hiscores[HISCORE_RULE_TYPES[i]] = parseHiscores(results[i]);
@@ -366,7 +366,7 @@ async function summaryTopPlayers(limitElo) {
 
 async function summary(r) {
     r.headersOut['Cache-Control'] = 'public, max-age=0, s-maxage=10';
-    const limitElo = positiveInt(r.args.limitElo, 10);
+    const limitElo = positiveInt(r.args.limitElo, 4);
     const limitMatches = positiveInt(r.args.limitMatches, 32);
     const key = `summary:${limitElo}:${limitMatches}`;
 
