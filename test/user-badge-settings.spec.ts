@@ -80,7 +80,7 @@ describe('User Badge and Settings i18n / Anon detection', () => {
       expect(i18n.t('Customise settings')).toBe('Customise settings');
 
       i18n.set('ko');
-      expect(i18n.t('Customise settings')).toBe('설정 맞춤설정');
+      expect(i18n.t('Customise settings')).toBe('설정 변경');
 
       i18n.set('ja');
       expect(i18n.t('Customise settings')).toBe('設定をカスタマイズ');

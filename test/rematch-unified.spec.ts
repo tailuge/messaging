@@ -28,7 +28,13 @@ jest.mock('../src/client/user-store.js', () => ({
     getCustom: () => ({}),
     setCustom: () => {},
   },
-  StoreElement: class {},
+  StoreElement: class {
+    requestUpdate() {}
+    get updateComplete() { return Promise.resolve(true); }
+    get renderRoot() {
+      return { querySelector: () => null };
+    }
+  },
 }));
 
 jest.mock('../src/client/logusage.js', () => ({
@@ -201,7 +207,8 @@ describe("Unified Rematch Scenarios (newspec.md)", () => {
                 document: {
                     addEventListener: jest.fn(),
                     removeEventListener: jest.fn(),
-                    hidden: false
+                    hidden: false,
+                    documentElement: {}
                 },
                 Notification: {
                     permission: 'default'

@@ -140,6 +140,55 @@
         margin-bottom: 10px;
         color: #555;
       }
+      #spectator-header {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        border-bottom: 1px solid #ccc;
+        margin-bottom: 10px;
+        padding-bottom: 3px;
+      }
+      #spectator-header h2 {
+        flex: 1 1 auto;
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        border-bottom: none;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      /* Spectate opens the table in the game's spectator mode, which replays
+         the channel's retained history. */
+      #spectate-button {
+        flex: 0 0 auto;
+        font: inherit;
+        font-size: 10px;
+        line-height: 16px;
+        text-transform: none;
+        color: #000;
+        background: #f0f0f0;
+        border: 1px solid #999;
+        border-radius: 3px;
+        padding: 0 8px;
+        cursor: pointer;
+      }
+      #spectate-button:hover:not(:disabled) {
+        background: #e4e4e4;
+      }
+      #spectate-button:disabled {
+        color: #aaa;
+        background: #f7f7f7;
+        border-color: #ccc;
+        cursor: default;
+      }
+      #spectate-frame {
+        width: 100%;
+        aspect-ratio: 3 / 2;
+        border: 1px solid #ccc;
+        background: #000;
+        margin-bottom: 10px;
+      }
       .event-item {
         padding: 1px 0;
         font-size: 10px;
@@ -179,7 +228,16 @@
       </aside>
 
       <div id="spectator-section">
-        <h2 id="spectator-title">Game Details</h2>
+        <div id="spectator-header">
+          <h2 id="spectator-title">Game Details</h2>
+          <button id="spectate-button" type="button" disabled>Spectate</button>
+        </div>
+        <iframe
+          id="spectate-frame"
+          title="Table spectator"
+          allow="fullscreen"
+          hidden
+        ></iframe>
         <div id="spectator-status" class="status">
           Select a game to spectate.
         </div>
@@ -194,6 +252,14 @@
       const spectatorTitle = document.getElementById('spectator-title');
       const spectatorStatus = document.getElementById('spectator-status');
       const eventList = document.getElementById('event-list');
+      const spectateButton = document.getElementById('spectate-button');
+      const spectateFrame = document.getElementById('spectate-frame');
+
+      // The game client renders and replays a table's retained message history
+      // when opened as a spectator. ruletype and tableSize come from the
+      // table's BEGIN message, so they are only known once one has arrived.
+      const GAME_URL = 'https://billiards.tailuge.workers.dev/';
+      let spectateUrl = null;
 
       // Table channels retain 12 hours of messages, so anything last seen
       // longer ago than that has no history left to spectate.
@@ -210,6 +276,38 @@
           return str;
         }
       }
+
+      // Same parameters as the lobby's spectateUrl: the game subscribes to the
+      // table channel as a spectator and replays its retained history, using
+      // ruletype and tableSize to lay out the table.
+      function buildSpectateUrl(tableId, ruletype, tableSize) {
+        let websocketserver = 'wss://billiards-network.onrender.com';
+        if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+          websocketserver = `ws://${location.hostname}:80`;
+        }
+        const userId = (localStorage.getItem('userId') || '').trim() || 'spectator';
+        const userName = (localStorage.getItem('userName') || '').trim() || 'Spectator';
+        const params = new URLSearchParams({
+          websocketserver,
+          tableId,
+          ruletype,
+          spectator: 'true',
+          userId,
+          userName,
+        });
+        if (tableSize !== undefined && tableSize !== null && tableSize !== '') {
+          params.set('tableSize', String(tableSize));
+        }
+        return `${GAME_URL}?${params}`;
+      }
+
+      spectateButton.addEventListener('click', () => {
+        if (!spectateUrl) return;
+        // Assigning src starts the spectate stream; assigning the same URL
+        // again restarts it from the beginning of the retained history.
+        spectateFrame.src = spectateUrl;
+        spectateFrame.hidden = false;
+      });
 
       // "3h 12m ago" from an epoch-ms timestamp.
       function formatAge(ts) {
@@ -290,6 +388,10 @@
 
       function isScoreMessage(msg) {
         return String(msg?.type ?? '').toUpperCase() === 'SCORE';
+      }
+
+      function isBeginMessage(msg) {
+        return String(msg?.type ?? '').toUpperCase() === 'BEGIN';
       }
 
       // "5:4" from a SCORE message payload (p1/p2 are always numbers).
@@ -462,8 +564,13 @@
         await cleanup();
 
         // Setup UI
-        spectatorTitle.textContent = `Spectating: ${displayText(tableId)}`;
+        spectatorTitle.textContent = `Table: ${displayText(tableId)}`;
         spectatorStatus.textContent = 'Connecting...';
+        spectateUrl = null;
+        spectateButton.disabled = true;
+        spectateButton.title = 'Waiting for the table\u2019s BEGIN message';
+        spectateFrame.hidden = true;
+        spectateFrame.src = 'about:blank';
         eventList.innerHTML = '';
         for (const row of tableListEl.querySelectorAll('li.selected')) {
           row.classList.remove('selected');
@@ -498,6 +605,15 @@
               messageCount++;
               if (isHitMessage(msg)) hitCount++;
               if (isScoreMessage(msg)) lastScoreText = scoreTextFromMsg(msg);
+              if (isBeginMessage(msg) && msg.data?.ruletype) {
+                spectateUrl = buildSpectateUrl(
+                  tableId,
+                  msg.data.ruletype,
+                  msg.data.tableSize
+                );
+                spectateButton.disabled = false;
+                spectateButton.title = `Spectate ${msg.data.ruletype} table ${displayText(tableId)}`;
+              }
               messageBytes += encoder.encode(JSON.stringify(msg)).length;
               const msgTs = messageEpochMs(msg);
               if (msgTs !== null) {

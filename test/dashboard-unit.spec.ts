@@ -108,7 +108,7 @@ describe("Dashboard UI Unit Tests", () => {
       meta: { t: Date.now() - 8000, c: "GB", y: "London" },
     });
 
-    expect(row.textContent).toContain("Alice (alice) — heartbeat — nineball @ table-3 — ");
+    expect(row.textContent).toContain("Alice (alice) — nineball @ table-3 — ");
     expect(row.textContent).toMatch(/8s ago/);
     expect(row.textContent).toContain("— GB London");
   });
@@ -137,7 +137,7 @@ describe("Dashboard UI Unit Tests", () => {
       expect(mockDocument.getElementById("presence-meta").textContent).toContain("1 online");
       const list = mockDocument.getElementById("presence-list");
       expect(list.children.length).toBe(1);
-      expect(list.children[0].textContent).toContain("A (a) — heartbeat");
+      expect(list.children[0].textContent).toContain("A (a) — available");
 
       (global as any).fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 });
       await loadPresenceFunction();
