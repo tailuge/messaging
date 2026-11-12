@@ -223,11 +223,11 @@ function positiveInt(value, fallback) {
     return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
-// ZRANGE returns JSON ScoreData members low-to-high; the panel shows the best
-// score first.
+// The caller hands over JSON ScoreData members already ordered by Redis
+// (ZREVRANGE, high-to-low), so the panel's best-score-first order comes straight
+// from the sorted set and nothing is re-sorted or reversed here.
 function parseHiscores(result) {
     const members = (Array.isArray(result) ? result : []).map((member) => JSON.parse(member));
-    members.reverse();
     return members.map((s) => ({
         name: s.name,
         likes: s.likes || 0,
@@ -274,8 +274,10 @@ function parseTopPlayers(result, limitElo) {
 // summary skips it and only reads the other four rules' sets.
 const HISCORE_RULE_TYPES = RULE_TYPES.filter((rule) => rule !== "sagu");
 
+// ZREVRANGE, because the sorted set is scored by the game score: index 0 is the
+// best run. ZRANGE here would return the four worst scores instead.
 async function readHiscores() {
-    const results = await Promise.all(HISCORE_RULE_TYPES.map((rule) => redis("ZRANGE", `hiscore${rule}`, "0", "3")));
+    const results = await Promise.all(HISCORE_RULE_TYPES.map((rule) => redis("ZREVRANGE", `hiscore${rule}`, "0", "3")));
     const hiscores = {};
     for (let i = 0; i < HISCORE_RULE_TYPES.length; i += 1) {
         hiscores[HISCORE_RULE_TYPES[i]] = parseHiscores(results[i]);
@@ -337,10 +339,10 @@ async function saguHiscores(r) {
     if (cached) return json(r, 200, JSON.parse(cached));
 
     // The challenge page's rail lists the top 40, so the read matches it (an
-    // inclusive 0-39 range).
+    // inclusive 0-39 range, best first).
     let result;
     try {
-        result = await redis("ZRANGE", `hiscore${rule}`, "0", String(limit - 1));
+        result = await redis("ZREVRANGE", `hiscore${rule}`, "0", String(limit - 1));
     } catch (e) {
         logApi("sagu hiscores read failed: " + (e && e.message ? e.message : e));
         return json(r, 502, { error: "Upstream error", message: e && e.message ? e.message : String(e) });

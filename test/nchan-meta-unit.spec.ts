@@ -71,6 +71,10 @@ const BINGBOT =
   "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm) Chrome/136.0.0.0 Safari/537.36";
 const CUBOT_ANDROID =
   "Mozilla/5.0 (Linux; Android 11; CUBOT X30) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
+// Meta's link-preview crawler: no OS token and no bot/crawler/spider suffix, so
+// it used to be stored verbatim in both ip_cache fields.
+const FACEBOOK_EXTERNAL_HIT =
+  "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)";
 
 describe("nchan_meta ip_cache user agent retention", () => {
   let meta: any;
@@ -132,6 +136,16 @@ describe("nchan_meta ip_cache user agent retention", () => {
     const parts = meta.formatCacheValue("US", "Boydton", 1, "", meta.parseUA(BINGBOT), BINGBOT).split("|");
     expect(parts[4]).toBe("Bot");
     expect(parts[5]).toBe("Bing");
+  });
+
+  test("Facebook's crawler is labelled FB, since its user agent carries no OS", () => {
+    expect(meta.parseUA(FACEBOOK_EXTERNAL_HIT)).toEqual({ os: "FB", browser: "FB" });
+    expect(meta.reduceUA(FACEBOOK_EXTERNAL_HIT)).toBe("FB FB");
+    const parts = meta
+      .formatCacheValue("US", "Boydton", 1, "", meta.parseUA(FACEBOOK_EXTERNAL_HIT), FACEBOOK_EXTERNAL_HIT)
+      .split("|");
+    expect(parts[4]).toBe("FB");
+    expect(parts[5]).toBe("FB");
   });
 
   test("a phone model ending in bot is not mistaken for a crawler", () => {

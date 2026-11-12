@@ -39,6 +39,15 @@ function osLabel(token) {
   return token.substring(0, 3).replace(/^[a-z]/, function (c) { return c.toUpperCase(); });
 }
 
+// Meta's FacebookExternalHit crawler (link previews for shared pages) sends no
+// OS token at all: it runs on Facebook's servers, so there is nothing to parse
+// and the plain OS rules would leave both fields as the raw user agent. Its
+// token is also not crawler-shaped ("facebookexternalhit" has no bot/crawler/
+// spider suffix), so it is matched by name and labelled FB in both fields.
+function isFacebookExternalHit(ua) {
+  return /facebookexternalhit\//i.test(ua);
+}
+
 // Search crawlers send a browser-shaped user agent (Bing's crawler adds a
 // Chrome token) and often no OS hint at all, so they are recognised before the
 // OS and browser rules. The trailing slash keeps model names such as "CUBOT"
@@ -77,7 +86,8 @@ function parseUA(ua) {
   if (ua) {
     var platform = x11Platform(ua);
     var crawler = crawlerName(ua);
-    if (crawler) { os = "Bot"; browser = crawlerLabel(crawler); }
+    if (isFacebookExternalHit(ua)) { os = "FB"; browser = "FB"; }
+    else if (crawler) { os = "Bot"; browser = crawlerLabel(crawler); }
     else if (/Tauri/i.test(ua)) { os = "Tau"; browser = "Tau"; }
     else if (/Android/i.test(ua)) os = "And";
     else if (/iPhone|iPad|iPod/i.test(ua)) os = "iOS";
