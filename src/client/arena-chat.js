@@ -113,7 +113,14 @@ class ArenaChat extends LitElement {
   }
 
   _onKeydown(e) {
-    if (e.key === 'Enter') this._send();
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    // Enter also confirms an IME candidate (Japanese/Korean/Chinese input), so
+    // ignore it while a composition is open instead of sending half-composed
+    // text. keyCode 229 covers Safari, which reports the key after
+    // compositionend and so leaves isComposing false.
+    if (e.isComposing || e.keyCode === 229) return;
+    this._send();
   }
 
   _onInput() {

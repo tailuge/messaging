@@ -123,7 +123,7 @@ export class UserList extends I18nElement {
         );
 
         return html`
-            <ul class="${this.#expanded ? 'expanded' : ''}" aria-label="Online players">
+            <ul class="${this.#expanded ? 'expanded' : ''}" role="list" aria-label="Online players">
                 ${repeat(slots, (_, i) => i, (slot, i) => this._rowSlot(slot, i, activeGameIds))}
             </ul>
             <div class="expand-toggle" @click=${this.#toggleExpand}>

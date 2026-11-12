@@ -63,6 +63,16 @@ class UserBadge extends I18nElement {
         }
     }
 
+    _onKeydown(e) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        // Enter confirms an IME candidate too, so committing here would save a
+        // half-composed name. keyCode 229 covers Safari's post-compositionend
+        // keydown, where isComposing is already false.
+        if (e.isComposing || e.keyCode === 229) return;
+        e.target.blur();
+    }
+
     render() {
         if (isVercel) return html``;
         const name = userStore.userName;
@@ -80,7 +90,7 @@ class UserBadge extends I18nElement {
                     aria-label="Display name"
                     @input=${e => e.target.style.width = displayWidth(e.target.value)}
                     @change=${e => this._commit(e.target.value)}
-                    @keydown=${e => e.key === 'Enter' && e.target.blur()}>
+                    @keydown=${this._onKeydown}>
                 ${isAnon ? html`<span class="pencil">🖉</span>` : ''}
             </div>`;
     }

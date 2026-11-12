@@ -38,6 +38,11 @@ class SettingsModal extends I18nElement {
             margin-left: auto;
         }
         .switch input { opacity: 0; width: 0; height: 0; }
+        /* The input is zero-sized, so the focus ring is drawn on the track. */
+        .switch input:focus-visible + .slider {
+            outline: 2px solid var(--link);
+            outline-offset: 2px;
+        }
         .slider {
             position: absolute;
             cursor: pointer;
@@ -191,30 +196,30 @@ class SettingsModal extends I18nElement {
 
                         <div class="section-title">${i18n.t('Preferences')}</div>
                         <div class="row">
-                            <span>Dark mode</span>
+                            <label for="pref-dark-mode">Dark mode</label>
                             <label class="switch">
-                                <input type="checkbox" .checked=${this._theme === 'dark'} @change=${this._setTheme}>
+                                <input id="pref-dark-mode" type="checkbox" .checked=${this._theme === 'dark'} @change=${this._setTheme}>
                                 <span class="slider"></span>
                             </label>
                         </div>
                         <div class="row">
-                            <span>Enable notifications</span>
+                            <label for="pref-notifications">Enable notifications</label>
                             <label class="switch">
-                                <input type="checkbox" .checked=${this._notifEnabled} @change=${this._toggleNotifications}>
+                                <input id="pref-notifications" type="checkbox" .checked=${this._notifEnabled} @change=${this._toggleNotifications}>
                                 <span class="slider"></span>
                             </label>
                         </div>
                         <div class="row">
-                            <span>Flip X Axis</span>
+                            <label for="pref-flip-x">Flip X Axis</label>
                             <label class="switch">
-                                <input type="checkbox" .checked=${userStore.flip} @change=${e => userStore.setFlip(e.target.checked)}>
+                                <input id="pref-flip-x" type="checkbox" .checked=${userStore.flip} @change=${e => userStore.setFlip(e.target.checked)}>
                                 <span class="slider"></span>
                             </label>
                         </div>
                         <div class="row">
-                            <span>Use proxy to connect</span>
+                            <label for="pref-proxy">Use proxy to connect</label>
                             <label class="switch">
-                                <input type="checkbox" .checked=${userStore.useProxy} @change=${e => userStore.setUseProxy(e.target.checked)}>
+                                <input id="pref-proxy" type="checkbox" .checked=${userStore.useProxy} @change=${e => userStore.setUseProxy(e.target.checked)}>
                                 <span class="slider"></span>
                             </label>
                         </div>
