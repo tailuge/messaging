@@ -373,6 +373,30 @@ table td {
               <td>Network out (total)</td>
               <td id="sys-net-tx">-</td>
             </tr>
+            <tr>
+              <td>Net counted (60m)</td>
+              <td id="net-counted">-</td>
+            </tr>
+            <tr>
+              <td>Presence out (60m)</td>
+              <td id="net-presence">-</td>
+            </tr>
+            <tr>
+              <td>Table out (60m)</td>
+              <td id="net-table">-</td>
+            </tr>
+            <tr>
+              <td>API out (60m, pre-gzip)</td>
+              <td id="net-api">-</td>
+            </tr>
+            <tr>
+              <td>Top API route</td>
+              <td id="net-route">-</td>
+            </tr>
+            <tr>
+              <td>Upstash (60m)</td>
+              <td id="net-upstash">-</td>
+            </tr>
           </table>
         </div>
       </div>
@@ -768,6 +792,32 @@ table td {
               : "-";
           document.getElementById("sys-net-rx").textContent = bytes(network.rx_bytes);
           document.getElementById("sys-net-tx").textContent = bytes(network.tx_bytes);
+        }
+
+        // In-memory counters from the last hour, next to the container totals
+        // above: the difference between the two is traffic NJS never sees
+        // (static files, WebSocket frames for channels with no publish).
+        if (data.net) {
+          const net = data.net;
+          const totals = net.totals || {};
+          const routes = Array.isArray(net.routes) ? net.routes : [];
+          const size = (value) => (typeof value === "number" ? formatBytes(value) : "-");
+          const countedIn = (totals["presence.in"] || 0) + (totals["table.in"] || 0);
+          const countedOut =
+            (totals["presence.out"] || 0) + (totals["table.out"] || 0) + (totals["api.out"] || 0);
+          document.getElementById("net-counted").textContent =
+            `${size(countedIn)} in / ${size(countedOut)} out`;
+          document.getElementById("net-presence").textContent = size(totals["presence.out"]);
+          document.getElementById("net-table").textContent = size(totals["table.out"]);
+          document.getElementById("net-api").textContent = size(totals["api.out"]);
+          const top = routes.filter((route) => route.bytes > 0)[0];
+          document.getElementById("net-route").textContent = top
+            ? `/api/${top.route} ${size(top.bytes)}`
+            : "-";
+          const calls = totals["up.calls"] || 0;
+          document.getElementById("net-upstash").textContent = calls
+            ? `${calls.toLocaleString()} calls, ${size(totals["up.out"])} back`
+            : "0 calls";
         }
 
         if (data.system_stats) {

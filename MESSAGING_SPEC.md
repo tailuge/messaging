@@ -384,7 +384,7 @@ Returns true if:
 
 ### 1. Presence Management
 
-- **Heartbeat**: The library must automatically send periodic "heartbeat" messages (e.g., every 60 seconds) to the lobby while active.
+- **Heartbeat**: The library must automatically send periodic "heartbeat" messages (e.g., every 120 seconds) to the lobby while active.
 - **Pruning**: The library must maintain an internal map of users and automatically remove users who haven't sent a heartbeat within a specific TTL (e.g., 90 seconds).
 - **Unload Handling**: In browser environments, the library should attempt to send a "leave" message on `beforeunload` or `pagehide`.
 

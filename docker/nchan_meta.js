@@ -236,7 +236,9 @@ async function buildMeta(r) {
       timeout: 2000,
       headers: { "User-Agent": "Nginx-NJS-Messaging" },
     });
-    const data = JSON.parse(await reply.text());
+    const text = await reply.text();
+    noteGeoFetch(text.length);
+    const data = JSON.parse(text);
     country = data.country || "XX";
     city = data.city || "";
   } catch (e) {
@@ -296,7 +298,9 @@ function injectMetaString(rawText, meta) {
 // kept in a shared dict so the dashboard can read the online list in one request
 // instead of replaying the channel buffer. The channel itself is untouched: its
 // retention, replay and fan-out stay exactly as they are.
-const PRESENCE_TTL_MS = 70 * 1000;
+// Must stay above the client's heartbeat interval (120 s) with margin for
+// delivery latency: a frame older than this is dropped from snapshots.
+const PRESENCE_TTL_MS = 130 * 1000;
 const PRESENCE_KEY_PREFIX = "u:";
 const HISTORY_KEY_PREFIX = "s:";
 const HISTORY_LAST_KEY = "last";
@@ -313,7 +317,7 @@ function presenceUserId(payload) {
 
 // Dashboard-only first-join tracking. The dict value is a wrapper
 // {f:<firstSeen ms>,b:<enriched body>} so heartbeats refresh the frame and its
-// 70 s TTL without resetting the join time. Leaves delete the key, so the next
+// 130 s TTL without resetting the join time. Leaves delete the key, so the next
 // join starts a new clock; TTL expiry does the same implicitly. The published
 // channel body is untouched — only the snapshot reader unwraps this.
 function presenceBodyTs(body) {
@@ -414,7 +418,7 @@ function challengeSince(body) {
 
 // Users-online history for usage.html. The count is derived from the registry
 // on every presence publish (a running counter cannot stay accurate: a frame's
-// 70 s TTL expires without a hook), but a sample is stored only when the count
+// 130 s TTL expires without a hook), but a sample is stored only when the count
 // differs from the last one, so heartbeats write nothing at all.
 //
 // Samples are bucketed by minute ("s:<minute start>") so a churning count costs
@@ -448,10 +452,229 @@ function getStatsSnapshot(keys) {
   return snapshot;
 }
 
+// ---- network byte accounting ----------------------------------------------
+// In-memory minute buckets, lost on redeploy like the counters above. Every
+// value written here is a length the caller already holds (a Content-Length
+// header, or a string it was about to send), so nothing on the publish path
+// parses a payload to measure it.
+//
+//   n:<minute>:presence.in|presence.out|table.in|table.out|meta|api.in|api.out
+//   n:<minute>:e:<route> / c:<route>    API egress and calls per route
+//   n:<minute>:up.calls|up.in|up.out|up.ms|up.err   Upstash (api.njs)
+//   n:<minute>:geo.calls|geo.out         country.is lookups
+//   subs:<channelId>                     live subscriber count (no minute)
+const NET_PREFIX = "n:";
+const NET_RETENTION_MINUTES = 90;
+const NET_TTL_MS = NET_RETENTION_MINUTES * 60 * 1000;
+const NET_READ_MINUTES = 60;
+const SUBS_KEY_PREFIX = "subs:";
+// nchan_subscriber_timeout is 7200s; a stale entry is garbage after that.
+const SUBS_TTL_MS = 7500000;
+
+// Read-modify-write like incrementStat(): SharedDict.incr() cannot give a key
+// it creates a TTL, and these buckets must expire. The two workers can lose a
+// delta under a simultaneous write, which a diagnostic counter can tolerate.
+function netBucket(dict, minute, metric, delta) {
+  if (!(delta > 0)) return;
+  const key = NET_PREFIX + minute + ":" + metric;
+  const current = parseInt(dict.get(key) || "0", 10) || 0;
+  dict.set(key, String(current + delta), NET_TTL_MS);
+}
+
+// `outBytes` is one copy of the message; fanout multiplies it because Nchan
+// writes a separate frame to every subscriber.
+function notePublishBytes(family, inBytes, outBytes, fanout, metaBytes) {
+  const dict = ngx.shared.net_stats;
+  if (!dict) return;
+  const minute = Math.floor(Date.now() / 60000);
+  netBucket(dict, minute, family + ".in", inBytes);
+  netBucket(dict, minute, family + ".out", outBytes * (fanout > 0 ? fanout : 1));
+  netBucket(dict, minute, "meta", metaBytes);
+}
+
+// Fanout source. Nchan exposes $nchan_channel_subscriber_count only on publisher
+// locations, and these publishes reach the publisher through a subrequest, so
+// the count is tracked here by the subscribe/unsubscribe hooks instead.
+function noteSubscriber(channel, delta) {
+  if (!channel) return;
+  const dict = ngx.shared.net_stats;
+  if (!dict) return;
+  const key = SUBS_KEY_PREFIX + channel;
+  const current = (parseInt(dict.get(key) || "0", 10) || 0) + delta;
+  if (current <= 0) dict.delete(key);
+  else dict.set(key, String(current), SUBS_TTL_MS);
+}
+
+function channelSubscribers(channel) {
+  if (!channel) return 1;
+  const dict = ngx.shared.net_stats;
+  if (!dict) return 1;
+  // 1 rather than 0: a publish before the first subscribe hook has fired still
+  // reaches whoever is listening, and zero would hide the traffic entirely.
+  return parseInt(dict.get(SUBS_KEY_PREFIX + channel) || "0", 10) || 1;
+}
+
+function publishFamily(r) {
+  if (isPresenceLobbyChannel(r)) return "presence";
+  if (isTableChannel(r)) return "table";
+  return "other";
+}
+
+function publishChannel(r) {
+  if (isTableChannel(r)) return r.uri.substring("/publish/table/".length);
+  if (isPresenceLobbyChannel(r)) return "presence/lobby";
+  return null;
+}
+
+// Exact body size: Content-Length when the client sent one, otherwise the
+// decoded string as read (only the JSON ASCII payloads are close to exact here).
+function requestBodyBytes(r, text) {
+  const len = parseInt(r.headersIn["content-length"], 10);
+  return len > 0 ? len : (text ? text.length : 0);
+}
+
+// Routes are collapsed to a fixed set of slugs so the zone stays bounded no
+// matter how many paths exist. Prefix matching keeps /api/usage/<metric> on the
+// "usage" row.
+const API_SLUGS = [
+  ["/api/summary", "summary"],
+  ["/api/usage", "usage"],
+  ["/api/arena", "arena"],
+  ["/api/hiscores", "hiscores"],
+  ["/api/stats", "stats"],
+  ["/api/online/presence", "presence"],
+  ["/api/online/users", "online"],
+  ["/api/presence/history", "presence-history"],
+  ["/api/challenges", "challenges"],
+  ["/api/tables/recent", "tables"],
+  ["/api/net/history", "net-history"],
+];
+
+function apiSlug(uri) {
+  for (let i = 0; i < API_SLUGS.length; i++) {
+    if (uri.indexOf(API_SLUGS[i][0]) === 0) return API_SLUGS[i][1];
+  }
+  return "other";
+}
+
+// `payload` is the JSON string the handler is about to return; counting it is
+// one length read. These are pre-gzip bytes, so the dashboard labels them.
+function noteApiOut(r, payload) {
+  const dict = ngx.shared.net_stats;
+  if (!dict) return;
+  const minute = Math.floor(Date.now() / 60000);
+  const slug = apiSlug(r.uri);
+  netBucket(dict, minute, "e:" + slug, payload.length);
+  netBucket(dict, minute, "c:" + slug, 1);
+  const inBytes = parseInt(r.headersIn["content-length"], 10);
+  if (inBytes > 0) netBucket(dict, minute, "api.in", inBytes);
+}
+
+// Cold-cache country lookup: the only external fetch on the publish path.
+function noteGeoFetch(outBytes) {
+  const dict = ngx.shared.net_stats;
+  if (!dict) return;
+  const minute = Math.floor(Date.now() / 60000);
+  netBucket(dict, minute, "geo.calls", 1);
+  netBucket(dict, minute, "geo.out", outBytes);
+}
+
+function zeros(count) {
+  const out = [];
+  for (let i = 0; i < count; i++) out.push(0);
+  return out;
+}
+
+function addPoint(series, name, slot, value, minutes) {
+  let arr = series[name];
+  if (!arr) arr = series[name] = zeros(minutes);
+  arr[slot] += value;
+}
+
+// One pass over the dict: buckets are dense arrays for the chart, totals and
+// per-route sums are accumulated in the same loop.
+function readNet(minutes) {
+  const dict = ngx.shared.net_stats;
+  const nowMinute = Math.floor(Date.now() / 60000);
+  const firstMinute = nowMinute - minutes + 1;
+  const totals = {};
+  const routes = {};
+  const series = {};
+  const keys = dict ? (dict.keys() || []) : [];
+
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (key.indexOf(NET_PREFIX) !== 0) continue;
+    const rest = key.substring(NET_PREFIX.length);
+    const sep = rest.indexOf(":");
+    if (sep === -1) continue;
+    const minute = parseInt(rest.substring(0, sep), 10);
+    if (isNaN(minute) || minute < firstMinute || minute > nowMinute) continue;
+    const value = parseInt(dict.get(key), 10);
+    if (!value) continue;
+    const metric = rest.substring(sep + 1);
+    const slot = minute - firstMinute;
+
+    if (metric.indexOf("e:") === 0 || metric.indexOf("c:") === 0) {
+      const slug = metric.substring(2);
+      let route = routes[slug];
+      if (!route) route = routes[slug] = { bytes: 0, calls: 0 };
+      if (metric.charAt(0) === "e") {
+        route.bytes += value;
+        addPoint(series, "api.out", slot, value, minutes);
+      } else route.calls += value;
+      continue;
+    }
+    totals[metric] = (totals[metric] || 0) + value;
+    addPoint(series, metric, slot, value, minutes);
+  }
+
+  return { nowMinute: nowMinute, totals: totals, routes: routes, series: series };
+}
+
+function routeSummary(routes) {
+  const out = [];
+  for (const slug in routes) {
+    out.push({ route: slug, bytes: routes[slug].bytes, calls: routes[slug].calls });
+  }
+  out.sort((a, b) => b.bytes - a.bytes);
+  return out;
+}
+
+function subscriberTotals() {
+  const dict = ngx.shared.net_stats;
+  const out = { presence: 0, tables: 0, table_channels: 0 };
+  if (!dict) return out;
+  const keys = dict.keys() || [];
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (key.indexOf(SUBS_KEY_PREFIX) !== 0) continue;
+    const count = parseInt(dict.get(key), 10) || 0;
+    if (key === SUBS_KEY_PREFIX + "presence/lobby") out.presence = count;
+    else { out.tables += count; out.table_channels += 1; }
+  }
+  return out;
+}
+
+function netSummary(minutes) {
+  const net = readNet(minutes);
+  return {
+    window_minutes: minutes,
+    totals: net.totals,
+    routes: routeSummary(net.routes),
+    subscribers: subscriberTotals(),
+  };
+}
+
 async function publish(r) {
   const reqText = r.requestText || "";
+  const inBytes = requestBodyBytes(r, reqText);
+  const family = publishFamily(r);
+  const channel = publishChannel(r);
   const isJson = reqText.length > 0 && reqText.trim().startsWith("{");
   if (!isJson) {
+    // Nothing is injected on this path, so the copy leaving is the inbound body.
+    notePublishBytes(family, inBytes, inBytes, channelSubscribers(channel), 0);
     const res = await r.subrequest("/internal" + r.uri, { method: r.method, body: reqText });
     r.return(res.status, res.responseText);
     return;
@@ -465,6 +688,7 @@ async function publish(r) {
     }
   }
   const body = injectMetaString(reqText, meta);
+  notePublishBytes(family, inBytes, body.length, channelSubscribers(channel), body.length - inBytes);
   try {
     updatePresenceRegistry(r, reqText, body);
     updateChallengeRegistry(r, body);
@@ -488,6 +712,7 @@ async function publish(r) {
 
 function presence_sub(r) {
   try {
+    noteSubscriber("presence/lobby", 1);
     const referrer = r.headersIn['X-Referrer'];
     if (referrer && referrer.length > 0) {
       const sanitized = referrer.replace(/\|/g, '');
@@ -529,7 +754,13 @@ async function publish_auto_leave(r, publishPath, payload, ua, compact) {
     ? { t: Date.now(), i: createMessageId(), u: ua, o: "internal" }
     : { ts: Date.now(), ua: ua, origin: "internal", msgId: createMessageId() };
   const enriched = Object.assign({}, payload, { meta: meta });
-  await r.subrequest(publishPath, { method: "POST", body: JSON.stringify(enriched) });
+  const body = JSON.stringify(enriched);
+  // Internal leaves bypass publish() entirely (they go straight to the nchan
+  // publisher), so they are counted here.
+  const family = publishPath.indexOf("/publish/presence/") !== -1 ? "presence" : "table";
+  const channel = family === "presence" ? "presence/lobby" : publishPath.substring(publishPath.lastIndexOf("/") + 1);
+  notePublishBytes(family, 0, body.length, channelSubscribers(channel), 0);
+  await r.subrequest(publishPath, { method: "POST", body: body });
 }
 
 function table_sub(r) {
@@ -537,6 +768,7 @@ function table_sub(r) {
     const userId = r.headersIn['X-User-Id'] || 'unknown';
     const tableId = r.headersIn['X-Nchan-Channel-Id'];
     ngx.log(ngx.WARN, `table_sub ${userId} to table ${tableId}`);
+    noteSubscriber(tableId, 1);
     // Remember the table for /api/tables/recent. A failed set (zone full) must
     // not fail the subscribe, so it is caught and ignored.
     // Spectators (active.html) are not players, so they are not listed.
@@ -564,6 +796,7 @@ async function table_unsub(r) {
   try {
     const userId = r.headersIn['X-User-Id'] || 'unknown';
     const tableId = r.headersIn['X-Nchan-Channel-Id'];
+    noteSubscriber(tableId, -1);
     if (userId !== 'unknown' && tableId) {
       const isSpectator = r.args.spectator === "1";
       await publish_auto_leave(r, `/internal/publish/table/${tableId}`, { type: "table:leave", senderId: userId, data: isSpectator ? { isSpectator: true } : {} }, "nchan-auto-table-leave");
@@ -582,11 +815,12 @@ async function publish_leave(r, userId) {
 async function presence_unsub(r) {
   try {
     const userId = r.headersIn['X-User-Id'] || 'unknown';
+    noteSubscriber("presence/lobby", -1);
     incrementStat("presence_unsubscribe_total");
     incrementStat("presence_unsubscribe_websocket_total");
     if (userId !== 'unknown') {
       // Phase 1 has no socket counting: the user's presence frame is dropped
-      // and the next heartbeat (3 s after a join/resume, 60 s for a live tab)
+      // and the next heartbeat (3 s after a join/resume, 120 s for a live tab)
       // re-registers them. A hidden surviving tab may stay missing until it is
       // shown again.
       ngx.shared.presence_live.delete(PRESENCE_KEY_PREFIX + userId);
@@ -646,7 +880,7 @@ function getReferrerCache() {
 }
 
 // Every live presence frame, sorted by display name. Entries carry their own
-// 70 s TTL; the meta timestamp check here is the backstop for entries whose
+// 130 s TTL; the meta timestamp check here is the backstop for entries whose
 // per-entry TTL could not be applied (the zone timeout is 10 minutes).
 // Values are {f:firstSeen,b:body} wrappers (legacy plain bodies still decode);
 // the join time is exposed as compact meta.f for the dashboard only.
@@ -931,10 +1165,13 @@ async function stats(r) {
     online_users: getOnlineUsers(),
     uptime: uptime,
     njs_logs: getNjsLogs(),
+    net: netSummary(NET_READ_MINUTES),
     ts: new Date().toISOString(),
   };
+  const payload = JSON.stringify(data);
+  noteApiOut(r, payload);
   r.headersOut["Content-Type"] = "application/json";
-  r.return(200, JSON.stringify(data));
+  r.return(200, payload);
 }
 
 // Users-online history: [ts, count] samples oldest first, plus the live count so
@@ -953,9 +1190,36 @@ function presence_history_api(r) {
     if (!isNaN(count) && !isNaN(ts)) samples.push([ts, count]);
   }
   samples.sort((a, b) => a[0] - b[0]);
+  const payload = JSON.stringify({ ts: Date.now(), current: ngx.shared.presence_live.keys().length, samples: samples });
+  noteApiOut(r, payload);
   r.headersOut["Content-Type"] = "application/json";
   r.headersOut["Cache-Control"] = "no-store";
-  r.return(200, JSON.stringify({ ts: Date.now(), current: ngx.shared.presence_live.keys().length, samples: samples }));
+  r.return(200, payload);
+}
+
+// Per-minute byte series for usage.html plus the per-route API breakdown.
+// Dense arrays (one slot per minute, oldest first) start at `start` epoch ms.
+function net_history_api(r) {
+  let minutes = parseInt(r.args.minutes, 10);
+  if (!(minutes > 0)) minutes = NET_READ_MINUTES;
+  if (minutes > NET_RETENTION_MINUTES) minutes = NET_RETENTION_MINUTES;
+  if (minutes < 5) minutes = 5;
+  const net = readNet(minutes);
+  const payload = JSON.stringify({
+    ts: Date.now(),
+    resolution: 60,
+    minutes: minutes,
+    start: (net.nowMinute - minutes + 1) * 60000,
+    retention_minutes: NET_RETENTION_MINUTES,
+    series: net.series,
+    totals: net.totals,
+    routes: routeSummary(net.routes),
+    subscribers: subscriberTotals(),
+  });
+  noteApiOut(r, payload);
+  r.headersOut["Content-Type"] = "application/json";
+  r.headersOut["Cache-Control"] = "no-store";
+  r.return(200, payload);
 }
 
 // Recently subscribed tables for active.html: newest first, capped so the
@@ -983,9 +1247,11 @@ function challenges_api(r) {
     challenges.push({ challenger: key.slice(CHALLENGE_KEY_PREFIX.length, sep), challengee: key.slice(sep + 1), since: since });
   }
   challenges.sort((a, b) => b.since - a.since);
+  const payload = JSON.stringify({ ts: Date.now(), challenges: challenges });
+  noteApiOut(r, payload);
   r.headersOut["Content-Type"] = "application/json";
   r.headersOut["Cache-Control"] = "no-store";
-  r.return(200, JSON.stringify({ ts: Date.now(), challenges: challenges }));
+  r.return(200, payload);
 }
 
 function tables_api(r) {
@@ -997,17 +1263,21 @@ function tables_api(r) {
     if (!isNaN(entry.ts)) tables.push({ tableId: keys[i], lastSeen: entry.ts, uids: entry.uids });
   }
   tables.sort((a, b) => b.lastSeen - a.lastSeen);
+  const payload = JSON.stringify({ ts: Date.now(), tables: tables.slice(0, RECENT_TABLES_LIMIT) });
+  noteApiOut(r, payload);
   r.headersOut["Content-Type"] = "application/json";
   r.headersOut["Cache-Control"] = "no-store";
-  r.return(200, JSON.stringify({ ts: Date.now(), tables: tables.slice(0, RECENT_TABLES_LIMIT) }));
+  r.return(200, payload);
 }
 
 // Legacy list endpoint: kept for external callers, but served from the presence
 // registry now, so its contents match /api/online/presence.
 async function online_users_api(r) {
   const users = getOnlineUsers();
+  const payload = JSON.stringify(users);
+  noteApiOut(r, payload);
   r.headersOut["Content-Type"] = "application/json";
-  r.return(200, JSON.stringify(users));
+  r.return(200, payload);
 }
 
 // Open offers addressed to `userId`, as published. The key ends with "|<challengee>".
@@ -1033,9 +1303,11 @@ function heldOffersFor(userId) {
 function online_presence_api(r) {
   const uid = r.args.uid;
   const challenges = uid ? heldOffersFor(uid) : [];
+  const payload = JSON.stringify({ ts: Date.now(), ttl: PRESENCE_TTL_MS, users: getPresenceFrames(), challenges: challenges });
+  noteApiOut(r, payload);
   r.headersOut["Content-Type"] = "application/json";
   r.headersOut["Cache-Control"] = "no-store";
-  r.return(200, JSON.stringify({ ts: Date.now(), ttl: PRESENCE_TTL_MS, users: getPresenceFrames(), challenges: challenges }));
+  r.return(200, payload);
 }
 
-export default { publish, presence_sub, presence_unsub, stats, online_users_api, online_presence_api, presence_history_api, challenges_api, tables_api, table_unsub, table_sub };
+export default { publish, presence_sub, presence_unsub, stats, online_users_api, online_presence_api, presence_history_api, net_history_api, challenges_api, tables_api, table_unsub, table_sub };

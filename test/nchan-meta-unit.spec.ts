@@ -432,7 +432,7 @@ describe("nchan_meta online users derived from presence_live", () => {
   test("drops frames older than the presence TTL", () => {
     const now = Date.now();
     const meta = load({
-      stale: { u: "stale", n: "Stale", meta: { t: now - 71 * 1000 } },
+      stale: { u: "stale", n: "Stale", meta: { t: now - 131 * 1000 } },
       fresh: { u: "fresh", n: "Fresh", meta: { t: now } },
     });
 

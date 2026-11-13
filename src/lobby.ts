@@ -63,7 +63,7 @@ export class Lobby {
     public currentUser: PresenceMessage,
     private options: LobbyOptions = {},
   ) {
-    this.heartbeatInterval = options.heartbeatInterval || 60000;
+    this.heartbeatInterval = options.heartbeatInterval || 120000;
   }
 
   /**
@@ -275,7 +275,7 @@ export class Lobby {
    */
   async syncPresence(update: Partial<PresenceMessage> = {}): Promise<void> {
     this.presenceMessageCount++;
-    // Cap a presence session at ~1 hour of heartbeats (60 x 60s) so a tab that
+    // Cap a presence session at ~2 hours of heartbeats (60 x 120s) so a tab that
     // is left open without activity stops publishing rather than holding a
     // slot in the lobby indefinitely.
     if (this.presenceMessageCount >= 60) {

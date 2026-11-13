@@ -1,10 +1,59 @@
 function json(r, status, obj) {
+    const payload = JSON.stringify(obj);
+    noteApiOut(r, payload);
     r.headersOut['Content-Type'] = 'application/json';
-    r.return(status, JSON.stringify(obj));
+    r.return(status, payload);
 }
 
 function logApi(message) {
     ngx.log(ngx.ERR, "API: " + message);
+}
+
+// ---- network byte accounting ----------------------------------------------
+// Same in-memory minute buckets as nchan_meta.js: the two files cannot share a
+// helper, so the small copy is deliberate. Only lengths are recorded, never
+// parsed payloads.
+const NET_PREFIX = "n:";
+const NET_TTL_MS = 90 * 60 * 1000;
+
+function netBucket(minute, metric, delta) {
+    if (!(delta > 0)) return;
+    const dict = ngx.shared.net_stats;
+    if (!dict) return;
+    const key = NET_PREFIX + minute + ":" + metric;
+    const current = parseInt(dict.get(key) || "0", 10) || 0;
+    dict.set(key, String(current + delta), NET_TTL_MS);
+}
+
+// Routes collapse to a fixed set of slugs so the zone stays bounded; the prefix
+// test keeps /api/usage/<metric> on the "usage" row.
+function apiSlug(uri) {
+    if (uri === '/api/summary') return 'summary';
+    if (uri.indexOf('/api/usage') === 0) return 'usage';
+    if (uri.indexOf('/api/arena') === 0) return 'arena';
+    if (uri.indexOf('/api/hiscores') === 0) return 'hiscores';
+    if (uri === '/api/hello') return 'hello';
+    return 'other';
+}
+
+// `payload` is already built by the caller; counting it is a length read.
+// These are pre-gzip bytes, so the dashboard labels the series as such.
+function noteApiOut(r, payload) {
+    const minute = Math.floor(Date.now() / 60000);
+    const slug = apiSlug(r.uri);
+    netBucket(minute, 'e:' + slug, payload.length);
+    netBucket(minute, 'c:' + slug, 1);
+    const inBytes = parseInt(r.headersIn['content-length'], 10);
+    if (inBytes > 0) netBucket(minute, 'api.in', inBytes);
+}
+
+function noteUpstash(calls, reqBytes, respBytes, ms, failed) {
+    const minute = Math.floor(Date.now() / 60000);
+    netBucket(minute, 'up.calls', calls);
+    netBucket(minute, 'up.in', reqBytes);
+    netBucket(minute, 'up.out', respBytes);
+    netBucket(minute, 'up.ms', ms);
+    if (failed) netBucket(minute, 'up.err', 1);
 }
 
 // Liveness test endpoint. Deliberately reports nothing about the environment
@@ -166,12 +215,31 @@ async function redis() {
     // rejects destructuring assignment outright (SyntaxError at load time), and this
     // file has never used it elsewhere.
     const endpoint = redisEndpoint();
-    const res = await ngx.fetch(endpoint.url, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${endpoint.token}`, "Content-Type": "application/json" },
-        body: JSON.stringify(args),
-    });
-    const data = await res.json();
+    const body = JSON.stringify(args);
+    const started = Date.now();
+    let res;
+    try {
+        res = await ngx.fetch(endpoint.url, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${endpoint.token}`, "Content-Type": "application/json" },
+            body: body,
+        });
+    } catch (e) {
+        noteUpstash(1, body.length, 0, Date.now() - started, true);
+        throw e;
+    }
+    // text() rather than json(): the response body length is the outbound byte
+    // count for this call, and it is only paid on a cache miss.
+    const text = await res.text();
+    const ms = Date.now() - started;
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch (e) {
+        noteUpstash(1, body.length, text.length, ms, true);
+        throw e;
+    }
+    noteUpstash(1, body.length, text.length, ms, Boolean(data && data.error));
     if (data.error) throw new Error(`Redis: ${data.error}`);
     return data.result;
 }
@@ -191,12 +259,29 @@ async function redis() {
 // Commands are still billed individually; the saving is round trips, not commands.
 async function redisPipeline(commands) {
     const endpoint = redisEndpoint();
-    const res = await ngx.fetch(endpoint.url + "/pipeline", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${endpoint.token}`, "Content-Type": "application/json" },
-        body: JSON.stringify(commands),
-    });
-    const data = await res.json();
+    const body = JSON.stringify(commands);
+    const started = Date.now();
+    let res;
+    try {
+        res = await ngx.fetch(endpoint.url + "/pipeline", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${endpoint.token}`, "Content-Type": "application/json" },
+            body: body,
+        });
+    } catch (e) {
+        noteUpstash(1, body.length, 0, Date.now() - started, true);
+        throw e;
+    }
+    const text = await res.text();
+    const ms = Date.now() - started;
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch (e) {
+        noteUpstash(1, body.length, text.length, ms, true);
+        throw e;
+    }
+    noteUpstash(1, body.length, text.length, ms, !Array.isArray(data));
     if (!Array.isArray(data)) {
         throw new Error(`Redis pipeline: ${data && data.error ? data.error : "unexpected response"}`);
     }

@@ -145,7 +145,7 @@ Tests run against the real Docker Nchan container, same as existing `nchanclient
 
 ```
 1. Client A joins lobby
-2. Client A stays connected (heartbeat fires every 60s)
+2. Client A stays connected (heartbeat fires every 120s)
 3. Client B joins, sees Client A
 4. Client A disconnects (no leave, just timeout)
 5. Client B's stale timer removes Client A after 90s

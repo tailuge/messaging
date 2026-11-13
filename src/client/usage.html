@@ -72,6 +72,37 @@
       flex: 1;
       min-height: 0;
     }
+    /* Network bytes are per minute, so this panel spans the grid and lists the
+       API routes for the same window under the chart. */
+    .net-panel {
+      grid-column: 1 / -1;
+      height: auto;
+    }
+    .net-panel .chart-canvas {
+      flex: none;
+      height: 260px;
+    }
+    .net-routes {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 2px 14px;
+      font-size: 0.68rem;
+      color: #999;
+    }
+    .net-routes li {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .net-route-name {
+      color: #58a6ff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     /* The pages the counters above are measured on: one-word links, in a
        footer so they stay clear of the charts. Absolute URLs on the Cloudflare
        host that serves those pages, not this dashboard's host. */
@@ -127,6 +158,13 @@
       <div class="chart-canvas">
         <canvas id="users-chart" aria-label="Users online over time"></canvas>
       </div>
+    </div>
+    <div class="chart-panel net-panel">
+      <h2 class="chart-panel-title">Network (bytes per minute)</h2>
+      <div class="chart-canvas">
+        <canvas id="net-chart" aria-label="Network bytes per minute"></canvas>
+      </div>
+      <ol id="net-routes" class="net-routes" aria-label="API bytes by route"></ol>
     </div>
   </section>
 
@@ -507,8 +545,108 @@
       }
     }
 
+    // Network bytes per minute, from the server's in-memory counters. The series
+    // are dense (one slot per minute), so the labels are generated from `start`.
+    // API bytes are measured before gzip; Nchan WebSocket frames are not
+    // compressed at all, so only the API line is inflated relative to the wire.
+    function formatBytes(value) {
+      if (!value) return "0 B"
+      const units = ["B", "KB", "MB", "GB"]
+      let index = 0
+      let size = Number(value)
+      while (size >= 1024 && index < units.length - 1) {
+        size /= 1024
+        index += 1
+      }
+      return `${size < 10 && index > 0 ? size.toFixed(1) : Math.round(size)} ${units[index]}`
+    }
+
+    const netChart = new Chart(document.getElementById("net-chart"), {
+      type: "line",
+      data: { labels: [], datasets: [] },
+      options: {
+        ...chartDefaults,
+        interaction: { mode: "index", intersect: false },
+        scales: {
+          x: {
+            ticks: { color: "#777", font: { size: 10 }, maxTicksLimit: 8 },
+            grid: { color: "#222" },
+          },
+          y: {
+            ...chartDefaults.scales.y,
+            ticks: {
+              color: "#777",
+              font: { size: 10 },
+              callback: (value) => formatBytes(value),
+            },
+          },
+        },
+      },
+    })
+
+    const NET_SERIES = [
+      { key: "presence.out", label: "PRESENCE OUT", color: "#0055ff" },
+      { key: "table.out", label: "TABLE OUT", color: "#9c27b0" },
+      { key: "api.out", label: "API OUT (pre-gzip)", color: "#00bcd4" },
+      { key: "in", label: "PUBLISH IN", color: "#888", dashed: true },
+    ]
+
+    function netSeries(data, key) {
+      const series = data.series || {}
+      const blank = () => new Array(data.minutes).fill(0)
+      if (key === "in") {
+        const presence = series["presence.in"] || blank()
+        const table = series["table.in"] || blank()
+        return presence.map((value, index) => value + (table[index] || 0))
+      }
+      return series[key] || blank()
+    }
+
+    function renderRoutes(routes) {
+      const list = document.getElementById("net-routes")
+      list.textContent = ""
+      const top = (routes || []).filter((route) => route.bytes > 0).slice(0, 6)
+      const rows = top.length ? top : [{ route: "nothing recorded yet", bytes: 0, calls: 0 }]
+      rows.forEach((route) => {
+        const item = document.createElement("li")
+        const name = document.createElement("span")
+        name.className = "net-route-name"
+        name.textContent = route.calls ? `/api/${route.route}` : route.route
+        const value = document.createElement("span")
+        value.textContent = route.calls ? `${formatBytes(route.bytes)} · ${route.calls} calls` : "–"
+        item.appendChild(name)
+        item.appendChild(value)
+        list.appendChild(item)
+      })
+    }
+
+    async function loadNetwork() {
+      try {
+        const data = await getData("/api/net/history?minutes=60")
+        // One label per minute, independent of which series had traffic, so an
+        // empty dict (just after a redeploy) still lines up.
+        const labels = new Array(data.minutes).fill(0).map((_, index) =>
+          new Date(data.start + index * 60000).toTimeString().slice(0, 5)
+        )
+        netChart.data.labels = labels
+        netChart.data.datasets = NET_SERIES.map((series) => ({
+          label: series.label,
+          data: netSeries(data, series.key),
+          borderColor: series.color,
+          backgroundColor: series.color,
+          borderDash: series.dashed ? [4, 4] : [],
+          tension: 0,
+        }))
+        netChart.update("none")
+        renderRoutes(data.routes)
+      } catch (error) {
+        console.error(`Could not load network history: ${error.message}`)
+      }
+    }
+
     loadUsage()
     loadUsersOnline()
+    loadNetwork()
   </script>
 </body>
 

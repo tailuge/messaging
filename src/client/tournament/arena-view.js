@@ -490,7 +490,7 @@ class ArenaView extends LitElement {
             // joinLobby(). Without it the outgoing message is typed 'join', and
             // peers drop a 'join' for a user they already know (Lobby.applyPresence),
             // so the new arenaId stays invisible until the next heartbeat timer
-            // (up to 60s). A heartbeat-typed update goes through the
+            // (up to 120s). A heartbeat-typed update goes through the
             // meaningful-change branch and notifies immediately, letting other
             // clients refetch and show the joiner at once.
             await this._lobby.updatePresence({
