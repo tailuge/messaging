@@ -12,17 +12,23 @@ function logApi(message) {
 // ---- network byte accounting ----------------------------------------------
 // Same in-memory minute buckets as nchan_meta.js: the two files cannot share a
 // helper, so the small copy is deliberate. Only lengths are recorded, never
-// parsed payloads.
+// parsed payloads. One JSON object per minute (`n:<minute>`), matching the
+// reader there; the two workers can lose a delta on a simultaneous write.
 const NET_PREFIX = "n:";
-const NET_TTL_MS = 90 * 60 * 1000;
+const NET_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function netBucket(minute, metric, delta) {
     if (!(delta > 0)) return;
     const dict = ngx.shared.net_stats;
     if (!dict) return;
-    const key = NET_PREFIX + minute + ":" + metric;
-    const current = parseInt(dict.get(key) || "0", 10) || 0;
-    dict.set(key, String(current + delta), NET_TTL_MS);
+    const key = NET_PREFIX + minute;
+    const raw = dict.get(key);
+    let bucket = {};
+    if (raw) {
+        try { bucket = JSON.parse(raw) || {}; } catch (e) { bucket = {}; }
+    }
+    bucket[metric] = (parseInt(bucket[metric], 10) || 0) + delta;
+    dict.set(key, JSON.stringify(bucket), NET_TTL_MS);
 }
 
 // Routes collapse to a fixed set of slugs so the zone stays bounded; the prefix
@@ -37,7 +43,7 @@ function apiSlug(uri) {
 }
 
 // `payload` is already built by the caller; counting it is a length read.
-// These are pre-gzip bytes, so the dashboard labels the series as such.
+// These are pre-gzip bytes.
 function noteApiOut(r, payload) {
     const minute = Math.floor(Date.now() / 60000);
     const slug = apiSlug(r.uri);

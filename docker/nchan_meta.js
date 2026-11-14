@@ -458,14 +458,22 @@ function getStatsSnapshot(keys) {
 // header, or a string it was about to send), so nothing on the publish path
 // parses a payload to measure it.
 //
-//   n:<minute>:presence.in|presence.out|table.in|table.out|meta|api.in|api.out
-//   n:<minute>:e:<route> / c:<route>    API egress and calls per route
-//   n:<minute>:up.calls|up.in|up.out|up.ms|up.err   Upstash (api.njs)
-//   n:<minute>:geo.calls|geo.out         country.is lookups
+// One JSON object per minute, metric -> byte count:
+//   n:<minute>   presence.in|presence.out|table.in|table.out|other.*|meta|
+//                api.in|api.out, e:<route>/c:<route> (API egress and calls),
+//                up.* (Upstash, api.njs), geo.* (country.is lookups)
 //   subs:<channelId>                     live subscriber count (no minute)
+//
+// Packing a whole minute into one entry keeps the entry count bounded by time
+// (1440/day) rather than by traffic. One key per metric per minute filled the
+// zone in hours, which is why the window used to be a rolling 90 minutes.
+// Nothing here is sampled: a bucket is written by the request that carried the
+// bytes, so the series needs no timer and no repeating job.
 const NET_PREFIX = "n:";
-const NET_RETENTION_MINUTES = 90;
-const NET_TTL_MS = NET_RETENTION_MINUTES * 60 * 1000;
+// Safety cap only. The buckets are in shared memory, so a restart ends the
+// window anyway; the dashboard reads from process start (getStartTimeMs).
+const NET_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+// Window for the /api/stats summary only; /api/net/history reads since uptime.
 const NET_READ_MINUTES = 60;
 const SUBS_KEY_PREFIX = "subs:";
 // nchan_subscriber_timeout is 7200s; a stale entry is garbage after that.
@@ -473,12 +481,18 @@ const SUBS_TTL_MS = 7500000;
 
 // Read-modify-write like incrementStat(): SharedDict.incr() cannot give a key
 // it creates a TTL, and these buckets must expire. The two workers can lose a
-// delta under a simultaneous write, which a diagnostic counter can tolerate.
+// delta when they write the same minute at once, which a diagnostic counter
+// can tolerate.
 function netBucket(dict, minute, metric, delta) {
   if (!(delta > 0)) return;
-  const key = NET_PREFIX + minute + ":" + metric;
-  const current = parseInt(dict.get(key) || "0", 10) || 0;
-  dict.set(key, String(current + delta), NET_TTL_MS);
+  const key = NET_PREFIX + minute;
+  const raw = dict.get(key);
+  let bucket = {};
+  if (raw) {
+    try { bucket = JSON.parse(raw) || {}; } catch (e) { bucket = {}; }
+  }
+  bucket[metric] = (parseInt(bucket[metric], 10) || 0) + delta;
+  dict.set(key, JSON.stringify(bucket), NET_TTL_MS);
 }
 
 // `outBytes` is one copy of the message; fanout multiplies it because Nchan
@@ -558,7 +572,7 @@ function apiSlug(uri) {
 }
 
 // `payload` is the JSON string the handler is about to return; counting it is
-// one length read. These are pre-gzip bytes, so the dashboard labels them.
+// one length read. These are pre-gzip bytes.
 function noteApiOut(r, payload) {
   const dict = ngx.shared.net_stats;
   if (!dict) return;
@@ -591,42 +605,39 @@ function addPoint(series, name, slot, value, minutes) {
   arr[slot] += value;
 }
 
-// One pass over the dict: buckets are dense arrays for the chart, totals and
-// per-route sums are accumulated in the same loop.
-function readNet(minutes) {
+// One pass over the window's minute buckets: dense arrays for the chart, totals
+// and per-route sums accumulated in the same loop. Reading by minute key rather
+// than scanning dict.keys() keeps the cost proportional to the window and skips
+// the zone's subscriber keys.
+function readNet(firstMinute, nowMinute) {
   const dict = ngx.shared.net_stats;
-  const nowMinute = Math.floor(Date.now() / 60000);
-  const firstMinute = nowMinute - minutes + 1;
+  const minutes = nowMinute - firstMinute + 1;
   const totals = {};
   const routes = {};
   const series = {};
-  const keys = dict ? (dict.keys() || []) : [];
 
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i];
-    if (key.indexOf(NET_PREFIX) !== 0) continue;
-    const rest = key.substring(NET_PREFIX.length);
-    const sep = rest.indexOf(":");
-    if (sep === -1) continue;
-    const minute = parseInt(rest.substring(0, sep), 10);
-    if (isNaN(minute) || minute < firstMinute || minute > nowMinute) continue;
-    const value = parseInt(dict.get(key), 10);
-    if (!value) continue;
-    const metric = rest.substring(sep + 1);
-    const slot = minute - firstMinute;
-
-    if (metric.indexOf("e:") === 0 || metric.indexOf("c:") === 0) {
-      const slug = metric.substring(2);
-      let route = routes[slug];
-      if (!route) route = routes[slug] = { bytes: 0, calls: 0 };
-      if (metric.charAt(0) === "e") {
-        route.bytes += value;
-        addPoint(series, "api.out", slot, value, minutes);
-      } else route.calls += value;
-      continue;
+  for (let slot = 0; slot < minutes; slot++) {
+    const raw = dict ? dict.get(NET_PREFIX + (firstMinute + slot)) : null;
+    if (!raw) continue;
+    let bucket;
+    try { bucket = JSON.parse(raw); } catch (e) { continue; }
+    if (!bucket) continue;
+    for (const metric in bucket) {
+      const value = parseInt(bucket[metric], 10);
+      if (!value) continue;
+      if (metric.indexOf("e:") === 0 || metric.indexOf("c:") === 0) {
+        const slug = metric.substring(2);
+        let route = routes[slug];
+        if (!route) route = routes[slug] = { bytes: 0, calls: 0 };
+        if (metric.charAt(0) === "e") {
+          route.bytes += value;
+          addPoint(series, "api.out", slot, value, minutes);
+        } else route.calls += value;
+        continue;
+      }
+      totals[metric] = (totals[metric] || 0) + value;
+      addPoint(series, metric, slot, value, minutes);
     }
-    totals[metric] = (totals[metric] || 0) + value;
-    addPoint(series, metric, slot, value, minutes);
   }
 
   return { nowMinute: nowMinute, totals: totals, routes: routes, series: series };
@@ -657,7 +668,8 @@ function subscriberTotals() {
 }
 
 function netSummary(minutes) {
-  const net = readNet(minutes);
+  const nowMinute = Math.floor(Date.now() / 60000);
+  const net = readNet(nowMinute - minutes + 1, nowMinute);
   return {
     window_minutes: minutes,
     totals: net.totals,
@@ -939,19 +951,26 @@ function getOnlineUsers() {
   return users;
 }
 
+// Process start, cached in the stats dict. /proc/1 is the nginx master, so its
+// mtime is the container's start; Date.now() is a fallback that starts the
+// window at the first request instead of failing.
+function getStartTimeMs() {
+  const stats = ngx.shared.system_stats;
+  let startTime = parseInt(stats.get("start_time"), 10);
+  if (!(startTime > 0)) {
+    try {
+      const fs = require("fs");
+      startTime = fs.statSync("/proc/1").mtime.getTime();
+    } catch (e) {}
+    if (!(startTime > 0)) startTime = Date.now();
+    stats.set("start_time", String(startTime));
+  }
+  return startTime;
+}
+
 function getUptime() {
   try {
-    const stats = ngx.shared.system_stats;
-    let startTime = stats.get("start_time");
-    if (!startTime) {
-      try {
-        const fs = require("fs");
-        startTime = fs.statSync("/proc/1").mtime.getTime().toString();
-        stats.set("start_time", startTime);
-      } catch (e) {}
-    }
-    if (!startTime) { startTime = Date.now().toString(); stats.set("start_time", startTime); }
-    const seconds = Math.floor((Date.now() - parseInt(startTime)) / 1000);
+    const seconds = Math.max(0, Math.floor((Date.now() - getStartTimeMs()) / 1000));
     return { seconds: seconds, days: Math.floor(seconds / 86400), hours: Math.floor((seconds % 86400) / 3600), mins: Math.floor((seconds % 3600) / 60) };
   } catch (e) { return null; }
 }
@@ -1197,20 +1216,24 @@ function presence_history_api(r) {
   r.return(200, payload);
 }
 
-// Per-minute byte series for usage.html plus the per-route API breakdown.
-// Dense arrays (one slot per minute, oldest first) start at `start` epoch ms.
+// Per-minute byte series for usage.html plus the per-route API breakdown. The
+// window is everything this process has recorded: it starts at process start
+// (`start`, epoch ms) rather than a rolling hour, and there is no sampler behind
+// it. Dense arrays (one slot per minute, oldest first) start at `start`.
 function net_history_api(r) {
-  let minutes = parseInt(r.args.minutes, 10);
-  if (!(minutes > 0)) minutes = NET_READ_MINUTES;
-  if (minutes > NET_RETENTION_MINUTES) minutes = NET_RETENTION_MINUTES;
-  if (minutes < 5) minutes = 5;
-  const net = readNet(minutes);
+  const nowMinute = Math.floor(Date.now() / 60000);
+  const startTime = getStartTimeMs();
+  let firstMinute = Math.floor(startTime / 60000);
+  // A clock step backwards (or a start_time from a restarted master) must not
+  // produce a negative window.
+  if (!(firstMinute <= nowMinute)) firstMinute = nowMinute;
+  const net = readNet(firstMinute, nowMinute);
   const payload = JSON.stringify({
     ts: Date.now(),
     resolution: 60,
-    minutes: minutes,
-    start: (net.nowMinute - minutes + 1) * 60000,
-    retention_minutes: NET_RETENTION_MINUTES,
+    minutes: nowMinute - firstMinute + 1,
+    start: firstMinute * 60000,
+    uptime_start: startTime,
     series: net.series,
     totals: net.totals,
     routes: routeSummary(net.routes),

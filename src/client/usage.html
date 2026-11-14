@@ -13,51 +13,47 @@
       color: #fff;
       font-family: "IBM Plex Mono", monospace;
       margin: 0;
-      padding: 20px;
+      padding: 10px 20px;
+      /* Column layout so the link footer can sit at the bottom of the page. */
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      box-sizing: border-box;
     }
     .header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 20px;
-      border-bottom: 1px solid #333;
-      padding-bottom: 10px;
+      margin-bottom: 12px;
     }
     .title {
-      font-size: 1.5rem;
+      font-size: 0.95rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
       margin: 0;
     }
     .server-stats-links a {
       color: #58a6ff;
       text-decoration: none;
-      margin-left: 20px;
-      font-size: 0.8rem;
+      margin-left: 14px;
+      font-size: 0.7rem;
     }
     .chart-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-      gap: 20px;
+      gap: 10px;
     }
     .chart-container {
       background-color: #111;
       border: 1px solid #333;
-      padding: 10px;
+      padding: 0;
       height: 400px;
     }
     .chart-section {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-      gap: 20px;
-      margin-top: 20px;
-    }
-    .chart-panel {
-      background-color: #111;
-      border: 1px solid #333;
-      padding: 10px;
-      height: 400px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+      gap: 10px;
+      margin-top: 10px;
     }
     .chart-panel-title {
       margin: 0;
@@ -67,37 +63,37 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
-    .chart-canvas {
-      position: relative;
-      flex: 1;
-      min-height: 0;
+    /* API bytes by route, under the charts at the end of the page. */
+    .routes-section {
+      margin-top: 10px;
     }
-    /* Network bytes are per minute, so this panel spans the grid and lists the
-       API routes for the same window under the chart. */
-    .net-panel {
-      grid-column: 1 / -1;
-      height: auto;
+    .routes-section .chart-panel-title {
+      margin-bottom: 6px;
     }
-    .net-panel .chart-canvas {
-      flex: none;
-      height: 260px;
-    }
-    .net-routes {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 2px 14px;
+    .routes-table {
+      width: 100%;
+      max-width: 560px;
+      border-collapse: collapse;
       font-size: 0.68rem;
       color: #999;
     }
-    .net-routes li {
-      display: flex;
-      justify-content: space-between;
-      gap: 8px;
+    .routes-table th,
+    .routes-table td {
+      text-align: left;
+      padding: 2px 8px 2px 0;
     }
-    .net-route-name {
+    .routes-table th {
+      font-weight: 600;
+      color: #777;
+    }
+    .routes-table th + th,
+    .routes-table td + td {
+      text-align: right;
+      width: 80px;
+    }
+    .routes-table .net-route-name {
+      display: block;
+      max-width: 300px;
       color: #58a6ff;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -111,9 +107,10 @@
       flex-wrap: wrap;
       justify-content: center;
       gap: 4px 14px;
-      margin-top: 20px;
+      /* Pushed to the bottom of the page by the flex column above. */
+      margin-top: auto;
+      padding-top: 8px;
       border-top: 1px solid #333;
-      padding-top: 10px;
       font-size: 0.7rem;
     }
     .source-pages a {
@@ -141,31 +138,24 @@
   </main>
 
   <section class="chart-section">
-    <div class="chart-panel">
-      <h2 class="chart-panel-title">Language Blogs</h2>
-      <div class="chart-canvas">
-        <canvas id="lang-chart" aria-label="Usage by language"></canvas>
-      </div>
-    </div>
-    <div class="chart-panel">
-      <h2 class="chart-panel-title">Game Blogs</h2>
-      <div class="chart-canvas">
-        <canvas id="game-chart" aria-label="Usage by game type"></canvas>
-      </div>
-    </div>
-    <div class="chart-panel">
-      <h2 class="chart-panel-title">Users Online</h2>
-      <div class="chart-canvas">
-        <canvas id="users-chart" aria-label="Users online over time"></canvas>
-      </div>
-    </div>
-    <div class="chart-panel net-panel">
-      <h2 class="chart-panel-title">Network (bytes per minute)</h2>
-      <div class="chart-canvas">
-        <canvas id="net-chart" aria-label="Network bytes per minute"></canvas>
-      </div>
-      <ol id="net-routes" class="net-routes" aria-label="API bytes by route"></ol>
-    </div>
+    <div id="lang-chart" class="chart-container" aria-label="Usage by language"></div>
+    <div id="game-chart" class="chart-container" aria-label="Usage by game type"></div>
+    <div id="activity-chart" class="chart-container"
+      aria-label="Users online and network bytes since uptime"></div>
+  </section>
+
+  <section class="routes-section" aria-label="API bytes by route">
+    <h2 class="chart-panel-title">API BYTES BY ROUTE</h2>
+    <table class="routes-table">
+      <thead>
+        <tr>
+          <th scope="col">Route</th>
+          <th scope="col">Total bytes</th>
+          <th scope="col">Calls</th>
+        </tr>
+      </thead>
+      <tbody id="net-routes"></tbody>
+    </table>
   </section>
 
   <footer class="source-pages" aria-label="Measured pages">
@@ -180,6 +170,7 @@
     <a href="https://billiards.tailuge.workers.dev/snooker.html" target="_blank" rel="noopener">Snooker</a>
     <a href="https://billiards.tailuge.workers.dev/nineball.html" target="_blank" rel="noopener">Nineball</a>
     <a href="https://billiards.tailuge.workers.dev/eightball.html" target="_blank" rel="noopener">Eightball</a>
+    <a href="https://billiards.tailuge.workers.dev/threecushion.html" target="_blank" rel="noopener">Three Cushion</a>
     <a href="https://billiards.tailuge.workers.dev/map/index.html" target="_blank" rel="noopener">Map</a>
     <a href="https://billiards.tailuge.workers.dev/reveal/" target="_blank" rel="noopener">Reveal</a>
     <a href="https://billiards.tailuge.workers.dev/challenge/" target="_blank" rel="noopener">Challenge</a>
@@ -187,11 +178,10 @@
     <a href="https://billiards.tailuge.workers.dev/" target="_blank" rel="noopener">Game</a>
   </footer>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0"></script>
-
   <script src="https://cdn.plot.ly/plotly-cartesian-3.0.0-rc.0.min.js"
-    integrity="sha384-k9BNvphELWyBtQVTUBS5YYM9SAb3H4NoA6hxg6YARuWJqdp+yp8F3mJN405LN+KC"
-    crossorigin="anonymous"></script>
+    integrity="sha384-k9BNvphELWyBtQVTUBS5YYM9SAb3H4NoA6hxg6YARuWJqdp+yp8F3mJN405LN+KC"    crossorigin="anonymous"></script>
+
+
 
   <script type="module">
     const GROUPS = [
@@ -220,10 +210,6 @@
       },
     ]
 
-    // CHALLENGES & ACCEPTS is plotted as a trailing mean so day-to-day noise
-    // doesn't hide the trend. Every other panel is plotted raw.
-    const SMOOTHED_GROUP_ID = "challenges-accepts"
-    const SMOOTHING_WINDOW = 3
     const DAY_MS = 24 * 60 * 60 * 1000
 
     const chartGrid = document.getElementById("chart-grid")
@@ -237,14 +223,14 @@
       }
     })
 
-    // One fetch feeds every panel on the page: the Plotly groups, the language
+    // One fetch feeds every panel on the page: the activity groups, the language
     // chart and the game-blog chart all read the same aggregate response, which
     // the server caches for ten minutes.
     async function loadUsage() {
       try {
         const data = await getData("/api/usage")
         GROUPS.forEach((group) => plotGroup(group, data))
-        plotUsageCharts(data)
+        plotBlogCharts(data)
       } catch (error) {
         console.error(`Could not load usage charts: ${error.message}`)
       }
@@ -255,117 +241,85 @@
       return response.json()
     }
 
-    // Days with no activity are absent from the store, so insert explicit
-    // zero counts — otherwise a "3 day" mean would span three active days.
-    function fillMissingDays(data) {
-      if (data.length === 0) return data
+    // Every panel on this page is a Plotly line chart, so the frame, fonts and
+    // margins live in one place instead of drifting between libraries.
+    const PLOT_CONFIG = { responsive: true, displayModeBar: false }
+    const MONO_FONT = "'IBM Plex Mono', monospace"
+    const SANS_FONT = "'DM Sans', sans-serif"
 
-      const countByDate = new Map(data.map((d) => [d.date, d.count]))
-      const filled = []
-      const start = new Date(data[0].date).getTime()
-      const end = new Date(data[data.length - 1].date).getTime()
-
-      for (let time = start; time <= end; time += DAY_MS) {
-        const date = new Date(time).toISOString().split("T")[0]
-        filled.push({ date, count: countByDate.get(date) ?? 0 })
+    function axisStyle() {
+      return {
+        gridcolor: "#333",
+        linecolor: "#333",
+        tickfont: { family: SANS_FONT, size: 9, color: "#999" },
+        zeroline: false,
       }
-
-      return filled
     }
 
-    function movingAverage(data, window) {
-      const filled = fillMissingDays(data)
-
-      return filled.map((point, index) => {
-        const slice = filled.slice(Math.max(0, index - window + 1), index + 1)
-        const total = slice.reduce((sum, d) => sum + Number(d.count), 0)
-        return { date: point.date, count: total / slice.length }
-      })
-    }
-
-    function plotGroup(groupConfig, usage) {
-      const traces = groupConfig.metrics.map((metric) => {
-        const key = `${metric.id}Usage`
-        const data = (Array.isArray(usage[key]) ? usage[key] : [])
-          .map((d) => ({ date: d.date, count: Number(d.count) }))
-          .sort((a, b) => new Date(a.date) - new Date(b.date))
-
-        const points =
-          groupConfig.id === SMOOTHED_GROUP_ID
-            ? movingAverage(data, SMOOTHING_WINDOW)
-            : data
-
-        return {
-          x: points.map((d) => d.date),
-          y: points.map((d) => d.count),
-          name: metric.label,
-          type: "scatter",
-          mode: "lines",
-          line: { color: metric.color, width: 2 },
-        }
-      })
-
-      const layout = {
+    // Shared frame: title top-left, legend to its right, quarterly date ticks,
+    // and the same margins on every panel. The title is pinned to the container
+    // rather than left at Plotly's default, which parks it on the top edge of
+    // the plot area and leaves the whole top margin empty above it.
+    function chartLayout(title, overrides = {}) {
+      return {
         title: {
-          text: groupConfig.label,
-          font: {
-            family: "'IBM Plex Mono', monospace",
-            size: 11,
-            color: "#888",
-          },
+          text: title,
+          font: { family: MONO_FONT, size: 11, color: "#888" },
           x: 0,
           xanchor: "left",
+          y: 0.99,
+          yref: "container",
+          yanchor: "top",
         },
         xaxis: {
+          ...axisStyle(),
           type: "date",
           tickangle: 0,
           dtick: "M3",
           tickformat: "%b %Y",
-          gridcolor: "#333",
-          linecolor: "#333",
-          tickfont: {
-            family: "'DM Sans', sans-serif",
-            size: 9,
-            color: "#999",
-          },
-          zeroline: false,
+          ...(overrides.xaxis || {}),
         },
-        yaxis: {
-          gridcolor: "#333",
-          linecolor: "#333",
-          tickfont: {
-            family: "'DM Sans', sans-serif",
-            size: 9,
-            color: "#999",
-          },
-          zeroline: false,
-        },
+        yaxis: { ...axisStyle(), rangemode: "tozero", ...(overrides.yaxis || {}) },
         legend: {
           orientation: "h",
           yanchor: "bottom",
           y: 1.02,
           xanchor: "right",
           x: 1,
-          font: {
-            family: "'DM Sans', sans-serif",
-            size: 9,
-            color: "#999",
-          },
+          font: { family: SANS_FONT, size: 9, color: "#999" },
           bgcolor: "rgba(0,0,0,0)",
         },
         plot_bgcolor: "rgba(0,0,0,0)",
         paper_bgcolor: "rgba(0,0,0,0)",
-        margin: { t: 50, r: 20, b: 40, l: 30 },
+        margin: { t: 30, r: 12, b: 22, l: 30 },
         autosize: true,
+        ...(overrides.extra || {}),
       }
+    }
 
-      const config = {
-        responsive: true,
-        displayModeBar: false,
-        staticPlot: false,
+    function lineTrace({ label, color, points, dashed, axis }) {
+      return {
+        x: points.map((point) => point.x),
+        y: points.map((point) => point.y),
+        name: label,
+        type: "scatter",
+        mode: "lines",
+        line: { color, width: 2, dash: dashed ? "dash" : "solid" },
+        yaxis: axis || "y",
       }
+    }
 
-      Plotly.newPlot(groupConfig.id, traces, layout, config)
+    function plotGroup(groupConfig, usage) {
+      const traces = groupConfig.metrics.map((metric) => {
+        const key = `${metric.id}Usage`
+        const points = (Array.isArray(usage[key]) ? usage[key] : [])
+          .map((d) => ({ x: d.date, y: Number(d.count) }))
+          .sort((a, b) => new Date(a.x) - new Date(b.x))
+
+        return lineTrace({ label: metric.label, color: metric.color, points })
+      })
+
+      Plotly.newPlot(groupConfig.id, traces, chartLayout(groupConfig.label), PLOT_CONFIG)
     }
 
     // Language and game-blog trends, read from the same aggregate response as
@@ -391,164 +345,106 @@
       ["challengeUsage", "Challenge", "#e11d48"],
     ]
 
-    function valuesByDate(values) {
-      return Object.fromEntries(values.map((item) => [item.date, item.count]))
+    // Language and game-blog trends: one line per page, aligned to the union of
+    // dates so a day a page skipped still dips to zero for it.
+    function plotBlogCharts(data) {
+      plotBlogChart("lang-chart", "LANGUAGE BLOGS", langSeries, data)
+      plotBlogChart("game-chart", "GAME BLOGS", gameSeries, data)
     }
 
-    function makeDates(data, series) {
-      return [...new Set(series.flatMap(([key]) =>
+    function plotBlogChart(elementId, title, series, data) {
+      const rows = series.flatMap(([key]) =>
         Array.isArray(data[key]) ? data[key].map((item) => item.date) : []
-      ))].sort()
-    }
+      )
+      const dates = [...new Set(rows)].sort()
 
-    function makeDatasets(data, series, dates) {
-      return series.map(([key, label, color]) => {
-        const values = valuesByDate(Array.isArray(data[key]) ? data[key] : [])
-        return {
-          label,
-          data: dates.map((date) => values[date] || 0),
-          borderColor: color,
-          backgroundColor: color,
-          tension: 0,
-        }
-      })
-    }
-
-    // The language and game-blog charts have one x label per day, which crowds
-    // the axis. Keep every data point but only label (and grid) quarter starts,
-    // so the dates tick every 3 months.
-    const quarterlyAxis = {
-      ticks: { color: "#777", font: { size: 10 } },
-      grid: { color: "#222" },
-      afterBuildTicks(axis) {
-        const all = axis.ticks
-        const quarterly = all.filter((tick) =>
-          new Date(`${tick.label}T00:00:00Z`).getUTCMonth() % 3 === 0
+      const traces = series.map(([key, label, color]) => {
+        const counts = new Map(
+          (Array.isArray(data[key]) ? data[key] : []).map((item) => [item.date, Number(item.count)])
         )
-        // A short range may not contain a quarter start; fall back to the ends.
-        axis.ticks = quarterly.length
-          ? quarterly
-          : all.filter((_, index) => index === 0 || index === all.length - 1)
-      },
-    }
-
-    const chartDefaults = {
-      animation: false,
-      responsive: true,
-      maintainAspectRatio: false,
-      // Lines only, matching the Plotly panels: no markers at data values.
-      elements: { point: { radius: 0 } },
-      plugins: {
-        legend: {
-          labels: {
-            color: "#999",
-            boxWidth: 10,
-            font: { size: 9 },
-          },
-        },
-      },
-      scales: {
-        x: {
-          ticks: { color: "#777", font: { size: 10 } },
-          grid: { color: "#222" },
-        },
-        y: {
-          beginAtZero: true,
-          ticks: { color: "#777", font: { size: 10 } },
-          grid: { color: "#222" },
-        },
-      },
-    }
-
-    function plotUsageCharts(data) {
-      const langDates = makeDates(data, langSeries)
-      const gameDates = makeDates(data, gameSeries)
-
-      new Chart(document.getElementById("lang-chart"), {
-        type: "line",
-        data: {
-          labels: langDates,
-          datasets: makeDatasets(data, langSeries, langDates),
-        },
-        options: {
-          ...chartDefaults,
-          scales: { ...chartDefaults.scales, x: quarterlyAxis },
-        },
+        return lineTrace({
+          label,
+          color,
+          points: dates.map((date) => ({ x: date, y: counts.get(date) || 0 })),
+        })
       })
 
-      new Chart(document.getElementById("game-chart"), {
-        type: "line",
-        data: {
-          labels: gameDates,
-          datasets: makeDatasets(data, gameSeries, gameDates),
-        },
-        options: {
-          ...chartDefaults,
-          scales: { ...chartDefaults.scales, x: quarterlyAxis },
-        },
-      })
+      Plotly.newPlot(elementId, traces, chartLayout(title), PLOT_CONFIG)
     }
 
-    // Users online is sampled only when the count changes, so the points are
-    // unevenly spaced: a linear time axis keeps the gaps honest without pulling
-    // in a date adapter.
-    const usersChart = new Chart(document.getElementById("users-chart"), {
-      type: "line",
-      data: {
-        datasets: [
-          {
-            label: "USERS ONLINE",
-            data: [],
-            borderColor: "#00bcd4",
-            backgroundColor: "#00bcd4",
-            tension: 0,
+    // Users online and network bytes share one chart. Both series are
+    // timestamped and arrival-driven (the server samples nothing on a timer),
+    // so one date axis carries both; the count is read on the left axis, bytes
+    // per minute on the right.
+    function activityLayout(spanMs) {
+      const layout = chartLayout("USERS ONLINE & NETWORK", {
+        xaxis: { nticks: 8, tickformat: spanMs > DAY_MS ? "%b %d %H:%M" : "%H:%M" },
+        yaxis: { tickformat: "d" },
+        extra: {
+          yaxis2: {
+            ...axisStyle(),
+            overlaying: "y",
+            side: "right",
+            showgrid: false,
+            rangemode: "tozero",
+            tickformat: "~s",
+            ticksuffix: "B",
           },
-        ],
-      },
-      options: {
-        ...chartDefaults,
-        scales: {
-          x: {
-            type: "linear",
-            ticks: {
-              color: "#777",
-              font: { size: 10 },
-              callback: (value) => new Date(value).toTimeString().slice(0, 5),
-            },
-            grid: { color: "#222" },
-          },
-          y: chartDefaults.scales.y,
         },
-      },
-    })
+      })
+      // Quarter ticks suit the daily charts; this axis spans minutes to days.
+      delete layout.xaxis.dtick
+      return layout
+    }
 
-    // Loaded once per visit: this page does not poll or refresh on its own, so
-    // the charts stay as they were when the page was opened.
-    async function loadUsersOnline() {
-      try {
-        const data = await getData("/api/presence/history")
-        const raw = data.samples.map(([ts, count]) => ({ x: ts, y: Number(count) }))
-        raw.push({ x: data.ts, y: Number(data.current) })
+    // Presence points exist only for minutes in which the count changed, so they
+    // stay sparse: the live count at `ts` extends the line to now.
+    function userPoints(data) {
+      const points = (data.samples || []).map(([ts, count]) => ({ x: ts, y: Number(count) }))
+      points.push({ x: data.ts, y: Number(data.current) })
+      return points
+    }
 
-        // Same trailing mean as the CHALLENGES & ACCEPTS panel, so single-step
-        // blips in the presence count don't dominate the shape of the line.
-        const points = raw.map((point, index) => {
-          const slice = raw.slice(Math.max(0, index - SMOOTHING_WINDOW + 1), index + 1)
-          const total = slice.reduce((sum, d) => sum + d.y, 0)
-          return { x: point.x, y: total / slice.length }
+    function renderActivity(users, net) {
+      const traces = []
+      let min = Infinity
+      let max = -Infinity
+      const track = (points) =>
+        points.forEach((point) => {
+          if (point.x < min) min = point.x
+          if (point.x > max) max = point.x
         })
 
-        usersChart.data.datasets[0].data = points
-        usersChart.update("none")
-      } catch (error) {
-        console.error(`Could not load users-online history: ${error.message}`)
+      if (users) {
+        const points = userPoints(users)
+        track(points)
+        traces.push(lineTrace({ label: "USERS ONLINE", color: "#f59e0b", points }))
       }
+      if (net) {
+        NET_SERIES.forEach((series) => {
+          const points = netSeries(net, series.key)
+          track(points)
+          traces.push(
+            lineTrace({
+              label: series.label,
+              color: series.color,
+              points,
+              dashed: series.dashed,
+              axis: "y2",
+            })
+          )
+        })
+      }
+
+      const spanMs = Number.isFinite(min) ? max - min : 0
+      Plotly.newPlot("activity-chart", traces, activityLayout(spanMs), PLOT_CONFIG)
     }
 
     // Network bytes per minute, from the server's in-memory counters. The series
-    // are dense (one slot per minute), so the labels are generated from `start`.
-    // API bytes are measured before gzip; Nchan WebSocket frames are not
-    // compressed at all, so only the API line is inflated relative to the wire.
+    // are dense (one slot per minute) and start at process start, so the x
+    // values are generated from `start`. API bytes are counted before gzip;
+    // Nchan WebSocket frames are not compressed at all, so only the API line is
+    // inflated relative to the wire.
     function formatBytes(value) {
       if (!value) return "0 B"
       const units = ["B", "KB", "MB", "GB"]
@@ -561,92 +457,74 @@
       return `${size < 10 && index > 0 ? size.toFixed(1) : Math.round(size)} ${units[index]}`
     }
 
-    const netChart = new Chart(document.getElementById("net-chart"), {
-      type: "line",
-      data: { labels: [], datasets: [] },
-      options: {
-        ...chartDefaults,
-        interaction: { mode: "index", intersect: false },
-        scales: {
-          x: {
-            ticks: { color: "#777", font: { size: 10 }, maxTicksLimit: 8 },
-            grid: { color: "#222" },
-          },
-          y: {
-            ...chartDefaults.scales.y,
-            ticks: {
-              color: "#777",
-              font: { size: 10 },
-              callback: (value) => formatBytes(value),
-            },
-          },
-        },
-      },
-    })
-
     const NET_SERIES = [
       { key: "presence.out", label: "PRESENCE OUT", color: "#0055ff" },
       { key: "table.out", label: "TABLE OUT", color: "#9c27b0" },
-      { key: "api.out", label: "API OUT (pre-gzip)", color: "#00bcd4" },
+      { key: "api.out", label: "API OUT", color: "#00bcd4" },
       { key: "in", label: "PUBLISH IN", color: "#888", dashed: true },
     ]
 
+    // `data.start` is the first minute of the window, one slot per minute.
     function netSeries(data, key) {
       const series = data.series || {}
       const blank = () => new Array(data.minutes).fill(0)
+      let values
       if (key === "in") {
         const presence = series["presence.in"] || blank()
         const table = series["table.in"] || blank()
-        return presence.map((value, index) => value + (table[index] || 0))
+        values = presence.map((value, index) => value + (table[index] || 0))
+      } else {
+        values = series[key] || blank()
       }
-      return series[key] || blank()
+      return values.map((value, index) => ({ x: data.start + index * 60000, y: value }))
     }
 
+    // The busiest API routes over the same window as the chart, as three
+    // columns: route, bytes, calls.
     function renderRoutes(routes) {
-      const list = document.getElementById("net-routes")
-      list.textContent = ""
+      const body = document.getElementById("net-routes")
+      body.textContent = ""
       const top = (routes || []).filter((route) => route.bytes > 0).slice(0, 6)
-      const rows = top.length ? top : [{ route: "nothing recorded yet", bytes: 0, calls: 0 }]
-      rows.forEach((route) => {
-        const item = document.createElement("li")
+      if (top.length === 0) {
+        const empty = body.insertRow().insertCell()
+        empty.colSpan = 3
+        empty.textContent = "nothing recorded yet"
+        return
+      }
+      top.forEach((route) => {
+        const row = body.insertRow()
         const name = document.createElement("span")
         name.className = "net-route-name"
         name.textContent = route.calls ? `/api/${route.route}` : route.route
-        const value = document.createElement("span")
-        value.textContent = route.calls ? `${formatBytes(route.bytes)} · ${route.calls} calls` : "–"
-        item.appendChild(name)
-        item.appendChild(value)
-        list.appendChild(item)
+        row.insertCell().appendChild(name)
+        row.insertCell().textContent = formatBytes(route.bytes)
+        row.insertCell().textContent = route.calls
       })
     }
 
-    async function loadNetwork() {
-      try {
-        const data = await getData("/api/net/history?minutes=60")
-        // One label per minute, independent of which series had traffic, so an
-        // empty dict (just after a redeploy) still lines up.
-        const labels = new Array(data.minutes).fill(0).map((_, index) =>
-          new Date(data.start + index * 60000).toTimeString().slice(0, 5)
-        )
-        netChart.data.labels = labels
-        netChart.data.datasets = NET_SERIES.map((series) => ({
-          label: series.label,
-          data: netSeries(data, series.key),
-          borderColor: series.color,
-          backgroundColor: series.color,
-          borderDash: series.dashed ? [4, 4] : [],
-          tension: 0,
-        }))
-        netChart.update("none")
-        renderRoutes(data.routes)
-      } catch (error) {
-        console.error(`Could not load network history: ${error.message}`)
+    // Both endpoints report since the server process started, so the two lines
+    // always cover the same window. Loaded once per visit: this page does not
+    // poll or refresh on its own.
+    async function loadActivity() {
+      const [users, net] = await Promise.allSettled([
+        getData("/api/presence/history"),
+        getData("/api/net/history"),
+      ])
+      if (users.status === "rejected") {
+        console.error("Could not load users-online history:", users.reason)
       }
+      if (net.status === "rejected") {
+        console.error("Could not load network history:", net.reason)
+      }
+      renderActivity(
+        users.status === "fulfilled" ? users.value : null,
+        net.status === "fulfilled" ? net.value : null
+      )
+      if (net.status === "fulfilled") renderRoutes(net.value.routes)
     }
 
     loadUsage()
-    loadUsersOnline()
-    loadNetwork()
+    loadActivity()
   </script>
 </body>
 
