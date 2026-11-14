@@ -50,7 +50,7 @@ POST {UPSTASH_REDIS_REST_URL}/zincrby/{metric}Usage/1/{encodeURIComponent('{"dat
 Authorization: Bearer {UPSTASH_REDIS_REST_TOKEN}
 ```
 
-4. Respond `200 {"status":"success","message":"usage recorded","key":metric,"ts":<ms>}`.
+4. Respond `200` with an empty body. The only caller (`src/client/logusage.js`) checks `r.ok` and never reads the body, so there is no payload to send. The call is still counted in the network stats (`noteApiOut(r, "")`).
 
 Errors from Upstash → `502 {"error":"Upstream error", ...}`; never block longer than ~5s (`ngx.fetch` rejects on its own; wrap with a timeout signal like the existing publish code).
 

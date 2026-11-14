@@ -107,12 +107,11 @@ async function usage(r) {
         logApi("usage increment failed key=" + metric + ": " + (e && e.message ? e.message : e));
         return json(r, 502, { error: "Upstream error", message: e && e.message ? e.message : String(e) });
     }
-    return json(r, 200, {
-        status: "success",
-        message: "usage recorded",
-        key: metric,
-        ts: Date.now()
-    });
+    // Nothing reads this response: src/client/logusage.js only checks r.ok.
+    // Answer with an empty body so a counter write sends no payload, and record
+    // the call (zero response bytes) before returning.
+    noteApiOut(r, "");
+    return r.return(200);
 }
 
 function normalizeUsage(result) {
