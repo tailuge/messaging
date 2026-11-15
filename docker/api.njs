@@ -762,6 +762,10 @@ async function arenaWinnersGet(r) {
             winners.push({ userName: entry.userName, arenaId: String(entry.arenaId || "") });
         }
     }
+    // The list only changes when an arena finishes, so half an hour of browser
+    // cache is cheap and keeps repeat lobby/arena page loads off the network.
+    // Set on the success path only, so an upstream error is never cached.
+    r.headersOut['Cache-Control'] = 'public, max-age=1800';
     return json(r, 200, { status: "success", winners });
 }
 
