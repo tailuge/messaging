@@ -72,7 +72,7 @@
     }
     .routes-table {
       width: 100%;
-      max-width: 560px;
+      max-width: 640px;
       border-collapse: collapse;
       font-size: 0.68rem;
       color: #999;
@@ -152,6 +152,7 @@
           <th scope="col">Route</th>
           <th scope="col">Total bytes</th>
           <th scope="col">Calls</th>
+          <th scope="col">Bytes/call</th>
         </tr>
       </thead>
       <tbody id="net-routes"></tbody>
@@ -297,14 +298,22 @@
       }
     }
 
-    function lineTrace({ label, color, points, dashed, axis }) {
+    // `smooth` rounds the corners with Plotly's spline interpolation. Only used
+    // where the curve is a state signal (users online); peak-fidelity matters
+    // for the byte series, and splines overshoot around spikes.
+    function lineTrace({ label, color, points, dashed, axis, smooth }) {
       return {
         x: points.map((point) => point.x),
         y: points.map((point) => point.y),
         name: label,
         type: "scatter",
         mode: "lines",
-        line: { color, width: 2, dash: dashed ? "dash" : "solid" },
+        line: {
+          color,
+          width: 2,
+          dash: dashed ? "dash" : "solid",
+          ...(smooth ? { shape: "spline", smoothing: 0.6 } : {}),
+        },
         yaxis: axis || "y",
       }
     }
@@ -418,7 +427,9 @@
       if (users) {
         const points = userPoints(users)
         track(points)
-        traces.push(lineTrace({ label: "USERS ONLINE", color: "#f59e0b", points }))
+        traces.push(
+          lineTrace({ label: "USERS ONLINE", color: "#f59e0b", points, smooth: true })
+        )
       }
       if (net) {
         NET_SERIES.forEach((series) => {
@@ -479,15 +490,15 @@
       return values.map((value, index) => ({ x: data.start + index * 60000, y: value }))
     }
 
-    // The busiest API routes over the same window as the chart, as three
-    // columns: route, bytes, calls.
+    // The busiest API routes over the same window as the chart, as four
+    // columns: route, bytes, calls, bytes per call.
     function renderRoutes(routes) {
       const body = document.getElementById("net-routes")
       body.textContent = ""
       const top = (routes || []).filter((route) => route.bytes > 0).slice(0, 6)
       if (top.length === 0) {
         const empty = body.insertRow().insertCell()
-        empty.colSpan = 3
+        empty.colSpan = 4
         empty.textContent = "nothing recorded yet"
         return
       }
@@ -499,6 +510,9 @@
         row.insertCell().appendChild(name)
         row.insertCell().textContent = formatBytes(route.bytes)
         row.insertCell().textContent = route.calls
+        row.insertCell().textContent = route.calls
+          ? formatBytes(route.bytes / route.calls)
+          : "–"
       })
     }
 
