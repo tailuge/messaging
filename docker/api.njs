@@ -326,37 +326,16 @@ function parseHiscores(result) {
     }));
 }
 
-// Glicko-2 rating deviation inflates while a player sits idle. The scoreboard
-// ranks on the conservative score (rating - 2*RD) computed after that decay, so
-// ranking on raw rating here would disagree with the /elo page the panel links
-// to. Both constants mirror the scoreboard's RatingService.
-const INACTIVITY_C = 50;
-const MAX_RD = 350;
-const DAY_MS = 86400000;
-
-function decayedRd(rd, lastUpdated, now) {
-    const daysInactive = (now - (lastUpdated || 0)) / DAY_MS;
-    return Math.min(Math.sqrt(rd * rd + INACTIVITY_C * INACTIVITY_C * daysInactive), MAX_RD);
-}
-
 function parseTopPlayers(result, limitElo) {
     // The hash field is the player name; the stored value has no name of its own.
     const hash = scoresFromHgetall(result);
-    const now = Date.now();
+    // Ranked on the rating itself, rounded first, so the order matches the number the
+    // lobby renders. Equal ratings keep the hash's arbitrary order.
     const players = Object.keys(hash).map((name) => {
         const p = JSON.parse(hash[name]);
-        const rd = decayedRd(p.rd, p.lastUpdated, now);
-        return {
-            name: name,
-            rating: Math.round(p.rating),
-            rd: Math.round(rd),
-            conservativeRating: Math.round(p.rating - 2 * rd),
-            gamesPlayed: p.gamesPlayed,
-            wins: p.wins,
-            losses: p.losses,
-        };
+        return { name: name, rating: Math.round(p.rating) };
     });
-    players.sort((a, b) => b.conservativeRating - a.conservativeRating);
+    players.sort((a, b) => b.rating - a.rating);
     return players.slice(0, limitElo);
 }
 
@@ -377,7 +356,7 @@ async function readHiscores() {
 
 // Only these fields are read by the lobby's match table (src/client/info-panel.js):
 // the rule icon, winner/loser and scores, the Ago and City columns, the replay
-// button (id, hasReplay, locationCountry) and the arena/club/card decorations.
+// button (id, locationCountry) and the arena/club/card decorations.
 // Everything else in the uploaded result - user agent, browser, os, version,
 // winner/loser ids, the bot flag - is dropped before the response is cached, so
 // it is not re-served on every summary request. The full entry stays untouched
@@ -392,7 +371,6 @@ const LOBBY_MATCH_FIELDS = [
     "timestamp",
     "locationCity",
     "locationCountry",
-    "hasReplay",
     "arenaId",
     "club",
     "card",
@@ -457,17 +435,14 @@ async function summaryTopPlayers(limitElo) {
 }
 
 async function summary(r) {
-    r.headersOut['Cache-Control'] = 'public, max-age=0, s-maxage=10';
+    // The lobby reads this once per page load, so a minute of staleness costs nothing
+    // visible and keeps repeat loads off this handler. Set on both the browser and
+    // the shared-cache side: leaving max-age at 0 would still send every reload back
+    // to the CDN.
+    r.headersOut['Cache-Control'] = 'public, max-age=60, s-maxage=60';
     const limitElo = positiveInt(r.args.limitElo, 4);
     const limitMatches = positiveInt(r.args.limitMatches, 32);
     const key = `summary:${limitElo}:${limitMatches}`;
-
-    const date = new Date().toISOString().split("T")[0];
-    try {
-        await redis("ZINCRBY", "lobbyUsage", "1", JSON.stringify({ date: date }));
-    } catch (e) {
-        logApi("summary lobbyUsage increment failed: " + (e && e.message ? e.message : e));
-    }
 
     const cached = ngx.shared.summary_cache.get(key);
     if (cached) {

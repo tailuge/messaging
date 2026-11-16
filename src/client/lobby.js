@@ -10,6 +10,13 @@ import './settings-modal.js';
 import './active-arenas.js';
 import './arena-panel.js';
 import { CLIENTVERSION, formatVersion } from './utils.js';
+import { logUsage } from './logusage.js';
+
+// One page view per load, recorded from the module's top level the way the map and
+// reveal pages do, so every way into the lobby (a bare visit, a reload, a tournament
+// deep link) counts once for "lobby". This replaces the server-side increment that
+// used to sit in /api/summary, where a cached response skipped the count entirely.
+logUsage('lobby');
 
 class LobbyApp extends I18nElement {
     static properties = {

@@ -383,12 +383,12 @@
 
     // Users online and network bytes share one chart. Both series are
     // timestamped and arrival-driven (the server samples nothing on a timer),
-    // so one date axis carries both; the count is read on the left axis, bytes
-    // per minute on the right.
+    // so one date axis carries both; bytes per minute are read on the left axis,
+    // the user count on the right.
     function activityLayout(spanMs) {
-      const layout = chartLayout("USERS ONLINE & NETWORK", {
+      const layout = chartLayout("USERS ONLINE & NETWORK (KB / 10 MIN)", {
         xaxis: { nticks: 8, tickformat: spanMs > DAY_MS ? "%b %d %H:%M" : "%H:%M" },
-        yaxis: { tickformat: "d" },
+        yaxis: { tickformat: ",.0f", hoverformat: ",.0f", ticksuffix: " KB" },
         extra: {
           yaxis2: {
             ...axisStyle(),
@@ -396,8 +396,7 @@
             side: "right",
             showgrid: false,
             rangemode: "tozero",
-            tickformat: "~s",
-            ticksuffix: "B",
+            tickformat: "d",
           },
         },
       })
@@ -406,10 +405,28 @@
       return layout
     }
 
+    // Presence samples are edge-triggered, so a player reconnecting for a minute
+    // shows up as a one-point spike. A 3-point median drops those while keeping
+    // every remaining value a real observed count (no averaging, so the line
+    // stays on integers). The endpoints are left alone so the first sample and
+    // the live last point are never rewritten.
+    function median3(points) {
+      if (points.length < 3) return points
+      const values = points.map((point) => point.y)
+      return points.map((point, index) => {
+        if (index === 0 || index === points.length - 1) return point
+        const window = [values[index - 1], values[index], values[index + 1]].sort((a, b) => a - b)
+        return { x: point.x, y: window[1] }
+      })
+    }
+
     // Presence points exist only for minutes in which the count changed, so they
-    // stay sparse: the live count at `ts` extends the line to now.
+    // stay sparse: the live count at `ts` extends the line to now. The median is
+    // applied to the recorded samples only, then the live count is appended as
+    // sent — it is what the server reports now, not a point to smooth.
     function userPoints(data) {
-      const points = (data.samples || []).map(([ts, count]) => ({ x: ts, y: Number(count) }))
+      const samples = (data.samples || []).map(([ts, count]) => ({ x: ts, y: Number(count) }))
+      const points = median3(samples)
       points.push({ x: data.ts, y: Number(data.current) })
       return points
     }
@@ -428,7 +445,13 @@
         const points = userPoints(users)
         track(points)
         traces.push(
-          lineTrace({ label: "USERS ONLINE", color: "#f59e0b", points, smooth: true })
+          lineTrace({
+            label: "USERS ONLINE",
+            color: "#f59e0b",
+            points,
+            smooth: true,
+            axis: "y2",
+          })
         )
       }
       if (net) {
@@ -441,7 +464,6 @@
               color: series.color,
               points,
               dashed: series.dashed,
-              axis: "y2",
             })
           )
         })
@@ -451,10 +473,10 @@
       Plotly.newPlot("activity-chart", traces, activityLayout(spanMs), PLOT_CONFIG)
     }
 
-    // Network bytes per minute, from the server's in-memory counters. The series
-    // are dense (one slot per minute) and start at process start, so the x
-    // values are generated from `start`. API bytes are counted before gzip;
-    // Nchan WebSocket frames are not compressed at all, so only the API line is
+    // Network bytes from the server's in-memory counters. The series are dense
+    // (one slot per minute) and start at process start, so the x values are
+    // generated from `start`. API bytes are counted before gzip; Nchan
+    // WebSocket frames are not compressed at all, so only the API line is
     // inflated relative to the wire.
     function formatBytes(value) {
       if (!value) return "0 B"
@@ -475,6 +497,15 @@
       { key: "in", label: "PUBLISH IN", color: "#888", dashed: true },
     ]
 
+    // The minute slots are accumulated into 10-minute buckets, aligned to a round
+    // epoch boundary so a bucket covers the same wall-clock window on every page
+    // load (anchoring to `start` would move the buckets on each restart). Buckets
+    // without a full ten minutes of slots are dropped rather than plotted
+    // partial: half a bucket would read as a cliff at the edge of the line. Values
+    // are returned in KB (1024 bytes), the unit the left axis is labelled in.
+    const NET_BUCKET_MS = 10 * 60 * 1000
+    const NET_BUCKET_MINUTES = NET_BUCKET_MS / 60000
+
     // `data.start` is the first minute of the window, one slot per minute.
     function netSeries(data, key) {
       const series = data.series || {}
@@ -487,7 +518,20 @@
       } else {
         values = series[key] || blank()
       }
-      return values.map((value, index) => ({ x: data.start + index * 60000, y: value }))
+      const buckets = new Map()
+      values.forEach((value, index) => {
+        const minute = data.start + index * 60000
+        const x = Math.floor(minute / NET_BUCKET_MS) * NET_BUCKET_MS
+        const bucket = buckets.get(x) || { bytes: 0, minutes: 0 }
+        bucket.bytes += value
+        bucket.minutes += 1
+        buckets.set(x, bucket)
+      })
+
+      return [...buckets.entries()]
+        .filter(([, bucket]) => bucket.minutes === NET_BUCKET_MINUTES)
+        .sort((a, b) => a[0] - b[0])
+        .map(([x, bucket]) => ({ x, y: bucket.bytes / 1024 }))
     }
 
     // The busiest API routes over the same window as the chart, as four

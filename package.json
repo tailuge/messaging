@@ -51,7 +51,7 @@
   "author": "tailuge",
   "license": "GPL-3.0",
   "devDependencies": {
-    "@playwright/test": "^1.65.0",
+    "@playwright/test": "^1.65.1",
     "@types/jest": "^30.0.0",
     "@types/ws": "^8.18.2",
     "esbuild": "^0.28.2",
@@ -60,7 +60,7 @@
     "testcontainers": "9.12.0",
     "ts-jest": "^29.4.15",
     "typescript": "^6.0.3",
-    "ws": "^8.22.2"
+    "ws": "^8.23.0"
   },
   "browserslist": [
     "defaults",

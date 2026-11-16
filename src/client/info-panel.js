@@ -146,9 +146,7 @@ class InfoPanel extends I18nElement {
                                 <td class="ago">${timeAgo(m.timestamp)}</td>
                                 <td class="city-col">${m.locationCity ?? ''}</td>
 <td class="replay-col">
-                                    ${m.hasReplay
-                                        ? html`<replay-button prefix="${flag(m.locationCountry).emoji}" prefixTitle="${flag(m.locationCountry).title}" .ariaLabel=${replayLabel(m)} url="${replayUrl(`${SCOREBOARD_URL}/api/match-replay?id=${m.id}&lod=${userStore.lod}`, userStore.clientId, userStore.userName)}"></replay-button>`
-                                        : flag(m.locationCountry).emoji}
+                                    <replay-button prefix="${flag(m.locationCountry).emoji}" prefixTitle="${flag(m.locationCountry).title}" .ariaLabel=${replayLabel(m)} url="${replayUrl(`${SCOREBOARD_URL}/api/match-replay?id=${m.id}&lod=${userStore.lod}`, userStore.clientId, userStore.userName)}"></replay-button>
                                 </td>
                             </tr>`)}
                         </table></div>
@@ -160,13 +158,12 @@ class InfoPanel extends I18nElement {
                             <div class="tbl"><table><caption><a href="${SCOREBOARD_URL}/elo" target="_blank" rel="noopener">${ruleIcon(game)} <span style="font-size:0.75rem;font-weight:200">${i18n.t('Rankings')}</span></a></caption>
                              <tr><th>Name</th><th>Score</th></tr><!-- A player can lead several rules, which repeats the trophy and
                                       name in each table, so the link name carries the rule too.
-                                      Score is the conservative rating (rating - 2*RD after
-                                      inactivity decay), matching the /elo page; the fallback
-                                      covers an older bundled client talking to a server that
-                                      predates the field. -->
+                                      Score is the Glicko rating itself. The server sorts these
+                                      rows by conservative rating (rating - 2*RD after inactivity
+                                      decay), so the scores shown are not necessarily descending. -->
                                     ${topPlayers[game].slice(0, 4).map((p, i) => html`<tr>
                                      <td><a href="${SCOREBOARD_URL}/player/${encodeURIComponent(p.name)}?ruleType=${game}" aria-label="${renderTrophy(i)} ${p.name}, ${game} rankings">${renderTrophy(i)} ${p.name}</a></td>
-                                     <td>${p.conservativeRating ?? Math.round(p.rating)}</td>
+                                     <td>${Math.round(p.rating)}</td>
                                  </tr>`)}
                             </table></div>
                         `)}
