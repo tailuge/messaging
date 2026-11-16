@@ -320,7 +320,6 @@ function parseHiscores(result) {
     const members = (Array.isArray(result) ? result : []).map((member) => JSON.parse(member));
     return members.map((s) => ({
         name: s.name,
-        likes: s.likes || 0,
         id: s.id,
         score: Math.floor(s.score),
     }));

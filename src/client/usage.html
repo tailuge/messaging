@@ -386,7 +386,7 @@
     // so one date axis carries both; bytes per minute are read on the left axis,
     // the user count on the right.
     function activityLayout(spanMs) {
-      const layout = chartLayout("USERS ONLINE & NETWORK (KB / 10 MIN)", {
+      const layout = chartLayout("USERS ONLINE & NETWORK (KB / 5 MIN)", {
         xaxis: { nticks: 8, tickformat: spanMs > DAY_MS ? "%b %d %H:%M" : "%H:%M" },
         yaxis: { tickformat: ",.0f", hoverformat: ",.0f", ticksuffix: " KB" },
         extra: {
@@ -406,27 +406,34 @@
     }
 
     // Presence samples are edge-triggered, so a player reconnecting for a minute
-    // shows up as a one-point spike. A 3-point median drops those while keeping
-    // every remaining value a real observed count (no averaging, so the line
-    // stays on integers). The endpoints are left alone so the first sample and
-    // the live last point are never rewritten.
-    function median3(points) {
-      if (points.length < 3) return points
-      const values = points.map((point) => point.y)
+    // shows up as a one-point spike. A centred 3-point moving average softens
+    // those (each interior sample becomes the mean of itself and its two
+    // neighbours) while passing longer trends through.
+    //
+    // Only interior points get a full window: the first and last samples have no
+    // sample on one side, and averaging the newest one against only its
+    // predecessor would drag the live edge backwards. A point whose two
+    // neighbours are not both finite numbers is left exactly as recorded rather
+    // than turned into NaN. The mean is rounded to one decimal because the
+    // counts are whole players and an unrounded mean puts long floats in hover.
+    function movingAverage3(points) {
+      if (!Array.isArray(points) || points.length < 3) return points
       return points.map((point, index) => {
         if (index === 0 || index === points.length - 1) return point
-        const window = [values[index - 1], values[index], values[index + 1]].sort((a, b) => a - b)
-        return { x: point.x, y: window[1] }
+        const window = [points[index - 1].y, point.y, points[index + 1].y]
+        if (!window.every((value) => Number.isFinite(value))) return point
+        const mean = (window[0] + window[1] + window[2]) / 3
+        return { x: point.x, y: Math.round(mean * 10) / 10 }
       })
     }
 
     // Presence points exist only for minutes in which the count changed, so they
-    // stay sparse: the live count at `ts` extends the line to now. The median is
+    // stay sparse: the live count at `ts` extends the line to now. The average is
     // applied to the recorded samples only, then the live count is appended as
     // sent — it is what the server reports now, not a point to smooth.
     function userPoints(data) {
       const samples = (data.samples || []).map(([ts, count]) => ({ x: ts, y: Number(count) }))
-      const points = median3(samples)
+      const points = movingAverage3(samples)
       points.push({ x: data.ts, y: Number(data.current) })
       return points
     }
@@ -497,13 +504,13 @@
       { key: "in", label: "PUBLISH IN", color: "#888", dashed: true },
     ]
 
-    // The minute slots are accumulated into 10-minute buckets, aligned to a round
+    // The minute slots are accumulated into 5-minute buckets, aligned to a round
     // epoch boundary so a bucket covers the same wall-clock window on every page
     // load (anchoring to `start` would move the buckets on each restart). Buckets
-    // without a full ten minutes of slots are dropped rather than plotted
+    // without a full five minutes of slots are dropped rather than plotted
     // partial: half a bucket would read as a cliff at the edge of the line. Values
     // are returned in KB (1024 bytes), the unit the left axis is labelled in.
-    const NET_BUCKET_MS = 10 * 60 * 1000
+    const NET_BUCKET_MS = 5 * 60 * 1000
     const NET_BUCKET_MINUTES = NET_BUCKET_MS / 60000
 
     // `data.start` is the first minute of the window, one slot per minute.
