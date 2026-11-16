@@ -301,7 +301,11 @@
     // `smooth` rounds the corners with Plotly's spline interpolation. Only used
     // where the curve is a state signal (users online); peak-fidelity matters
     // for the byte series, and splines overshoot around spikes.
-    function lineTrace({ label, color, points, dashed, axis, smooth }) {
+    //
+    // `stackGroup` turns the trace into a filled band laid on top of the
+    // previous members of the same group, so the top edge of the stack is the
+    // running total. Sharing one group name is what makes the series additive.
+    function lineTrace({ label, color, points, dashed, axis, smooth, stackGroup }) {
       return {
         x: points.map((point) => point.x),
         y: points.map((point) => point.y),
@@ -315,6 +319,7 @@
           ...(smooth ? { shape: "spline", smoothing: 0.6 } : {}),
         },
         yaxis: axis || "y",
+        ...(stackGroup ? { stackgroup: stackGroup } : {}),
       }
     }
 
@@ -383,13 +388,16 @@
 
     // Users online and network bytes share one chart. Both series are
     // timestamped and arrival-driven (the server samples nothing on a timer),
-    // so one date axis carries both; bytes per minute are read on the left axis,
+    // so one date axis carries both; the byte stack is read on the left axis,
     // the user count on the right.
     function activityLayout(spanMs) {
-      const layout = chartLayout("USERS ONLINE & NETWORK (KB / 5 MIN)", {
+      const layout = chartLayout("USERS ONLINE & NETWORK (TOTAL KB / 5 MIN)", {
         xaxis: { nticks: 8, tickformat: spanMs > DAY_MS ? "%b %d %H:%M" : "%H:%M" },
         yaxis: { tickformat: ",.0f", hoverformat: ",.0f", ticksuffix: " KB" },
         extra: {
+          // One tooltip per bucket listing every series, so the individual
+          // bands can be read alongside the total the stack tops out at.
+          hovermode: "x unified",
           yaxis2: {
             ...axisStyle(),
             overlaying: "y",
@@ -471,6 +479,7 @@
               color: series.color,
               points,
               dashed: series.dashed,
+              stackGroup: "net",
             })
           )
         })
