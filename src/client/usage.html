@@ -292,7 +292,7 @@
         },
         plot_bgcolor: "rgba(0,0,0,0)",
         paper_bgcolor: "rgba(0,0,0,0)",
-        margin: { t: 30, r: 12, b: 22, l: 30 },
+        margin: { t: 30, r: 12, b: 22, l: 32 },
         autosize: true,
         ...(overrides.extra || {}),
       }
@@ -305,19 +305,23 @@
     // `stackGroup` turns the trace into a filled band laid on top of the
     // previous members of the same group, so the top edge of the stack is the
     // running total. Sharing one group name is what makes the series additive.
+    //
+    // A lone point has no segment to draw, so it is given a marker: otherwise a
+    // series with one bucket renders as nothing at all.
     function lineTrace({ label, color, points, dashed, axis, smooth, stackGroup }) {
       return {
         x: points.map((point) => point.x),
         y: points.map((point) => point.y),
         name: label,
         type: "scatter",
-        mode: "lines",
+        mode: points.length === 1 ? "lines+markers" : "lines",
         line: {
           color,
           width: 2,
           dash: dashed ? "dash" : "solid",
           ...(smooth ? { shape: "spline", smoothing: 0.6 } : {}),
         },
+        marker: { color, size: 6 },
         yaxis: axis || "y",
         ...(stackGroup ? { stackgroup: stackGroup } : {}),
       }
@@ -391,7 +395,7 @@
     // so one date axis carries both; the byte stack is read on the left axis,
     // the user count on the right.
     function activityLayout(spanMs) {
-      const layout = chartLayout("USERS ONLINE & NETWORK (TOTAL KB / 5 MIN)", {
+      const layout = chartLayout("USERS ONLINE & NETWORK (TOTAL KB / HR)", {
         xaxis: { nticks: 8, tickformat: spanMs > DAY_MS ? "%b %d %H:%M" : "%H:%M" },
         yaxis: { tickformat: ",.0f", hoverformat: ",.0f", ticksuffix: " KB" },
         extra: {
@@ -513,14 +517,14 @@
       { key: "in", label: "PUBLISH IN", color: "#888", dashed: true },
     ]
 
-    // The minute slots are accumulated into 5-minute buckets, aligned to a round
+    // The minute slots are accumulated into one-hour buckets, aligned to a round
     // epoch boundary so a bucket covers the same wall-clock window on every page
-    // load (anchoring to `start` would move the buckets on each restart). Buckets
-    // without a full five minutes of slots are dropped rather than plotted
-    // partial: half a bucket would read as a cliff at the edge of the line. Values
-    // are returned in KB (1024 bytes), the unit the left axis is labelled in.
-    const NET_BUCKET_MS = 5 * 60 * 1000
-    const NET_BUCKET_MINUTES = NET_BUCKET_MS / 60000
+    // load (anchoring to `start` would move the buckets on each restart). Partial
+    // buckets at the window edges are kept rather than dropped: the first holds
+    // only the minutes since process start and the last the current hour so far,
+    // and discarding them would leave a short-lived process with no line at all.
+    // Values are returned in KB (1024 bytes), the unit the left axis is in.
+    const NET_BUCKET_MS = 60 * 60 * 1000
 
     // `data.start` is the first minute of the window, one slot per minute.
     function netSeries(data, key) {
@@ -538,25 +542,30 @@
       values.forEach((value, index) => {
         const minute = data.start + index * 60000
         const x = Math.floor(minute / NET_BUCKET_MS) * NET_BUCKET_MS
-        const bucket = buckets.get(x) || { bytes: 0, minutes: 0 }
-        bucket.bytes += value
-        bucket.minutes += 1
-        buckets.set(x, bucket)
+        buckets.set(x, (buckets.get(x) || 0) + value)
       })
 
       return [...buckets.entries()]
-        .filter(([, bucket]) => bucket.minutes === NET_BUCKET_MINUTES)
         .sort((a, b) => a[0] - b[0])
-        .map(([x, bucket]) => ({ x, y: bucket.bytes / 1024 }))
+        .map(([x, bytes]) => ({ x, y: bytes / 1024 }))
     }
 
     // The busiest API routes over the same window as the chart, as four
     // columns: route, bytes, calls, bytes per call.
-    function renderRoutes(routes) {
+    //
+    // Nchan is not an API route, so it closes the table as a single row built
+    // from the outbound channel bytes the chart already plots. Nothing counts
+    // publishes per channel, so its call columns stay blank rather than guessed.
+    function renderRoutes(routes, series = {}) {
       const body = document.getElementById("net-routes")
       body.textContent = ""
       const top = (routes || []).filter((route) => route.bytes > 0).slice(0, 6)
-      if (top.length === 0) {
+      const nchanBytes = ["presence.out", "table.out"].reduce(
+        (sum, key) =>
+          sum + (series[key] || []).reduce((total, value) => total + value, 0),
+        0
+      )
+      if (top.length === 0 && !nchanBytes) {
         const empty = body.insertRow().insertCell()
         empty.colSpan = 4
         empty.textContent = "nothing recorded yet"
@@ -574,6 +583,16 @@
           ? formatBytes(route.bytes / route.calls)
           : "–"
       })
+      if (nchanBytes) {
+        const row = body.insertRow()
+        const name = document.createElement("span")
+        name.className = "net-route-name"
+        name.textContent = "/nchan/"
+        row.insertCell().appendChild(name)
+        row.insertCell().textContent = formatBytes(nchanBytes)
+        row.insertCell().textContent = "–"
+        row.insertCell().textContent = "–"
+      }
     }
 
     // Both endpoints report since the server process started, so the two lines
@@ -594,7 +613,7 @@
         users.status === "fulfilled" ? users.value : null,
         net.status === "fulfilled" ? net.value : null
       )
-      if (net.status === "fulfilled") renderRoutes(net.value.routes)
+      if (net.status === "fulfilled") renderRoutes(net.value.routes, net.value.series)
     }
 
     loadUsage()
