@@ -119,6 +119,7 @@ class TrophyCabinet extends I18nElement {
                                             class="trophy"
                                             style="${style}"
                                             href="lobby?tournamentId=${encodeURIComponent(arenaId)}"
+                                            rel="nofollow"
                                             title="Arena winner (${arenaId})"
                                             aria-label="Arena trophy - view arena ${arenaId}"
                                         >🏆</a>`

@@ -123,7 +123,7 @@ class InfoPanel extends I18nElement {
         const { hiscores } = this._data;
         const hiscoreGames = Object.keys(hiscores).filter(game => game !== 'eightball' && game !== 'sagu');
         return hiscoreGames.map(game => html`
-            <div class="tbl${game === 'sagu' ? ' sagu-hi' : ''}"><table><caption><a href="${SCOREBOARD_URL}/leaderboard" target="_blank" rel="noopener" style="font-weight:200;font-size:0.75rem">${ruleIcon(game)} ${i18n.t('HiScore')}</a></caption>
+            <div class="tbl${game === 'sagu' ? ' sagu-hi' : ''}"><table><caption><a href="${SCOREBOARD_URL}/leaderboard" target="_blank" rel="noopener nofollow" style="font-weight:200;font-size:0.75rem">${ruleIcon(game)} ${i18n.t('HiScore')}</a></caption>
             <tr><th>Name</th><th></th></tr>
                 ${hiscores[game].slice(0, 4).map((s, i) => html`<tr><td>${renderTrophy(i)} ${s.name}</td><td><replay-button url="${replayUrl(`${SCOREBOARD_URL}/api/rank/${s.id}?ruletype=${game}&lod=${userStore.lod}`, userStore.clientId, userStore.userName)}" label="${s.score}" .ariaLabel=${`Replay ${game} HiScore #${i + 1}: ${s.name} ${s.score}`}></replay-button></td></tr>`)}
             </table></div>
@@ -155,14 +155,14 @@ class InfoPanel extends I18nElement {
                 <div class="group top-players">
                     <div class="group-body">
                         ${games.map(game => html`
-                            <div class="tbl"><table><caption><a href="${SCOREBOARD_URL}/elo" target="_blank" rel="noopener">${ruleIcon(game)} <span style="font-size:0.75rem;font-weight:200">${i18n.t('Rankings')}</span></a></caption>
+                            <div class="tbl"><table><caption><a href="${SCOREBOARD_URL}/elo" target="_blank" rel="noopener nofollow">${ruleIcon(game)} <span style="font-size:0.75rem;font-weight:200">${i18n.t('Rankings')}</span></a></caption>
                              <tr><th>Name</th><th>Score</th></tr><!-- A player can lead several rules, which repeats the trophy and
                                       name in each table, so the link name carries the rule too.
                                       Score is the Glicko rating itself. The server sorts these
                                       rows by conservative rating (rating - 2*RD after inactivity
                                       decay), so the scores shown are not necessarily descending. -->
                                     ${topPlayers[game].slice(0, 4).map((p, i) => html`<tr>
-                                     <td><a href="${SCOREBOARD_URL}/player/${encodeURIComponent(p.name)}?ruleType=${game}" aria-label="${renderTrophy(i)} ${p.name}, ${game} rankings">${renderTrophy(i)} ${p.name}</a></td>
+                                     <td><a href="${SCOREBOARD_URL}/player/${encodeURIComponent(p.name)}?ruleType=${game}" rel="nofollow" aria-label="${renderTrophy(i)} ${p.name}, ${game} rankings">${renderTrophy(i)} ${p.name}</a></td>
                                      <td>${Math.round(p.rating)}</td>
                                  </tr>`)}
                             </table></div>

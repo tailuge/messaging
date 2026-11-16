@@ -147,6 +147,7 @@ class TrophyItem extends StoreElement {
                     <a
                         class="trophy"
                         href="lobby?arenaId=${encodeURIComponent(t.arenaId)}"
+                        rel="nofollow"
                         title="Arena winner (${t.arenaId})"
                         aria-label="Arena trophy - view arena ${t.arenaId}"
                     >🏆</a>
