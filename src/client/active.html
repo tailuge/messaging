@@ -184,10 +184,34 @@
       }
       #spectate-frame {
         width: 100%;
-        aspect-ratio: 3 / 2;
+        /* 20% shorter than 3/2 (0.667 -> 0.533 of the width). */
+        aspect-ratio: 15 / 8;
         border: 1px solid #ccc;
         background: #000;
         margin-bottom: 10px;
+      }
+      /* Key/value summary of the selected game: duration, shots, size. */
+      #game-stats {
+        display: grid;
+        grid-template-columns: auto 1fr auto 1fr;
+        gap: 1px 10px;
+        margin: 0 0 10px 0;
+        font-size: 10px;
+        line-height: 1.35;
+      }
+      #game-stats[hidden] {
+        display: none;
+      }
+      #game-stats dt {
+        color: #888;
+      }
+      #game-stats dd {
+        margin: 0;
+        min-width: 0;
+        font-weight: bold;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       .event-item {
         padding: 1px 0;
@@ -232,6 +256,7 @@
           <h2 id="spectator-title">Game Details</h2>
           <button id="spectate-button" type="button" disabled>Spectate</button>
         </div>
+        <dl id="game-stats" hidden></dl>
         <iframe
           id="spectate-frame"
           title="Table spectator"
@@ -254,6 +279,7 @@
       const eventList = document.getElementById('event-list');
       const spectateButton = document.getElementById('spectate-button');
       const spectateFrame = document.getElementById('spectate-frame');
+      const gameStatsEl = document.getElementById('game-stats');
 
       // The game client renders and replays a table's retained message history
       // when opened as a spectator. ruletype and tableSize come from the
@@ -261,9 +287,9 @@
       const GAME_URL = 'https://billiards.tailuge.workers.dev/';
       let spectateUrl = null;
 
-      // Table channels retain 12 hours of messages, so anything last seen
+      // Table channels retain 24 hours of messages, so anything last seen
       // longer ago than that has no history left to spectate.
-      const STALE_AFTER_MS = 12 * 60 * 60 * 1000;
+      const STALE_AFTER_MS = 24 * 60 * 60 * 1000;
 
       // Player ids and table ids can arrive percent-encoded (e.g. non-ASCII
       // player ids), so decode them for display only. The raw value is kept for
@@ -378,6 +404,9 @@
       // Server timestamps of the first and last message, for the byte rate.
       let firstMessageTs = null;
       let lastMessageTs = null;
+      // Layout details from the table's BEGIN message, for the summary table.
+      let beginRuletype = null;
+      let beginTableSize = null;
       const encoder = new TextEncoder();
 
       // Game messages arrive with the type as published, so compare it
@@ -445,6 +474,62 @@
         const rateText = bytesPerMinuteText(bytes, firstTs, lastTs);
         const base = `${count} message${count === 1 ? '' : 's'} (${kbText} KB) · ${hits} HIT · ${rateText}`;
         return score ? `${base} · ${score}` : base;
+      }
+
+      // Elapsed time as "12m 34s", dropping the seconds past an hour.
+      function formatDuration(ms) {
+        if (typeof ms !== 'number' || !isFinite(ms) || ms < 0) return '--';
+        const totalSeconds = Math.round(ms / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        if (hours > 0) return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+        if (minutes > 0) return `${minutes}m ${String(seconds).padStart(2, '0')}s`;
+        return `${seconds}s`;
+      }
+
+      // Key/value summary of the selected game. The rows are created once and
+      // their values rewritten, so a chatty table does not rebuild the list.
+      const STAT_LABELS = ['Duration', 'Shots', 'Score', 'Messages', 'Size', 'Rate', 'Table'];
+      const statValues = new Map();
+
+      function buildGameStats() {
+        gameStatsEl.innerHTML = '';
+        statValues.clear();
+        STAT_LABELS.forEach((label) => {
+          const dt = document.createElement('dt');
+          dt.textContent = label;
+          const dd = document.createElement('dd');
+          dd.textContent = '--';
+          gameStatsEl.append(dt, dd);
+          statValues.set(label, dd);
+        });
+        gameStatsEl.hidden = false;
+      }
+
+      function renderGameStats() {
+        if (statValues.size === 0) buildGameStats();
+        // Duration spans the server timestamps of the retained history, so it
+        // measures the game so far rather than the time spent watching.
+        const durationMs =
+          firstMessageTs === null || lastMessageTs === null
+            ? null
+            : lastMessageTs - firstMessageTs;
+        const tableText = beginRuletype
+          ? `${beginRuletype}${beginTableSize ? ` \u00b7 ${beginTableSize}` : ''}`
+          : '--';
+        const values = {
+          Duration: formatDuration(durationMs),
+          Shots: String(hitCount),
+          Score: lastScoreText || '--',
+          Messages: String(messageCount),
+          Size: formatBytes(messageBytes),
+          Rate: bytesPerMinuteText(messageBytes, firstMessageTs, lastMessageTs),
+          Table: tableText,
+        };
+        statValues.forEach((el, label) => {
+          el.textContent = values[label];
+        });
       }
 
       // Format epoch ms as MM:SS:mmm (minutes:seconds:milliseconds of the time-of-day)
@@ -585,6 +670,10 @@
         messageBytes = 0;
         firstMessageTs = null;
         lastMessageTs = null;
+        beginRuletype = null;
+        beginTableSize = null;
+        buildGameStats();
+        renderGameStats();
 
         // Base URL logic
         let baseUrl = 'https://billiards-network.onrender.com';
@@ -606,6 +695,8 @@
               if (isHitMessage(msg)) hitCount++;
               if (isScoreMessage(msg)) lastScoreText = scoreTextFromMsg(msg);
               if (isBeginMessage(msg) && msg.data?.ruletype) {
+                beginRuletype = msg.data.ruletype;
+                beginTableSize = msg.data.tableSize ?? null;
                 spectateUrl = buildSpectateUrl(
                   tableId,
                   msg.data.ruletype,
@@ -620,14 +711,8 @@
                 if (firstMessageTs === null) firstMessageTs = msgTs;
                 lastMessageTs = msgTs;
               }
-              spectatorStatus.textContent = `Received ${messageStatsText(
-                messageCount,
-                messageBytes,
-                hitCount,
-                firstMessageTs,
-                lastMessageTs,
-                lastScoreText
-              )}`;
+              renderGameStats();
+              spectatorStatus.textContent = 'Receiving events...';
 
               // Only collapse consecutive AIM bursts from the same sender.
               // Every other message type is shown individually.

@@ -693,7 +693,7 @@ describe("MessagingClient - Phase 1", () => {
       });
 
       // 3. A publishes a move immediately (possibly before B's socket is live).
-      //    The channel replay buffer (nchan_message_buffer_length 3000 / 5h) must
+      //    The channel replay buffer (nchan_message_buffer_length 3000 / 24h) must
       //    guarantee delivery — no message may be lost.
       await tableA.publish("MOVE", { x: 5, y: 10 });
 

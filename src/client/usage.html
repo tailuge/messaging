@@ -299,16 +299,12 @@
     }
 
     // `smooth` rounds the corners with Plotly's spline interpolation. Only used
-    // where the curve is a state signal (users online); peak-fidelity matters
-    // for the byte series, and splines overshoot around spikes.
-    //
-    // `stackGroup` turns the trace into a filled band laid on top of the
-    // previous members of the same group, so the top edge of the stack is the
-    // running total. Sharing one group name is what makes the series additive.
+    // where the curve is a state signal (users online); peak-fidelity matters for
+    // the byte series, and splines overshoot around spikes.
     //
     // A lone point has no segment to draw, so it is given a marker: otherwise a
     // series with one bucket renders as nothing at all.
-    function lineTrace({ label, color, points, dashed, axis, smooth, stackGroup }) {
+    function lineTrace({ label, color, points, axis, smooth }) {
       return {
         x: points.map((point) => point.x),
         y: points.map((point) => point.y),
@@ -318,12 +314,25 @@
         line: {
           color,
           width: 2,
-          dash: dashed ? "dash" : "solid",
+          dash: "solid",
           ...(smooth ? { shape: "spline", smoothing: 0.6 } : {}),
         },
         marker: { color, size: 6 },
         yaxis: axis || "y",
-        ...(stackGroup ? { stackgroup: stackGroup } : {}),
+      }
+    }
+
+    // Network bytes render as stacked bars rather than a filled line: each hour
+    // is a discrete bucket, and bars show the per-hour value directly instead of
+    // implying an interpolated total between samples. Dash styling does not apply
+    // to bars, so PUBLISH IN is told apart from the outbound series by its grey.
+    function barTrace({ label, color, points }) {
+      return {
+        x: points.map((point) => point.x),
+        y: points.map((point) => point.y),
+        name: label,
+        type: "bar",
+        marker: { color },
       }
     }
 
@@ -395,13 +404,23 @@
     // so one date axis carries both; the byte stack is read on the left axis,
     // the user count on the right.
     function activityLayout(spanMs) {
-      const layout = chartLayout("USERS ONLINE & NETWORK (TOTAL KB / HR)", {
+      const layout = chartLayout("USERS ONLINE & NETWORK (TOTAL Mb / HR)", {
         xaxis: { nticks: 8, tickformat: spanMs > DAY_MS ? "%b %d %H:%M" : "%H:%M" },
-        yaxis: { tickformat: ",.0f", hoverformat: ",.0f", ticksuffix: " KB" },
+        yaxis: {
+          // One decimal keeps the labels to four characters (0.5Mb, 12.0Mb),
+          // and the smaller tick font keeps them inside the 32px left margin.
+          tickformat: ",.1f",
+          hoverformat: ",.1f",
+          ticksuffix: "Mb",
+          tickfont: { family: SANS_FONT, size: 8, color: "#999" },
+        },
         extra: {
           // One tooltip per bucket listing every series, so the individual
-          // bands can be read alongside the total the stack tops out at.
+          // bars can be read alongside the total the stack tops out at.
           hovermode: "x unified",
+          // The byte series share each hour's slot, stacked rather than grouped.
+          barmode: "stack",
+          bargap: 0.05,
           yaxis2: {
             ...axisStyle(),
             overlaying: "y",
@@ -478,13 +497,7 @@
           const points = netSeries(net, series.key)
           track(points)
           traces.push(
-            lineTrace({
-              label: series.label,
-              color: series.color,
-              points,
-              dashed: series.dashed,
-              stackGroup: "net",
-            })
+            barTrace({ label: series.label, color: series.color, points })
           )
         })
       }
@@ -514,7 +527,7 @@
       { key: "presence.out", label: "PRESENCE OUT", color: "#0055ff" },
       { key: "table.out", label: "TABLE OUT", color: "#9c27b0" },
       { key: "api.out", label: "API OUT", color: "#00bcd4" },
-      { key: "in", label: "PUBLISH IN", color: "#888", dashed: true },
+      { key: "in", label: "PUBLISH IN", color: "#888" },
     ]
 
     // The minute slots are accumulated into one-hour buckets, aligned to a round
@@ -523,7 +536,7 @@
     // buckets at the window edges are kept rather than dropped: the first holds
     // only the minutes since process start and the last the current hour so far,
     // and discarding them would leave a short-lived process with no line at all.
-    // Values are returned in KB (1024 bytes), the unit the left axis is in.
+    // Values are returned in MB (1024 * 1024 bytes), the unit the left axis is in.
     const NET_BUCKET_MS = 60 * 60 * 1000
 
     // `data.start` is the first minute of the window, one slot per minute.
@@ -547,7 +560,7 @@
 
       return [...buckets.entries()]
         .sort((a, b) => a[0] - b[0])
-        .map(([x, bytes]) => ({ x, y: bytes / 1024 }))
+        .map(([x, bytes]) => ({ x, y: bytes / (1024 * 1024) }))
     }
 
     // The busiest API routes over the same window as the chart, as four

@@ -402,7 +402,7 @@ Retention is enforced by Nchan per channel (see `docker/nchan.conf`). A channel'
 settings come from its last-used **publishing** location, not from the subscriber
 location.
 
-- **Table channels**: 3000 messages retained for 5 hours (`nchan_message_timeout 5h`).
+- **Table channels**: 3000 messages retained for 24 hours (`nchan_message_timeout 24h`).
   The subscriber endpoint uses `nchan_subscriber_first_message oldest`, so a late
   joiner or spectator receives the retained messages, oldest first, before live
   traffic.
@@ -460,7 +460,7 @@ private handlePageShow = (event: PageTransitionEvent): void => {
 
 ### 3. State Reconstruction
 
-The presence channel does not buffer messages, so a new client joining the lobby receives no replayed presence. It learns about existing users from live presence heartbeats and join events, and its own join is broadcast to peers; the client prunes users that stop heartbeating. Table channels are different: their retained messages are replayed to late joiners and spectators (up to 3000 messages, 5 hours).
+The presence channel does not buffer messages, so a new client joining the lobby receives no replayed presence. It learns about existing users from live presence heartbeats and join events, and its own join is broadcast to peers; the client prunes users that stop heartbeating. Table channels are different: their retained messages are replayed to late joiners and spectators (up to 3000 messages, 24 hours).
 
 ---
 

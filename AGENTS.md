@@ -126,13 +126,13 @@ publisher-side ones (the matching subscriber locations do not override retention
 
 **Table channels** (`/internal/publish/table/:tableId`):
 - `nchan_message_buffer_length`: 3000 messages
-- `nchan_message_timeout`: 5 hours
+- `nchan_message_timeout`: 24 hours
 
-A table keeps its most recent 3000 messages for 5 hours after publication. Late joiners
+A table keeps its most recent 3000 messages for 24 hours after publication. Late joiners
 and spectators (`/subscribe/table/:tableId` uses `nchan_subscriber_first_message oldest`)
 receive those retained messages in order before live traffic. Nchan's built-in default
 for this setting is 1 hour (`NCHAN_DEFAULT_MESSAGE_TIMEOUT 3600` in the pinned nchan
-v1.3.8), so the explicit `5h` is what extends table history beyond an hour.
+v1.3.8), so the explicit `24h` is what extends table history beyond an hour.
 
 **Presence channel** (`/internal/publish/presence/lobby`):
 - `nchan_message_buffer_length`: 0 (message buffering disabled)
