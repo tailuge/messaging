@@ -486,11 +486,13 @@ export class Lobby {
         this.notifyListeners();
       }
     } else if (msg.type === "join") {
-      // Ensure joins are never removed by deduplication
-      if (!this.users.has(msg.userId) || this.users.get(msg.userId)?.type === "leave") {
-        this.users.set(msg.userId, msg);
-        this.notifyListeners();
-      }
+      // A user can publish a fresh join from another page or session while
+      // peers still hold their previous presence. Treat that join as the new
+      // state, while suppressing notifications when its meaningful fields are
+      // unchanged (for example, a duplicate/reconnect join).
+      const changed = !existing || this.hasMeaningfulChange(existing, msg);
+      this.users.set(msg.userId, msg);
+      if (changed) this.notifyListeners();
     } else {
       // Heartbeat or other update
       const changed = !existing || this.hasMeaningfulChange(existing, msg);
