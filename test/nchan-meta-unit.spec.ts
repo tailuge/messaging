@@ -31,7 +31,7 @@ function loadNchanMeta(fsImpl: any = null): any {
     "ngx",
     "require",
     `${source}
-     return { parseUA, reduceUA, cacheSafeUA, classifyForCache, formatCacheValue, summariseCpuThrottling, publish, getOnlineUsers, recordPresenceCount, readLogTail, LOG_TAIL_LINES, LOG_TAIL_BYTES, LOG_TAIL_NOISE, ngx };`
+     return { parseUA, reduceUA, cacheSafeUA, classifyForCache, formatCacheValue, summariseCpuThrottling, publish, getOnlineUsers, recordPresenceCount, isPresenceHeartbeat, readLogTail, LOG_TAIL_LINES, LOG_TAIL_BYTES, LOG_TAIL_NOISE, ngx };`
   )(ngx, requireStub);
 }
 
@@ -75,6 +75,16 @@ const CUBOT_ANDROID =
 // it used to be stored verbatim in both ip_cache fields.
 const FACEBOOK_EXTERNAL_HIT =
   "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)";
+
+describe("presence heartbeat wire validation", () => {
+  const meta = loadNchanMeta();
+
+  test("accepts canonical and compact heartbeat types", () => {
+    expect(meta.isPresenceHeartbeat({ type: "heartbeat" })).toBe(true);
+    expect(meta.isPresenceHeartbeat({ t: "h" })).toBe(true);
+    expect(meta.isPresenceHeartbeat({ t: "j" })).toBe(false);
+  });
+});
 
 describe("nchan_meta ip_cache user agent retention", () => {
   let meta: any;

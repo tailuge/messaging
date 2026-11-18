@@ -8,6 +8,7 @@ describe("Lobby - Presence Options", () => {
       stop: jest.fn(),
     }),
     publishPresence: jest.fn().mockResolvedValue(undefined),
+    publishPresenceHeartbeat: jest.fn().mockResolvedValue(undefined),
     publishChallenge: jest.fn().mockResolvedValue(undefined),
   };
 

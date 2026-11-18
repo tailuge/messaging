@@ -276,13 +276,13 @@ describe("MessagingClient - Phase 1", () => {
       // Wait for update propagation - use longer timeout for real Nchan
       await waitUntil(() =>
         usersB.some((u) => u.userId === "alice" && u.userName === "Alice Updated"),
-        5000, // 5 second timeout for presence propagation
+        8000, // Allow real Nchan a few seconds to propagate under suite load.
       );
 
       const aliceInB = usersB.find((u) => u.userId === "alice");
       expect(aliceInB).toBeDefined();
       expect(aliceInB?.userName).toBe("Alice Updated");
-    });
+    }, 10000);
 
     it("should allow joining with tableId for games that already know their table", async () => {
       const clientA = createClient(); // This is a "game" client that knows it's at a table

@@ -266,7 +266,9 @@ export class Lobby {
    */
   async updatePresence(update: Partial<PresenceMessage>): Promise<void> {
     this.currentUser = { ...this.currentUser, ...update };
-    await this.syncPresence();
+    // Treat status changes as heartbeat frames so peers apply them to existing
+    // users. The HTTP endpoint publishes the frame only when fields changed.
+    await this.syncPresence({ type: "heartbeat" });
   }
 
   /**
@@ -282,10 +284,15 @@ export class Lobby {
       await this.leave();
       return;
     }
-    await this.nchan.publishPresence({
+    const presence = {
       ...this.currentUser,
       ...update,
-    });
+    };
+    if (presence.type === "heartbeat") {
+      await this.nchan.publishPresenceHeartbeat(presence);
+    } else {
+      await this.nchan.publishPresence(presence);
+    }
   }
 
   /**

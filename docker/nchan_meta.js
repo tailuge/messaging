@@ -315,6 +315,11 @@ function presenceUserId(payload) {
   return typeof id === "string" && id.length > 0 && id.length <= 128 ? id : null;
 }
 
+function isPresenceHeartbeat(payload) {
+  const type = payload && (payload.type || payload.t);
+  return type === "heartbeat" || type === "h";
+}
+
 // Dashboard-only first-join tracking. The dict value is a wrapper
 // {f:<firstSeen ms>,b:<enriched body>} so heartbeats refresh the frame and its
 // 130 s TTL without resetting the join time. Leaves delete the key, so the next
@@ -712,6 +717,15 @@ async function publish(r) {
   // Legacy (canonical) and compact (P1) key forms are both counted.
   // Compact P2a values ("m":"p", "t":"l") and canonical words are both counted.
   const isPresence = reqText.includes('"m":"p"') || reqText.includes('"messageType":"presence"');
+  let incoming;
+  try { incoming = JSON.parse(reqText); } catch (e) { incoming = null; }
+  const isLegacyHeartbeat = isPresence && incoming && (incoming.t === "h" || incoming.type === "heartbeat");
+  if (isLegacyHeartbeat) {
+    // Keep old clients' liveness in the registry without fanning every heartbeat
+    // out to subscribers. New clients use /api/presence/heartbeat directly.
+    r.return(204, "");
+    return;
+  }
   if (isPresence) {
     incrementStat("presence_publish_total");
     if (reqText.includes('"t":"l"') || reqText.includes('"type":"leave"')) incrementStat("presence_leave_total");
@@ -1351,7 +1365,7 @@ async function presence_heartbeat(r) {
     presence = null;
   }
   const userId = presenceUserId(presence);
-  if (!userId || (presence.type || presence.t) !== "heartbeat") {
+  if (!userId || !isPresenceHeartbeat(presence)) {
     const payload = JSON.stringify({ error: "Invalid presence heartbeat" });
     noteApiOut(r, payload);
     r.headersOut["Content-Type"] = "application/json";

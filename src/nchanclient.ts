@@ -125,6 +125,25 @@ export class NchanClient {
     );
   }
 
+  /** Refreshes presence through the registry API without publishing routine heartbeats. */
+  async publishPresenceHeartbeat(message: Omit<PresenceMessage, "messageType">): Promise<void> {
+    const body = encodeWire({ ...message, messageType: "presence" });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    let response: Response;
+    try {
+      response = await fetch(this.getHttpUrl("/api/presence/heartbeat"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (!response.ok) throw new Error(`Presence heartbeat failed: ${response.status}`);
+  }
+
   async publishChallenge(
     message: Omit<ChallengeMessage, "messageType">,
     options?: { keepalive?: boolean },

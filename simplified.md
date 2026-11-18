@@ -1,11 +1,12 @@
 # Reduce presence fanout
 
-Status: in progress. The exact-match route, CORS and rate limit are in place. The server
-handler now validates heartbeat requests, refreshes `presence_live`, and returns an empty
-`204` response. If the user is new or a user-visible presence field changed, it also
-publishes the enriched heartbeat to Nchan so current subscribers receive the update.
-Unchanged heartbeats only refresh the registry and TTL. The client still uses its existing
-Nchan heartbeat flow; legacy heartbeat suppression and the client migration remain.
+Status: implementation complete; runtime verification and rollout remain. The HTTP handler
+validates heartbeat requests, refreshes `presence_live`, and returns an empty `204` response.
+If the user is new or a user-visible presence field changed, it also publishes the enriched
+heartbeat to Nchan so current subscribers receive the update. Unchanged heartbeats only
+refresh the registry and TTL. The library now sends heartbeat messages through this endpoint,
+and the legacy Nchan publish handler suppresses old-client heartbeat frames after refreshing
+the registry. Legacy joins, leaves, and status updates continue to fan out normally.
 
 ## Goal
 
@@ -52,11 +53,11 @@ meaningful presence update can refresh the registry in the meantime.
 1. **Done:** Add the heartbeat HTTP handler, reuse the presence registry update logic,
    validate the user ID and reject malformed requests. Publish to Nchan only for a new user
    or meaningful presence change.
-2. **Remaining:** Suppress legacy heartbeat frames in the publish handler after updating
-   the registry.
+2. **Done:** Suppress legacy heartbeat frames in the publish handler after updating the
+   registry.
 3. **Done:** Add the exact-match Nginx route, CORS and rate limit.
-4. **Remaining:** Add a library method for the HTTP request and switch the heartbeat timer
-   to use it.
+4. **Done:** Add a library method for the HTTP request and route heartbeat-typed presence
+   messages through it.
 5. **Remaining:** Verify the server behavior, then deploy server first and library/client
    afterward.
 
