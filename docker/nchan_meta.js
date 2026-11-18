@@ -1334,12 +1334,9 @@ function online_presence_api(r) {
   r.return(200, payload);
 }
 
-// POST /api/presence/heartbeat - route, CORS and rate limiting are wired up
-// (docker/nchan.conf), the registry write is not implemented yet. It answers 501
-// rather than 200 on purpose: a client pointed at this early must not read the
-// reply as "presence refreshed", because it would then stop publishing and drop
-// out of snapshots when the 130 s TTL expires. See simplified.md.
-function presence_heartbeat(r) {
+// POST /api/presence/heartbeat refreshes the snapshot registry without sending
+// a frame through Nchan. The client can migrate independently after deployment.
+async function presence_heartbeat(r) {
   if (r.method !== "POST") {
     const denied = JSON.stringify({ error: "Method Not Allowed" });
     noteApiOut(r, denied);
@@ -1347,11 +1344,60 @@ function presence_heartbeat(r) {
     r.return(405, denied);
     return;
   }
-  const payload = JSON.stringify({ error: "Not Implemented" });
-  noteApiOut(r, payload);
-  r.headersOut["Content-Type"] = "application/json";
+  let presence;
+  try {
+    presence = JSON.parse(r.requestText || "");
+  } catch (e) {
+    presence = null;
+  }
+  const userId = presenceUserId(presence);
+  if (!userId || (presence.type || presence.t) !== "heartbeat") {
+    const payload = JSON.stringify({ error: "Invalid presence heartbeat" });
+    noteApiOut(r, payload);
+    r.headersOut["Content-Type"] = "application/json";
+    r.return(400, payload);
+    return;
+  }
+  try {
+    const key = PRESENCE_KEY_PREFIX + userId;
+    const previousRaw = ngx.shared.presence_live.get(key);
+    let previous = null;
+    if (previousRaw) {
+      try {
+        const stored = JSON.parse(previousRaw);
+        previous = JSON.parse(stored && typeof stored.b === "string" ? stored.b : previousRaw);
+      } catch (e) {}
+    }
+    const body = injectMetaString(r.requestText, await buildMeta(r));
+    updatePresenceRegistry({ uri: "/publish/presence/lobby" }, r.requestText, body);
+    const next = JSON.parse(body);
+    if (!previous || presenceMeaningfullyChanged(previous, next)) {
+      notePublishBytes("presence", r.requestText.length, body.length, channelSubscribers("presence/lobby"), body.length - r.requestText.length);
+      await r.subrequest("/internal/publish/presence/lobby", { method: "POST", body: body });
+    }
+  } catch (e) {
+    ngx.log(ngx.WARN, `presence heartbeat registry error: ${e && e.message ? e.message : e}`);
+    const payload = JSON.stringify({ error: "Presence refresh failed" });
+    noteApiOut(r, payload);
+    r.headersOut["Content-Type"] = "application/json";
+    r.return(500, payload);
+    return;
+  }
+  noteApiOut(r, "");
   r.headersOut["Cache-Control"] = "no-store";
-  r.return(501, payload);
+  r.return(204, "");
+}
+
+function presenceMeaningfullyChanged(oldFrame, nextFrame) {
+  const fields = [["userName", "n"], ["tableId", "T"], ["arenaId", "A"], ["ruleType", "r"], ["opponentId", "e"], ["seek", "s"], ["options", "o"]];
+  for (let i = 0; i < fields.length; i++) {
+    const name = fields[i][0];
+    const compact = fields[i][1];
+    const oldValue = typeof oldFrame[name] !== "undefined" ? oldFrame[name] : oldFrame[compact];
+    const nextValue = typeof nextFrame[name] !== "undefined" ? nextFrame[name] : nextFrame[compact];
+    if (JSON.stringify(oldValue) !== JSON.stringify(nextValue)) return true;
+  }
+  return false;
 }
 
 export default { publish, presence_sub, presence_unsub, stats, online_users_api, online_presence_api, presence_history_api, presence_heartbeat, net_history_api, challenges_api, tables_api, table_unsub, table_sub };

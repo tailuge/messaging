@@ -211,11 +211,23 @@ run_test "API: Stats endpoint contains system_stats" bash -c '
 	curl -fsS --max-time 5 "http://localhost/api/stats" | grep -q "\"system_stats\":"
 '
 
-# Presence heartbeat (simplified.md). Route, CORS and rate limit are wired up;
-# the handler is a deliberate 501 stub until the registry write lands.
-run_test "API: Presence heartbeat POST returns 501 Not Implemented" bash -c '
-	code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 5 -X POST -H "Content-Type: application/json" -d "{\"messageType\":\"presence\",\"type\":\"heartbeat\",\"userId\":\"hb-probe\"}" "http://localhost/api/presence/heartbeat")
-	[[ "$code" == "501" ]]
+# Presence heartbeat refreshes the snapshot registry without publishing to Nchan.
+run_test "API: Presence heartbeat refreshes snapshot" bash -c '
+	code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 5 -X POST -H "Content-Type: application/json" -d "{\"messageType\":\"presence\",\"type\":\"heartbeat\",\"userId\":\"hb-probe\",\"userName\":\"Heartbeat Probe\"}" "http://localhost/api/presence/heartbeat")
+	[[ "$code" == "204" ]]
+	curl -fsS --max-time 5 "http://localhost/api/online/presence" | grep -q "hb-probe"
+	bad=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 5 -X POST -H "Content-Type: application/json" -d "{}" "http://localhost/api/presence/heartbeat")
+	[[ "$bad" == "400" ]]
+'
+
+run_test "API: Presence heartbeat publishes meaningful updates" bash -c '
+	curl -fsS --max-time 5 -X POST -H "Content-Type: application/json" -d "{\"messageType\":\"presence\",\"type\":\"join\",\"userId\":\"hb-publish-probe\",\"userName\":\"Before Heartbeat\"}" "http://localhost/publish/presence/lobby" >/dev/null
+	curl -fsS --max-time 8 "http://localhost/subscribe/presence/lobby" >/tmp/nchan-heartbeat-sub.out &
+	SUB_PID=$!
+	sleep 1
+	code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 5 -X POST -H "Content-Type: application/json" -d "{\"messageType\":\"presence\",\"type\":\"heartbeat\",\"userId\":\"hb-publish-probe\",\"userName\":\"After Heartbeat\"}" "http://localhost/api/presence/heartbeat")
+	wait $SUB_PID || true
+	[[ "$code" == "204" ]] && grep -q "After Heartbeat" /tmp/nchan-heartbeat-sub.out
 '
 
 # CORS Tests
