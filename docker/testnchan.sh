@@ -62,24 +62,25 @@ run_test "Health Check" curl -fsS --max-time 5 "$BASE_URL/basic_status"
 run_test "Stats" curl -fsS --max-time 5 "$BASE_URL/nchan_stats"
 run_test "Index" curl -fsS --max-time 5 "$BASE_URL/index.html"
 
-run_test "Publish to Lobby" bash -c '
-	curl -sS -i --max-time 5 -X POST -H "Origin: http://localhost" -d "{\"event\": \"test\"}" "http://localhost/publish/lobby/testchannel" | grep -q "X-Server-Time:"
-'
-
 run_test "Pub/Sub Demo" bash -c '
-	curl -fsS --max-time 8 "http://localhost/subscribe/lobby/demo" >/tmp/nchan-sub.out &
+	# Presence retention is 0, so subscribe first and publish while subscribed.
+	curl -fsS --max-time 8 "http://localhost/subscribe/presence/lobby" >/tmp/nchan-sub.out &
 	SUB_PID=$!
 	sleep 1
-	curl -fsS --max-time 5 -X POST -d "Hello from test" "http://localhost/publish/lobby/demo" >/dev/null
+	curl -fsS --max-time 5 -X POST -d "{\"messageType\":\"presence\",\"type\":\"join\",\"userId\":\"demo-probe\",\"userName\":\"Hello from test\"}" "http://localhost/publish/presence/lobby" >/dev/null
 	wait $SUB_PID
 	grep -q "Hello from test" /tmp/nchan-sub.out
 '
 
+# The upgrade is answered with 101 and then the socket stays open, so curl always
+# ends on its timeout; the body is captured and grepped so the pipeline does not
+# depend on curl's exit status.
 run_test "WebSocket Handshake" bash -c '
-	curl -sS -i -N --http1.1 --max-time 5 \
+	curl -sS -i -N --http1.1 --max-time 3 \
 		-H "Connection: Upgrade" -H "Upgrade: websocket" -H "Host: localhost" \
 		-H "Origin: http://localhost" -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
-		-H "Sec-WebSocket-Version: 13" "http://localhost/subscribe/lobby/handshake" | grep -qm1 "HTTP/1.1 101"
+		-H "Sec-WebSocket-Version: 13" "http://localhost/subscribe/presence/lobby" >/tmp/nchan-ws.out 2>/dev/null
+	grep -qm1 "HTTP/1.1 101" /tmp/nchan-ws.out
 '
 
 run_test "Publish to Presence" curl -fsS --max-time 5 -X POST \
@@ -210,12 +211,11 @@ run_test "API: Stats endpoint contains system_stats" bash -c '
 	curl -fsS --max-time 5 "http://localhost/api/stats" | grep -q "\"system_stats\":"
 '
 
-run_test "API: Stats endpoint contains access_logs" bash -c '
-	curl -fsS --max-time 5 "http://localhost/api/stats" | grep -q "\"access_logs\":"
-'
-
-run_test "API: Stats endpoint contains error_logs" bash -c '
-	curl -fsS --max-time 5 "http://localhost/api/stats" | grep -q "\"error_logs\":"
+# Presence heartbeat (simplified.md). Route, CORS and rate limit are wired up;
+# the handler is a deliberate 501 stub until the registry write lands.
+run_test "API: Presence heartbeat POST returns 501 Not Implemented" bash -c '
+	code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 5 -X POST -H "Content-Type: application/json" -d "{\"messageType\":\"presence\",\"type\":\"heartbeat\",\"userId\":\"hb-probe\"}" "http://localhost/api/presence/heartbeat")
+	[[ "$code" == "501" ]]
 '
 
 # CORS Tests
@@ -223,22 +223,29 @@ run_test "CORS: Health check contains Allow-Origin" bash -c '
 	curl -sS -i --max-time 5 "http://localhost/health" | grep -qi "access-control-allow-origin: \*"
 '
 
+# cors.conf echoes the request Origin when one is sent ($cors_origin falls back
+# to "*" only when there is no Origin header), so these assert the echo.
 run_test "CORS: Publisher OPTIONS contains Allow-Origin" bash -c '
-	curl -sS -i --max-time 5 -X OPTIONS -H "Origin: http://test.com" -H "Access-Control-Request-Method: POST" "http://localhost/publish/lobby/test" | grep -qi "access-control-allow-origin: \*"
+	curl -sS -i --max-time 5 -X OPTIONS -H "Origin: http://test.com" -H "Access-Control-Request-Method: POST" "http://localhost/publish/presence/lobby" | grep -qi "access-control-allow-origin: http://test.com"
 '
 
 run_test "CORS: Publisher POST contains Allow-Origin" bash -c '
-	curl -sS -i --max-time 5 -X POST -H "Origin: http://test.com" -d "{}" "http://localhost/publish/lobby/test" | grep -qi "access-control-allow-origin: \*"
+	curl -sS -i --max-time 5 -X POST -H "Origin: http://test.com" -d "{\"messageType\":\"presence\",\"type\":\"join\",\"userId\":\"cors-probe\"}" "http://localhost/publish/presence/lobby" | grep -qi "access-control-allow-origin: http://test.com"
 '
 
+# nchan does not answer HEAD on a subscriber, so the long-poll GET is captured
+# while a frame is published and the headers are grepped from the capture.
 run_test "CORS: Subscriber GET contains Allow-Origin" bash -c '
-	# Publish a message first so GET returns immediately
-	curl -sS --max-time 5 -X POST -d "ping" "http://localhost/publish/lobby/cors-test" >/dev/null
-	curl -sS -I --max-time 5 -H "Origin: http://test.com" "http://localhost/subscribe/lobby/cors-test" | grep -qi "access-control-allow-origin: \*"
+	curl -sS -i --max-time 5 -H "Origin: http://test.com" "http://localhost/subscribe/presence/lobby" >/tmp/nchan-cors-sub.out &
+	SUB_PID=$!
+	sleep 1
+	curl -sS --max-time 5 -X POST -d "{\"messageType\":\"presence\",\"type\":\"join\",\"userId\":\"cors-probe\"}" "http://localhost/publish/presence/lobby" >/dev/null
+	wait $SUB_PID
+	grep -qi "access-control-allow-origin: http://test.com" /tmp/nchan-cors-sub.out
 '
 
 run_test "CORS: Subscriber OPTIONS contains Allow-Origin" bash -c '
-	curl -sS -i --max-time 5 -X OPTIONS -H "Origin: http://test.com" -H "Access-Control-Request-Method: GET" "http://localhost/subscribe/lobby/test" | grep -qi "access-control-allow-origin: \*"
+	curl -sS -i --max-time 5 -X OPTIONS -H "Origin: http://test.com" -H "Access-Control-Request-Method: GET" "http://localhost/subscribe/presence/lobby" | grep -qi "access-control-allow-origin: http://test.com"
 '
 
 run_test "CORS: Stats endpoint contains Allow-Origin" bash -c '

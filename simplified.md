@@ -1,6 +1,8 @@
 # Reduce presence fanout
 
-Status: proposal; nothing implemented.
+Status: proposal. Step 1 (the route, CORS and rate limit) is wired up: `POST
+/api/presence/heartbeat` answers `501 Not Implemented`, so the plumbing can be deployed and
+verified ahead of the handler. The registry write and the client change are not implemented.
 
 ## Goal
 

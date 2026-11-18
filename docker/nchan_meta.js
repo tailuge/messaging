@@ -559,6 +559,7 @@ const API_SLUGS = [
   ["/api/online/presence", "presence"],
   ["/api/online/users", "online"],
   ["/api/presence/history", "presence-history"],
+  ["/api/presence/heartbeat", "presence-beat"],
   ["/api/challenges", "challenges"],
   ["/api/tables/recent", "tables"],
   ["/api/net/history", "net-history"],
@@ -1333,4 +1334,24 @@ function online_presence_api(r) {
   r.return(200, payload);
 }
 
-export default { publish, presence_sub, presence_unsub, stats, online_users_api, online_presence_api, presence_history_api, net_history_api, challenges_api, tables_api, table_unsub, table_sub };
+// POST /api/presence/heartbeat - route, CORS and rate limiting are wired up
+// (docker/nchan.conf), the registry write is not implemented yet. It answers 501
+// rather than 200 on purpose: a client pointed at this early must not read the
+// reply as "presence refreshed", because it would then stop publishing and drop
+// out of snapshots when the 130 s TTL expires. See simplified.md.
+function presence_heartbeat(r) {
+  if (r.method !== "POST") {
+    const denied = JSON.stringify({ error: "Method Not Allowed" });
+    noteApiOut(r, denied);
+    r.headersOut["Content-Type"] = "application/json";
+    r.return(405, denied);
+    return;
+  }
+  const payload = JSON.stringify({ error: "Not Implemented" });
+  noteApiOut(r, payload);
+  r.headersOut["Content-Type"] = "application/json";
+  r.headersOut["Cache-Control"] = "no-store";
+  r.return(501, payload);
+}
+
+export default { publish, presence_sub, presence_unsub, stats, online_users_api, online_presence_api, presence_history_api, presence_heartbeat, net_history_api, challenges_api, tables_api, table_unsub, table_sub };
