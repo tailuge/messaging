@@ -4,6 +4,7 @@ import {
   expectConcedeAvailable,
   concedeFromMenu,
   VISIBILITY_TIMEOUT,
+  HANDOFF_TIMEOUT,
 } from './setupHelpers';
 
 test.describe('E2E rematch', () => {
@@ -25,18 +26,22 @@ test.describe('E2E rematch', () => {
     // Capture the first tableId to ensure the rematch uses a new one
     const firstTableId = new URL(aliceFrame.url()).searchParams.get('tableId');
 
+    // Explicit budget: the banner re-renders while the win state settles, and
+    // Playwright's own pre-click checks (stable box, hit target) inside these
+    // cross-origin game iframes can take 2-3s, which straddles the 2.5s default.
     await Promise.all([
-      aliceFrame.locator('button[data-notification-action="rematch"]').click(),
-      bobFrame.locator('button[data-notification-action="rematch"]').click(),
+      aliceFrame.locator('button[data-notification-action="rematch"]').click({ timeout: HANDOFF_TIMEOUT }),
+      bobFrame.locator('button[data-notification-action="rematch"]').click({ timeout: HANDOFF_TIMEOUT }),
     ]);
 
     // Both redirect back to lobby
     await expect.poll(() => aliceFrame.url(), { timeout: VISIBILITY_TIMEOUT }).toMatch(/lobby\.html/);
     await expect.poll(() => bobFrame.url(), { timeout: VISIBILITY_TIMEOUT }).toMatch(/lobby\.html/);
 
-    // Auto-challenge should fire and take them to a NEW game
-    await expect.poll(() => aliceFrame.url(), { timeout: VISIBILITY_TIMEOUT }).toMatch(/tableId=/);
-    await expect.poll(() => bobFrame.url(), { timeout: VISIBILITY_TIMEOUT }).toMatch(/tableId=/);
+    // Auto-challenge should fire and take them to a NEW game: the lobby re-issues
+    // the challenge after its reload, which is a handoff rather than an instant hop.
+    await expect.poll(() => aliceFrame.url(), { timeout: HANDOFF_TIMEOUT }).toMatch(/tableId=/);
+    await expect.poll(() => bobFrame.url(), { timeout: HANDOFF_TIMEOUT }).toMatch(/tableId=/);
 
     const secondTableId = new URL(aliceFrame.url()).searchParams.get('tableId');
     expect(secondTableId).not.toBe(firstTableId);
