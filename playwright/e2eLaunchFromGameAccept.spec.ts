@@ -1,5 +1,6 @@
 import { test, expect, BrowserContext, Page } from '@playwright/test';
 import { existsSync } from 'fs';
+import { challengeUser } from './setupHelpers';
 
 const LOBBY_URL = process.env.LOBBY_URL || 'http://localhost/lobby.html';
 const GAME_BASE = process.env.GAME_URL || 'http://localhost:8080/';
@@ -36,12 +37,6 @@ async function serveStaleLobby(ctx: BrowserContext) {
   );
 }
 
-async function challenge( a: Page, bobName: string) {
-  await a.locator(`user-list li[aria-label="${bobName}"]:not(.is-offline) button[aria-label="Challenge ${bobName}"]`).first().click();
-  await a.locator('challenge-modal button[aria-label="eightball"]').click();
-  await a.locator('challenge-modal .section-body.expanded button.rule').first().click();
-}
-
 /**
  * The game page only redirects the accepting player to the lobby; it never sends
  * the accept itself. That lobby re-issues the challenge to the original
@@ -64,13 +59,30 @@ async function acceptHandoffIfAsked(challenger: Page) {
  * cancelled and retried rather than leaving the test stuck.
  */
 async function challengeFromLobby(a: Page, b: Page, bobName: string) {
+  const pill = b.locator('#challengePill');
+  const cancel = a.locator('challenge-banner button.btn-leave');
+
   for (let attempt = 1; attempt <= 4; attempt++) {
-    await challenge(a, bobName);
-    if (await b.locator('#challengePill').isVisible({ timeout: 2500 }).catch(() => false)) return;
-    const cancel = a.locator('challenge-banner button.btn-leave');
-    if (await cancel.isVisible().catch(() => false)) await cancel.click();
+    // Bob's game page is still settling, so his presence can briefly report a
+    // status that offers no Challenge button; allow the full handoff budget.
+    await challengeUser(a, bobName, 'eightball', WAIT);
+
+    // Authored by the offer POST, so either signal appears a moment later than the
+    // click: the pill in Bob's game, or the sent-challenge banner on Alice's side.
+    // isVisible() does not wait, so poll for either before deciding to cancel.
+    const settled = async () =>
+      (await pill.isVisible().catch(() => false)) || (await cancel.isVisible().catch(() => false));
+    await expect.poll(settled, { timeout: 5000 }).toBe(true).catch(() => {});
+    if (await pill.isVisible().catch(() => false)) return;
+
+    // The row only offers Challenge again once the cancellation has landed, so
+    // wait for the sent-challenge banner to clear rather than racing it.
+    if (await cancel.isVisible().catch(() => false)) {
+      await cancel.click();
+      await expect(cancel).toBeHidden({ timeout: WAIT }).catch(() => {});
+    }
   }
-  await expect(b.locator('#challengePill')).toBeVisible({ timeout: WAIT });
+  await expect(pill).toBeVisible({ timeout: WAIT });
 }
 
 async function challengeAndAcceptFromGame(
@@ -116,6 +128,8 @@ test.describe('launch from game accept', () => {
 
     await challengeAndAcceptFromGame(a, b, aliceId, bobId, bobName, 'none');
     await expect.poll(() => a.url(), { timeout: WAIT }).toMatch(/tableId=/);
+    // The two handoff redirects do not land together, so wait for Bob's URL too.
+    await expect.poll(() => b.url(), { timeout: WAIT }).toMatch(/tableId=/);
     const first = new URL(a.url()).searchParams.get('tableId');
     expect(new URL(b.url()).searchParams.get('tableId')).toBe(first);
 
@@ -149,6 +163,8 @@ test.describe('launch from game accept', () => {
 
     await challengeAndAcceptFromGame(a, b, aliceId, bobId, bobName, 'none');
     await expect.poll(() => a.url(), { timeout: WAIT }).toMatch(/tableId=/);
+    // The two handoff redirects do not land together, so wait for Bob's URL too.
+    await expect.poll(() => b.url(), { timeout: WAIT }).toMatch(/tableId=/);
     const first = new URL(a.url()).searchParams.get('tableId');
     expect(new URL(b.url()).searchParams.get('tableId')).toBe(first);
 

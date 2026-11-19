@@ -27,9 +27,6 @@ test.describe('E2E rematch', () => {
     await expect(bobFrame.locator('button[data-notification-action="rematch"]')).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
     await expect(aliceFrame.locator('button[data-notification-action="rematch"]')).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
 
-    // Capture the first tableId to ensure the rematch uses a new one
-    const firstTableId = new URL(aliceFrame.url()).searchParams.get('tableId');
-
     await Promise.all([
       bobFrame.locator('button[data-notification-action="rematch"]').click(),
       aliceFrame.locator('button[data-notification-action="lobby"]').click(),

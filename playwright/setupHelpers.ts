@@ -13,10 +13,48 @@ export const HANDOFF_TIMEOUT = 15000;
  */
 export async function openGameMenu(frame: Frame): Promise<void> {
   const details = frame.locator('#menuDropdown');
-  const isOpen = await details.evaluate((el) => (el as HTMLDetailsElement).open);
+  // getAttribute() waits for the element, with an explicit budget: the game page
+  // can still be busy booting, and the 5s default actionTimeout is not enough.
+  const isOpen = (await details.getAttribute('open', { timeout: HANDOFF_TIMEOUT })) !== null;
   if (isOpen) return;
-  await frame.locator('#menuDropdown > summary[aria-label="Menu"]').click();
-  await expect(details).toHaveJSProperty('open', true);
+  // force: the summary can be momentarily covered by a game notification while it
+  // is still the control we want; the open-state assertion below still verifies it.
+  await frame.locator('#menuDropdown > summary[aria-label="Menu"]').click({ timeout: HANDOFF_TIMEOUT, force: true });
+  await expect(details).toHaveJSProperty('open', true, { timeout: HANDOFF_TIMEOUT });
+}
+
+/**
+ * Challenges a user from the lobby: open the Challenge button on their row,
+ * pick the rule family, then the first rule variant inside it. Both the modal
+ * and the rule list are rendered after the click that precedes them, so each
+ * step waits for the element it is about to act on instead of assuming the
+ * previous click has already rendered.
+ */
+export async function challengeUser(
+  target: Page | Frame,
+  opponentName: string,
+  ruleType = 'eightball',
+  timeout = VISIBILITY_TIMEOUT,
+): Promise<void> {
+  // Scope within the specific <li> to avoid ambiguity when the slot manager
+  // shows duplicate user entries (one with Challenge, one with Spectate).
+  const challengeBtn = target
+    .locator(`user-list li[aria-label="${opponentName}"]:not(.is-offline) button[aria-label="Challenge ${opponentName}"]`)
+    .first();
+  await expect(challengeBtn).toBeVisible({ timeout });
+  await challengeBtn.click();
+
+  const ruleTypeBtn = target.locator(`challenge-modal button[aria-label="${ruleType}"]`);
+  await expect(ruleTypeBtn).toBeVisible({ timeout });
+  // The modal keeps its expanded section across opens, and clicking an already
+  // expanded header collapses it, so only expand when it is not open yet.
+  if ((await ruleTypeBtn.getAttribute('aria-expanded')) !== 'true') await ruleTypeBtn.click();
+
+  // Rule variants live in collapsible sections, so take the first rule of the
+  // section the rule-type click just expanded.
+  const ruleBtn = target.locator('challenge-modal .section-body.expanded button.rule').first();
+  await expect(ruleBtn).toBeVisible({ timeout });
+  await ruleBtn.click();
 }
 
 /** Assert the frame offers Concede, opening its menu first. */
@@ -30,8 +68,9 @@ export async function expectConcedeAvailable(frame: Frame): Promise<void> {
 /** Concede through the menu: open it, hit Concede, then confirm. */
 export async function concedeFromMenu(frame: Frame): Promise<void> {
   await openGameMenu(frame);
-  await frame.locator('button[aria-label="Concede"]').click();
-  await frame.locator('button[data-notification-action="concede-confirm"]').click();
+  // force: the menu items are the same transiently-covered controls as the summary.
+  await frame.locator('button[aria-label="Concede"]').click({ force: true });
+  await frame.locator('button[data-notification-action="concede-confirm"]').click({ force: true });
 }
 
 /**
@@ -76,19 +115,8 @@ export async function setupPlayersInGame(page: Page, ruleType = 'eightball'): Pr
   const aliceFrame = await getFrame(page, new RegExp(`lobby\\.html.*${aliceName}`));
   const bobFrame = await getFrame(page, new RegExp(`lobby\\.html.*${bobName}`));
 
-  // Alice sees Bob in the lobby and clicks Challenge.
-  // Scope within the specific <li> to avoid ambiguity when the slot manager
-  // shows duplicate user entries (one with Challenge, one with Spectate).
-  const challengeBtn = aliceFrame.locator(`user-list li[aria-label="${bobName}"]:not(.is-offline) button[aria-label="Challenge ${bobName}"]`);
-  await expect(challengeBtn).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
-  await challengeBtn.click();
-
-  // Alice selects the requested game type from the modal. Rule variants live in
-  // collapsible sections, so expand that section and take its first rule.
-  await aliceFrame.locator(`challenge-modal button[aria-label="${ruleType}"]`).click();
-  const ruleBtn = aliceFrame.locator('challenge-modal .section-body.expanded button.rule').first();
-  await expect(ruleBtn).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
-  await ruleBtn.click();
+  // Alice sees Bob in the lobby and challenges him to the requested rule.
+  await challengeUser(aliceFrame, bobName, ruleType);
 
   // Bob sees the incoming challenge and accepts
   const acceptBtn = bobFrame.locator('button[aria-label="Accept challenge"]');

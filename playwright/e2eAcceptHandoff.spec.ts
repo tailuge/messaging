@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { getFrame, HANDOFF_TIMEOUT, TEST_URL, VISIBILITY_TIMEOUT } from './setupHelpers';
+import { Frame } from '@playwright/test';
+import { challengeUser, getFrame, HANDOFF_TIMEOUT, TEST_URL, VISIBILITY_TIMEOUT } from './setupHelpers';
+
+type PendingChallenge = { status?: string; tableId?: string };
 
 /**
  * The game page's challenge-pill Accept redirects to
@@ -10,14 +13,19 @@ import { getFrame, HANDOFF_TIMEOUT, TEST_URL, VISIBILITY_TIMEOUT } from './setup
  */
 test.describe('in-game accept handoff', () => {
   /** The tableId the challenger is currently offering. */
-  const offeredTableId = (frame: import('@playwright/test').Frame) =>
+  const offeredTableId = (frame: Frame) =>
     frame.evaluate(() => {
-      const panel = document.querySelector('lobby-app')?.shadowRoot?.querySelector('online-panel');
-      const challenges = Object.values(panel?.state?.challenges ?? {}) as Array<Record<string, string>>;
+      // online-panel exposes its state as a public getter; the cast is only for
+      // the shadow-root lookup, which types as a plain Element.
+      const panel = document.querySelector('lobby-app')?.shadowRoot?.querySelector('online-panel') as
+        | { state?: { challenges?: Record<string, PendingChallenge> } }
+        | null
+        | undefined;
+      const challenges = Object.values(panel?.state?.challenges ?? {});
       return challenges.find((c) => c.status === 'pending')?.tableId ?? null;
     });
 
-  const userIdOf = (frame: import('@playwright/test').Frame) =>
+  const userIdOf = (frame: Frame) =>
     new URL(frame.url()).searchParams.get('userId') ?? '';
 
   test('acceptTableId redirect lands both players on the offered table without a confirm click', async ({ page }) => {
@@ -29,11 +37,7 @@ test.describe('in-game accept handoff', () => {
     await expect(bobFrame.locator(`user-list li[aria-label="Alice"]:not(.is-offline)`).first()).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
 
     // Bob challenges Alice from the lobby.
-    await bobFrame.locator('button[aria-label="Challenge Alice"]').click();
-    await bobFrame.locator('challenge-modal button[aria-label="eightball"]').click();
-    const eightBallBtn = bobFrame.locator('challenge-modal .section-body.expanded button.rule').first();
-    await expect(eightBallBtn).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
-    await eightBallBtn.click();
+    await challengeUser(bobFrame, 'Alice', 'eightball');
 
     await expect.poll(() => offeredTableId(bobFrame), { timeout: VISIBILITY_TIMEOUT }).not.toBeNull();
     const offerTableId = await offeredTableId(bobFrame);
