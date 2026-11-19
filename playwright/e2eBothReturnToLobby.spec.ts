@@ -24,14 +24,14 @@ test.describe('E2E rematch', () => {
 
     // Alice returns to lobby then bob clicks rematch
     await aliceFrame.locator('button[data-notification-action="lobby"]').click();
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(500);
     await bobFrame.locator('button[data-notification-action="lobby"]').click();
 
     // Both redirect back to lobby
     await expect.poll(() => aliceFrame.url(), { timeout: VISIBILITY_TIMEOUT }).toMatch(/lobby\.html/);
     await expect.poll(() => bobFrame.url(), { timeout: VISIBILITY_TIMEOUT }).toMatch(/lobby\.html/);
 
-     await page.waitForTimeout(1000);
+     await page.waitForTimeout(500);
 
     // Alice sees Bob in online user list and Bob sees Alice
     await expect(aliceFrame.locator(`user-list li[aria-label="Bob"]:not(.is-offline)`)).toBeVisible({ timeout: VISIBILITY_TIMEOUT });

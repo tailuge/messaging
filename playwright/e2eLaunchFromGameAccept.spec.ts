@@ -18,6 +18,10 @@ const hasStaleBundle = existsSync(STALE_BUNDLE);
 // Page console output is noisy, so it is only forwarded with PW_DEBUG=1.
 const DEBUG_CONSOLE = !!process.env.PW_DEBUG;
 
+// Budget ceilings, not fixed sleeps: healthy runs finish far below these. The
+// lobby row for a player whose game page is still booting can take several
+// seconds to flip from "playing" (Spectate) to challengeable, so this one stays
+// above the 5s the handoff tests use.
 const WAIT = 10000;
 
 const gameUrl = (userId: string, userName: string) =>
@@ -72,7 +76,7 @@ async function challengeFromLobby(a: Page, b: Page, bobName: string) {
     // isVisible() does not wait, so poll for either before deciding to cancel.
     const settled = async () =>
       (await pill.isVisible().catch(() => false)) || (await cancel.isVisible().catch(() => false));
-    await expect.poll(settled, { timeout: 5000 }).toBe(true).catch(() => {});
+    await expect.poll(settled, { timeout: 2500 }).toBe(true).catch(() => {});
     if (await pill.isVisible().catch(() => false)) return;
 
     // The row only offers Challenge again once the cancellation has landed, so

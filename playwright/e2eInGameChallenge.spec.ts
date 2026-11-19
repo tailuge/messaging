@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { challengeUser, confirmHandoffIfAsked, getFrame, HANDOFF_TIMEOUT, TEST_URL, VISIBILITY_TIMEOUT } from './setupHelpers';
+import { challengeUser, getFrame, HANDOFF_TIMEOUT, TEST_URL, VISIBILITY_TIMEOUT } from './setupHelpers';
 
 test.describe('E2E rematch', () => {
-  const shortWait = 250;
+  const shortWait = 125;
 
   test('alice plays solo, bob challenges, alice accepts from game, both go to new game', async ({ page }) => {
 
@@ -29,19 +29,15 @@ test.describe('E2E rematch', () => {
     await challengeUser(bobFrame, 'Alice', 'eightball');
 
     // in game alice sees challenge pill with accept button, clicks accept.
-    // The game runs framed (test.html), so Accept opens the lobby handoff in a
-    // new tab instead of navigating the frame: capture the popup and track it.
+    // The game runs framed (test.html), so Accept navigates the frame itself.
     await expect(aliceFrame.locator('#challengePill')).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
-    const [alicePopup] = await Promise.all([
-      page.context().waitForEvent('page'),
-      aliceFrame.locator('#challengeAccept').click(),
-    ]);
+    await aliceFrame.locator('#challengeAccept').click();
 
     // eventually both players should be in new game with same tableid
-    await expect.poll(() => alicePopup.url(), { timeout: HANDOFF_TIMEOUT }).toMatch(/tableId=/);
+    await expect.poll(() => aliceFrame.url(), { timeout: HANDOFF_TIMEOUT }).toMatch(/tableId=/);
     await expect.poll(() => bobFrame.url(), { timeout: HANDOFF_TIMEOUT }).toMatch(/tableId=/);
 
-    const aliceTableId = new URL(alicePopup.url()).searchParams.get('tableId');
+    const aliceTableId = new URL(aliceFrame.url()).searchParams.get('tableId');
     const bobTableId = new URL(bobFrame.url()).searchParams.get('tableId');
     expect(aliceTableId).toBe(bobTableId);
   });
@@ -69,24 +65,16 @@ test.describe('E2E rematch', () => {
     await challengeUser(aliceFrame, 'Bob', 'eightball');
 
     // in game bob sees challenge pill with accept button, clicks accept.
-    // The game runs framed (test.html), so Accept opens the lobby handoff in a
-    // new tab instead of navigating the frame: capture the popup and track it.
+    // The game runs framed (test.html), so Accept navigates the frame itself.
     await expect(bobFrame.locator('#challengePill')).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
-    const [bobPopup] = await Promise.all([
-      page.context().waitForEvent('page'),
-      bobFrame.locator('#challengeAccept').click(),
-    ]);
-
-    // The in-game accept opens Bob's lobby in a new tab, which re-issues the
-    // challenge; Alice (the original challenger) confirms it from the banner.
-    await confirmHandoffIfAsked(aliceFrame);
+    await bobFrame.locator('#challengeAccept').click();
 
     // eventually both players should be in new game with same tableid
     await expect.poll(() => aliceFrame.url(), { timeout: HANDOFF_TIMEOUT }).toMatch(/tableId=/);
-    await expect.poll(() => bobPopup.url(), { timeout: HANDOFF_TIMEOUT }).toMatch(/tableId=/);
+    await expect.poll(() => bobFrame.url(), { timeout: HANDOFF_TIMEOUT }).toMatch(/tableId=/);
 
     const aliceTableId = new URL(aliceFrame.url()).searchParams.get('tableId');
-    const bobTableId = new URL(bobPopup.url()).searchParams.get('tableId');
+    const bobTableId = new URL(bobFrame.url()).searchParams.get('tableId');
     expect(aliceTableId).toBe(bobTableId);
   });
 });

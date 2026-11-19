@@ -7,6 +7,7 @@ coverage/
 *~
 scripts/trigger_hook.url
 test-results/
+playwright-report/
 .agents/
 .opencode/
 .Jules/

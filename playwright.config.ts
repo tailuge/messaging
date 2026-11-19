@@ -3,13 +3,15 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   globalSetup: './playwright/globalSetup.ts',
   testDir: './playwright',
-  timeout: 30000,
+  timeout: 20000,
+  // Always record traces so every run can be inspected in the HTML report.
+  reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: 'http://localhost',
-    trace: 'on-first-retry',
+    trace: 'on',
     screenshot: 'only-on-failure',
-    actionTimeout: 5000,
-    navigationTimeout: 15000,
+    actionTimeout: 2500,
+    navigationTimeout: 7500,
   },
   projects: [
     {
