@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { getFrame, TEST_URL, VISIBILITY_TIMEOUT } from './setupHelpers';
+import { getFrame, HANDOFF_TIMEOUT, TEST_URL, VISIBILITY_TIMEOUT } from './setupHelpers';
 import { reduce, INITIAL_STATE } from '../src/client/utils.js';
 
 test.describe('E2E rematch', () => {
@@ -37,18 +37,22 @@ test.describe('E2E rematch', () => {
 
     await page.waitForTimeout(shortWait);
 
-    // in game alice sees challenge pill with accept button, clicks accept
+    // in game alice sees challenge pill with accept button, clicks accept.
+    // The game runs framed, so Accept opens the lobby handoff in a new tab
+    // instead of navigating the frame: capture the popup and track it.
     await expect(aliceFrame.locator('#challengePill')).toBeVisible({ timeout: VISIBILITY_TIMEOUT });
-    await aliceFrame.locator('#challengeAccept').click();
+    const [alicePopup] = await Promise.all([
+      page.context().waitForEvent('page'),
+      aliceFrame.locator('#challengeAccept').click(),
+    ]);
 
     await page.waitForTimeout(shortWait);
 
-    // expect alice to return to lobby and auto intitate accept (maybe no assert required?)
     // eventually both players should be in new game with same tableid
-    await expect.poll(() => aliceFrame.url(), { timeout: VISIBILITY_TIMEOUT }).toMatch(/tableId=/);
-    await expect.poll(() => bobFrame.url(), { timeout: VISIBILITY_TIMEOUT }).toMatch(/tableId=/);
+    await expect.poll(() => alicePopup.url(), { timeout: HANDOFF_TIMEOUT }).toMatch(/tableId=/);
+    await expect.poll(() => bobFrame.url(), { timeout: HANDOFF_TIMEOUT }).toMatch(/tableId=/);
 
-    const aliceTableId = new URL(aliceFrame.url()).searchParams.get('tableId');
+    const aliceTableId = new URL(alicePopup.url()).searchParams.get('tableId');
     const bobTableId = new URL(bobFrame.url()).searchParams.get('tableId');
     expect(aliceTableId).toBe(bobTableId);
   });
