@@ -200,8 +200,9 @@ export class Lobby {
       this.heartbeatTimer = setTimeout(async () => {
         try {
           await this.syncPresence({ type: "heartbeat" });
-        } catch (_e) {
-          console.error("Failed to send heartbeat:", _e);
+        } catch {
+          // Heartbeat failures (e.g. a 429 from the rate limiter) are retried
+          // on the next tick; keep them off the console.
         }
         if (this.heartbeatTimer !== undefined) schedule();
       }, firstTick ? 3000 : this.heartbeatInterval);

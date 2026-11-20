@@ -9,15 +9,17 @@ scoreboard's own routes are out of scope.
 
 ## Progress
 
-Staged implementation, in order. Stages 0 and 1 have landed in `messaging`; the
-write path itself is still a stub, but the route logs each call and each failure
-and counts each answer for the usage page (see **Logging**).
+Staged implementation, in order. Stages 0 and 1 have landed in `messaging`, and
+Stage 2's logic is in: the route builds the record, splits the replay, runs the
+Elo maths against live ratings and assembles the exact write list. What it does
+not do yet is send that list — `WRITES_ENABLED` in `matchresult.njs` is `false`,
+so no KV write lands. See **Dry run** below.
 
 | Stage | Scope | Status |
 | --- | --- | --- |
 | 0 | Shared plumbing: `upstash.njs` extraction, and `geoForRequest(r)` pulled out of `buildMeta` in `nchan_meta.js` and exported | Done |
 | 1 | Endpoint skeleton: `docker/matchresult.njs` with a default-exported `matchResult` (501 stub), imported and dispatched from `api.njs`, `COPY` in the Dockerfile | Done |
-| 2 | `buildRecord`, replay blob, pipelined KV writes, Elo updates | Not started |
+| 2 | `buildRecord`, replay blob, pipelined KV writes, Elo updates | Logic done, writes disabled |
 | 3 | Container verification (the checklist below) and the scoreboard checks | Not started |
 
 Stage 0 is covered by `test/nchan-meta-unit.spec.ts`, which now exercises
@@ -27,9 +29,35 @@ the module loads at nginx start and the route answers before the writes land.
 It does carry the logging and the response accounting described under **Logging**,
 which are the parts Stage 2 reuses unchanged.
 
-The stub is not the response described under **Response** below — until Stage 2
-the route answers `501`. The client only checks `response.ok`, so it is not
-pointed at this host yet (repointing is out of scope anyway).
+The route now answers the response described under **Response** below — `201`
+with the stored record — whether or not the writes are enabled, because that
+reply is what the client contract is checked against. The client only checks
+`response.ok`, so it is not pointed at this host yet (repointing is out of scope
+anyway).
+
+## Dry run
+
+`WRITES_ENABLED = false` at the top of `matchresult.njs` is the one switch, and
+while it is off:
+
+- The read still runs. `planWrites` issues the real `HMGET elo:<ruleType>
+  <winner> <loser>`, so the Elo maths sees live ratings, and a read failure still
+  surfaces as a `500` instead of being hidden by the switch.
+- The command list is still built — replay `SET`, `ZADD`, `ZREMRANGEBYRANK` and
+  the four rating/history `HSET`s — and then dropped rather than sent. Flipping
+  the constant to `true` sends it; nothing else in the handler changes.
+- The answer is still `201` with the built record, so the client path, the
+  response writer and the byte accounting are exercised for real.
+- Nothing in the KV changes: no new `match_results` member, no replay blob, no
+  rating write, no history field.
+
+This is the state the container checks run in for anything that has to be
+observed without touching shared data. The writes themselves stay unverified
+until the switch is flipped. `test/matchresult-unit.spec.ts` covers what needs no
+KV: the Elo maths (zero-sum, the integer snap, `K = 32` at both extremes, the
+seven-key rating JSON, the counter increments), the record building (`replayData`
+split, arbitrary `ruleType` verbatim, geo omitted on `XX`, the `uid` shape) and
+the dry run itself (a `201` after exactly one `HMGET` and no pipeline).
 
 ## Goal
 
@@ -136,6 +164,11 @@ log panel.
 | Response writer, any status ≥ 400 | `answered <status> body=<response JSON>` |
 | The handler's `catch` | `failed: <stack>` |
 
+While `WRITES_ENABLED` is false the entry line also carries `dryRun=1`, and a
+second line records `skipped <n> writes` so the planned command count is visible
+without dumping the commands. With the switch on, that line becomes
+`wrote <n> commands`. Nothing else differs.
+
 The entry line is what makes an upload visible at all while the route is a stub,
 and the response writer's line means the unhappy path is logged in one place
 instead of at every call site. Nothing on a successful write is logged beyond the
@@ -163,10 +196,14 @@ means a new client field needs no change here or in the spec.
 
 **Rules**
 
-- `ruleType` is passed through **unvalidated**, defaulting to `nineball` only
-  when absent. The client sends rule types outside the five game types —
-  `reveal` is a live one that posts results — and the scoreboard stores whatever
-  it is given. Validation must not be added.
+- `ruleType` is passed through verbatim, with **no type checking anywhere** on
+  the write path. It defaults to `nineball` only when absent; otherwise the
+  posted string is stored exactly as given — `reveal`, `fourball`, a typo, mixed
+  case, an empty string, anything. No allowlist, no enum, no regex, no
+  truncation, no lowercasing, and no comparison against the five game types. Do
+  not add validation here, or before the rating update: the scoreboard stores
+  whatever it is given, and the client already posts rule types outside the five
+  (`reveal` is a live one that posts results).
 - Every match type is stored: two-player, solo (no `loser`), bot games, reveal
   results. This matches today's behaviour exactly.
 - `timestamp` is `Date.now()` at write; it is the sort score and the "Ago"
@@ -273,6 +310,13 @@ volatility iteration.
 - Expected score for the winner is `1 / (1 + 10 ** ((loserRating − winnerRating) / 400))`.
 - The winner gains `K × (1 − expected)` and the loser loses exactly the same
   amount, so a match is zero-sum.
+- Rounding is fine (decided 2026-11-20): both players' stored ratings are
+  rounded to integers when read, the delta is rounded once
+  (`Math.round(K × (1 − expected))`), and both sides are written as integers.
+  One integer delta applied to two integer bases keeps the pair exactly
+  zero-sum; rounding the two *new* values independently would let it drift by a
+  point. The first Elo write therefore snaps a legacy Glicko float to the
+  nearest integer — half a point at most, once.
 - Ratings are updated only when `loser` is present. That includes bot games,
   which do carry a `loser` — unchanged from today.
 - An unknown player starts at 1500. An existing rating is carried over as that
@@ -283,18 +327,65 @@ volatility iteration.
 - Key `elo:<ruleType>`, a Redis hash whose field is the player name and whose
   value is that player's rating JSON. This is the existing structure and the key
   must not change — `/api/elo`, `/api/summary` and the player page all read it.
+  `<ruleType>` is the stored string verbatim: no validation, so a rule type
+  outside the five simply gets its own `elo:<ruleType>` hash, inert until
+  something reads it. Never reject a result because its rule type is unknown —
+  that would drop a match the scoreboard would have accepted.
 - The rating JSON keeps **all the existing keys**:
   `{rating, rd, volatility, lastUpdated, gamesPlayed, wins, losses}`, with
-  `rd` and `volatility` written as `0`. Keeping the keys means no existing
-  reader can break on a missing field; the two Glicko-only fields are simply
-  inert.
-- `gamesPlayed`, `wins` and `losses` are incremented per result as today.
-- Read both players' current values, then write both ratings and both
-  `elo-history` entries together in a single pipeline.
-- Keep writing `elo-history:<ruleType>:<name>` as `{date: roundedRating}`. It
-  feeds the player page's rating graph and nothing else.
+  `rd` and `volatility` written as `0` and `rating` as an integer. Keeping the
+  keys means no existing reader can break on a missing field; the two
+  Glicko-only fields are simply inert.
+- `lastUpdated` is `Date.now()` in **epoch milliseconds**, as a bare number, and
+  the same value for both players in one result. That is what the Glicko writer
+  emits today (`const now = Date.now()`, used for both), so every existing
+  reader sees a value it already understands. It is the only input to the
+  scoreboard's `applyInactivity`, which this module deliberately does not port.
+- `gamesPlayed`, `wins` and `losses` are incremented per result as today: both
+  players gain a game, the winner a win, the loser a loss. A player with no
+  stored value starts from the existing default object — `rating` 1500, `rd`
+  350, `volatility` 0.06, `lastUpdated` 0, counters 0 — with the `rd`/`volatility`
+  replaced by `0` on write and the rating by 1500.
+- Read both players' current values with one `HMGET elo:<ruleType> <winner>
+  <loser>`, then write both ratings and both history fields in a single
+  pipeline: `HSET elo:<ruleType> <name> <json>` twice, then
+  `HSET elo-history:<ruleType>:<name> <YYYY-MM-DD> <rating>` twice.
+- `elo-history:<ruleType>:<name>` is a **hash, not a sorted set** — a `ZADD` on
+  it fails with `WRONGTYPE`. The field is the UTC date `YYYY-MM-DD`, the value is
+  the player's rating rounded to an integer. The player page's rating graph reads
+  it with `HGETALL` and nothing else does. A second result on the same day
+  **overwrites** that day's point instead of appending, which is the existing
+  behaviour and why the graph has one point per active day.
 - Remove the only other Glicko remnant: there is no `applyInactivity` equivalent
   in this module. Decay was a Glicko concept and plain Elo has no RD to decay.
+
+### Observed KV format (interrogated 2026-11-20)
+
+Read from the live Upstash KV through the running container's credentials, so
+these are shapes the writer must match, not inferences from the scoreboard
+source:
+
+- `TYPE elo:threecushion` → `hash`, and `TYPE elo-history:threecushion:Lukey` →
+  `hash`. The `elo:*` keys that exist are `eightball`, `fourball`, `libre`,
+  `nineball`, `sagu`, `snooker` and `threecushion` — more rule types than the
+  five `/api/summary` reads. `fourball` and `libre` have no reader in this repo.
+  An upload whose `ruleType` is outside the five simply creates another inert
+  `elo:<ruleType>` hash, which is the expected consequence of storing the value
+  with no type checking.
+- A stored rating, verbatim:
+  `{"rating":2118.010021071503,"rd":135.06252650996316,"volatility":0.06008109013720271,"lastUpdated":1795194763501,"gamesPlayed":555,"wins":436,"losses":119}`
+  — exactly the seven keys, `lastUpdated` a bare epoch-millisecond number,
+  `rating`/`rd`/`volatility` floats (hence the integer snap above).
+- A history hash, verbatim (Lukey, threecushion, first fields):
+  `["2026-06-06","1872","2026-06-08","1808","2026-07-04","1941","2026-11-19","2059"]`
+  — date field, integer rating value.
+- One consequence of writing `rd: 0` to record rather than rediscover: the
+  scoreboard's `PlayerRatingStore.processEntries` still calls `applyInactivity`
+  and still ranks on `conservativeRating = rating − 2 × rd`, so `/elo` and
+  `/api/elo` will publish a decayed score for Elo-written players — about −100
+  after a day, −265 after a week. Those are scoreboard routes and out of scope
+  here; messaging's `/api/summary` already ranks on raw `rating`. Fixing them
+  belongs to the cutover, not this port.
 
 ### What the rating payload must expose (compatibility note)
 
@@ -326,8 +417,10 @@ games. This is accepted.
 
 ## Verification
 
-No NJS unit tests exist for `api.njs` or its siblings, and E2E is out of scope
-for cloud agents. Verify manually against the container:
+No NJS unit tests exist for `api.njs` or its siblings — `test/matchresult-unit.spec.ts`
+covers this module's pure logic only — and E2E is out of scope for cloud agents.
+Every KV check below needs `WRITES_ENABLED = true`: with it false the same POST
+answers `201` and stores nothing. Verify manually against the container:
 
 - `POST /api/match-results` with only `winner` and `winnerScore` answers `201`
   with the stored record, the newest `match_results` member carries `timestamp`,
@@ -336,9 +429,13 @@ for cloud agents. Verify manually against the container:
 - The same POST with `replayData` stores a blob under `match_replay:<id>`, the
   member carries `hasReplay: true`, and a read of that key returns the blob.
 - A two-player POST leaves both names present in `elo:<ruleType>` with `rd: 0`,
-  with the winner's rating up and the loser's down by the same amount, and an
-  `elo-history` entry for both.
-- A non-five `ruleType` such as `reveal` round-trips stored as sent.
+  `volatility: 0`, an integer `rating` and a fresh epoch-ms `lastUpdated`, with
+  the winner's rating up and the loser's down by the same amount. `HGETALL
+  elo-history:<ruleType>:<name>` gains a field for today's UTC date holding the
+  rounded rating, and both entries carry the same `lastUpdated`.
+- An arbitrary `ruleType` — `reveal`, or a string no code has ever heard of —
+  round-trips stored as sent and creates `elo:<that string>`. Nothing rejects it
+  and no rule type is special-cased.
 - `/api/summary` still renders the new match and the rankings, and the lobby row
   shows the parseable fields (rule, both names, scores, city, flag).
 - A match uploaded from an IP with no `ip_cache` entry runs the existing lookup
@@ -389,10 +486,12 @@ for cloud agents. Verify manually against the container:
 | Replays | Keep as today — separate key, 5-day TTL, `hasReplay` flag |
 | History window | Keep the newest 32 |
 | Match types | All, unchanged (two-player, solo, bot, reveal) |
-| `ruleType` | Passed through unvalidated |
+| `ruleType` | Any value, no type checking: stored verbatim, `nineball` only when absent |
 | Ratings | Plain Elo, K = 32, unknown players start at 1500 |
 | Rating hash | Keep all existing keys, `rd` and `volatility` = 0 |
-| `elo-history` | Keep writing it |
+| `elo-history` | Keep writing it, as a hash: field `YYYY-MM-DD` (UTC), value the integer rating |
+| `lastUpdated` | `Date.now()` epoch milliseconds, one value for both players in a result |
+| Rounding | Integer ratings: round both bases on read, apply one integer delta per match |
 | Ranking field | Emit `rating`; stop emitting `conservativeRating` |
 | Logging | One `MATCH-RESULT: called` line per upload, plus any non-2xx answer and any exception; no per-write tracing beyond that |
 | Response accounting | The response writer counts `e:`/`c:` under the `match-results` slug plus `api.in`, so the usage page's route table lists the route |
