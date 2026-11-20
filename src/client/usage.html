@@ -692,7 +692,16 @@
     function renderRoutes(routes, series = {}) {
       const body = document.getElementById("net-routes")
       body.textContent = ""
-      const top = (routes || []).filter((route) => route.bytes > 0).slice(0, 6)
+      const measured = (routes || []).filter((route) => route.bytes > 0)
+      const top = measured.slice(0, 6)
+      // The match-results port answers a few hundred bytes per upload, so a table
+      // ranked purely by bytes would never show it while bigger routes are live.
+      // Keep its row visible whenever it is measured, outside the top-six cut.
+      measured.forEach((route) => {
+        if (route.route === "match-results" && top.indexOf(route) === -1) {
+          top.push(route)
+        }
+      })
       const nchanBytes = ["presence.out", "table.out"].reduce(
         (sum, key) =>
           sum + (series[key] || []).reduce((total, value) => total + value, 0),

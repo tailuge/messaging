@@ -204,7 +204,12 @@ function createMeta(r, country, city) {
   return meta;
 }
 
-async function buildMeta(r) {
+// Country and city for the request's client IP: the ip_cache entry when there is
+// one, otherwise one bounded country.is lookup whose result seeds that entry.
+// Shared with the match-result upload, which stores the same two fields, so this
+// stays the only place that reads or writes the ip_cache geo fields — a cold
+// upload seeds the entry presence traffic will read.
+async function geoForRequest(r) {
   const ip = getClientIp(r);
   const obfuscatedIp = obfuscateIp(ip);
   const cache = ngx.shared.ip_cache;
@@ -226,7 +231,7 @@ async function buildMeta(r) {
       origins = originsArr.join(",");
     }
     cache.set(obfuscatedIp, formatCacheValue(country, city, count + 1, origins, parsedUA, ua), 86400000);
-    return createMeta(r, country, city);
+    return { country: country, city: city };
   }
 
   let country = "XX";
@@ -247,7 +252,12 @@ async function buildMeta(r) {
 
   const obfuscatedOrigin = origin ? obfuscateOrigin(origin) : "";
   cache.set(obfuscatedIp, formatCacheValue(country, city, 1, obfuscatedOrigin, parsedUA, ua), 86400000);
-  return createMeta(r, country, city);
+  return { country: country, city: city };
+}
+
+async function buildMeta(r) {
+  const geo = await geoForRequest(r);
+  return createMeta(r, geo.country, geo.city);
 }
 
 // Matches the version inside the message's own flat `meta` object only, so a
@@ -560,6 +570,7 @@ const API_SLUGS = [
   ["/api/usage", "usage"],
   ["/api/arena", "arena"],
   ["/api/hiscores", "hiscores"],
+  ["/api/match-results", "match-results"],
   ["/api/stats", "stats"],
   ["/api/online/presence", "presence"],
   ["/api/online/users", "online"],
@@ -1417,4 +1428,4 @@ function presenceMeaningfullyChanged(oldFrame, nextFrame) {
   return false;
 }
 
-export default { publish, presence_sub, presence_unsub, stats, online_users_api, online_presence_api, presence_history_api, presence_heartbeat, net_history_api, challenges_api, tables_api, table_unsub, table_sub };
+export default { publish, geoForRequest, presence_sub, presence_unsub, stats, online_users_api, online_presence_api, presence_history_api, presence_heartbeat, net_history_api, challenges_api, tables_api, table_unsub, table_sub };

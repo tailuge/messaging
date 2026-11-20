@@ -31,7 +31,7 @@ function loadNchanMeta(fsImpl: any = null): any {
     "ngx",
     "require",
     `${source}
-     return { parseUA, reduceUA, cacheSafeUA, classifyForCache, formatCacheValue, summariseCpuThrottling, publish, getOnlineUsers, recordPresenceCount, isPresenceHeartbeat, readLogTail, LOG_TAIL_LINES, LOG_TAIL_BYTES, LOG_TAIL_NOISE, ngx };`
+     return { parseUA, reduceUA, cacheSafeUA, classifyForCache, formatCacheValue, geoForRequest, summariseCpuThrottling, publish, getOnlineUsers, recordPresenceCount, isPresenceHeartbeat, readLogTail, LOG_TAIL_LINES, LOG_TAIL_BYTES, LOG_TAIL_NOISE, ngx };`
   )(ngx, requireStub);
 }
 
@@ -83,6 +83,70 @@ describe("presence heartbeat wire validation", () => {
     expect(meta.isPresenceHeartbeat({ type: "heartbeat" })).toBe(true);
     expect(meta.isPresenceHeartbeat({ t: "h" })).toBe(true);
     expect(meta.isPresenceHeartbeat({ t: "j" })).toBe(false);
+  });
+});
+
+describe("nchan_meta geoForRequest", () => {
+  let meta: any;
+  let cacheStore: Record<string, string>;
+  let cacheWrites: Array<{ key: string; value: string; ttl: number }>;
+
+  beforeEach(() => {
+    meta = loadNchanMeta();
+    cacheStore = {};
+    cacheWrites = [];
+    meta.ngx.shared.ip_cache = {
+      get: (key: string) => cacheStore[key],
+      set: (key: string, value: string, ttl: number) => {
+        cacheStore[key] = value;
+        cacheWrites.push({ key, value, ttl });
+      },
+    };
+  });
+
+  test("a cache hit returns the stored geo and refreshes that entry", async () => {
+    // The cache is keyed by the obfuscated address, not the raw one.
+    cacheStore["x.x.x.4"] = "US|Boydton|4|https://example.com|Win|Chr";
+
+    const geo = await meta.geoForRequest({
+      headersIn: { "x-real-ip": "1.2.3.4", origin: "https://example.com", "user-agent": CHROME_WINDOWS },
+    });
+
+    expect(geo).toEqual({ country: "US", city: "Boydton" });
+    expect(cacheWrites).toEqual([
+      { key: "x.x.x.4", value: "US|Boydton|5|https://example.com|Win|Chr", ttl: 86400000 },
+    ]);
+  });
+
+  test("a cold IP runs the lookup once and seeds the cache", async () => {
+    let fetches = 0;
+    meta.ngx.fetch = () => {
+      fetches += 1;
+      return Promise.resolve({ text: () => Promise.resolve(JSON.stringify({ country: "GB", city: "London" })) });
+    };
+
+    const geo = await meta.geoForRequest({
+      headersIn: { "x-real-ip": "5.6.7.8", "user-agent": CHROME_WINDOWS },
+    });
+
+    expect(geo).toEqual({ country: "GB", city: "London" });
+    expect(fetches).toBe(1);
+    expect(cacheStore["x.x.x.8"]).toBe("GB|London|1||Win|Chr");
+  });
+
+  test("a failed lookup returns the XX sentinel and still caches an entry", async () => {
+    meta.ngx.fetch = () => Promise.reject(new Error("boom"));
+
+    const geo = await meta.geoForRequest({ headersIn: { "x-real-ip": "9.9.9.9" } });
+
+    expect(geo).toEqual({ country: "XX", city: "" });
+    expect(cacheStore["x.x.x.9"]).toBe("XX||1||Unknown|Unknown");
+  });
+
+  test("is reachable through the module's default export", () => {
+    // Only a default export can be imported by the njs in the runtime image.
+    const source = fs.readFileSync(path.resolve(process.cwd(), "docker/nchan_meta.js"), "utf-8");
+    expect(source).toMatch(/export default \{[^}]*geoForRequest/);
   });
 });
 

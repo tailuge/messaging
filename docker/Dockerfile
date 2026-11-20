@@ -60,6 +60,7 @@ COPY metadata_headers.conf /etc/nginx/metadata_headers.conf
 COPY nchan_meta.js /etc/nginx/nchan_meta.js
 COPY api.njs /etc/nginx/api.njs
 COPY upstash.njs /etc/nginx/upstash.njs
+COPY matchresult.njs /etc/nginx/matchresult.njs
 COPY html/ /usr/share/nginx/html/
 
 RUN chown -R nginx:nginx /etc/nginx /usr/share/nginx/html /var/cache/nginx /var/log/nginx /tmp

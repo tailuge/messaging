@@ -5,6 +5,9 @@
 // supported"), so the members are aliased here and the call sites below are
 // unchanged.
 import upstash from './upstash.njs';
+// The match-result write path lives in matchresult.njs; the router only
+// dispatches to it, so this file stays a dispatcher.
+import matchresult from './matchresult.njs';
 
 const netBucket = upstash.netBucket;
 const redis = upstash.redis;
@@ -28,6 +31,7 @@ function apiSlug(uri) {
     if (uri.indexOf('/api/usage') === 0) return 'usage';
     if (uri.indexOf('/api/arena') === 0) return 'arena';
     if (uri.indexOf('/api/hiscores') === 0) return 'hiscores';
+    if (uri === '/api/match-results') return 'match-results';
     if (uri === '/api/hello') return 'hello';
     return 'other';
 }
@@ -860,6 +864,7 @@ async function router(r) {
         if (leaveId && validArenaId(leaveId) && r.method === 'POST') return await arenaLeave(r, leaveId);
         const resultId = arenaIdFromUri(r, 'result');
         if (resultId && validArenaId(resultId) && r.method === 'POST') return await arenaResult(r, resultId);
+        if (r.uri === '/api/match-results' && r.method === 'POST') return await matchresult.matchResult(r);
         return json(r, 404, { error: "Not Found", uri: r.uri, method: r.method });
     } catch (e) {
         logApi("request failed: " + (e && e.stack ? e.stack : e));

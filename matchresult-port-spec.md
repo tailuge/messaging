@@ -7,6 +7,30 @@ Upstash KV the scoreboard already uses.
 Backend write path only. The client repoint, the cutover, and any change to the
 scoreboard's own routes are out of scope.
 
+## Progress
+
+Staged implementation, in order. Stages 0 and 1 have landed in `messaging`; the
+write path itself is still a stub, but the route logs each call and each failure
+and counts each answer for the usage page (see **Logging**).
+
+| Stage | Scope | Status |
+| --- | --- | --- |
+| 0 | Shared plumbing: `upstash.njs` extraction, and `geoForRequest(r)` pulled out of `buildMeta` in `nchan_meta.js` and exported | Done |
+| 1 | Endpoint skeleton: `docker/matchresult.njs` with a default-exported `matchResult` (501 stub), imported and dispatched from `api.njs`, `COPY` in the Dockerfile | Done |
+| 2 | `buildRecord`, replay blob, pipelined KV writes, Elo updates | Not started |
+| 3 | Container verification (the checklist below) and the scoreboard checks | Not started |
+
+Stage 0 is covered by `test/nchan-meta-unit.spec.ts`, which now exercises
+`geoForRequest` on a cache hit, a cold lookup and a failed lookup, and asserts
+the helper is on the default export. Stage 1 has no logic to test: it exists so
+the module loads at nginx start and the route answers before the writes land.
+It does carry the logging and the response accounting described under **Logging**,
+which are the parts Stage 2 reuses unchanged.
+
+The stub is not the response described under **Response** below — until Stage 2
+the route answers `501`. The client only checks `response.ok`, so it is not
+pointed at this host yet (repointing is out of scope anyway).
+
 ## Goal
 
 Accept a POSTed match result in messaging, store it, and update player ratings —
@@ -94,9 +118,39 @@ players' Glicko-2 ratings plus an `elo-history` entry.
   rate limiting as the other API routes, and answers a browser `OPTIONS`
   preflight from `cors.conf` before the router is reached — which is what lets a
   cross-origin upload from the game page through.
-- No logging. Nothing on the happy path, nothing on failure.
+- Logging is one entry line per call plus failures, and each answer is counted
+  for the usage page's route table — see **Logging**.
 - Happy path only. No method handling beyond what the router already does, no
   input validation, no error-state design.
+
+## Logging
+
+Not tracing: just enough to tell whether uploads arrive and whether they fail.
+Every line is tagged `MATCH-RESULT: ` and written with `ngx.log(ngx.ERR, ...)`, so
+it lands in `njs_error.log` — the file `/api/stats` tails for the dashboard's NJS
+log panel.
+
+| Where | Line |
+| --- | --- |
+| Entry of `matchResult` | `called bytes=<request body length>` |
+| Response writer, any status ≥ 400 | `answered <status> body=<response JSON>` |
+| The handler's `catch` | `failed: <stack>` |
+
+The entry line is what makes an upload visible at all while the route is a stub,
+and the response writer's line means the unhappy path is logged in one place
+instead of at every call site. Nothing on a successful write is logged beyond the
+entry line: no per-write, per-field or per-rating logging, and no request body
+contents — the body is only ever summarised by its length.
+
+The response writer also counts the reply, so the route has byte accounting and
+not just log lines. It writes the same three `net_stats` counters `noteApiOut`
+writes in `api.njs` — `e:match-results`, `c:match-results` and `api.in` — which
+is what makes `readNet` produce a row for it in `/api/net/history` and therefore
+a row in the usage page's bytes-by-route table. The slug is repeated wherever
+the route is named: `ROUTE_SLUG` in `matchresult.njs`, `API_SLUGS` in
+`nchan_meta.js`, and `apiSlug` in `api.njs`. Because a stub reply is only a few
+hundred bytes, `usage.html` lists `match-results` outside its top-six-by-bytes
+cut rather than letting bigger routes hide it.
 
 ## Stored record
 
@@ -291,12 +345,21 @@ for cloud agents. Verify manually against the container:
   once, seeds the cache entry, and stores the country/city it returned. A record
   posted while the lookup is failing carries neither field, and still answers
   `201`.
+- Each upload is visible twice outside the KV: `MATCH-RESULT: called bytes=<n>`
+  in the dashboard's NJS log panel, and a `/api/match-results` row in the usage
+  page's bytes-by-route table whose call count matches the number of uploads
+  (`/api/net/history` reports since nginx start, so both need a fresh container).
+  The row is present even when the route is not in the top six by bytes.
 
 ## Checks
 
-- `../messaging`: `npm run lint` (currently `tsc --noEmit` plus oxlint over
-  `src` and `test`) — note the new modules sit outside those paths, so they are
-  not covered by that gate.
+- `../messaging`: `npm run lint` (currently `tsc --noEmit`, the Playwright
+  tsconfig, and oxlint over `src`, `test`, `playwright` and
+  `playwright.config.ts`) — note the new modules sit outside those paths, and
+  `src/client/usage.html` is not linted at all, so none of this is covered by
+  that gate. `node --check` on a copy renamed to `.mjs` is the cheapest syntax
+  gate for an NJS module before a rebuild, with the caveat that it is V8's
+  parser, not njs's.
 - `../scoreboard`: `yarn test` and `yarn lint`.
 - Confirm the new module loads: a syntax error in an NJS module surfaces at
   nginx start, so a container start plus one successful POST is the real gate.
@@ -331,6 +394,7 @@ for cloud agents. Verify manually against the container:
 | Rating hash | Keep all existing keys, `rd` and `volatility` = 0 |
 | `elo-history` | Keep writing it |
 | Ranking field | Emit `rating`; stop emitting `conservativeRating` |
-| Logging | None |
+| Logging | One `MATCH-RESULT: called` line per upload, plus any non-2xx answer and any exception; no per-write tracing beyond that |
+| Response accounting | The response writer counts `e:`/`c:` under the `match-results` slug plus `api.in`, so the usage page's route table lists the route |
 | Scoreboard route | Untouched |
 | Client repoint / cutover | Out of scope |
