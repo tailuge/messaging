@@ -706,7 +706,6 @@ async function publish(r) {
     }
   }
   const body = injectMetaString(reqText, meta);
-  notePublishBytes(family, inBytes, body.length, channelSubscribers(channel), body.length - inBytes);
   try {
     updatePresenceRegistry(r, reqText, body);
     updateChallengeRegistry(r, body);
@@ -730,6 +729,10 @@ async function publish(r) {
     incrementStat("presence_publish_total");
     if (reqText.includes('"t":"l"') || reqText.includes('"type":"leave"')) incrementStat("presence_leave_total");
   }
+  // Counted only where the frame is actually forwarded: a suppressed legacy
+  // heartbeat above returns before this, so it adds no channel egress (see
+  // simplified.md). Counting before that check inflated presence.out.
+  notePublishBytes(family, inBytes, body.length, channelSubscribers(channel), body.length - inBytes);
   const res = await r.subrequest("/internal" + r.uri, { method: r.method, body: body });
   // Publishers never read the body (NchanClient.publish checks response.ok
   // only), so return the status alone instead of echoing the enriched message

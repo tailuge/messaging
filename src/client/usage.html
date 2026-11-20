@@ -47,7 +47,8 @@
       background-color: #111;
       border: 1px solid #333;
       padding: 0;
-      height: 400px;
+      /* Every panel on the page uses this height; 360px is 10% shorter. */
+      height: 360px;
     }
     .chart-section {
       display: grid;
@@ -189,6 +190,9 @@
       {
         id: "lobby-game",
         label: "LOBBY & GAME ACTIVITY",
+        // The panel the operators read most often: give the newest month its own
+        // third of the width instead of a sliver at the right edge.
+        recentSplit: true,
         metrics: [
           { id: "lobby", label: "LOBBY TRAFFIC", color: "#0055ff" },
           { id: "game", label: "GAME ACTIVITY", color: "#9c27b0" },
@@ -197,6 +201,8 @@
       {
         id: "challenges-accepts",
         label: "CHALLENGES & ACCEPTS",
+        // Same recent-month emphasis as the lobby panel.
+        recentSplit: true,
         metrics: [
           { id: "createTable", label: "CHALLENGES", color: "#ff3e00" },
           { id: "joinTable", label: "ACCEPTS", color: "#4caf50" },
@@ -261,7 +267,20 @@
     // and the same margins on every panel. The title is pinned to the container
     // rather than left at Plotly's default, which parks it on the top edge of
     // the plot area and leaves the whole top margin empty above it.
+    const CHART_MARGIN = { t: 30, r: 12, b: 22, l: 32 }
+
     function chartLayout(title, overrides = {}) {
+      const xaxis = {
+        ...axisStyle(),
+        type: "date",
+        tickangle: 0,
+        dtick: "M3",
+        tickformat: "%b %Y",
+        ...(overrides.xaxis || {}),
+      }
+      // A split half sets `nticks` instead: a fixed quarterly step crowds the
+      // labels once that half's width covers years of history.
+      if (overrides.xaxis && "nticks" in overrides.xaxis) delete xaxis.dtick
       return {
         title: {
           text: title,
@@ -272,14 +291,7 @@
           yref: "container",
           yanchor: "top",
         },
-        xaxis: {
-          ...axisStyle(),
-          type: "date",
-          tickangle: 0,
-          dtick: "M3",
-          tickformat: "%b %Y",
-          ...(overrides.xaxis || {}),
-        },
+        xaxis,
         yaxis: { ...axisStyle(), rangemode: "tozero", ...(overrides.yaxis || {}) },
         legend: {
           orientation: "h",
@@ -292,7 +304,7 @@
         },
         plot_bgcolor: "rgba(0,0,0,0)",
         paper_bgcolor: "rgba(0,0,0,0)",
-        margin: { t: 30, r: 12, b: 22, l: 32 },
+        margin: CHART_MARGIN,
         autosize: true,
         ...(overrides.extra || {}),
       }
@@ -304,12 +316,13 @@
     //
     // A lone point has no segment to draw, so it is given a marker: otherwise a
     // series with one bucket renders as nothing at all.
-    function lineTrace({ label, color, points, axis, smooth }) {
+    function lineTrace({ label, color, points, axis, xAxis, smooth, showLegend = true }) {
       return {
         x: points.map((point) => point.x),
         y: points.map((point) => point.y),
         name: label,
         type: "scatter",
+        showlegend: showLegend,
         mode: points.length === 1 ? "lines+markers" : "lines",
         line: {
           color,
@@ -318,6 +331,7 @@
           ...(smooth ? { shape: "spline", smoothing: 0.6 } : {}),
         },
         marker: { color, size: 6 },
+        ...(xAxis ? { xaxis: xAxis } : {}),
         yaxis: axis || "y",
       }
     }
@@ -336,17 +350,123 @@
       }
     }
 
-    function plotGroup(groupConfig, usage) {
-      const traces = groupConfig.metrics.map((metric) => {
-        const key = `${metric.id}Usage`
-        const points = (Array.isArray(usage[key]) ? usage[key] : [])
-          .map((d) => ({ x: d.date, y: Number(d.count) }))
-          .sort((a, b) => new Date(a.x) - new Date(b.x))
+    // The split panels give the newest 30 days 30% of the width and let all
+    // older history share the rest. Plotly has no piecewise time axis, so this
+    // is two date axes with independent domains and ranges that share the
+    // y-axis; a metric with points on both sides is drawn once per half, and the
+    // older half's last point is repeated at the head of the recent half so the
+    // line continues across the seam (the repeat sits left of the recent range
+    // and is clipped at that boundary).
+    const RECENT_WINDOW_MS = 30 * DAY_MS
+    const SPLIT_OLDER_SHARE = 0.7
+    // The seam gap is 8px. Plotly domains are fractions of the plot area, so
+    // splitLayout() converts it using the rendered width.
+    const SPLIT_GAP_PX = 8
 
-        return lineTrace({ label: metric.label, color: metric.color, points })
+    // The recent window ends at the newest recorded date rather than today, so a
+    // quiet week does not leave an empty strip on the right. A panel with fewer
+    // than two points on either side keeps the single continuous axis: splitting
+    // a couple of weeks would show the same data at arbitrary widths.
+    function panelSplit(series) {
+      const dates = []
+      series.forEach(({ points }) =>
+        points.forEach((point) => dates.push(new Date(point.x).getTime()))
+      )
+      if (dates.length === 0) return null
+      let earliest = Infinity
+      let latest = -Infinity
+      dates.forEach((date) => {
+        if (date < earliest) earliest = date
+        if (date > latest) latest = date
+      })
+      const cutoff = latest - RECENT_WINDOW_MS
+      const olderCount = dates.filter((date) => date < cutoff).length
+      if (olderCount < 2 || dates.length - olderCount < 2) return null
+      return { earliest, cutoff, latest }
+    }
+
+    function splitLayout(id, { earliest, cutoff, latest }) {
+      const container = document.getElementById(id)
+      const plotWidth = container
+        ? container.clientWidth - CHART_MARGIN.l - CHART_MARGIN.r
+        : 0
+      // Domains are fractions of the plot area, so the pixel gap is converted
+      // from the width rendered at load; a responsive resize scales it with the
+      // container instead of holding it at exactly 8px. The seam is centred on
+      // the 70% boundary, so each side gives up half the gap.
+      const halfGap = plotWidth > 0 ? SPLIT_GAP_PX / 2 / plotWidth : 0.0075
+      return {
+        xaxis: {
+          domain: [0, SPLIT_OLDER_SHARE - halfGap],
+          range: [earliest, cutoff],
+          nticks: 5,
+        },
+        extra: {
+          // Two independent date axes make drag-zoom ambiguous, and the mode bar
+          // is hidden, so the panel opens with dragging disabled.
+          dragmode: false,
+          xaxis2: {
+            ...axisStyle(),
+            type: "date",
+            tickangle: 0,
+            anchor: "y",
+            domain: [SPLIT_OLDER_SHARE + halfGap, 1],
+            range: [cutoff, latest],
+            dtick: 7 * DAY_MS,
+            tickformat: "%d %b",
+          },
+        },
+      }
+    }
+
+    function plotGroup(groupConfig, usage) {
+      const series = groupConfig.metrics.map((metric) => {
+        const key = `${metric.id}Usage`
+        return {
+          label: metric.label,
+          color: metric.color,
+          points: (Array.isArray(usage[key]) ? usage[key] : [])
+            .map((d) => ({ x: d.date, y: Number(d.count) }))
+            .sort((a, b) => new Date(a.x) - new Date(b.x)),
+        }
       })
 
-      Plotly.newPlot(groupConfig.id, traces, chartLayout(groupConfig.label), PLOT_CONFIG)
+      const split = groupConfig.recentSplit ? panelSplit(series) : null
+      const traces = []
+      series.forEach(({ label, color, points }) => {
+        if (!split) {
+          traces.push(lineTrace({ label, color, points }))
+          return
+        }
+        const older = points.filter((point) => new Date(point.x).getTime() < split.cutoff)
+        const recent = points.filter((point) => new Date(point.x).getTime() >= split.cutoff)
+        // One legend entry per metric: whichever half is drawn first owns it, so
+        // a metric that exists only in the recent window is still labelled.
+        let inLegend = false
+        if (older.length) {
+          traces.push(lineTrace({ label, color, points: older }))
+          inLegend = true
+        }
+        if (recent.length) {
+          const bridged = older.length ? [older[older.length - 1], ...recent] : recent
+          traces.push(
+            lineTrace({
+              label,
+              color,
+              points: bridged,
+              xAxis: "x2",
+              showLegend: !inLegend,
+            })
+          )
+        }
+      })
+
+      Plotly.newPlot(
+        groupConfig.id,
+        traces,
+        chartLayout(groupConfig.label, split ? splitLayout(groupConfig.id, split) : {}),
+        PLOT_CONFIG
+      )
     }
 
     // Language and game-blog trends, read from the same aggregate response as
