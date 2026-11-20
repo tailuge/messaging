@@ -22,7 +22,8 @@ const KO_MESSAGES = [
     '화면 우측 상단의 사용자 이름을 클릭하여 변경할 수 있습니다.',
     '사구 <a href="./exam/sagu.html">시험</a> 훈련을 해보세요.',
     '마음씨 좋은 분, <a href="https://cafe.naver.com/3cushion" target="_blank" rel="noopener">네이버 3쿠션 카페</a>에 제 게임을 소개해 주실 수 있을까요?',
-    '당구를 사랑하는 여러분, <a href="https://cafe.naver.com/8440566" target="_blank" rel="noopener">네이버 당구 카페</a>에 제 무료 온라인 당구 게임을 널리 알려주세요.'
+    '당구를 사랑하는 여러분, <a href="https://cafe.naver.com/8440566" target="_blank" rel="noopener">네이버 당구 카페</a>에 제 무료 온라인 당구 게임을 널리 알려주세요.',
+    '함께 플레이하는 사람이 한 명씩 늘어날 때마다 이 프로젝트도 조금씩 더 발전합니다.'
 ];
 
 // The MOTD follows the shared locale (i18n), not its own guess: `?locale=ko`,
