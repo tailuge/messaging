@@ -3,10 +3,11 @@
 // the exact command list of the writes all live here.
 //
 // WRITES_ENABLED is the one switch deciding whether that command list is sent.
-// It is false: the route runs the real read (`HMGET elo:<ruleType>`, so the Elo
-// maths sees live ratings) and answers 201 with the record it built, but issues
-// no SET/ZADD/ZREMRANGEBYRANK/HSET, so nothing in the KV changes. Flip it to true
-// when the port is ready to write; the handler body needs no other edit.
+// It is true: an upload runs the read (`HMGET elo:<ruleType>`, so the Elo maths
+// sees live ratings), sends the SET/ZADD/ZREMRANGEBYRANK/HSET list as one
+// pipeline and answers 201 with the record it built. Flip it to false to get the
+// dry run back — same read, same answer, no KV write — which is the off-ramp if
+// the writes ever need to stop quickly; the handler body needs no other edit.
 //
 // Imports follow the rule that njs enforces: one default export per module,
 // members aliased locally. Named imports fail at load time with
@@ -26,7 +27,7 @@ const geoForRequest = nchanMeta.geoForRequest;
 const LOG_TAG = "MATCH-RESULT: ";
 
 // The single place the port decides whether it is allowed to mutate the KV.
-const WRITES_ENABLED = false;
+const WRITES_ENABLED = true;
 
 // This route's row in the usage page's bytes-by-route table. The slug has to
 // match API_SLUGS in nchan_meta.js and apiSlug in api.njs: readNet turns every

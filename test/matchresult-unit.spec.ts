@@ -239,7 +239,7 @@ describe("matchresult record building", () => {
   });
 });
 
-describe("matchresult dry run", () => {
+describe("matchresult writes", () => {
   const payload = {
     winner: "Lukey",
     winnerId: "Luke-er7b",
@@ -253,7 +253,7 @@ describe("matchresult dry run", () => {
     replayData: "blob",
   };
 
-  test("the switch is off and the handler issues no writes", async () => {
+  test("the handler sends the planned command list as one pipeline", async () => {
     const { mod, calls } = loadMatchResult({
       redisResult: [rating({ rating: 2118 }), rating({ rating: 1460 })],
     });
@@ -261,9 +261,20 @@ describe("matchresult dry run", () => {
 
     await mod.matchResult(r);
 
-    expect(mod.WRITES_ENABLED).toBe(false);
-    const pipelines = calls.filter((call) => call[0] === "PIPELINE");
-    expect(pipelines).toHaveLength(0);
+    expect(mod.WRITES_ENABLED).toBe(true);
+    // One read for the Elo maths, then one pipeline carrying every write.
+    expect(calls.map((call) => call[0])).toEqual(["HMGET", "PIPELINE"]);
+    const commands = calls[1][1];
+    expect(commands.map((command: any[]) => command[0])).toEqual([
+      "SET",
+      "ZADD",
+      "ZREMRANGEBYRANK",
+      "HSET",
+      "HSET",
+      "HSET",
+      "HSET",
+    ]);
+    expect(r.answered[0].status).toBe(201);
   });
 
   test("the read still runs, so the Elo maths sees live ratings", async () => {

@@ -9,17 +9,17 @@ scoreboard's own routes are out of scope.
 
 ## Progress
 
-Staged implementation, in order. Stages 0 and 1 have landed in `messaging`, and
-Stage 2's logic is in: the route builds the record, splits the replay, runs the
-Elo maths against live ratings and assembles the exact write list. What it does
-not do yet is send that list — `WRITES_ENABLED` in `matchresult.njs` is `false`,
-so no KV write lands. See **Dry run** below.
+Staged implementation, in order. Stages 0, 1 and 2 have landed in `messaging`:
+the route builds the record, splits the replay, runs the Elo maths against live
+ratings, assembles the write list and sends it — `WRITES_ENABLED` in
+`matchresult.njs` is `true`, so an upload now writes to the KV. See **Write
+switch** below. Stage 3, the container verification, has not been run yet.
 
 | Stage | Scope | Status |
 | --- | --- | --- |
 | 0 | Shared plumbing: `upstash.njs` extraction, and `geoForRequest(r)` pulled out of `buildMeta` in `nchan_meta.js` and exported | Done |
 | 1 | Endpoint skeleton: `docker/matchresult.njs` with a default-exported `matchResult` (501 stub), imported and dispatched from `api.njs`, `COPY` in the Dockerfile | Done |
-| 2 | `buildRecord`, replay blob, pipelined KV writes, Elo updates | Logic done, writes disabled |
+| 2 | `buildRecord`, replay blob, pipelined KV writes, Elo updates | Done, writes enabled |
 | 3 | Container verification (the checklist below) and the scoreboard checks | Not started |
 
 Stage 0 is covered by `test/nchan-meta-unit.spec.ts`, which now exercises
@@ -35,29 +35,31 @@ reply is what the client contract is checked against. The client only checks
 `response.ok`, so it is not pointed at this host yet (repointing is out of scope
 anyway).
 
-## Dry run
+## Write switch
 
-`WRITES_ENABLED = false` at the top of `matchresult.njs` is the one switch, and
-while it is off:
+`WRITES_ENABLED = true` at the top of `matchresult.njs` is the one switch. It is
+an off-ramp rather than a feature flag: the handler body has no branch on it
+beyond the send itself, so flipping it back to `false` restores the dry run and
+nothing else changes. While it is off:
 
 - The read still runs. `planWrites` issues the real `HMGET elo:<ruleType>
   <winner> <loser>`, so the Elo maths sees live ratings, and a read failure still
   surfaces as a `500` instead of being hidden by the switch.
 - The command list is still built — replay `SET`, `ZADD`, `ZREMRANGEBYRANK` and
-  the four rating/history `HSET`s — and then dropped rather than sent. Flipping
-  the constant to `true` sends it; nothing else in the handler changes.
+  the four rating/history `HSET`s — and then dropped rather than sent.
 - The answer is still `201` with the built record, so the client path, the
   response writer and the byte accounting are exercised for real.
 - Nothing in the KV changes: no new `match_results` member, no replay blob, no
   rating write, no history field.
 
-This is the state the container checks run in for anything that has to be
-observed without touching shared data. The writes themselves stay unverified
-until the switch is flipped. `test/matchresult-unit.spec.ts` covers what needs no
-KV: the Elo maths (zero-sum, the integer snap, `K = 32` at both extremes, the
-seven-key rating JSON, the counter increments), the record building (`replayData`
-split, arbitrary `ruleType` verbatim, geo omitted on `XX`, the `uid` shape) and
-the dry run itself (a `201` after exactly one `HMGET` and no pipeline).
+That is the state for container checks that have to be observed without touching
+shared data. `test/matchresult-unit.spec.ts` covers what needs no KV, with the
+pipeline stubbed: the Elo maths (zero-sum, the integer snap, `K = 32` at both
+extremes, the seven-key rating JSON, the counter increments), the record building
+(`replayData` split, arbitrary `ruleType` verbatim, geo omitted on `XX`, the `uid`
+shape) and the write path itself (a `201` after exactly one `HMGET` followed by
+one pipeline carrying the built command list). The KV side of the checklist below
+still needs a container.
 
 ## Goal
 
