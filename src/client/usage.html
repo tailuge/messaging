@@ -100,6 +100,28 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    /* Table panels fill the same 360px frame as the charts: the body scrolls
+       inside it, so a long list cannot stretch the grid row. */
+    .panel-body {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      padding: 8px 10px;
+      box-sizing: border-box;
+    }
+    .panel-scroll {
+      flex: 1;
+      overflow-y: auto;
+      margin-top: 6px;
+    }
+    .referrer-name {
+      display: block;
+      max-width: 300px;
+      color: #ccc;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     /* The pages the counters above are measured on: one-word links, in a
        footer so they stay clear of the charts. Absolute URLs on the Cloudflare
        host that serves those pages, not this dashboard's host. */
@@ -136,14 +158,30 @@
   <main id="chart-grid" class="chart-grid">
     <div id="lobby-game" class="chart-container"></div>
     <div id="challenges-accepts" class="chart-container"></div>
+    <div id="activity-chart" class="chart-container"
+      aria-label="Users online and network bytes since uptime"></div>
     <div id="games-completed" class="chart-container"></div>
+    <div id="referrers" class="chart-container" aria-label="Referrer sites in the last 24 hours">
+      <div class="panel-body">
+        <h2 class="chart-panel-title">REFERRER SITES (LAST 24H)</h2>
+        <div class="panel-scroll">
+          <table class="routes-table">
+            <thead>
+              <tr>
+                <th scope="col">Site</th>
+                <th scope="col">Visits</th>
+              </tr>
+            </thead>
+            <tbody id="referrer-rows"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </main>
 
   <section class="chart-section">
     <div id="lang-chart" class="chart-container" aria-label="Usage by language"></div>
     <div id="game-chart" class="chart-container" aria-label="Usage by game type"></div>
-    <div id="activity-chart" class="chart-container"
-      aria-label="Users online and network bytes since uptime"></div>
   </section>
 
   <section class="routes-section" aria-label="API bytes by route">
@@ -759,8 +797,39 @@
       if (net.status === "fulfilled") renderRoutes(net.value.routes, net.value.series)
     }
 
+    // Referrer sites over the server's 24h cache, with our own Cloudflare host
+    // already excluded and the high-volume sources rolled up to their root
+    // (see referrer_api in docker/nchan_meta.js). There is no history behind
+    // it, so this is a table rather than another line chart.
+    async function loadReferrers() {
+      const body = document.getElementById("referrer-rows")
+      let rows = []
+      try {
+        const data = await getData("/api/referrers")
+        rows = Array.isArray(data.referrers) ? data.referrers : []
+      } catch (error) {
+        console.error(`Could not load referrer sites: ${error.message}`)
+      }
+      body.textContent = ""
+      if (rows.length === 0) {
+        const empty = body.insertRow().insertCell()
+        empty.colSpan = 2
+        empty.textContent = "nothing recorded yet"
+        return
+      }
+      rows.forEach((row) => {
+        const tr = body.insertRow()
+        const name = document.createElement("span")
+        name.className = "referrer-name"
+        name.textContent = row.ref
+        tr.insertCell().appendChild(name)
+        tr.insertCell().textContent = row.count
+      })
+    }
+
     loadUsage()
     loadActivity()
+    loadReferrers()
   </script>
 </body>
 

@@ -579,6 +579,7 @@ const API_SLUGS = [
   ["/api/challenges", "challenges"],
   ["/api/tables/recent", "tables"],
   ["/api/net/history", "net-history"],
+  ["/api/referrers", "referrers"],
 ];
 
 function apiSlug(uri) {
@@ -920,6 +921,83 @@ function getReferrerCache() {
   return entries;
 }
 
+// Referrer sites for /api/referrers. presence_sub stores `count|encodedUrl`
+// pairs, comma-separated per obfuscated client IP, so one site's pages arrive
+// as separate entries: the known high-volume sources roll up onto their site
+// root, the rest are added up per URL.
+//
+// Our own Cloudflare host is excluded. The referrer is the page the visitor
+// came from, and a lobby -> game -> lobby hop never leaves that host, so its
+// rows are self-navigation rather than an inbound source. Filtering by host
+// (not URL) drops every page of it at once.
+const REFERRER_ROLLUPS = [
+  { prefix: "https://tailuge.github.io/", label: "https://tailuge.github.io/" },
+  { prefix: "https://github.com/tailuge/billiards", label: "https://github.com/tailuge/billiards" },
+  { prefix: "http://localhost/", label: "http://localhost/" },
+];
+const REFERRER_EXCLUDED_HOSTS = ["billiards.tailuge.workers.dev"];
+// The table is a reading aid, not a full dump: the tail is one-off links.
+const REFERRER_LIMIT = 50;
+
+function decodeReferrer(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch (e) {
+    return value;
+  }
+}
+
+function referrerHost(ref) {
+  const scheme = ref.indexOf("://");
+  const rest = scheme === -1 ? ref : ref.substring(scheme + 3);
+  const slash = rest.search(/[/?#]/);
+  return (slash === -1 ? rest : rest.substring(0, slash)).toLowerCase();
+}
+
+function rollupReferrer(ref) {
+  const lower = ref.toLowerCase();
+  // 127.* and localhost:* are the same machine, with or without a port or path.
+  if (/^(https?:\/\/)?(127\.|localhost[:/])/.test(lower)) {
+    return REFERRER_ROLLUPS[REFERRER_ROLLUPS.length - 1].label;
+  }
+  for (let i = 0; i < REFERRER_ROLLUPS.length; i++) {
+    const rollup = REFERRER_ROLLUPS[i];
+    // The bare origin (no trailing slash) is the same source as its root.
+    if (lower.startsWith(rollup.prefix) || lower === rollup.prefix.replace(/\/$/, "")) {
+      return rollup.label;
+    }
+  }
+  return ref;
+}
+
+function aggregateReferrers(entries) {
+  const counts = {};
+  const keys = Object.keys(entries);
+  for (let k = 0; k < keys.length; k++) {
+    const parts = String(entries[keys[k]]).split(",");
+    for (let i = 0; i < parts.length; i++) {
+      const sep = parts[i].indexOf("|");
+      if (sep < 0) continue;
+      const count = parseInt(parts[i].substring(0, sep), 10);
+      if (!(count > 0)) continue;
+      const ref = rollupReferrer(decodeReferrer(parts[i].substring(sep + 1)));
+      if (!ref) continue;
+      if (REFERRER_EXCLUDED_HOSTS.indexOf(referrerHost(ref)) !== -1) continue;
+      counts[ref] = (counts[ref] || 0) + count;
+    }
+  }
+  const list = [];
+  const refs = Object.keys(counts);
+  for (let i = 0; i < refs.length; i++) list.push({ ref: refs[i], count: counts[refs[i]] });
+  // Ties fall back to the URL so an unchanged cache renders the same table.
+  list.sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    if (a.ref === b.ref) return 0;
+    return a.ref < b.ref ? -1 : 1;
+  });
+  return list.slice(0, REFERRER_LIMIT);
+}
+
 // Every live presence frame, sorted by display name. Entries carry their own
 // 130 s TTL; the meta timestamp check here is the backstop for entries whose
 // per-entry TTL could not be applied (the zone timeout is 10 minutes).
@@ -1245,6 +1323,23 @@ function presence_history_api(r) {
   r.return(200, payload);
 }
 
+// Referrer sites for usage.html. The dashboard reads the raw per-IP cache from
+// /api/stats and aggregates in the browser; this does the same work once, on
+// the server, so the page gets a short list instead of the whole cache. The
+// entries live for the cache's 24h TTL and are overwritten in place, so there
+// is no history behind them: totals, not another time series.
+function referrer_api(r) {
+  const payload = JSON.stringify({
+    ts: Date.now(),
+    window: 86400000,
+    referrers: aggregateReferrers(getReferrerCache()),
+  });
+  noteApiOut(r, payload);
+  r.headersOut["Content-Type"] = "application/json";
+  r.headersOut["Cache-Control"] = "no-store";
+  r.return(200, payload);
+}
+
 // Per-minute byte series for usage.html plus the per-route API breakdown. The
 // window is everything this process has recorded: it starts at process start
 // (`start`, epoch ms) rather than a rolling hour, and there is no sampler behind
@@ -1428,4 +1523,4 @@ function presenceMeaningfullyChanged(oldFrame, nextFrame) {
   return false;
 }
 
-export default { publish, geoForRequest, presence_sub, presence_unsub, stats, online_users_api, online_presence_api, presence_history_api, presence_heartbeat, net_history_api, challenges_api, tables_api, table_unsub, table_sub };
+export default { publish, geoForRequest, presence_sub, presence_unsub, stats, online_users_api, online_presence_api, presence_history_api, presence_heartbeat, net_history_api, referrer_api, challenges_api, tables_api, table_unsub, table_sub };

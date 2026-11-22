@@ -31,7 +31,7 @@ function loadNchanMeta(fsImpl: any = null): any {
     "ngx",
     "require",
     `${source}
-     return { parseUA, reduceUA, cacheSafeUA, classifyForCache, formatCacheValue, geoForRequest, summariseCpuThrottling, publish, getOnlineUsers, recordPresenceCount, isPresenceHeartbeat, readLogTail, LOG_TAIL_LINES, LOG_TAIL_BYTES, LOG_TAIL_NOISE, ngx };`
+     return { parseUA, reduceUA, cacheSafeUA, classifyForCache, formatCacheValue, geoForRequest, summariseCpuThrottling, publish, getOnlineUsers, recordPresenceCount, isPresenceHeartbeat, readLogTail, aggregateReferrers, LOG_TAIL_LINES, LOG_TAIL_BYTES, LOG_TAIL_NOISE, ngx };`
   )(ngx, requireStub);
 }
 
@@ -722,5 +722,55 @@ describe("nchan_meta error log tail reader", () => {
 
     expect(meta.readLogTail(path.join(dir, "absent.log"), 100)).toEqual([]);
     expect(meta.readLogTail(empty, 100)).toEqual([]);
+  });
+});
+
+// /api/referrers feeds the usage page: the per-IP rref: lists are summed per
+// site, the known high-volume sources roll up to their root, and our own
+// Cloudflare host is dropped as self-navigation.
+describe("referrer aggregation for the usage page", () => {
+  const meta = loadNchanMeta();
+  const encode = (url: string) => encodeURIComponent(url);
+  const cache = (lists: string[]) => {
+    const entries: Record<string, string> = {};
+    lists.forEach((list, index) => {
+      entries[`rref:10.x.x.${index}`] = list;
+    });
+    return entries;
+  };
+
+  test("sums per-site counts and rolls the known sources onto their root", () => {
+    const rows = meta.aggregateReferrers(
+      cache([
+        `2|${encode("https://tailuge.github.io/billiards/game.html")},1|${encode("https://tailuge.github.io/lobby.html")}`,
+        `1|${encode("https://github.com/tailuge/billiards/releases")},2|${encode("https://example.com/page")}`,
+      ])
+    );
+
+    expect(rows).toEqual([
+      { ref: "https://tailuge.github.io/", count: 3 },
+      { ref: "https://example.com/page", count: 2 },
+      { ref: "https://github.com/tailuge/billiards", count: 1 },
+    ]);
+  });
+
+  test("drops our own Cloudflare host but keeps other referrers", () => {
+    const rows = meta.aggregateReferrers(
+      cache([
+        `4|${encode("https://billiards.tailuge.workers.dev/lobby")},1|${encode("https://billiards.tailuge.workers.dev/")}`,
+        `1|${encode("https://nchanproxy.tailuge.workers.dev/")}`,
+      ])
+    );
+
+    expect(rows).toEqual([{ ref: "https://nchanproxy.tailuge.workers.dev/", count: 1 }]);
+  });
+
+  test("ignores malformed entries instead of inventing rows", () => {
+    const rows = meta.aggregateReferrers({
+      "rref:10.x.x.1": `not-a-pair,x|y,0|${encode("https://example.com/zero")}`,
+      "rref:10.x.x.2": encode("https://example.com/bare"),
+    });
+
+    expect(rows).toEqual([]);
   });
 });
