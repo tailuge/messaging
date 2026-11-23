@@ -15,6 +15,14 @@ const HOURLY_PRESETS = [
     { name: 'Nine Ball Mini Hourly Arena', ruleType: 'nineball', options: { tableSize: '6', freeaim: 'true' } },
     { name: 'Eight Ball Mini Hourly Arena', ruleType: 'eightball', options: { tableSize: '6', freeaim: 'true' } },
     { name: 'Snooker Mini Hourly Arena', ruleType: 'snooker', options: { tableSize: '6', reds: '3', freeaim: 'true' } },        
+    { name: 'Sagu Mini Hourly Arena', ruleType: 'sagu', options: { raceTo: '5', tableSize: '5', shotClock: '10' } },
+];
+
+// UTC 00:00–08:00 seeds use a Sagu night set instead: a 10-second shot clock
+// and a race to 5, rotating between the mini (5ft) and full-size tables.
+const NIGHT_PRESETS = [
+    { name: 'Sagu Mini Night Arena', ruleType: 'sagu', options: { raceTo: '5', tableSize: '5', shotClock: '10' } },
+    { name: 'Sagu Night Arena', ruleType: 'sagu', options: { raceTo: '5', shotClock: '10' } },
 ];
 
 // Row styles shared by the Active Arenas component and the arena page's
@@ -113,11 +121,16 @@ class ActiveArenas extends LitElement {
                     const slot = `${boundary.getUTCFullYear()}${String(boundary.getUTCMonth() + 1).padStart(2, '0')}${String(boundary.getUTCDate()).padStart(2, '0')}-${hour}${minute}`;
                     // Alternate the preset on the :00 and :30 boundaries: each
                     // half-hour slot of the day maps to its own index, so a full
-                    // preset rotation spans 3 hours instead of repeating the same
-                    // preset twice within one hour.
+                    // preset rotation spans one hour per preset instead of
+                    // repeating the same preset twice within one hour.
                     const halfHourIndex = boundary.getUTCMinutes() >= 30 ? 1 : 0;
-                    const slotIndex = (2 * boundary.getUTCHours() + halfHourIndex) % HOURLY_PRESETS.length;
-                    const hourlyPreset = HOURLY_PRESETS[slotIndex];
+                    // Overnight (UTC 00:00–08:00) switches to the Sagu night set.
+                    // Classification uses when the slot starts (`now`), so the
+                    // 23:30 slot ending at 00:00 stays on the day set.
+                    const nowHour = new Date(now).getUTCHours();
+                    const presets = nowHour < 8 ? NIGHT_PRESETS : HOURLY_PRESETS;
+                    const slotIndex = (2 * boundary.getUTCHours() + halfHourIndex) % presets.length;
+                    const hourlyPreset = presets[slotIndex];
                     await fetch(`${API_BASE}/api/arena`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },

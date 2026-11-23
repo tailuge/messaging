@@ -407,6 +407,10 @@
       // Layout details from the table's BEGIN message, for the summary table.
       let beginRuletype = null;
       let beginTableSize = null;
+      let beginRaceTo = null;
+      let beginShotClock = null;
+      // BEGIN sends practice as a boolean or the string "false".
+      let beginPractice = null;
       const encoder = new TextEncoder();
 
       // Game messages arrive with the type as published, so compare it
@@ -516,7 +520,25 @@
             ? null
             : lastMessageTs - firstMessageTs;
         const tableText = beginRuletype
-          ? `${beginRuletype}${beginTableSize ? ` \u00b7 ${beginTableSize}` : ''}`
+          ? [
+              beginRuletype,
+              // Table sizes are in feet (10, 12).
+              beginTableSize !== null && beginTableSize !== ''
+                ? `${beginTableSize}ft`
+                : null,
+              beginRaceTo !== null && beginRaceTo !== ''
+                ? `race to ${beginRaceTo}`
+                : null,
+              beginShotClock !== null && beginShotClock !== ''
+                ? `shot clock ${beginShotClock}s`
+                : null,
+              // practice=false is the non-practice (traditional) ruleset.
+              beginPractice === false || beginPractice === 'false'
+                ? 'Traditional'
+                : null,
+            ]
+              .filter(Boolean)
+              .join(' \u00b7 ')
           : '--';
         const values = {
           Duration: formatDuration(durationMs),
@@ -672,6 +694,9 @@
         lastMessageTs = null;
         beginRuletype = null;
         beginTableSize = null;
+        beginRaceTo = null;
+        beginShotClock = null;
+        beginPractice = null;
         buildGameStats();
         renderGameStats();
 
@@ -697,6 +722,9 @@
               if (isBeginMessage(msg) && msg.data?.ruletype) {
                 beginRuletype = msg.data.ruletype;
                 beginTableSize = msg.data.tableSize ?? null;
+                beginRaceTo = msg.data.raceTo ?? null;
+                beginShotClock = msg.data.shotClock ?? null;
+                beginPractice = msg.data.practice ?? null;
                 spectateUrl = buildSpectateUrl(
                   tableId,
                   msg.data.ruletype,

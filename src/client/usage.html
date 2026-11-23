@@ -47,8 +47,9 @@
       background-color: #111;
       border: 1px solid #333;
       padding: 0;
-      /* Every panel on the page uses this height; 360px is 10% shorter. */
-      height: 360px;
+      /* Every panel on the page uses this height; 270px is 25% shorter than
+         360px. */
+      height: 270px;
     }
     .chart-section {
       display: grid;
@@ -64,7 +65,7 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
-    /* API bytes by route, under the charts at the end of the page. */
+    /* The tables under the charts at the end of the page. */
     .routes-section {
       margin-top: 10px;
     }
@@ -100,27 +101,33 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    /* Table panels fill the same 360px frame as the charts: the body scrolls
-       inside it, so a long list cannot stretch the grid row. */
-    .panel-body {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      padding: 8px 10px;
-      box-sizing: border-box;
+    /* The referrer list spans the page instead of the 640px cap the API table
+       uses for its four numeric columns. */
+    .routes-table-wide {
+      max-width: none;
     }
-    .panel-scroll {
-      flex: 1;
-      overflow-y: auto;
-      margin-top: 6px;
+    /* The count is a short number, so it takes a fixed narrow column and the
+       URL gets all the remaining width without an ellipsis. */
+    .referrers-table th:first-child,
+    .referrers-table td:first-child {
+      text-align: left;
+      width: 80px;
+      white-space: nowrap;
+    }
+    .referrers-table th + th,
+    .referrers-table td + td {
+      text-align: left;
+      width: auto;
     }
     .referrer-name {
       display: block;
-      max-width: 300px;
-      color: #ccc;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      color: #58a6ff;
+      text-decoration: none;
+      /* Long URLs wrap instead of being cut off with an ellipsis. */
+      word-break: break-all;
+    }
+    .referrer-name:hover {
+      text-decoration: underline;
     }
     /* The pages the counters above are measured on: one-word links, in a
        footer so they stay clear of the charts. Absolute URLs on the Cloudflare
@@ -152,7 +159,7 @@
     <div class="server-stats-links">
       <a href="https://vercel.com/tailuges-projects/~/usage" target="_blank" rel="noopener">VERCEL</a>
       <a href="https://dashboard.render.com/web/srv-ctk5bmtds78s73eteil0/metrics" target="_blank" rel="noopener">RENDER</a>
-      <a href="https://console.upstash.com/vercel/kv/98c2d149-a61a-4ee3-b1cc-86081a988fea/data-browser" target="_blank" rel="noopener">KV</a>
+      <a href="https://vercel.com/tailuges-projects/scoreboard/stores" target="_blank" rel="noopener">KV</a>
     </div>
   </header>
   <main id="chart-grid" class="chart-grid">
@@ -161,22 +168,6 @@
     <div id="activity-chart" class="chart-container"
       aria-label="Users online and network bytes since uptime"></div>
     <div id="games-completed" class="chart-container"></div>
-    <div id="referrers" class="chart-container" aria-label="Referrer sites in the last 24 hours">
-      <div class="panel-body">
-        <h2 class="chart-panel-title">REFERRER SITES (LAST 24H)</h2>
-        <div class="panel-scroll">
-          <table class="routes-table">
-            <thead>
-              <tr>
-                <th scope="col">Site</th>
-                <th scope="col">Visits</th>
-              </tr>
-            </thead>
-            <tbody id="referrer-rows"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
   </main>
 
   <section class="chart-section">
@@ -196,6 +187,19 @@
         </tr>
       </thead>
       <tbody id="net-routes"></tbody>
+    </table>
+  </section>
+
+  <section class="routes-section" aria-label="Recent referrer">
+    <h2 class="chart-panel-title">RECENT REFERRER</h2>
+    <table class="routes-table routes-table-wide referrers-table">
+      <thead>
+        <tr>
+          <th scope="col">Visits</th>
+          <th scope="col">Site</th>
+        </tr>
+      </thead>
+      <tbody id="referrer-rows"></tbody>
     </table>
   </section>
 
@@ -797,10 +801,21 @@
       if (net.status === "fulfilled") renderRoutes(net.value.routes, net.value.series)
     }
 
+    function referrerHref(ref) {
+      try {
+        const url = new URL(ref)
+        return url.protocol === "http:" || url.protocol === "https:" ? url.href : null
+      } catch (error) {
+        return null
+      }
+    }
+
     // Referrer sites over the server's 24h cache, with our own Cloudflare host
     // already excluded and the high-volume sources rolled up to their root
     // (see referrer_api in docker/nchan_meta.js). There is no history behind
-    // it, so this is a table rather than another line chart.
+    // it, so this is a table rather than another line chart. Our Render host is
+    // filtered here too: the server does not know which deployment it serves,
+    // so its self-navigation would otherwise appear as an inbound source.
     async function loadReferrers() {
       const body = document.getElementById("referrer-rows")
       let rows = []
@@ -810,6 +825,9 @@
       } catch (error) {
         console.error(`Could not load referrer sites: ${error.message}`)
       }
+      rows = rows.filter(
+        (row) => !/billiards-network/i.test(String(row.ref || ""))
+      )
       body.textContent = ""
       if (rows.length === 0) {
         const empty = body.insertRow().insertCell()
@@ -819,11 +837,23 @@
       }
       rows.forEach((row) => {
         const tr = body.insertRow()
-        const name = document.createElement("span")
-        name.className = "referrer-name"
-        name.textContent = row.ref
-        tr.insertCell().appendChild(name)
         tr.insertCell().textContent = row.count
+        // The referrer is the page the visitor came from, so it links to that
+        // page. `noreferrer` keeps this dashboard's address out of the target's
+        // Referer header (and implies noopener); `nofollow` asks search engines
+        // not to credit the link. A ref that is not http(s) (e.g. an app scheme)
+        // stays plain text rather than becoming a dead link.
+        const link = referrerHref(row.ref)
+          ? document.createElement("a")
+          : document.createElement("span")
+        link.className = "referrer-name"
+        link.textContent = row.ref
+        if (link.tagName === "A") {
+          link.href = referrerHref(row.ref)
+          link.target = "_blank"
+          link.rel = "noreferrer noopener nofollow"
+        }
+        tr.insertCell().appendChild(link)
       })
     }
 
