@@ -936,7 +936,13 @@ const REFERRER_ROLLUPS = [
   { prefix: "https://github.com/tailuge/billiards", label: "https://github.com/tailuge/billiards" },
   { prefix: "http://localhost/", label: "http://localhost/" },
 ];
-const REFERRER_EXCLUDED_HOSTS = ["billiards.tailuge.workers.dev"];
+// Our own deployments, not inbound sources: a visit that starts on one of our
+// pages is self-navigation, so neither the Cloudflare site host nor the Render
+// deployment is counted as a referrer.
+const REFERRER_EXCLUDED_HOSTS = [
+  "billiards.tailuge.workers.dev",
+  "billiards-network.onrender.com",
+];
 // The table is a reading aid, not a full dump: the tail is one-off links.
 const REFERRER_LIMIT = 50;
 
@@ -1097,6 +1103,9 @@ function page_referrers_api(r) {
       for (let j = 0; j < names.length; j++) {
         const count = counts[names[j]];
         if (!(count > 0)) continue;
+        // Re-checked at read time so entries stored before a host was excluded
+        // drop out of the table (and out of the total) without a restart.
+        if (REFERRER_EXCLUDED_HOSTS.indexOf(referrerHost(names[j])) !== -1) continue;
         total += count;
         refs.push({ ref: names[j], count: count });
       }

@@ -754,11 +754,12 @@ describe("referrer aggregation for the usage page", () => {
     ]);
   });
 
-  test("drops our own Cloudflare host but keeps other referrers", () => {
+  test("drops our own hosts but keeps other referrers", () => {
     const rows = meta.aggregateReferrers(
       cache([
         `4|${encode("https://billiards.tailuge.workers.dev/lobby")},1|${encode("https://billiards.tailuge.workers.dev/")}`,
         `1|${encode("https://nchanproxy.tailuge.workers.dev/")}`,
+        `2|${encode("https://billiards-network.onrender.com/usage.html")}`,
       ])
     );
 

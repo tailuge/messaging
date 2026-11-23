@@ -129,24 +129,25 @@
     .referrer-name:hover {
       text-decoration: underline;
     }
-    /* Referrers grouped by the page that reported them: the page path labels
-       the group, the source takes the remaining width, the count stays narrow. */
+    /* Referrers grouped by the page that reported them: the count leads the
+       row in the same narrow column as the recent-referrer table, the page
+       path labels the group, and the source takes the remaining width. */
     .page-referrers-table th:first-child,
     .page-referrers-table td:first-child {
       text-align: left;
-      width: 150px;
+      width: 80px;
       white-space: nowrap;
     }
     .page-referrers-table th:nth-child(2),
     .page-referrers-table td:nth-child(2) {
       text-align: left;
-      width: auto;
+      width: 150px;
+      white-space: nowrap;
     }
     .page-referrers-table th:last-child,
     .page-referrers-table td:last-child {
-      text-align: right;
-      width: 70px;
-      white-space: nowrap;
+      text-align: left;
+      width: auto;
     }
     .page-referrers-table .page-name {
       color: #e6edf3;
@@ -232,9 +233,9 @@
     <table class="routes-table routes-table-wide page-referrers-table">
       <thead>
         <tr>
+          <th scope="col">Visits</th>
           <th scope="col">Page</th>
           <th scope="col">Referrer</th>
-          <th scope="col">Visits</th>
         </tr>
       </thead>
       <tbody id="page-referrer-rows"></tbody>
@@ -848,12 +849,11 @@
       }
     }
 
-    // Referrer sites over the server's 24h cache, with our own Cloudflare host
-    // already excluded and the high-volume sources rolled up to their root
-    // (see referrer_api in docker/nchan_meta.js). There is no history behind
-    // it, so this is a table rather than another line chart. Our Render host is
-    // filtered here too: the server does not know which deployment it serves,
-    // so its self-navigation would otherwise appear as an inbound source.
+    // Referrer sites over the server's 24h cache, with our own hosts (the
+    // Cloudflare site and the Render deployment) already excluded and the
+    // high-volume sources rolled up to their root (see referrer_api in
+    // docker/nchan_meta.js). There is no history behind it, so this is a table
+    // rather than another line chart.
     async function loadReferrers() {
       const body = document.getElementById("referrer-rows")
       let rows = []
@@ -863,9 +863,6 @@
       } catch (error) {
         console.error(`Could not load referrer sites: ${error.message}`)
       }
-      rows = rows.filter(
-        (row) => !/billiards-network/i.test(String(row.ref || ""))
-      )
       body.textContent = ""
       if (rows.length === 0) {
         const empty = body.insertRow().insertCell()
@@ -921,6 +918,7 @@
       pages.forEach((page) => {
         page.refs.forEach((row, index) => {
           const tr = body.insertRow()
+          tr.insertCell().textContent = row.count
           // One page label spans its group of sources.
           if (index === 0) {
             const pageCell = tr.insertCell()
@@ -939,7 +937,6 @@
             link.rel = "noreferrer noopener nofollow"
           }
           tr.insertCell().appendChild(link)
-          tr.insertCell().textContent = row.count
         })
       })
     }
