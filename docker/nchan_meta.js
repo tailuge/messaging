@@ -580,6 +580,7 @@ const API_SLUGS = [
   ["/api/tables/recent", "tables"],
   ["/api/net/history", "net-history"],
   ["/api/referrers", "referrers"],
+  ["/api/referrer", "referrers"],
 ];
 
 function apiSlug(uri) {
@@ -996,6 +997,133 @@ function aggregateReferrers(entries) {
     return a.ref < b.ref ? -1 : 1;
   });
   return list.slice(0, REFERRER_LIMIT);
+}
+
+// Page-keyed referrer counts for usage.html. The page reports its own
+// document.referrer (reportPageReferrer in src/client/utils.js), so this knows
+// which page got the visit - something the site-level rollup above cannot,
+// because the presence cache never records which page the visitor landed on.
+// One JSON object per page keeps the entry count bounded by page count rather
+// than traffic; the zone's 7d timeout is refreshed by each hit, like net_stats.
+const PAGE_REFERRER_PREFIX = "p:";
+// A spammy page must not grow its entry without limit: past this many distinct
+// sources the extras are dropped, and the tail is one-off links anyway.
+const PAGE_REFERRER_MAX_REFS = 100;
+// The same 200-char cut presence_sub applies to a referrer URL.
+const PAGE_REFERRER_MAX_REF_LEN = 200;
+// Path only, no query or hash: /challenge/ is the key, not /challenge/?utm=...
+const PAGE_REFERRER_PAGE_RE = /^\/[A-Za-z0-9._~\/-]{0,120}$/;
+
+function pageReferrerStore() {
+  return ngx.shared.referrer_pages;
+}
+
+function normalizePageReferrer(raw) {
+  if (typeof raw !== "string" || raw.length === 0 || raw.length > 2048) return "";
+  if (!/^https?:\/\//i.test(raw)) return "";
+  // The referrer's query and fragment carry page-specific detail (search terms,
+  // section anchors) that would split one source into thousands of rows, so
+  // they are dropped the way nchanclient.ts already does for its `ref`.
+  let ref = raw.replace(/[?#].*$/, "");
+  if (ref.length > PAGE_REFERRER_MAX_REF_LEN) return "";
+  // A bare origin counts as its root: https://x.com and https://x.com/ are the
+  // same source.
+  if (ref.indexOf("/", 8) === -1) ref += "/";
+  const host = referrerHost(ref);
+  if (host === "") return "";
+  if (REFERRER_EXCLUDED_HOSTS.indexOf(host) !== -1) return "";
+  return ref;
+}
+
+function readPageReferrers(dict, key) {
+  const raw = dict.get(key);
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+// POST /api/referrer with {page, ref}. Best-effort: a stat must never affect the
+// page that reported it, so bad input and a full zone still answer 204.
+function referrer_hit(r) {
+  if (r.method !== "POST") {
+    const payload = JSON.stringify({ error: "Method Not Allowed" });
+    noteApiOut(r, payload);
+    r.headersOut["Content-Type"] = "application/json";
+    r.return(405, payload);
+    return;
+  }
+  let body = null;
+  try { body = JSON.parse(r.requestText || ""); } catch (e) { body = null; }
+  const page = body && typeof body.page === "string" ? body.page : "";
+  const ref = normalizePageReferrer(body && body.ref);
+  if (PAGE_REFERRER_PAGE_RE.test(page) && ref) {
+    try {
+      const dict = pageReferrerStore();
+      const key = PAGE_REFERRER_PREFIX + page;
+      const counts = readPageReferrers(dict, key);
+      if (typeof counts[ref] === "number") {
+        counts[ref] += 1;
+        dict.set(key, JSON.stringify(counts));
+      } else if (Object.keys(counts).length < PAGE_REFERRER_MAX_REFS) {
+        counts[ref] = 1;
+        dict.set(key, JSON.stringify(counts));
+      }
+    } catch (e) {
+      ngx.log(ngx.WARN, `referrer hit failed: ${e && e.message ? e.message : e}`);
+    }
+  }
+  noteApiOut(r, "");
+  r.return(204, "");
+}
+
+// GET /api/referrers/pages: every page's sources, busiest page first. Totals are
+// since process start (in-memory), so they are not a time series.
+function page_referrers_api(r) {
+  const pages = [];
+  try {
+    const dict = pageReferrerStore();
+    const keys = dict ? dict.keys() || [] : [];
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      if (key.indexOf(PAGE_REFERRER_PREFIX) !== 0) continue;
+      const counts = readPageReferrers(dict, key);
+      const refs = [];
+      let total = 0;
+      const names = Object.keys(counts);
+      for (let j = 0; j < names.length; j++) {
+        const count = counts[names[j]];
+        if (!(count > 0)) continue;
+        total += count;
+        refs.push({ ref: names[j], count: count });
+      }
+      refs.sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count;
+        if (a.ref === b.ref) return 0;
+        return a.ref < b.ref ? -1 : 1;
+      });
+      pages.push({
+        page: key.substring(PAGE_REFERRER_PREFIX.length),
+        total: total,
+        refs: refs.slice(0, REFERRER_LIMIT),
+      });
+    }
+  } catch (e) {
+    ngx.log(ngx.WARN, `referrer pages read failed: ${e && e.message ? e.message : e}`);
+  }
+  pages.sort((a, b) => {
+    if (b.total !== a.total) return b.total - a.total;
+    if (a.page === b.page) return 0;
+    return a.page < b.page ? -1 : 1;
+  });
+  const payload = JSON.stringify({ ts: Date.now(), pages: pages });
+  noteApiOut(r, payload);
+  r.headersOut["Content-Type"] = "application/json";
+  r.headersOut["Cache-Control"] = "no-store";
+  r.return(200, payload);
 }
 
 // Every live presence frame, sorted by display name. Entries carry their own
@@ -1523,4 +1651,4 @@ function presenceMeaningfullyChanged(oldFrame, nextFrame) {
   return false;
 }
 
-export default { publish, geoForRequest, presence_sub, presence_unsub, stats, online_users_api, online_presence_api, presence_history_api, presence_heartbeat, net_history_api, referrer_api, challenges_api, tables_api, table_unsub, table_sub };
+export default { publish, geoForRequest, presence_sub, presence_unsub, stats, online_users_api, online_presence_api, presence_history_api, presence_heartbeat, net_history_api, referrer_api, referrer_hit, page_referrers_api, challenges_api, tables_api, table_unsub, table_sub };

@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 1526;
+export const CLIENTVERSION = 1527;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -15,6 +15,32 @@ export const ACTIVE_PAGE = _localhost ? './active.html' : 'https://billiards-net
 
 export const API_BASE = _localhost ? '' : 'https://billiards-network.onrender.com';
 export const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel');
+
+// Report this page's document.referrer to the in-memory per-page stat
+// (POST /api/referrer, see referrer_hit in docker/nchan_meta.js). Fire and
+// forget: a visit with no referrer (typed URL, bookmark) sends nothing, and a
+// failed request is swallowed - analytics must never surface to the player.
+// `keepalive` lets the request outlive an immediate navigation, and text/plain
+// keeps it a CORS simple request so it needs no preflight.
+export function reportPageReferrer() {
+    const raw = typeof document !== 'undefined' ? document.referrer : '';
+    if (!raw) return;
+    let ref;
+    try {
+        const url = new URL(raw);
+        if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+        ref = url.origin + url.pathname;
+    } catch {
+        return;
+    }
+    fetch(`${API_BASE}/api/referrer`, {
+        method: 'POST',
+        mode: 'cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ page: window.location.pathname, ref }),
+        keepalive: true,
+    }).catch(() => {});
+}
 
 // Small pause before a game redirect so an in-flight usage PUT (challenge/accept
 // counter) can reach the server before the page unloads. Deliberately tiny: it

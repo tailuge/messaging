@@ -129,6 +129,30 @@
     .referrer-name:hover {
       text-decoration: underline;
     }
+    /* Referrers grouped by the page that reported them: the page path labels
+       the group, the source takes the remaining width, the count stays narrow. */
+    .page-referrers-table th:first-child,
+    .page-referrers-table td:first-child {
+      text-align: left;
+      width: 150px;
+      white-space: nowrap;
+    }
+    .page-referrers-table th:nth-child(2),
+    .page-referrers-table td:nth-child(2) {
+      text-align: left;
+      width: auto;
+    }
+    .page-referrers-table th:last-child,
+    .page-referrers-table td:last-child {
+      text-align: right;
+      width: 70px;
+      white-space: nowrap;
+    }
+    .page-referrers-table .page-name {
+      color: #e6edf3;
+      font-weight: 600;
+      vertical-align: top;
+    }
     /* The pages the counters above are measured on: one-word links, in a
        footer so they stay clear of the charts. Absolute URLs on the Cloudflare
        host that serves those pages, not this dashboard's host. */
@@ -200,6 +224,20 @@
         </tr>
       </thead>
       <tbody id="referrer-rows"></tbody>
+    </table>
+  </section>
+
+  <section class="routes-section" aria-label="Referrers by page">
+    <h2 class="chart-panel-title">REFERRERS BY PAGE</h2>
+    <table class="routes-table routes-table-wide page-referrers-table">
+      <thead>
+        <tr>
+          <th scope="col">Page</th>
+          <th scope="col">Referrer</th>
+          <th scope="col">Visits</th>
+        </tr>
+      </thead>
+      <tbody id="page-referrer-rows"></tbody>
     </table>
   </section>
 
@@ -857,9 +895,59 @@
       })
     }
 
+    // Referrers grouped by the page that reported them. The page sends its own
+    // document.referrer to POST /api/referrer (reportPageReferrer in utils.js),
+    // so this is the one view that knows which page got the visit. In-memory
+    // since process start, so totals rather than a time series.
+    async function loadPageReferrers() {
+      const body = document.getElementById("page-referrer-rows")
+      let pages = []
+      try {
+        const data = await getData("/api/referrers/pages")
+        pages = Array.isArray(data.pages) ? data.pages : []
+      } catch (error) {
+        console.error(`Could not load page referrers: ${error.message}`)
+      }
+      body.textContent = ""
+      pages = pages.filter(
+        (page) => Array.isArray(page.refs) && page.refs.length > 0
+      )
+      if (pages.length === 0) {
+        const empty = body.insertRow().insertCell()
+        empty.colSpan = 3
+        empty.textContent = "nothing recorded yet"
+        return
+      }
+      pages.forEach((page) => {
+        page.refs.forEach((row, index) => {
+          const tr = body.insertRow()
+          // One page label spans its group of sources.
+          if (index === 0) {
+            const pageCell = tr.insertCell()
+            pageCell.rowSpan = page.refs.length
+            pageCell.className = "page-name"
+            pageCell.textContent = page.page
+          }
+          const link = referrerHref(row.ref)
+            ? document.createElement("a")
+            : document.createElement("span")
+          link.className = "referrer-name"
+          link.textContent = row.ref
+          if (link.tagName === "A") {
+            link.href = referrerHref(row.ref)
+            link.target = "_blank"
+            link.rel = "noreferrer noopener nofollow"
+          }
+          tr.insertCell().appendChild(link)
+          tr.insertCell().textContent = row.count
+        })
+      })
+    }
+
     loadUsage()
     loadActivity()
     loadReferrers()
+    loadPageReferrers()
   </script>
 </body>
 

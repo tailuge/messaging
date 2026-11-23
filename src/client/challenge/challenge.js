@@ -4,10 +4,17 @@
 // score/gallery behaviour.
 import "../topbar.js";
 import { logUsage } from "../logusage.js";
-import { API_BASE, SCOREBOARD_URL, replayUrl } from "../utils.js";
+import {
+  API_BASE,
+  SCOREBOARD_URL,
+  replayUrl,
+  reportPageReferrer,
+} from "../utils.js";
 import { userStore } from "../user-store.js";
 
 logUsage("challenge");
+// Record where this page's visits came from for the usage dashboard.
+reportPageReferrer();
 
 // The dishes are read from the page's own markup: the `#kfood-data` list in
 // the footer fold-down carries each entry's name, emoji, photo, credit and

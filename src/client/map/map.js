@@ -7,7 +7,10 @@ import { logUsage } from "../logusage.js";
 
 logUsage("map");
 import { userStore } from "../user-store.js";
-import { soloUrl } from "../utils.js";
+import { reportPageReferrer, soloUrl } from "../utils.js";
+
+// Record where this page's visits came from for the usage dashboard.
+reportPageReferrer();
 
 // Build the game URL for a map club. Mirrors the params revealGameUrl/soloUrl use so that
 // userName, userId, lod, flip and all custom.* keys come from the user's stored settings.
