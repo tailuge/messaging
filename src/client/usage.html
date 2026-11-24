@@ -43,36 +43,14 @@
       grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
       gap: 10px;
     }
-    /* The three tables after the charts, side by side and outside the chart
-       grid so they are not grouped with the plots. Flex rather than fixed
-       columns: the route table keeps its narrow four-column width, the two
-       referrer tables share the rest, and on a screen too narrow to hold all
-       three they wrap onto their own rows at full width instead of squeezing
-       the columns. */
-    .tables-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 10px;
-      align-items: flex-start;
-    }
-    .tables-grid .routes-section {
+    /* The three tables are panel items in the same grid as the charts, so each
+       one is exactly as wide as a chart panel at any viewport width instead of
+       sizing to its own content. */
+    .chart-grid .routes-section {
       margin-top: 0;
-      min-width: 0;
     }
-    /* Only as wide as its 90px route plus three 80px number columns. */
-    .tables-grid .net-routes-section {
-      flex: 0 1 330px;
-    }
-    /* Grow to fill the rest of the row; 300px is the minimum before wrapping. */
-    .tables-grid .referrers-section {
-      flex: 1 1 300px;
-    }
-    .tables-grid .routes-table {
+    .chart-grid .routes-table {
       max-width: none;
-    }
-    .tables-grid .net-routes-table {
-      width: auto;
     }
     .chart-container {
       background-color: #111;
@@ -90,9 +68,16 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
-    /* The tables under the charts at the end of the page. */
+    /* The tables under the charts at the end of the page. They reuse the chart
+       panel's fill and border so a table reads as another panel rather than as
+       text floating on the page background. */
     .routes-section {
       margin-top: 10px;
+      min-width: 0;
+      padding: 8px 10px;
+      background-color: #111;
+      border: 1px solid #333;
+      box-sizing: border-box;
     }
     .routes-section .chart-panel-title {
       margin-bottom: 6px;
@@ -228,16 +213,14 @@
     <div id="games-completed" class="chart-container"></div>
     <div id="lang-chart" class="chart-container" aria-label="Usage by language"></div>
     <div id="game-chart" class="chart-container" aria-label="Usage by game type"></div>
-  </main>
 
-  <div class="tables-grid">
     <section class="routes-section net-routes-section" aria-label="API bytes by route">
       <h2 class="chart-panel-title">API BYTES BY ROUTE</h2>
       <table class="routes-table net-routes-table">
         <thead>
           <tr>
             <th scope="col">Route</th>
-            <th scope="col">Total bytes</th>
+            <th scope="col">Total</th>
             <th scope="col">Calls</th>
             <th scope="col">Bytes/call</th>
           </tr>
@@ -272,7 +255,7 @@
         <tbody id="page-referrer-rows"></tbody>
       </table>
     </section>
-  </div>
+  </main>
 
   <footer class="source-pages" aria-label="Measured pages">
     <a href="https://billiards.tailuge.workers.dev/chinese.html" target="_blank" rel="noopener">Chinese</a>
@@ -887,6 +870,40 @@
       return path || "/"
     }
 
+    // The server keys its counters by the exact pathname each page reports, so
+    // one page arrives under several keys: /korean from the Cloudflare host and
+    // /billiards/dist/korean.html from the GitHub Pages deployment. Both read as
+    // /korean after canonicalPage, so they are folded together here; otherwise
+    // the table lists the same page twice. Done at read time so old keys are
+    // merged too, whatever path they were stored under.
+    function mergePageReferrers(pages) {
+      const groups = new Map()
+      pages.forEach((page) => {
+        if (!Array.isArray(page.refs)) return
+        const label = canonicalPage(page.page)
+        let group = groups.get(label)
+        if (!group) {
+          group = { page: label, total: 0, refs: new Map() }
+          groups.set(label, group)
+        }
+        page.refs.forEach((row) => {
+          if (!(row.count > 0)) return
+          group.total += row.count
+          group.refs.set(row.ref, (group.refs.get(row.ref) || 0) + row.count)
+        })
+      })
+      return [...groups.values()]
+        .filter((group) => group.refs.size > 0)
+        .map((group) => ({
+          page: group.page,
+          total: group.total,
+          refs: [...group.refs.entries()]
+            .map(([ref, count]) => ({ ref, count }))
+            .sort((a, b) => b.count - a.count || (a.ref < b.ref ? -1 : 1)),
+        }))
+        .sort((a, b) => b.total - a.total || (a.page < b.page ? -1 : 1))
+    }
+
     function referrerHref(ref) {
       try {
         const url = new URL(ref)
@@ -953,9 +970,7 @@
         console.error(`Could not load page referrers: ${error.message}`)
       }
       body.textContent = ""
-      pages = pages.filter(
-        (page) => Array.isArray(page.refs) && page.refs.length > 0
-      )
+      pages = mergePageReferrers(pages)
       if (pages.length === 0) {
         const empty = body.insertRow().insertCell()
         empty.colSpan = 3
@@ -971,7 +986,7 @@
             const pageCell = tr.insertCell()
             pageCell.rowSpan = page.refs.length
             pageCell.className = "page-name"
-            pageCell.textContent = canonicalPage(page.page)
+            pageCell.textContent = page.page
           }
           const link = referrerHref(row.ref)
             ? document.createElement("a")

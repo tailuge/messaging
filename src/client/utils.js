@@ -1,7 +1,7 @@
 
 import { html } from 'lit';
 
-export const CLIENTVERSION = 1533;
+export const CLIENTVERSION = 1536;
 export const formatVersion = (v) => `v${Math.floor(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 
 
@@ -15,6 +15,11 @@ export const ACTIVE_PAGE = _localhost ? './active.html' : 'https://billiards-net
 
 export const API_BASE = _localhost ? '' : 'https://billiards-network.onrender.com';
 export const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel');
+
+// Latency probe target: the same Nchan host the WebSocket transport uses, so the
+// figure describes the path game traffic takes. /health is a static 200 from
+// nginx (docker/nchan.conf) and needs nothing from the server.
+export const PING_URL = `${WS_SERVER.replace(/^ws/, 'http')}/health`;
 
 // Report this page's document.referrer to the in-memory per-page stat
 // (POST /api/referrer, see referrer_hit in docker/nchan_meta.js). Fire and

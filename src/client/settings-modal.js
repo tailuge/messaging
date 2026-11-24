@@ -2,6 +2,7 @@ import { html, css } from 'lit';
 import { userStore } from './user-store.js';
 import { I18nElement, i18n } from './i18n.js';
 import { SHARED_STYLES, CHALLENGE_MODAL_STYLES } from './styles.js';
+import { PING_URL } from './utils.js';
 import './stats-panel.js';
 
 class SettingsModal extends I18nElement {
@@ -9,7 +10,8 @@ class SettingsModal extends I18nElement {
         _open: { state: true },
         _notifEnabled: { state: true },
         _copied: { state: true },
-        _picker: { state: true }
+        _picker: { state: true },
+        _ping: { state: true }
     };
     static LOD_LABELS = ['pixelated', 'polygons', 'high poly', 'shaders', 'antialiased'];
     static styles = [SHARED_STYLES, CHALLENGE_MODAL_STYLES, css`
@@ -28,6 +30,7 @@ class SettingsModal extends I18nElement {
         }
         @keyframes fadein { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         .lod-label { font-weight: bold; color: var(--link); }
+        .ping { margin-left: auto; font-variant-numeric: tabular-nums; }
 
         /* Toggle Switch CSS */
         .switch {
@@ -124,6 +127,9 @@ class SettingsModal extends I18nElement {
         this._picker = null;
         this._theme = document.documentElement.getAttribute('theme') || 'light';
         this._notifEnabled = typeof Notification !== 'undefined' && Notification.permission === 'granted';
+        this._ping = null;
+        this._pingTimer = null;
+        this._pingSamples = 0;
         this._onKeydown = this._onKeydown.bind(this);
         this._onMessage = this._onMessage.bind(this);
     }
@@ -135,6 +141,7 @@ class SettingsModal extends I18nElement {
     }
 
     disconnectedCallback() {
+        this._stopPing();
         super.disconnectedCallback();
         window.removeEventListener('keydown', this._onKeydown);
         window.removeEventListener('message', this._onMessage);
@@ -154,8 +161,56 @@ class SettingsModal extends I18nElement {
         }
     }
 
-    _toggle(e) { e.stopPropagation(); this._open = !this._open; }
-    _close()   { this._open = false; this._picker = null; }
+    _toggle(e) {
+        e.stopPropagation();
+        this._open = !this._open;
+        if (this._open) this._startPing();
+        else this._stopPing();
+    }
+    _close()   { this._open = false; this._picker = null; this._stopPing(); }
+
+    // Latency readout in Preferences: probes /health on the Nchan host every 2s
+    // for at most 20 samples and shows only the latest one, so a transient spike
+    // stays visible instead of being averaged away. Stops when the panel closes.
+    _startPing() {
+        this._stopPing();
+        this._ping = null;
+        this._samplePing();
+    }
+
+    _stopPing() {
+        if (this._pingTimer) {
+            clearTimeout(this._pingTimer);
+            this._pingTimer = null;
+        }
+        this._pingSamples = 0;
+    }
+
+    async _samplePing() {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 2000);
+        const started = performance.now();
+        try {
+            const response = await fetch(PING_URL, { cache: 'no-store', signal: controller.signal });
+            if (!response.ok) throw new Error(`Ping failed: ${response.status}`);
+            this._ping = `${((performance.now() - started) / 1000).toFixed(2)} sec`;
+        } catch {
+            // A failed sample shows a dash and the next tick tries again; a
+            // latency readout must never surface an error of its own.
+            this._ping = '—';
+        } finally {
+            clearTimeout(timer);
+        }
+        this._pingSamples++;
+        if (this._open && this._pingSamples < 20) {
+            // Schedule from the sample's start so the cadence stays at 2s; a
+            // sample slower than that starts the next one immediately.
+            const delay = Math.max(0, 2000 - (performance.now() - started));
+            this._pingTimer = setTimeout(() => this._samplePing(), delay);
+        } else {
+            this._pingTimer = null;
+        }
+    }
 
     _setTheme(e) {
         const theme = e.target.checked ? 'dark' : 'light';
@@ -222,6 +277,10 @@ class SettingsModal extends I18nElement {
                                 <input id="pref-proxy" type="checkbox" .checked=${userStore.useProxy} @change=${e => userStore.setUseProxy(e.target.checked)}>
                                 <span class="slider"></span>
                             </label>
+                        </div>
+                        <div class="row">
+                            <span>Ping</span>
+                            <span class="ping">${this._ping ?? '—'}</span>
                         </div>
 
                         <div class="section-title">${i18n.t('Graphics')}</div>
