@@ -43,6 +43,37 @@
       grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
       gap: 10px;
     }
+    /* The three tables after the charts, side by side and outside the chart
+       grid so they are not grouped with the plots. Flex rather than fixed
+       columns: the route table keeps its narrow four-column width, the two
+       referrer tables share the rest, and on a screen too narrow to hold all
+       three they wrap onto their own rows at full width instead of squeezing
+       the columns. */
+    .tables-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+      align-items: flex-start;
+    }
+    .tables-grid .routes-section {
+      margin-top: 0;
+      min-width: 0;
+    }
+    /* Only as wide as its 90px route plus three 80px number columns. */
+    .tables-grid .net-routes-section {
+      flex: 0 1 330px;
+    }
+    /* Grow to fill the rest of the row; 300px is the minimum before wrapping. */
+    .tables-grid .referrers-section {
+      flex: 1 1 300px;
+    }
+    .tables-grid .routes-table {
+      max-width: none;
+    }
+    .tables-grid .net-routes-table {
+      width: auto;
+    }
     .chart-container {
       background-color: #111;
       border: 1px solid #333;
@@ -50,12 +81,6 @@
       /* Every panel on the page uses this height; 270px is 25% shorter than
          360px. */
       height: 270px;
-    }
-    .chart-section {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-      gap: 10px;
-      margin-top: 10px;
     }
     .chart-panel-title {
       margin: 0;
@@ -76,6 +101,9 @@
       width: 100%;
       max-width: 640px;
       border-collapse: collapse;
+      /* Fixed layout so the column widths below are kept instead of being
+         grown by long route names and URLs. */
+      table-layout: fixed;
       font-size: 0.68rem;
       color: #999;
     }
@@ -93,9 +121,14 @@
       text-align: right;
       width: 80px;
     }
+    /* Route names are cut to a fixed column so the table stays narrow. */
+    .net-routes-table th:first-child,
+    .net-routes-table td:first-child {
+      width: 90px;
+    }
     .routes-table .net-route-name {
       display: block;
-      max-width: 300px;
+      max-width: 100%;
       color: #58a6ff;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -111,7 +144,7 @@
     .referrers-table th:first-child,
     .referrers-table td:first-child {
       text-align: left;
-      width: 80px;
+      width: 40px;
       white-space: nowrap;
     }
     .referrers-table th + th,
@@ -135,13 +168,13 @@
     .page-referrers-table th:first-child,
     .page-referrers-table td:first-child {
       text-align: left;
-      width: 80px;
+      width: 40px;
       white-space: nowrap;
     }
     .page-referrers-table th:nth-child(2),
     .page-referrers-table td:nth-child(2) {
       text-align: left;
-      width: 150px;
+      width: 90px;
       white-space: nowrap;
     }
     .page-referrers-table th:last-child,
@@ -193,54 +226,53 @@
     <div id="activity-chart" class="chart-container"
       aria-label="Users online and network bytes since uptime"></div>
     <div id="games-completed" class="chart-container"></div>
-  </main>
-
-  <section class="chart-section">
     <div id="lang-chart" class="chart-container" aria-label="Usage by language"></div>
     <div id="game-chart" class="chart-container" aria-label="Usage by game type"></div>
-  </section>
+  </main>
 
-  <section class="routes-section" aria-label="API bytes by route">
-    <h2 class="chart-panel-title">API BYTES BY ROUTE</h2>
-    <table class="routes-table">
-      <thead>
-        <tr>
-          <th scope="col">Route</th>
-          <th scope="col">Total bytes</th>
-          <th scope="col">Calls</th>
-          <th scope="col">Bytes/call</th>
-        </tr>
-      </thead>
-      <tbody id="net-routes"></tbody>
-    </table>
-  </section>
+  <div class="tables-grid">
+    <section class="routes-section net-routes-section" aria-label="API bytes by route">
+      <h2 class="chart-panel-title">API BYTES BY ROUTE</h2>
+      <table class="routes-table net-routes-table">
+        <thead>
+          <tr>
+            <th scope="col">Route</th>
+            <th scope="col">Total bytes</th>
+            <th scope="col">Calls</th>
+            <th scope="col">Bytes/call</th>
+          </tr>
+        </thead>
+        <tbody id="net-routes"></tbody>
+      </table>
+    </section>
 
-  <section class="routes-section" aria-label="Recent referrer">
-    <h2 class="chart-panel-title">RECENT REFERRER</h2>
-    <table class="routes-table routes-table-wide referrers-table">
-      <thead>
-        <tr>
-          <th scope="col">Visits</th>
-          <th scope="col">Site</th>
-        </tr>
-      </thead>
-      <tbody id="referrer-rows"></tbody>
-    </table>
-  </section>
+    <section class="routes-section referrers-section" aria-label="Recent referrer">
+      <h2 class="chart-panel-title">RECENT REFERRER</h2>
+      <table class="routes-table routes-table-wide referrers-table">
+        <thead>
+          <tr>
+            <th scope="col">Visits</th>
+            <th scope="col">Site</th>
+          </tr>
+        </thead>
+        <tbody id="referrer-rows"></tbody>
+      </table>
+    </section>
 
-  <section class="routes-section" aria-label="Referrers by page">
-    <h2 class="chart-panel-title">REFERRERS BY PAGE</h2>
-    <table class="routes-table routes-table-wide page-referrers-table">
-      <thead>
-        <tr>
-          <th scope="col">Visits</th>
-          <th scope="col">Page</th>
-          <th scope="col">Referrer</th>
-        </tr>
-      </thead>
-      <tbody id="page-referrer-rows"></tbody>
-    </table>
-  </section>
+    <section class="routes-section referrers-section" aria-label="Referrers by page">
+      <h2 class="chart-panel-title">REFERRERS BY PAGE</h2>
+      <table class="routes-table routes-table-wide page-referrers-table">
+        <thead>
+          <tr>
+            <th scope="col">Visits</th>
+            <th scope="col">Page</th>
+            <th scope="col">Referrer</th>
+          </tr>
+        </thead>
+        <tbody id="page-referrer-rows"></tbody>
+      </table>
+    </section>
+  </div>
 
   <footer class="source-pages" aria-label="Measured pages">
     <a href="https://billiards.tailuge.workers.dev/chinese.html" target="_blank" rel="noopener">Chinese</a>
