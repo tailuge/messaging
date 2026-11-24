@@ -840,6 +840,21 @@
       if (net.status === "fulfilled") renderRoutes(net.value.routes, net.value.series)
     }
 
+    // Canonical page label for the referrers-by-page table. The same page is
+    // reported under several paths (the GitHub Pages folder the client is
+    // served from, an explicit .html file, an index page name), so those are
+    // dropped: /billiards/dist/map/index.html reads as /map/.
+    function canonicalPage(page) {
+      let path = String(page)
+      if (path.indexOf("/billiards/dist") === 0) {
+        path = path.slice("/billiards/dist".length)
+      }
+      if (path.endsWith(".html")) path = path.slice(0, -".html".length)
+      // Removed after the suffix so /map/index.html leaves the trailing slash.
+      path = path.replace(/index$/, "")
+      return path || "/"
+    }
+
     function referrerHref(ref) {
       try {
         const url = new URL(ref)
@@ -849,7 +864,7 @@
       }
     }
 
-    // Referrer sites over the server's 24h cache, with our own hosts (the
+    // Referrer sites over the server's 3d cache, with our own hosts (the
     // Cloudflare site and the Render deployment) already excluded and the
     // high-volume sources rolled up to their root (see referrer_api in
     // docker/nchan_meta.js). There is no history behind it, so this is a table
@@ -924,7 +939,7 @@
             const pageCell = tr.insertCell()
             pageCell.rowSpan = page.refs.length
             pageCell.className = "page-name"
-            pageCell.textContent = page.page
+            pageCell.textContent = canonicalPage(page.page)
           }
           const link = referrerHref(row.ref)
             ? document.createElement("a")

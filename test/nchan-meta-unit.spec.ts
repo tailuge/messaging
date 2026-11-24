@@ -114,7 +114,7 @@ describe("nchan_meta geoForRequest", () => {
 
     expect(geo).toEqual({ country: "US", city: "Boydton" });
     expect(cacheWrites).toEqual([
-      { key: "x.x.x.4", value: "US|Boydton|5|https://example.com|Win|Chr", ttl: 86400000 },
+      { key: "x.x.x.4", value: "US|Boydton|5|https://example.com|Win|Chr", ttl: 259200000 },
     ]);
   });
 

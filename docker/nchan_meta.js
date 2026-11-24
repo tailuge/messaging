@@ -230,7 +230,7 @@ async function geoForRequest(r) {
       originsArr.push(obfuscatedOrigin);
       origins = originsArr.join(",");
     }
-    cache.set(obfuscatedIp, formatCacheValue(country, city, count + 1, origins, parsedUA, ua), 86400000);
+    cache.set(obfuscatedIp, formatCacheValue(country, city, count + 1, origins, parsedUA, ua), IP_CACHE_TTL_MS);
     return { country: country, city: city };
   }
 
@@ -251,7 +251,7 @@ async function geoForRequest(r) {
   }
 
   const obfuscatedOrigin = origin ? obfuscateOrigin(origin) : "";
-  cache.set(obfuscatedIp, formatCacheValue(country, city, 1, obfuscatedOrigin, parsedUA, ua), 86400000);
+  cache.set(obfuscatedIp, formatCacheValue(country, city, 1, obfuscatedOrigin, parsedUA, ua), IP_CACHE_TTL_MS);
   return { country: country, city: city };
 }
 
@@ -753,6 +753,12 @@ async function publish(r) {
   r.return(res.status, "");
 }
 
+// How long the per-IP ip_cache entries live: the geo/UA/origin entry and the
+// "rref:" referrer list next to it. Both are passed explicitly to every set(),
+// so the zone timeout in docker/nginx.conf is only the fallback. The referrer
+// window /api/referrers reports is the same value.
+const IP_CACHE_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+
 function presence_sub(r) {
   try {
     noteSubscriber("presence/lobby", 1);
@@ -780,8 +786,8 @@ function presence_sub(r) {
           }
         }
         if (!found) entries.push(`1|${value}`);
-        cache.set(rrefKey, entries.join(","), 86400000);
-      } else cache.set(rrefKey, `1|${value}`, 86400000);
+        cache.set(rrefKey, entries.join(","), IP_CACHE_TTL_MS);
+      } else cache.set(rrefKey, `1|${value}`, IP_CACHE_TTL_MS);
     }
     r.return(200);
   } catch (e) {
@@ -1010,7 +1016,7 @@ function aggregateReferrers(entries) {
 // which page got the visit - something the site-level rollup above cannot,
 // because the presence cache never records which page the visitor landed on.
 // One JSON object per page keeps the entry count bounded by page count rather
-// than traffic; the zone's 7d timeout is refreshed by each hit, like net_stats.
+// than traffic; the zone's 3d timeout is refreshed by each hit, like net_stats.
 const PAGE_REFERRER_PREFIX = "p:";
 // A spammy page must not grow its entry without limit: past this many distinct
 // sources the extras are dropped, and the tail is one-off links anyway.
@@ -1463,12 +1469,12 @@ function presence_history_api(r) {
 // Referrer sites for usage.html. The dashboard reads the raw per-IP cache from
 // /api/stats and aggregates in the browser; this does the same work once, on
 // the server, so the page gets a short list instead of the whole cache. The
-// entries live for the cache's 24h TTL and are overwritten in place, so there
+// entries live for the cache's 3d TTL and are overwritten in place, so there
 // is no history behind them: totals, not another time series.
 function referrer_api(r) {
   const payload = JSON.stringify({
     ts: Date.now(),
-    window: 86400000,
+    window: IP_CACHE_TTL_MS,
     referrers: aggregateReferrers(getReferrerCache()),
   });
   noteApiOut(r, payload);

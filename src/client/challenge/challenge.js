@@ -10,7 +10,7 @@ import {
   replayUrl,
   reportPageReferrer,
 } from "../utils.js";
-import { userStore } from "../user-store.js";
+import { userStore, isAnonymousName } from "../user-store.js";
 
 logUsage("challenge");
 // Record where this page's visits came from for the usage dashboard.
@@ -425,6 +425,21 @@ function showHiscoreToast() {
 
 hiscoreToastOk.addEventListener("click", hideHiscoreToast);
 
+// A run that would make the rail is only uploaded under a name the player
+// picked. The generated `Anon…` names say nothing about who set the score, so
+// the page asks for a real one instead of posting a placeholder: the score is
+// dropped, and the run has to be played again after reloading with the new
+// name. A native <dialog>, so it covers the open game overlay.
+const usernameDialog = document.getElementById("username-dialog");
+const usernameDialogOk = document.getElementById("username-dialog-ok");
+
+function promptForUsername() {
+  if (usernameDialog.open) return;
+  usernameDialog.showModal();
+}
+
+usernameDialogOk.addEventListener("click", () => usernameDialog.close());
+
 // How long to wait before re-asserting presence after the game iframe is torn
 // down. The iframe's own client leaves under this page's userId as it unloads,
 // in two frames: its pagehide publish, then the server's auto-leave when its
@@ -491,6 +506,15 @@ async function maybeUploadSaguScore(data) {
     [...(userStore.userName || "").trim()].slice(0, 12).join("") || "Anon";
   if (!wouldRankInTopN(score)) return;
   if (!wouldBeatOwnWorst(name, score)) return;
+
+  // The run ranks, but under a generated name: ask the player to choose one
+  // first rather than putting `Anon-…` on the table. Nothing is kept — no
+  // local row, no upload — so the run has to be played again afterwards.
+  if (isAnonymousName(name)) {
+    console.log("hiscore: not uploaded, no chosen name", { score, name });
+    promptForUsername();
+    return;
+  }
 
   sentStates.add(replayData);
 
