@@ -4,6 +4,7 @@ import { userStore } from "../user-store.js";
 import { revealGameUrl, revealReplayUrl, shortenUrl, shareOrCopy } from "../utils.js";
 import { logUsage } from "../logusage.js";
 import "../topbar.js";
+import "../remote-inbox.js";
 
 // One page view per load, recorded from the module's top level the way the map page does, so
 // every way in (a bare visit, a shared ?mode= link, a deck switch) counts once for "reveal".
@@ -1408,6 +1409,7 @@ class RevealApp extends LitElement {
             this._theme = e.detail;
           }}
         ></app-topbar>
+        <remote-inbox></remote-inbox>
 
         <section class="intro">
           <div class="intro-head">

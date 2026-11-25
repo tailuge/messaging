@@ -28,10 +28,10 @@ const storedTheme = () => {
  * `<app-topbar>` — the site header used by the standalone game pages (reveal, map).
  *
  * It owns everything the header needs and nothing page-specific: the brand/logo, the version,
- * the centred link back to the lobby (which becomes a pulsing icon when a chat or challenge
+ * the centred link back to the lobby (which becomes a pulsing icon when a challenge offer
  * arrives), the trophy cabinet, the user badge and the settings modal. It also establishes
- * lobby presence and shows a small read-only popover for chat that arrives while the player is
- * on the page — the lobby itself owns the real chat window.
+ * lobby presence, then announces the joined lobby with a `lobby-ready` event so that
+ * `<remote-inbox>` can show chat on these pages with the lobby's own message window.
  *
  * The component is the theme owner: it is the only element carrying the switch, so it applies
  * the chosen theme to the document element and to itself, then re-emits `theme-changed`
@@ -42,8 +42,6 @@ class AppTopbar extends LitElement {
     theme: { type: String, reflect: true, attribute: "theme" },
     ruleType: { type: String, attribute: "rule-type" },
     _hasMessage: { state: true },
-    _pendingChats: { state: true },
-    _popoverOpen: { state: true },
   };
 
   static styles = [
@@ -125,9 +123,8 @@ class AppTopbar extends LitElement {
       }
       /* Always shown, centred over the top bar (absolute, out of the flex flow) so it never
          shoves or overlaps the trophy cups and other header controls. By default it is the
-         only route back to the lobby; when a chat message or challenge arrives it swaps to
-         a pulsing icon. Either state is just a link to the lobby, which owns the chat window
-         and challenge banner and knows how to present them. */
+         only route back to the lobby; when a challenge offer arrives it swaps to a pulsing
+         icon. Either state is just a link to the lobby, which owns the challenge banner. */
       .top-link {
         position: absolute;
         left: 50%;
@@ -180,71 +177,6 @@ class AppTopbar extends LitElement {
           animation: none;
         }
       }
-      /* Chat popover: a compact, read-only summary of messages that arrived while the player
-         was on this page (they have no chat UI here). Each line is "sender: text"; the Lobby
-         button navigates back so the conversation can be continued there. Clicking outside
-         (or Escape) dismisses it while leaving the pulsing icon as the reminder. */
-      .chat-popover {
-        position: absolute;
-        top: calc(50% + 20px);
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 3;
-        width: min(20rem, calc(100vw - 2rem));
-        display: flex;
-        flex-direction: column;
-        gap: 0.4rem;
-        padding: 0.5rem 0.6rem;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
-        font-size: 0.78rem;
-        line-height: 1.35;
-      }
-      .chat-popover ul {
-        margin: 0;
-        padding: 0;
-        list-style: none;
-        display: flex;
-        flex-direction: column;
-        gap: 0.3rem;
-        max-height: 10rem;
-        overflow-y: auto;
-      }
-      .chat-popover-sender {
-        font-weight: 600;
-      }
-      .chat-popover-text {
-        color: var(--text-muted);
-        overflow-wrap: anywhere;
-      }
-      .chat-popover-actions {
-        display: flex;
-        justify-content: flex-end;
-      }
-      .chat-popover-lobby {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 28px;
-        padding: 0.25rem 0.6rem;
-        background: var(--bg);
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        color: inherit;
-        text-decoration: none;
-        font-size: 0.72rem;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-      }
-      .chat-popover-lobby:hover {
-        border-color: var(--text-dim);
-      }
-      .chat-popover-lobby:focus-visible {
-        outline: 2px solid #007bff;
-        outline-offset: 1px;
-      }
     `,
   ];
 
@@ -252,8 +184,6 @@ class AppTopbar extends LitElement {
     super();
     this.theme = storedTheme();
     this._hasMessage = false;
-    this._pendingChats = [];
-    this._popoverOpen = false;
     this._lobby = null;
     this._client = null;
   }
@@ -264,13 +194,6 @@ class AppTopbar extends LitElement {
     // Keep presence fresh when the player renames themselves in the badge
     this._onNameChanged = (e) => this._updatePresence(e);
     document.addEventListener("user-name-changed", this._onNameChanged);
-    // Dismiss the chat popover when the player clicks anywhere outside it, or presses Escape
-    this._onDocPointerDown = (e) => this._handleDocPointerDown(e);
-    document.addEventListener("pointerdown", this._onDocPointerDown);
-    this._onDocKeyDown = (e) => {
-      if (e.key === "Escape" && this._popoverOpen) this._dismissPopover();
-    };
-    document.addEventListener("keydown", this._onDocKeyDown);
     // Presence — same path as lobby
     this._connectPresence().catch((e) =>
       console.error("topbar presence failed", e),
@@ -280,8 +203,6 @@ class AppTopbar extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     document.removeEventListener("user-name-changed", this._onNameChanged);
-    document.removeEventListener("pointerdown", this._onDocPointerDown);
-    document.removeEventListener("keydown", this._onDocKeyDown);
     try {
       this._lobby?.leave();
     } catch {}
@@ -338,14 +259,26 @@ class AppTopbar extends LitElement {
       ...(this.ruleType ? { ruleType: this.ruleType } : {}),
     });
     this._lobby = lobby;
-    // A chat message or a challenge offer has no UI on this page. Flag it so the top bar
-    // shows the message icon, which links back to the lobby for proper handling. A chat also
-    // opens a small popover so the text is not lost on the way back. Challenge accepts/declines
-    // are for the challenger and are not relevant here.
-    lobby.onChat((msg) => this._onIncomingChat(msg));
+    // Hand the joined lobby to <remote-inbox>, which opens the lobby's own chat window for
+    // messages that arrive while the player is on this page.
+    this.dispatchEvent(
+      new CustomEvent("lobby-ready", {
+        detail: { lobby },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    // A challenge offer still has no UI here: flag it so the top bar shows the message icon,
+    // which links back to the lobby. Accepts and declines are for the challenger, not for us.
     lobby.onChallenge((msg) => {
       if (msg.type === "offer") this._flagPendingMessage();
     });
+  }
+
+  // The joined Lobby (null until presence is up). <remote-inbox> reads this when it connects
+  // after the `lobby-ready` event has already fired.
+  get lobby() {
+    return this._lobby;
   }
 
   // Re-assert this page's presence while it is still open. A second document
@@ -389,37 +322,6 @@ class AppTopbar extends LitElement {
     this._hasMessage = true;
   }
 
-  // Chat arrived while the player was here. This page has no chat window, so show a small
-  // popover with the sender and text plus a route back to the lobby (where the conversation
-  // lives). Keeps the last few messages so a burst is not lost to a single line.
-  _onIncomingChat(msg) {
-    if (!msg?.text) return;
-    const sender =
-      this._lobby?.getUsers?.().find((u) => u.userId === msg.senderId)?.userName ||
-      msg.senderId;
-    this._pendingChats = [...this._pendingChats, { sender, text: msg.text }].slice(
-      -5,
-    );
-    this._hasMessage = true;
-    this._popoverOpen = true;
-  }
-
-  // Hide the popover but keep the pending chats and the pulsing icon, so a stray click does
-  // not lose the messages — the icon still leads back to the lobby.
-  _dismissPopover() {
-    if (!this._popoverOpen) return;
-    this._popoverOpen = false;
-  }
-
-  // Click outside the popover closes it. composedPath crosses the shadow boundary back to
-  // this host, so matching the popover element on the path is enough.
-  _handleDocPointerDown(e) {
-    if (!this._popoverOpen) return;
-    const path = e.composedPath?.() ?? [];
-    if (path.some((el) => el?.classList?.contains?.("chat-popover"))) return;
-    this._dismissPopover();
-  }
-
   render() {
     return html`
       <header class="topbar">
@@ -440,34 +342,11 @@ class AppTopbar extends LitElement {
           class="top-link ${this._hasMessage ? "top-link--alert" : ""}"
           href=${LOBBY_HREF}
           aria-label=${this._hasMessage
-            ? "New message — open the lobby"
+            ? "New challenge — open the lobby"
             : "Back to the lobby"}
-          title=${this._hasMessage ? "New message" : "Back to the lobby"}
+          title=${this._hasMessage ? "New challenge" : "Back to the lobby"}
           >${this._hasMessage ? "💬" : "Lobby"}</a
         >
-        ${this._popoverOpen && this._pendingChats.length
-          ? html`
-              <div
-                class="chat-popover"
-                role="dialog"
-                aria-label="New chat messages"
-              >
-                <ul>
-                  ${this._pendingChats.map(
-                    (c) => html`
-                      <li>
-                        <span class="chat-popover-sender">${c.sender}:</span>
-                        <span class="chat-popover-text">${c.text}</span>
-                      </li>
-                    `,
-                  )}
-                </ul>
-                <div class="chat-popover-actions">
-                  <a class="chat-popover-lobby" href=${LOBBY_HREF}>Lobby</a>
-                </div>
-              </div>
-            `
-          : ""}
         <trophy-item></trophy-item>
         <user-badge></user-badge>
         <settings-modal

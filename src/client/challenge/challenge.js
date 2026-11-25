@@ -3,6 +3,7 @@
 // flag) so it matches the map and reveal pages, and drives the page's own
 // score/gallery behaviour.
 import "../topbar.js";
+import "../remote-inbox.js";
 import { logUsage } from "../logusage.js";
 import {
   API_BASE,
