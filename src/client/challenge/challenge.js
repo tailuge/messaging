@@ -158,7 +158,7 @@ function selectDish(idx) {
 // The rail lists the sagu HiScores from `/api/hiscores/sagu`, the one-rule feed
 // this page needs: the lobby's `/api/summary` would also read the other four
 // rules' sets, the ELO hashes and the recent matches. Rows arrive best first.
-// The list the rail is drawn from; the top-40 gate reads it before uploading.
+// The list the rail is drawn from; the top-60 gate reads it before uploading.
 let saguScores = [];
 
 // The rail's identity for a row: player and score.
@@ -289,7 +289,7 @@ window.addEventListener("resize", () => {
 // Read the feed once per page load. It is deliberately not re-read after an
 // upload: see addLocalSaguScore.
 function loadSaguHiscores() {
-  fetch(`${API_BASE}/api/hiscores/sagu?limit=40`, { mode: "cors" })
+  fetch(`${API_BASE}/api/hiscores/sagu?limit=60`, { mode: "cors" })
     .then((response) => response.json())
     .then((data) => {
       saguScores = Array.isArray(data?.hiscores) ? data.hiscores : [];
@@ -470,10 +470,10 @@ function scoreFromSagu(score) {
   update(currentScore);
 }
 
-// Sagu HiScore upload. The scoreboard keeps the top 40 of the rail list; a run
+// Sagu HiScore upload. The scoreboard keeps the top 60 of the rail list; a run
 // is uploaded only when it would rank there, or when the list is not yet full,
 // and only when it beats the player's own worst row already in the table.
-const HISCORE_TOP_N = 40;
+const HISCORE_TOP_N = 60;
 
 // Replay states already sent this session, so one run never uploads twice.
 const sentStates = new Set();
@@ -485,7 +485,7 @@ function wouldRankInTopN(score) {
 
 // The second gate: a player keeps every run of theirs that already made the
 // table, so a new run is only worth sending if it beats their own worst row in
-// it. A player with no row yet has nothing to beat and goes in on the top-40
+// it. A player with no row yet has nothing to beat and goes in on the top-60
 // gate alone.
 function wouldBeatOwnWorst(name, score) {
   const own = saguScores

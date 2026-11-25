@@ -292,8 +292,8 @@ async function saguHiscores(r) {
     const cached = ngx.shared.summary_cache.get(cacheKey);
     if (cached) return json(r, 200, JSON.parse(cached));
 
-    // The challenge page's rail lists the top 40, so the read matches it (an
-    // inclusive 0-39 range, best first).
+    // The challenge page's rail lists the top 60 and asks for that many; the
+    // read is an inclusive 0-(limit-1) range, best first.
     let result;
     try {
         result = await redis("ZREVRANGE", `hiscore${rule}`, "0", String(limit - 1));

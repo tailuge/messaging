@@ -1,6 +1,6 @@
 # ---------- build stage ----------
-ARG NGINX_VERSION=1.30.6
-ARG NCHAN_VERSION=1.3.8
+ARG NGINX_VERSION=1.30.8
+ARG NCHAN_VERSION=1.3.9
 ARG NJS_VERSION=1.0.2
 
 FROM alpine:3.24 AS builder
