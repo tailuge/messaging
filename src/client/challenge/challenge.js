@@ -405,6 +405,7 @@ const saguFrame = document.getElementById("sagu-frame");
 const saguResult = document.getElementById("sagu-result");
 const hiscoreToast = document.getElementById("hiscore-toast");
 const hiscoreToastOk = document.getElementById("hiscore-toast-ok");
+const hiscoreNote = document.getElementById("hiscore-note");
 
 // The popover that tells the player a run made the hi-score rail. It closes
 // itself after two seconds, or at once on 확인; a run landing inside that
@@ -420,11 +421,31 @@ function hideHiscoreToast() {
 
 function showHiscoreToast() {
   clearTimeout(toastTimer);
+  hideHiscoreNote();
   hiscoreToast.classList.add("show");
   toastTimer = setTimeout(hideHiscoreToast, TOAST_MS);
 }
 
 hiscoreToastOk.addEventListener("click", hideHiscoreToast);
+
+// A run that scored but did not make the rail gets a plain line under the rail
+// title instead of the toast: there is no record to confirm, only the reason it
+// was left out. It clears itself after three seconds, and a later run replaces
+// the line rather than stacking a second one.
+const NOTE_MS = 3000;
+let noteTimer = null;
+
+function hideHiscoreNote() {
+  clearTimeout(noteTimer);
+  noteTimer = null;
+  hiscoreNote.textContent = "";
+}
+
+function showHiscoreNote(text) {
+  clearTimeout(noteTimer);
+  hiscoreNote.textContent = text;
+  noteTimer = setTimeout(hideHiscoreNote, NOTE_MS);
+}
 
 // A run that would make the rail is only uploaded under a name the player
 // picked. The generated `Anon…` names say nothing about who set the score, so
@@ -479,21 +500,26 @@ const HISCORE_TOP_N = 60;
 // Replay states already sent this session, so one run never uploads twice.
 const sentStates = new Set();
 
+// The lowest score the rail has room for, or null while it is still filling.
+function topNCutoffScore() {
+  if (saguScores.length < HISCORE_TOP_N) return null;
+  return Number(saguScores[HISCORE_TOP_N - 1]?.score) || 0;
+}
+
 function wouldRankInTopN(score) {
-  if (saguScores.length < HISCORE_TOP_N) return true;
-  return score >= Number(saguScores[HISCORE_TOP_N - 1].score);
+  const cutoff = topNCutoffScore();
+  return cutoff === null || score >= cutoff;
 }
 
 // The second gate: a player keeps every run of theirs that already made the
 // table, so a new run is only worth sending if it beats their own worst row in
-// it. A player with no row yet has nothing to beat and goes in on the top-60
-// gate alone.
-function wouldBeatOwnWorst(name, score) {
+// it. A player with no row yet has nothing to beat (null) and goes in on the
+// top-60 gate alone.
+function ownWorstScore(name) {
   const own = saguScores
     .filter((row) => (row?.name ?? "") === name)
     .map((row) => Number(row?.score) || 0);
-  if (!own.length) return true;
-  return score > Math.min(...own);
+  return own.length ? Math.min(...own) : null;
 }
 
 async function maybeUploadSaguScore(data) {
@@ -505,8 +531,20 @@ async function maybeUploadSaguScore(data) {
 
   const name =
     [...(userStore.userName || "").trim()].slice(0, 12).join("") || "Anon";
-  if (!wouldRankInTopN(score)) return;
-  if (!wouldBeatOwnWorst(name, score)) return;
+  if (!wouldRankInTopN(score)) {
+    const cutoff = topNCutoffScore();
+    showHiscoreNote(
+      `하이런 뷔페 ${HISCORE_TOP_N}위(${cutoff}점)에 못 미쳐 기록이 오르지 못했어요.`
+    );
+    return;
+  }
+  const worst = ownWorstScore(name);
+  if (worst !== null && !(score > worst)) {
+    showHiscoreNote(
+      `내 기록 중 가장 낮은 ${worst}점보다 높아야 하이런 뷔페에 오를 수 있어요.`
+    );
+    return;
+  }
 
   // The run ranks, but under a generated name: ask the player to choose one
   // first rather than putting `Anon-…` on the table. Nothing is kept — no
@@ -547,6 +585,7 @@ document.getElementById("play-sagu").addEventListener("click", () => {
   selectedIndex = null;
   update(0);
   hideHiscoreToast();
+  hideHiscoreNote();
   // The game iframe publishes its own presence under this page's userId, so this
   // page stops heartbeating while it is open rather than overwriting that record.
   document.querySelector("app-topbar")?.pausePresence?.();
