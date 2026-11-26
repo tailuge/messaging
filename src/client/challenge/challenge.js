@@ -452,6 +452,29 @@ function showHiscorePopover(text) {
   popoverTimer = setTimeout(hideHiscorePopover, POPOVER_MS);
 }
 
+// The card carries the link to the training course, so the countdown holds while
+// the card is hovered or its link focused: the player reaching for the link
+// should not have it withdrawn under the pointer. Leaving gives it the full
+// five seconds again.
+function holdHiscorePopover() {
+  clearTimeout(popoverTimer);
+  popoverTimer = null;
+}
+
+function releaseHiscorePopover() {
+  if (!hiscorePopover.classList.contains("show")) return;
+  clearTimeout(popoverTimer);
+  popoverTimer = setTimeout(hideHiscorePopover, POPOVER_MS);
+}
+
+hiscorePopover.addEventListener("pointerenter", holdHiscorePopover);
+// A tap on a touch screen fires no pointerleave, so the tap-end path ends the
+// hold instead.
+hiscorePopover.addEventListener("pointerleave", releaseHiscorePopover);
+hiscorePopover.addEventListener("pointerup", releaseHiscorePopover);
+hiscorePopover.addEventListener("focusin", holdHiscorePopover);
+hiscorePopover.addEventListener("focusout", releaseHiscorePopover);
+
 // A run that would make the rail is only uploaded under a name the player
 // picked. The generated `Anon…` names say nothing about who set the score, so
 // the page asks for a real one instead of posting a placeholder: the score is
