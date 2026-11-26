@@ -16,6 +16,25 @@ export const THEME_VARS = css`
         --btn-border:   #cccccc;
         --btn-hover:    #f0f0f0;
         --btn-active:   #e0e0e0;
+        /* Solid-action ramps: fill, hover (one step toward the edge) and edge
+           (the border and the 1 px base). Each ramp stays in the same tonal
+           family, so blue, green, red, purple and grey read as siblings
+           rather than as five swatches borrowed from different frameworks. */
+        --btn-primary:       #1a63d1;
+        --btn-primary-hover: #1554b3;
+        --btn-primary-edge:  #0e3f86;
+        --btn-success:       #1e7a45;
+        --btn-success-hover: #176137;
+        --btn-success-edge:  #104a2a;
+        --btn-danger:        #b03c46;
+        --btn-danger-hover:  #932f38;
+        --btn-danger-edge:   #6f2229;
+        --btn-muted:         #69717a;
+        --btn-muted-hover:   #575e66;
+        --btn-muted-edge:    #414850;
+        --btn-watch:         #6b4cc0;
+        --btn-watch-hover:   #5a3ca6;
+        --btn-watch-edge:    #452c7f;
         --table-head:   #f5f5f5;
         --banner-warn-bg:      #fff3cd;
         --banner-warn-border:  #ffc107;
@@ -42,6 +61,24 @@ export const THEME_VARS = css`
         --btn-border:   #555555;
         --btn-hover:    #444444;
         --btn-active:   #505050;
+        /* Same ramps lifted a step: on a dark page the fills can sit lighter
+           without losing the white text, while the edges stay dark enough to
+           draw the key's outline against #2a2a2a. */
+        --btn-primary:       #2f6fd6;
+        --btn-primary-hover: #2a61bc;
+        --btn-primary-edge:  #1b417c;
+        --btn-success:       #23824c;
+        --btn-success-hover: #1e7041;
+        --btn-success-edge:  #14502f;
+        --btn-danger:        #bd424c;
+        --btn-danger-hover:  #a5363f;
+        --btn-danger-edge:   #7a262e;
+        --btn-muted:         #70787f;
+        --btn-muted-hover:   #646c73;
+        --btn-muted-edge:    #4a5158;
+        --btn-watch:         #7a5ad2;
+        --btn-watch-hover:   #6949ba;
+        --btn-watch-edge:    #4c3487;
         --table-head:   #333333;
         --banner-warn-bg:      #3a2e00;
         --banner-warn-border:  #ffc107;
@@ -67,37 +104,53 @@ export const SHARED_STYLES = css`
     button:hover { background-color: var(--btn-hover); }
     button:active { background-color: var(--btn-active); }
     button:focus-visible { outline: 2px solid #007bff; outline-offset: 2px; }
-    /* Shared bevel treatment: inset highlight + drop shadow + tinted glow.
-       :active inverts the bevel and nudges the button down 1 px so clicks feel physical. */
+    /* A challenge is blocked while one is already pending; dimming the button
+       is what says so, since the label and shape stay the same. */
+    button:disabled { opacity: 0.45; cursor: default; }
+
+    /* Solid actions: challenge, accept, decline, leave, spectate.
+       Each is a lit key, not a flat swatch. One vertical ramp runs from a
+       14% highlight at the top to a 12% shadow at the bottom, and a 1 px
+       darker edge plus a 1 px base of the same edge colour give it a bottom.
+       The old version paired a weak 12%->6% wash with a coloured outer glow:
+       the light had no direction and the halo bled onto the rows behind the
+       button, which is what read as decoration instead of depth. Here the
+       light falls one way and stops at the edge, so the button is crisp at
+       24 px in a list and still has relief at full width. */
     .btn-challenge, .btn-accept, .btn-decline, .btn-leave, .btn-spectate {
-        background-image: linear-gradient(180deg, rgb(255 255 255 / 12%), rgb(0 0 0 / 6%));
-        border: none;
-        transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+        background-color: var(--btn-fill);
+        background-image: linear-gradient(
+            180deg,
+            rgb(255 255 255 / 14%) 0%,
+            rgb(255 255 255 / 3%) 48%,
+            rgb(0 0 0 / 12%) 100%
+        );
+        border: 1px solid var(--btn-fill-edge);
+        color: #fff;
+        box-shadow: 0 1px 0 var(--btn-fill-edge);
+        transition: background-color 0.12s ease, box-shadow 0.08s ease, transform 0.06s ease;
     }
-    .btn-challenge, .btn-accept, .btn-decline, .btn-leave, .btn-spectate { color: #fff; }
+    .btn-challenge:hover, .btn-accept:hover, .btn-decline:hover, .btn-leave:hover, .btn-spectate:hover {
+        background-color: var(--btn-fill-hover);
+    }
+    /* Pressed: the key sits down onto its base and the ramp is removed, so the
+       button reads as pushed in rather than as a smaller raised key. */
     .btn-challenge:active, .btn-accept:active, .btn-decline:active, .btn-leave:active, .btn-spectate:active {
+        background-color: var(--btn-fill-hover);
+        background-image: none;
+        box-shadow: 0 0 0 var(--btn-fill-edge), inset 0 1px 3px rgb(0 0 0 / 20%);
         transform: translateY(1px);
     }
 
-    .btn-challenge { background-color: #0d6efd; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 1px 2px rgb(0 0 0 / 20%), 0 2px 6px rgb(13 110 253 / 25%); }
-    .btn-challenge:hover { background-color: #0b5ed7; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 2px 4px rgb(0 0 0 / 22%), 0 4px 10px rgb(13 110 253 / 30%); }
-    .btn-challenge:active { box-shadow: inset 0 1px 2px rgb(0 0 0 / 25%), 0 1px 1px rgb(0 0 0 / 15%); }
+    .btn-challenge { --btn-fill: var(--btn-primary); --btn-fill-hover: var(--btn-primary-hover); --btn-fill-edge: var(--btn-primary-edge); }
+    .btn-accept    { --btn-fill: var(--btn-success); --btn-fill-hover: var(--btn-success-hover); --btn-fill-edge: var(--btn-success-edge); }
+    .btn-decline   { --btn-fill: var(--btn-danger);  --btn-fill-hover: var(--btn-danger-hover);  --btn-fill-edge: var(--btn-danger-edge); }
+    .btn-leave     { --btn-fill: var(--btn-muted);   --btn-fill-hover: var(--btn-muted-hover);   --btn-fill-edge: var(--btn-muted-edge); }
+    .btn-spectate  { --btn-fill: var(--btn-watch);   --btn-fill-hover: var(--btn-watch-hover);   --btn-fill-edge: var(--btn-watch-edge); }
 
-    .btn-accept    { background-color: #198754; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 1px 2px rgb(0 0 0 / 20%), 0 2px 6px rgb(25 135 84 / 25%); }
-    .btn-accept:hover { background-color: #157347; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 2px 4px rgb(0 0 0 / 22%), 0 4px 10px rgb(25 135 84 / 30%); }
-    .btn-accept:active { box-shadow: inset 0 1px 2px rgb(0 0 0 / 25%), 0 1px 1px rgb(0 0 0 / 15%); }
-
-    .btn-decline   { background-color: #bb2d3b; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 1px 2px rgb(0 0 0 / 20%), 0 2px 6px rgb(187 45 59 / 25%); }
-    .btn-decline:hover { background-color: #a52834; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 2px 4px rgb(0 0 0 / 22%), 0 4px 10px rgb(187 45 59 / 30%); }
-    .btn-decline:active { box-shadow: inset 0 1px 2px rgb(0 0 0 / 25%), 0 1px 1px rgb(0 0 0 / 15%); }
-
-    .btn-leave     { background-color: #6c757d; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 1px 2px rgb(0 0 0 / 20%), 0 2px 6px rgb(108 117 125 / 25%); }
-    .btn-leave:hover { background-color: #5a6268; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 2px 4px rgb(0 0 0 / 22%), 0 4px 10px rgb(108 117 125 / 30%); }
-    .btn-leave:active { box-shadow: inset 0 1px 2px rgb(0 0 0 / 25%), 0 1px 1px rgb(0 0 0 / 15%); }
-
-    .btn-spectate  { background-color: #7c3aed; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 1px 2px rgb(0 0 0 / 20%), 0 2px 6px rgb(124 58 237 / 25%); }
-    .btn-spectate:hover { background-color: #6d28d9; box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 2px 4px rgb(0 0 0 / 22%), 0 4px 10px rgb(124 58 237 / 30%); }
-    .btn-spectate:active { box-shadow: inset 0 1px 2px rgb(0 0 0 / 25%), 0 1px 1px rgb(0 0 0 / 15%); }
+    @media (prefers-reduced-motion: reduce) {
+        button { transition: none; }
+    }
 `;
 
 export const USER_LIST_STYLES = css`
