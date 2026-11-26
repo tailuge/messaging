@@ -19,6 +19,10 @@ npm run screenshot:iphone # Screenshot the locally served lobby
 
 ## Working with the user
 
+- **Browserless**: for remote-browser work (screenshots, scraping, headless checks) use the
+  Browserless endpoint. The token is `BROWSERLESS_TOKEN` in `.env` (gitignored) — never commit it or
+  paste it into source or output. See [browserless.md](browserless.md) for the curl/Playwright
+  snippets.
 - **UI changes: do not self-verify.** For client/UI work, run `npm run lint` (and the build if the
   bundle changed) and then **ask the user to verify manually** — do not rebuild the Docker image or
   run browser/screenshot checks as a substitute for their eyes.

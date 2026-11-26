@@ -870,6 +870,19 @@
       return path || "/"
     }
 
+    // Every page on the GitHub Pages deployment shares one host, so a visit
+    // that came from another page there is rolled up to the site root: the
+    // individual paths say nothing about where traffic came from, and folding
+    // them here also merges their counts into a single row.
+    const GITHUB_PAGES_ORIGIN = "https://tailuge.github.io/"
+
+    function normalizeReferrer(ref) {
+      const value = String(ref)
+      return value.toLowerCase().indexOf(GITHUB_PAGES_ORIGIN) === 0
+        ? GITHUB_PAGES_ORIGIN
+        : value
+    }
+
     // The server keys its counters by the exact pathname each page reports, so
     // one page arrives under several keys: /korean from the Cloudflare host and
     // /billiards/dist/korean.html from the GitHub Pages deployment. Both read as
@@ -888,8 +901,9 @@
         }
         page.refs.forEach((row) => {
           if (!(row.count > 0)) return
+          const ref = normalizeReferrer(row.ref)
           group.total += row.count
-          group.refs.set(row.ref, (group.refs.get(row.ref) || 0) + row.count)
+          group.refs.set(ref, (group.refs.get(ref) || 0) + row.count)
         })
       })
       return [...groups.values()]

@@ -405,7 +405,8 @@ const saguFrame = document.getElementById("sagu-frame");
 const saguResult = document.getElementById("sagu-result");
 const hiscoreToast = document.getElementById("hiscore-toast");
 const hiscoreToastOk = document.getElementById("hiscore-toast-ok");
-const hiscoreNote = document.getElementById("hiscore-note");
+const hiscorePopover = document.getElementById("hiscore-popover");
+const hiscorePopoverText = document.getElementById("hiscore-popover-text");
 
 // The popover that tells the player a run made the hi-score rail. It closes
 // itself after two seconds, or at once on 확인; a run landing inside that
@@ -421,30 +422,34 @@ function hideHiscoreToast() {
 
 function showHiscoreToast() {
   clearTimeout(toastTimer);
-  hideHiscoreNote();
+  hideHiscorePopover();
   hiscoreToast.classList.add("show");
   toastTimer = setTimeout(hideHiscoreToast, TOAST_MS);
 }
 
 hiscoreToastOk.addEventListener("click", hideHiscoreToast);
 
-// A run that scored but did not make the rail gets a plain line under the rail
-// title instead of the toast: there is no record to confirm, only the reason it
-// was left out. It clears itself after three seconds, and a later run replaces
-// the line rather than stacking a second one.
-const NOTE_MS = 3000;
-let noteTimer = null;
+// A run that scored but did not make the rail gets a small card over the score
+// it failed to lift, instead of a line down in the rail: the reason sits next
+// to the number the player is looking at. There is no record to confirm, only
+// the reason it was left out, so nothing here needs dismissing. It clears
+// itself after five seconds, and a later run replaces the card rather than
+// stacking a second one.
+const POPOVER_MS = 5000;
+let popoverTimer = null;
 
-function hideHiscoreNote() {
-  clearTimeout(noteTimer);
-  noteTimer = null;
-  hiscoreNote.textContent = "";
+function hideHiscorePopover() {
+  clearTimeout(popoverTimer);
+  popoverTimer = null;
+  hiscorePopover.classList.remove("show");
+  hiscorePopoverText.textContent = "";
 }
 
-function showHiscoreNote(text) {
-  clearTimeout(noteTimer);
-  hiscoreNote.textContent = text;
-  noteTimer = setTimeout(hideHiscoreNote, NOTE_MS);
+function showHiscorePopover(text) {
+  clearTimeout(popoverTimer);
+  hiscorePopoverText.textContent = text;
+  hiscorePopover.classList.add("show");
+  popoverTimer = setTimeout(hideHiscorePopover, POPOVER_MS);
 }
 
 // A run that would make the rail is only uploaded under a name the player
@@ -533,14 +538,14 @@ async function maybeUploadSaguScore(data) {
     [...(userStore.userName || "").trim()].slice(0, 12).join("") || "Anon";
   if (!wouldRankInTopN(score)) {
     const cutoff = topNCutoffScore();
-    showHiscoreNote(
+    showHiscorePopover(
       `하이런 뷔페 ${HISCORE_TOP_N}위(${cutoff}점)에 못 미쳐 기록이 오르지 못했어요.`
     );
     return;
   }
   const worst = ownWorstScore(name);
   if (worst !== null && !(score > worst)) {
-    showHiscoreNote(
+    showHiscorePopover(
       `내 기록 중 가장 낮은 ${worst}점보다 높아야 하이런 뷔페에 오를 수 있어요.`
     );
     return;
@@ -585,7 +590,7 @@ document.getElementById("play-sagu").addEventListener("click", () => {
   selectedIndex = null;
   update(0);
   hideHiscoreToast();
-  hideHiscoreNote();
+  hideHiscorePopover();
   // The game iframe publishes its own presence under this page's userId, so this
   // page stops heartbeating while it is open rather than overwriting that record.
   document.querySelector("app-topbar")?.pausePresence?.();
