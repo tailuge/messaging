@@ -32,6 +32,9 @@ const storedTheme = () => {
  * arrives), the trophy cabinet, the user badge and the settings modal. It also establishes
  * lobby presence, then announces the joined lobby with a `lobby-ready` event so that
  * `<remote-inbox>` can show chat on these pages with the lobby's own message window.
+ * A host page that hands chat and challenges to another document for a while (the
+ * game iframe) pauses them with `pauseMessages()` and restores them with
+ * `resumeMessages()`.
  *
  * The component is the theme owner: it is the only element carrying the switch, so it applies
  * the chosen theme to the document element and to itself, then re-emits `theme-changed`
@@ -184,6 +187,7 @@ class AppTopbar extends LitElement {
     super();
     this.theme = storedTheme();
     this._hasMessage = false;
+    this._messagesPaused = false;
     this._lobby = null;
     this._client = null;
   }
@@ -271,7 +275,11 @@ class AppTopbar extends LitElement {
     // A challenge offer still has no UI here: flag it so the top bar shows the message icon,
     // which links back to the lobby. Accepts and declines are for the challenger, not for us.
     lobby.onChallenge((msg) => {
-      if (msg.type === "offer") this._flagPendingMessage();
+      // While the game document owns the offer it answers it itself, so flagging
+      // it here would light this page's icon for a challenge already handled.
+      if (msg.type === "offer" && !this._messagesPaused) {
+        this._flagPendingMessage();
+      }
     });
   }
 
@@ -303,6 +311,22 @@ class AppTopbar extends LitElement {
   resumePresence() {
     this._lobby?.resumeHeartbeat();
     this.refreshPresence();
+  }
+
+  // Chat and challenges belong to the game document while it is open on this page
+  // (the challenge page's game iframe): the inbox drops them instead of opening
+  // its own chat window or challenge card for them.
+  pauseMessages() {
+    this._messagesPaused = true;
+    const inbox = document.querySelector("remote-inbox");
+    if (inbox) inbox.paused = true;
+  }
+
+  // Hand chat and challenges back once the game document has closed.
+  resumeMessages() {
+    this._messagesPaused = false;
+    const inbox = document.querySelector("remote-inbox");
+    if (inbox) inbox.paused = false;
   }
 
   // Keep presence fresh on name change via updatePresence

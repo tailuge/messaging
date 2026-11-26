@@ -477,6 +477,8 @@ const PRESENCE_REFRESH_MS = 500;
 function closeSagu() {
   saguOverlay.classList.remove("active");
   saguFrame.src = "about:blank";
+  // The iframe is gone, so chat and challenges are this page's again at once.
+  document.querySelector("app-topbar")?.resumeMessages?.();
   // The page's own presence went out with the iframe's leave; resume it (heartbeat
   // plus an immediate publish) once that leave has landed, rather than leaving the
   // player missing until the record expires or the player changes tabs.
@@ -594,6 +596,9 @@ document.getElementById("play-sagu").addEventListener("click", () => {
   // The game iframe publishes its own presence under this page's userId, so this
   // page stops heartbeating while it is open rather than overwriting that record.
   document.querySelector("app-topbar")?.pausePresence?.();
+  // It also reads chat and challenges itself while it is open, so this page drops
+  // them for the length of the game instead of opening its own windows.
+  document.querySelector("app-topbar")?.pauseMessages?.();
   saguFrame.src = saguUrl();
   saguOverlay.classList.add("active");
 });

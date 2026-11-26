@@ -37,6 +37,8 @@ const linkify = (text = '') => {
  *
  * Props:
  *   lobby      — Lobby instance (registers onChat once when set)
+ *   paused     — drop incoming chat instead of recording it (set by a host page
+ *                that has handed chat to another document, e.g. a game iframe)
  *   targetId   — userId of the conversation partner (falsy = hidden)
  *   targetName — display name of the conversation partner
  *
@@ -46,6 +48,7 @@ const linkify = (text = '') => {
 class MessageModal extends LitElement {
     static properties = {
         lobby:      { type: Object },
+        paused:     { type: Boolean },
         targetId:   { type: String },
         targetName: { type: String },
         _messages:  { state: true },
@@ -114,6 +117,8 @@ class MessageModal extends LitElement {
         if (changed.has('lobby') && this.lobby && !this._lobbyBound) {
             this._lobbyBound = true;
             this.lobby.onChat(msg => {
+                // Another document owns chat right now: discard rather than queue it.
+                if (this.paused) return;
                 const key = msg.senderId;
                 const thread = [...(this._messages.get(key) ?? []), msg];
                 this._messages = new Map(this._messages).set(key, thread);

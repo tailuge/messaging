@@ -22,10 +22,15 @@ import "./message-modal.js";
  * The host is an out-of-flow overlay with a z-index above the challenge page's full-screen game
  * overlay, so the modal is not trapped behind it — the sticky top bar would otherwise confine
  * its children to that header's own stacking context.
+ *
+ * While a host page hands chat and challenges to another document (the challenge page's game
+ * iframe, which plays mid-game chat in its own window), the page sets `paused` and both are
+ * dropped instead of queueing: the other document owns them for the length of the game.
  */
 class RemoteInbox extends LitElement {
   static properties = {
     theme: { type: String, reflect: true, attribute: "theme" },
+    paused: { type: Boolean },
     _lobby: { state: true },
     _chat: { state: true },
     _challenge: { state: true },
@@ -116,9 +121,19 @@ class RemoteInbox extends LitElement {
 
   constructor() {
     super();
+    this.paused = false;
     this._lobby = null;
     this._chat = null; // { userId, name } of the conversation on screen
     this._challenge = null; // incoming offer on screen
+  }
+
+  // Pausing clears anything already on screen: the game document now owns the
+  // conversation and the offer, so this page must not hold either open.
+  willUpdate(changed) {
+    if (changed.has("paused") && this.paused) {
+      this._chat = null;
+      this._challenge = null;
+    }
   }
 
   connectedCallback() {
@@ -165,6 +180,8 @@ class RemoteInbox extends LitElement {
   // An offer for us goes on screen; accept/decline/cancel for that challenger clears it.
   // Arena offers carry a tournamentId and belong to the arena flow, so they are ignored.
   _onChallenge(msg) {
+    // The game document answers offers itself while it is open.
+    if (this.paused) return;
     if (msg.challengeeId !== userStore.clientId) return;
     if (msg.type === "offer") {
       if (!msg.options?.tournamentId) this._challenge = msg;
@@ -207,7 +224,8 @@ class RemoteInbox extends LitElement {
   // A chat arrived: open it on the sender so the text is read straight away and can be
   // answered without going back to the lobby first.
   _open(msg) {
-    if (!msg?.text) return;
+    // Chat goes to the game document while it is open; nothing is kept here.
+    if (this.paused || !msg?.text) return;
     const name =
       (this._lobby?.getUsers?.() ?? []).find((u) => u.userId === msg.senderId)
         ?.userName || msg.senderId;
@@ -219,6 +237,7 @@ class RemoteInbox extends LitElement {
     return html`
       <message-modal
         .lobby=${this._lobby}
+        .paused=${this.paused}
         .targetId=${this._chat?.userId ?? null}
         .targetName=${this._chat?.name ?? ""}
         @close=${() => {
