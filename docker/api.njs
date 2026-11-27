@@ -56,10 +56,13 @@ async function hello(r) {
 
 // Every metric the usage dashboard charts: the language pages, the game/blog
 // pages (map, reveal), and the activity counters (lobby traffic, game activity,
-// challenges, accepts). GET /api/usage returns them all in one response, which
-// is cached for ten minutes as a single summary_cache entry below, so a
-// dashboard load costs one cached read instead of one backend read per metric.
-const USAGE_KEYS = ["chineseUsage", "koreanUsage", "germanUsage", "turkishUsage", "vietnameseUsage", "japaneseUsage", "spanishUsage", "dutchUsage", "snookerUsage", "nineballUsage", "eightballUsage", "threecushionUsage", "mapUsage", "revealUsage", "challengeUsage", "lobbyUsage", "gameUsage", "createTableUsage", "joinTableUsage", "completeUsage"];
+// challenges, accepts). `onlinePeakUsage` rides along: it is the daily peak of
+// online users, written once a day by nchan_meta.js in exactly this shape, and
+// listed here so one GET /api/usage answers it too. GET /api/usage returns them
+// all in one response, which is cached for ten minutes as a single
+// summary_cache entry below, so a dashboard load costs one cached read instead
+// of one backend read per metric.
+const USAGE_KEYS = ["chineseUsage", "koreanUsage", "germanUsage", "turkishUsage", "vietnameseUsage", "japaneseUsage", "spanishUsage", "dutchUsage", "snookerUsage", "nineballUsage", "eightballUsage", "threecushionUsage", "mapUsage", "revealUsage", "challengeUsage", "lobbyUsage", "gameUsage", "createTableUsage", "joinTableUsage", "completeUsage", "onlinePeakUsage"];
 const USAGE_METRIC_RE = /^[a-zA-Z0-9_-]+$/;
 // Daily counts only change once a day, so the usage dashboard reads are cached
 // for ten minutes via an explicit per-entry TTL overriding summary_cache's 30s

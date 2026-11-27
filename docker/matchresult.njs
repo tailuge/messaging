@@ -20,11 +20,15 @@ const redisPipeline = upstash.redisPipeline;
 const netBucket = upstash.netBucket;
 const geoForRequest = nchanMeta.geoForRequest;
 
-// One tag for every line this module writes, so the calls and their failures are
-// greppable in njs_error.log — the same file /api/stats tails for the dashboard.
-// Deliberately terse: the entry line and failures only, never per-write or
-// per-field tracing. Payloads are only ever summarised by their length.
+// Only failures are logged: a successful upload is a routine write, and the old
+// entry line (plus one per write) drowned the dashboard's NJS log panel. Every
+// line this module still writes carries LOG_TAG, so failures stay greppable in
+// njs_error.log — the same file /api/stats tails for the dashboard.
 const LOG_TAG = "MATCH-RESULT: ";
+
+function logMatchResult(message) {
+    ngx.log(ngx.ERR, LOG_TAG + message);
+}
 
 // The single place the port decides whether it is allowed to mutate the KV.
 const WRITES_ENABLED = true;
@@ -44,10 +48,6 @@ const MATCH_RESULTS_TRIM = -33;
 const K_FACTOR = 32;
 const DEFAULT_RATING = 1500;
 
-function logMatchResult(message) {
-    ngx.log(ngx.ERR, LOG_TAG + message);
-}
-
 // The three counters noteApiOut writes in api.njs, repeated here because that
 // helper is private to the dispatcher and this module answers its own requests
 // rather than going through it. Same keys, same meaning: egress bytes, call
@@ -61,9 +61,9 @@ function noteResponseBytes(r, payload) {
 }
 
 // The response writer, the one place a reply leaves this module. It counts the
-// reply so the usage page has a row for this route, and logs the unhappy path
-// itself: any non-2xx answer is recorded with its status and body, so a bad
-// upload is visible without each call site remembering to log.
+// reply so the usage page has a row for this route, and logs the unhappy path:
+// any non-2xx answer is recorded with its status and body, so a bad upload is
+// visible without each call site remembering to log. Success logs nothing.
 function json(r, status, obj) {
     const payload = JSON.stringify(obj);
     noteResponseBytes(r, payload);
@@ -210,21 +210,12 @@ async function planWrites(record, replayData) {
 // Happy path only: a malformed body throws and is answered 500 by the catch
 // below, which is the spec's stance (no input validation on this route).
 async function matchResult(r) {
-    const bytes = r.requestText ? r.requestText.length : 0;
-    // The entry line is the whole point of this route while writes are off, so it
-    // carries the dry-run state and how many commands the upload planned.
-    logMatchResult("called bytes=" + bytes + (WRITES_ENABLED ? "" : " dryRun=1"));
     try {
         const body = JSON.parse(r.requestText || "{}");
         const replayData = body.replayData;
         const record = await buildRecord(r, body, replayData);
         const commands = await planWrites(record, replayData);
-        if (WRITES_ENABLED) {
-            await redisPipeline(commands);
-            logMatchResult("wrote " + commands.length + " commands");
-        } else {
-            logMatchResult("skipped " + commands.length + " writes");
-        }
+        if (WRITES_ENABLED) await redisPipeline(commands);
         return json(r, 201, record);
     } catch (e) {
         logMatchResult("failed: " + (e && e.stack ? e.stack : e));

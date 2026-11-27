@@ -9,9 +9,9 @@
 // is not supported". Callers import the default and alias the members they use.
 //
 // `netBucket` lives here rather than in api.njs because noteUpstash needs it.
-// nchan_meta.js keeps its own copy of the same function: that module is loaded
-// by the publish hooks and the duplicate is a few lines, so the two files do not
-// import from each other.
+// nchan_meta.js keeps its own copy of the same function rather than importing
+// it: the duplicate is a few lines and that module is on the publish hot path.
+// It does import `redis` from here for its one daily write (the online peak).
 
 // ---- network byte accounting ----------------------------------------------
 // Same in-memory minute buckets as nchan_meta.js: one JSON object per minute

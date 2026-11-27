@@ -1,3 +1,9 @@
+// The only thing this module writes to Upstash: the daily online peak below.
+// Everything else it keeps is in-memory, shared-dict state.
+import upstash from './upstash.njs';
+
+const redis = upstash.redis;
+
 function getClientIp(r) {
   const xff = r.headersIn["x-forwarded-for"];
   if (xff && typeof xff === "string") {
@@ -39,13 +45,16 @@ function osLabel(token) {
   return token.substring(0, 3).replace(/^[a-z]/, function (c) { return c.toUpperCase(); });
 }
 
-// Meta's FacebookExternalHit crawler (link previews for shared pages) sends no
-// OS token at all: it runs on Facebook's servers, so there is nothing to parse
-// and the plain OS rules would leave both fields as the raw user agent. Its
-// token is also not crawler-shaped ("facebookexternalhit" has no bot/crawler/
-// spider suffix), so it is matched by name and labelled FB in both fields.
-function isFacebookExternalHit(ua) {
-  return /facebookexternalhit\//i.test(ua);
+// Meta's crawlers (facebookexternalhit for link previews, meta-externalagent
+// and meta-externalfetcher for indexing) send no OS token at all: they run on
+// Facebook's servers, so there is nothing to parse and the plain OS rules would
+// leave both fields as the raw user agent. Their tokens are also not
+// crawler-shaped (no bot/crawler/spider suffix), so any user agent mentioning
+// Facebook is labelled FB in both fields — meta-externalagent names it only in
+// its docs URL (developers.facebook.com). Facebook's in-app browsers are
+// unaffected: they identify themselves with FBAN/FBAV tokens, not "facebook".
+function isFacebookCrawler(ua) {
+  return /facebook/i.test(ua);
 }
 
 // Search crawlers send a browser-shaped user agent (Bing's crawler adds a
@@ -86,7 +95,7 @@ function parseUA(ua) {
   if (ua) {
     var platform = x11Platform(ua);
     var crawler = crawlerName(ua);
-    if (isFacebookExternalHit(ua)) { os = "FB"; browser = "FB"; }
+    if (isFacebookCrawler(ua)) { os = "FB"; browser = "FB"; }
     else if (crawler) { os = "Bot"; browser = crawlerLabel(crawler); }
     else if (/Tauri/i.test(ua)) { os = "Tau"; browser = "Tau"; }
     else if (/Android/i.test(ua)) os = "And";
@@ -378,7 +387,7 @@ function updatePresenceRegistry(r, reqText, body) {
     }
     dict.set(key, JSON.stringify({ f: firstSeen, b: body }), PRESENCE_TTL_MS);
   }
-  recordPresenceCount();
+  return recordPresenceCount();
 }
 
 // Open challenges: one entry per pair, "c:<challengerId>|<challengeeId>" -> the
@@ -431,6 +440,38 @@ function challengeSince(body) {
   return ts ? parseInt(ts[1], 10) : NaN;
 }
 
+// The busiest count of the current UTC day, kept next to the minute samples.
+// Once the day is all but over (23:50 UTC), the first presence activity after
+// that writes it to Upstash in the same shape as the usage counters: sorted set
+// `onlinePeakUsage`, member {"date":"YYYY-MM-DD"}, score = the peak. A done flag
+// keyed by the date keeps it to one write per day; a failed write clears the
+// flag, so the next presence activity retries instead of losing the day. The key
+// is listed in USAGE_KEYS (api.njs), so GET /api/usage serves it with the rest.
+const DAILY_PEAK_MAX_PREFIX = "p:";
+const DAILY_PEAK_DONE_PREFIX = "x:";
+const DAILY_PEAK_METRIC = "onlinePeakUsage";
+const DAILY_PEAK_WRITE_AFTER_MS = (23 * 60 + 50) * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function trackDailyPeak(count) {
+  const history = ngx.shared.presence_history;
+  const now = Date.now();
+  const day = new Date(now).toISOString().split("T")[0];
+  const maxKey = DAILY_PEAK_MAX_PREFIX + day;
+  const stored = parseInt(history.get(maxKey), 10) || 0;
+  if (count > stored) history.set(maxKey, String(count));
+  // Before 23:50 the day is still running, so there is no final figure to write.
+  if (now % DAY_MS < DAILY_PEAK_WRITE_AFTER_MS) return;
+  const doneKey = DAILY_PEAK_DONE_PREFIX + day;
+  if (history.get(doneKey)) return;
+  history.set(doneKey, "1");
+  return redis("ZADD", DAILY_PEAK_METRIC, String(Math.max(stored, count)), JSON.stringify({ date: day }))
+    .catch(function (e) {
+      ngx.log(ngx.WARN, "online peak write failed: " + (e && e.message ? e.message : e));
+      history.delete(doneKey);
+    });
+}
+
 // Users-online history for usage.html. The count is derived from the registry
 // on every presence publish (a running counter cannot stay accurate: a frame's
 // 130 s TTL expires without a hook), but a sample is stored only when the count
@@ -444,13 +485,17 @@ function challengeSince(body) {
 // value the minute happens to end on.
 function recordPresenceCount() {
   const count = String(ngx.shared.presence_live.keys().length);
+  // Before the unchanged-count return: the daily write is due at a time, not on
+  // a change, so a steady lobby still records its peak.
+  const peakWrite = trackDailyPeak(parseInt(count, 10));
   const history = ngx.shared.presence_history;
-  if (history.get(HISTORY_LAST_KEY) === count) return;
+  if (history.get(HISTORY_LAST_KEY) === count) return peakWrite;
   const bucket = Math.floor(Date.now() / HISTORY_BUCKET_MS) * HISTORY_BUCKET_MS;
   const key = HISTORY_KEY_PREFIX + bucket;
   const peak = parseInt(history.get(key), 10);
   if (!(peak >= parseInt(count, 10))) history.set(key, count);
   history.set(HISTORY_LAST_KEY, count);
+  return peakWrite;
 }
 
 function incrementStat(key, delta) {
@@ -720,7 +765,7 @@ async function publish(r) {
   }
   const body = injectMetaString(reqText, meta);
   try {
-    updatePresenceRegistry(r, reqText, body);
+    await updatePresenceRegistry(r, reqText, body);
     updateChallengeRegistry(r, body);
   } catch (e) {
     ngx.log(ngx.WARN, `presence registry error: ${e && e.message ? e.message : e}`);
@@ -1370,10 +1415,14 @@ function getSystemStats(uptime) {
 }
 
 // The dashboard shows the tail of the error log, and this runs on the njs
-// worker thread: reading the whole file would block it. The last 16 KB is read
-// instead, so the result is approximate — a quiet log returns all of its lines,
-// a busy one returns as many clean records as fit in that window.
+// worker thread: reading the whole file would block it. Bounded windows are read
+// from the end instead, starting at the last 16 KB and doubling backwards until
+// the requested number of useful records is in hand. One fixed window is not
+// enough: at info level most lines are keepalive and socket noise, so 16 KB of a
+// busy log can filter down to a handful of real lines. LOG_TAIL_MAX_BYTES caps
+// the work one /api/stats call may do on a log made almost entirely of noise.
 const LOG_TAIL_BYTES = 16 * 1024;
+const LOG_TAIL_MAX_BYTES = 512 * 1024;
 const LOG_TAIL_LINES = 100;
 // Logged routinely at info level by keepalive and socket churn; never useful.
 const LOG_TAIL_NOISE = /closed keepalive connection|107: Socket not connected/;
@@ -1397,15 +1446,24 @@ function readLogTail(path, maxLines) {
     const size = fs.fstatSync(fd).size;
     if (size === 0) return [];
 
-    const start = Math.max(0, size - LOG_TAIL_BYTES);
-    const buf = Buffer.alloc(size - start);
-    const read = fs.readSync(fd, buf, 0, buf.length, start);
+    let window = Math.min(size, LOG_TAIL_BYTES);
+    for (;;) {
+      const start = size - window;
+      const buf = Buffer.alloc(window);
+      const read = fs.readSync(fd, buf, 0, window, start);
 
-    const lines = buf.toString("utf8", 0, read).split("\n");
-    if (start > 0) lines.shift();
-    if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+      const lines = buf.toString("utf8", 0, read).split("\n");
+      if (start > 0) lines.shift();
+      if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
 
-    return lines.filter((line) => !LOG_TAIL_NOISE.test(line)).slice(-maxLines);
+      const useful = lines.filter((line) => !LOG_TAIL_NOISE.test(line));
+      // Stop when there is enough to show, when the file start is reached, or
+      // when the cap forbids reading further back.
+      if (useful.length >= maxLines || start === 0 || window >= LOG_TAIL_MAX_BYTES) {
+        return useful.slice(-maxLines);
+      }
+      window = Math.min(window * 2, LOG_TAIL_MAX_BYTES, size);
+    }
   } catch (e) {
     return ["Error reading " + path + ": " + e.message];
   } finally {
@@ -1635,7 +1693,7 @@ async function presence_heartbeat(r) {
       } catch (e) {}
     }
     const body = injectMetaString(r.requestText, await buildMeta(r));
-    updatePresenceRegistry({ uri: "/publish/presence/lobby" }, r.requestText, body);
+    await updatePresenceRegistry({ uri: "/publish/presence/lobby" }, r.requestText, body);
     const next = JSON.parse(body);
     if (!previous || presenceMeaningfullyChanged(previous, next)) {
       notePublishBytes("presence", r.requestText.length, body.length, channelSubscribers("presence/lobby"), body.length - r.requestText.length);

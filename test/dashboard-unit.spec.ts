@@ -192,6 +192,26 @@ describe("Dashboard UI Unit Tests", () => {
     );
   });
 
+  test("our own Cloudflare host displays as a path, not a full origin", () => {
+    const encode = (url: string) => encodeURIComponent(url);
+    updateUIFunction({
+      referrer_cache: {
+        "10.x.x.1": [
+          `3|${encode("https://billiards.tailuge.workers.dev/lobby.html")}`,
+          `2|${encode("https://billiards.tailuge.workers.dev/game.html?table=7")}`,
+          `1|${encode("https://billiards.tailuge.workers.dev")}`,
+        ].join(","),
+      },
+    });
+
+    const body = mockDocument.getElementById("ref-tbody").innerHTML;
+    expect(body).toBe(
+      '<tr><td class="count-col">3</td><td>/lobby.html</td></tr>' +
+        '<tr><td class="count-col">2</td><td>/game.html?table=7</td></tr>' +
+        '<tr><td class="count-col">1</td><td>/</td></tr>'
+    );
+  });
+
   test("OS and Browser section groups by OS and sorts correctly", () => {
     const mockData = {
       ip_cache: {

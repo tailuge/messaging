@@ -7,9 +7,12 @@ import path from "path";
 // None of the classification helpers touch either, so the module body can be
 // evaluated over stubs and its pure functions exercised directly. The fs-backed
 // log reader gets Node's `fs` when a test supplies it.
-function loadNchanMeta(fsImpl: any = null): any {
+function loadNchanMeta(fsImpl: any = null, redisImpl: any = null): any {
   const file = path.resolve(process.cwd(), "docker/nchan_meta.js");
-  const source = fs.readFileSync(file, "utf-8").replace(/export default \{[\s\S]*?\};/, "");
+  const source = fs
+    .readFileSync(file, "utf-8")
+    .replace(/^import .*;$/gm, "")
+    .replace(/export default \{[\s\S]*?\};/, "");
   expect(source).not.toContain("export default");
   // The msg_ids zone from docker/nginx.conf: a number-typed shared dict holding a
   // single counter that starts at 0. njs returns init + delta for an absent key,
@@ -27,12 +30,16 @@ function loadNchanMeta(fsImpl: any = null): any {
     if (name === "fs" && fsImpl) return fsImpl;
     throw new Error("require is not available in this test");
   };
+  // Upstash is stubbed: only the daily online peak reaches it, and a test that
+  // cares passes its own `redis`.
+  const upstash = { redis: redisImpl || function () { return Promise.resolve(null); } };
   return new Function(
     "ngx",
     "require",
+    "upstash",
     `${source}
      return { parseUA, reduceUA, cacheSafeUA, classifyForCache, formatCacheValue, geoForRequest, summariseCpuThrottling, publish, getOnlineUsers, recordPresenceCount, isPresenceHeartbeat, readLogTail, aggregateReferrers, LOG_TAIL_LINES, LOG_TAIL_BYTES, LOG_TAIL_NOISE, ngx };`
-  )(ngx, requireStub);
+  )(ngx, requireStub, upstash);
 }
 
 const CHROME_WINDOWS =
@@ -71,10 +78,13 @@ const BINGBOT =
   "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm) Chrome/136.0.0.0 Safari/537.36";
 const CUBOT_ANDROID =
   "Mozilla/5.0 (Linux; Android 11; CUBOT X30) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
-// Meta's link-preview crawler: no OS token and no bot/crawler/spider suffix, so
-// it used to be stored verbatim in both ip_cache fields.
+// Meta's crawlers: no OS token and no bot/crawler/spider suffix, so they used to
+// be stored verbatim in both ip_cache fields. meta-externalagent names Facebook
+// only in its docs URL.
 const FACEBOOK_EXTERNAL_HIT =
   "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)";
+const META_EXTERNAL_AGENT =
+  "meta-externalagent/1.1 (+https://developers.facebook.com/docs/sharing/webmasters/crawler)";
 
 describe("presence heartbeat wire validation", () => {
   const meta = loadNchanMeta();
@@ -212,14 +222,14 @@ describe("nchan_meta ip_cache user agent retention", () => {
     expect(parts[5]).toBe("Bing");
   });
 
-  test("Facebook's crawler is labelled FB, since its user agent carries no OS", () => {
-    expect(meta.parseUA(FACEBOOK_EXTERNAL_HIT)).toEqual({ os: "FB", browser: "FB" });
-    expect(meta.reduceUA(FACEBOOK_EXTERNAL_HIT)).toBe("FB FB");
-    const parts = meta
-      .formatCacheValue("US", "Boydton", 1, "", meta.parseUA(FACEBOOK_EXTERNAL_HIT), FACEBOOK_EXTERNAL_HIT)
-      .split("|");
-    expect(parts[4]).toBe("FB");
-    expect(parts[5]).toBe("FB");
+  test("Facebook's crawlers are labelled FB, since their user agents carry no OS", () => {
+    for (const ua of [FACEBOOK_EXTERNAL_HIT, META_EXTERNAL_AGENT]) {
+      expect(meta.parseUA(ua)).toEqual({ os: "FB", browser: "FB" });
+      expect(meta.reduceUA(ua)).toBe("FB FB");
+      const parts = meta.formatCacheValue("US", "Boydton", 1, "", meta.parseUA(ua), ua).split("|");
+      expect(parts[4]).toBe("FB");
+      expect(parts[5]).toBe("FB");
+    }
   });
 
   test("a phone model ending in bot is not mistaken for a crawler", () => {
@@ -561,14 +571,19 @@ describe("nchan_meta presence history sampling", () => {
 
     meta.recordPresenceCount();
 
-    expect(writes).toHaveLength(2);
-    expect(writes[0][0]).toMatch(/^s:\d+$/);
+    expect(writes).toHaveLength(3);
+    // The day's peak is seeded alongside the minute sample.
+    expect(writes[0][0]).toMatch(/^p:\d{4}-\d{2}-\d{2}$/);
     expect(writes[0][1]).toBe("3");
-    expect(writes[1]).toEqual(["last", "3"]);
+    expect(writes[1][0]).toMatch(/^s:\d+$/);
+    expect(writes[1][1]).toBe("3");
+    expect(writes[2]).toEqual(["last", "3"]);
   });
 
   test("writes nothing while heartbeats leave the count unchanged", () => {
-    const { meta, writes } = load(3, "3");
+    const { meta, writes, store } = load(3, "3");
+    // The steady state: today's peak is already known.
+    store.set(`p:${new Date().toISOString().split("T")[0]}`, "3");
 
     meta.recordPresenceCount();
 
@@ -595,7 +610,9 @@ describe("nchan_meta presence history sampling", () => {
 
     // Same key three times: 2, then the higher 5, then the lower 3 is skipped.
     expect(writes.filter(([key]) => key !== "last")).toEqual([
+      ["p:2026-10-21", "2"],
       ["s:1792576800000", "2"],
+      ["p:2026-10-21", "5"],
       ["s:1792576800000", "5"],
     ]);
     expect(store.get("s:1792576800000")).toBe("5");
@@ -612,6 +629,7 @@ describe("nchan_meta presence history sampling", () => {
     meta.recordPresenceCount();
 
     expect(writes.map(([key]) => key)).toEqual([
+      "p:2026-10-21",
       "s:1792576800000",
       "last",
       "s:1792576860000",
@@ -620,9 +638,84 @@ describe("nchan_meta presence history sampling", () => {
   });
 });
 
-// /api/stats must not park the worker on a whole-log read, so the reader takes a
-// bounded window from the end of the file and filters the noisy records out of
-// that window.
+// The day's peak online count goes to Upstash once, after 23:50 UTC, in the
+// shape the usage counters use.
+describe("nchan_meta daily online peak", () => {
+  function load(count: number, redisImpl: any) {
+    const meta = loadNchanMeta(null, redisImpl);
+    const store = new Map<string, string>();
+    meta.ngx.shared.presence_live = {
+      keys: () => Array.from({ length: count }, (_, i) => `u:user-${i}`),
+    };
+    meta.ngx.shared.presence_history = {
+      get: (key: string) => store.get(key),
+      set: (key: string, value: string) => {
+        store.set(key, value);
+      },
+      delete: (key: string) => {
+        store.delete(key);
+      },
+    };
+    return { meta, store };
+  }
+
+  afterEach(() => jest.useRealTimers());
+
+  test("writes the day's peak once, after 23:50 UTC", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-10-21T23:55:00Z"));
+    const calls: any[][] = [];
+    const { meta } = load(7, (...args: any[]) => {
+      calls.push(args);
+      return Promise.resolve(1);
+    });
+
+    await meta.recordPresenceCount();
+
+    expect(calls).toEqual([["ZADD", "onlinePeakUsage", "7", '{"date":"2026-10-21"}']]);
+
+    // The day is marked done, so later presence activity writes nothing.
+    await meta.recordPresenceCount();
+    expect(calls).toHaveLength(1);
+  });
+
+  test("keeps the peak without writing before 23:50", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-10-21T23:49:00Z"));
+    const calls: any[][] = [];
+    const { meta, store } = load(7, (...args: any[]) => {
+      calls.push(args);
+      return Promise.resolve(1);
+    });
+
+    await meta.recordPresenceCount();
+
+    expect(calls).toEqual([]);
+    expect(store.get("p:2026-10-21")).toBe("7");
+    expect(store.get("x:2026-10-21")).toBeUndefined();
+  });
+
+  test("a failed write clears the flag so the next change retries", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-10-21T23:55:00Z"));
+    const calls: any[][] = [];
+    let fail = true;
+    const { meta, store } = load(4, (...args: any[]) => {
+      calls.push(args);
+      return fail ? Promise.reject(new Error("upstash down")) : Promise.resolve(1);
+    });
+
+    await meta.recordPresenceCount();
+    expect(calls).toHaveLength(1);
+    expect(store.get("x:2026-10-21")).toBeUndefined();
+
+    fail = false;
+    await meta.recordPresenceCount();
+    expect(calls).toHaveLength(2);
+    expect(store.get("x:2026-10-21")).toBe("1");
+  });
+});
+
+// /api/stats must not park the worker on a whole-log read, so the reader takes
+// bounded windows from the end of the file, widens them until it has the
+// requested number of useful records, and filters the noisy ones out.
 describe("nchan_meta error log tail reader", () => {
   let dir: string;
 
@@ -689,18 +782,35 @@ describe("nchan_meta error log tail reader", () => {
     expect(counting.bytesRead()).toBeLessThan(fs.statSync(file).size);
   });
 
-  test("returns only the complete records inside the read window", () => {
+  test("widens the window backwards until it has the requested number of records", () => {
     const lines = Array.from({ length: 150 }, (_, i) => `line-${i} ${"y".repeat(900)}`);
     const file = writeLog("long.log", lines);
     const meta = loadNchanMeta(fs);
 
     const tail = meta.readLogTail(file, 100);
 
-    // Approximate by design: 16 KB holds ~18 of these records.
-    expect(tail.length).toBeGreaterThan(0);
-    expect(tail.length).toBeLessThan(100);
+    // 16 KB holds ~18 of these records, so the window has to double a few times.
+    expect(tail).toHaveLength(100);
     expect(tail.every((line) => line.startsWith("line-"))).toBe(true);
-    expect(tail[tail.length - 1]).toBe(lines[149]);
+    expect(tail[0]).toBe(lines[50]);
+    expect(tail[99]).toBe(lines[149]);
+  });
+
+  test("keeps widening past a tail that is nothing but noise", () => {
+    const useful = Array.from({ length: 120 }, (_, i) => `2026/10/24 12:00:00 [warn] 29#29: *9 js: API: tidy removed ${i}`);
+    const noise = Array.from(
+      { length: 400 },
+      () => "2026/10/24 12:00:01 [info] 29#29: *2 client 1.2.3.4 closed keepalive connection"
+    );
+    const file = writeLog("noise-tail.log", useful.concat(noise));
+    const meta = loadNchanMeta(fs);
+
+    const tail = meta.readLogTail(file, 100);
+
+    // The last 16 KB is all noise, so only widening finds the records behind it.
+    expect(tail).toHaveLength(100);
+    expect(tail[0]).toBe(useful[20]);
+    expect(tail[99]).toBe(useful[119]);
   });
 
   test("drops keepalive and socket noise before taking the tail", () => {
@@ -715,6 +825,7 @@ describe("nchan_meta error log tail reader", () => {
 
     expect(meta.readLogTail(file, 100)).toEqual([lines[0], lines[3]]);
   });
+
 
   test("missing and empty logs have an empty tail", () => {
     const meta = loadNchanMeta(fs);

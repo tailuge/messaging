@@ -674,7 +674,13 @@ table td {
         { prefix: "http://localhost/", label: "http://localhost/" },
       ];
 
+      // Our own Cloudflare host is shown as a path only: a row reads "/lobby.html"
+      // instead of the full origin, and the bare origin collapses to "/".
+      const SELF_ORIGIN = /^https:\/\/billiards\.tailuge\.workers\.dev(?=[/?#]|$)/i;
+
       function rollupReferrer(ref) {
+        const self = ref.match(SELF_ORIGIN);
+        if (self) return ref.substring(self[0].length) || "/";
         const lower = ref.toLowerCase();
         // Map 127.* and localhost:* (with or without protocol/port/path)
         // to http://localhost/ so all local traffic is in the same bucket.

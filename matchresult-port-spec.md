@@ -148,34 +148,28 @@ players' Glicko-2 ratings plus an `elo-history` entry.
   rate limiting as the other API routes, and answers a browser `OPTIONS`
   preflight from `cors.conf` before the router is reached — which is what lets a
   cross-origin upload from the game page through.
-- Logging is one entry line per call plus failures, and each answer is counted
-  for the usage page's route table — see **Logging**.
+- Only failures are written to the NJS log; each answer is counted for the
+  usage page's route table — see **Logging**.
 - Happy path only. No method handling beyond what the router already does, no
   input validation, no error-state design.
 
 ## Logging
 
-Not tracing: just enough to tell whether uploads arrive and whether they fail.
-Every line is tagged `MATCH-RESULT: ` and written with `ngx.log(ngx.ERR, ...)`, so
-it lands in `njs_error.log` — the file `/api/stats` tails for the dashboard's NJS
-log panel.
+Failures only. A successful upload is a routine write, and the entry line plus
+one line per write (`wrote <n> commands`, or `skipped <n> writes` in the dry run)
+flooded the dashboard's NJS log panel, so the happy path writes nothing. What
+remains keeps the `MATCH-RESULT: ` tag and goes through `ngx.log(ngx.ERR, ...)`,
+so failures still land in `njs_error.log` — the file `/api/stats` tails for the
+dashboard's NJS log panel.
 
 | Where | Line |
 | --- | --- |
-| Entry of `matchResult` | `called bytes=<request body length>` |
 | Response writer, any status ≥ 400 | `answered <status> body=<response JSON>` |
 | The handler's `catch` | `failed: <stack>` |
 
-While `WRITES_ENABLED` is false the entry line also carries `dryRun=1`, and a
-second line records `skipped <n> writes` so the planned command count is visible
-without dumping the commands. With the switch on, that line becomes
-`wrote <n> commands`. Nothing else differs.
-
-The entry line is what makes an upload visible at all while the route is a stub,
-and the response writer's line means the unhappy path is logged in one place
-instead of at every call site. Nothing on a successful write is logged beyond the
-entry line: no per-write, per-field or per-rating logging, and no request body
-contents — the body is only ever summarised by its length.
+Nothing about a successful request is logged: no entry line, no per-write,
+per-field or per-rating tracing, and no request body contents — the body is
+never written to the log.
 
 The response writer also counts the reply, so the route has byte accounting and
 not just log lines. It writes the same three `net_stats` counters `noteApiOut`
@@ -444,11 +438,11 @@ answers `201` and stores nothing. Verify manually against the container:
   once, seeds the cache entry, and stores the country/city it returned. A record
   posted while the lookup is failing carries neither field, and still answers
   `201`.
-- Each upload is visible twice outside the KV: `MATCH-RESULT: called bytes=<n>`
-  in the dashboard's NJS log panel, and a `/api/match-results` row in the usage
-  page's bytes-by-route table whose call count matches the number of uploads
-  (`/api/net/history` reports since nginx start, so both need a fresh container).
-  The row is present even when the route is not in the top six by bytes.
+- Each upload is visible once outside the KV: a `/api/match-results` row in the
+  usage page's bytes-by-route table whose call count matches the number of
+  uploads (`/api/net/history` reports since nginx start, so both need a fresh
+  container). The row is present even when the route is not in the top six by
+  bytes, and a successful upload adds no line to the dashboard's NJS log panel.
 
 ## Checks
 
@@ -495,7 +489,7 @@ answers `201` and stores nothing. Verify manually against the container:
 | `lastUpdated` | `Date.now()` epoch milliseconds, one value for both players in a result |
 | Rounding | Integer ratings: round both bases on read, apply one integer delta per match |
 | Ranking field | Emit `rating`; stop emitting `conservativeRating` |
-| Logging | One `MATCH-RESULT: called` line per upload, plus any non-2xx answer and any exception; no per-write tracing beyond that |
+| Logging | Failures only: any non-2xx answer and any exception, tagged `MATCH-RESULT:`; a successful upload logs nothing, keeping routine traffic out of the NJS log panel |
 | Response accounting | The response writer counts `e:`/`c:` under the `match-results` slug plus `api.in`, so the usage page's route table lists the route |
 | Scoreboard route | Untouched |
 | Client repoint / cutover | Out of scope |

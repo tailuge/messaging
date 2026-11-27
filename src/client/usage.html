@@ -297,12 +297,15 @@
       },
       {
         id: "challenges-accepts",
-        label: "CHALLENGES & ACCEPTS",
+        label: "CHALLENGES, ACCEPTS & PEAK ONLINE",
         // Same recent-month emphasis as the lobby panel.
         recentSplit: true,
         metrics: [
           { id: "createTable", label: "CHALLENGES", color: "#ff3e00" },
           { id: "joinTable", label: "ACCEPTS", color: "#4caf50" },
+          // The day's highest simultaneous presence count, written once a day
+          // by nchan_meta.js. One point per day, on the panel's own y axis.
+          { id: "onlinePeak", label: "PEAK ONLINE", color: "#ffc107" },
         ],
       },
       {
