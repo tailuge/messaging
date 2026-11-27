@@ -401,12 +401,15 @@ const saguUrl = () => {
   );
 };
 const saguOverlay = document.getElementById("sagu-overlay");
-const saguFrame = document.getElementById("sagu-frame");
 const saguResult = document.getElementById("sagu-result");
 const hiscoreToast = document.getElementById("hiscore-toast");
 const hiscoreToastOk = document.getElementById("hiscore-toast-ok");
 const hiscorePopover = document.getElementById("hiscore-popover");
 const hiscorePopoverText = document.getElementById("hiscore-popover-text");
+const hiscorePopoverActions = document.getElementById(
+  "hiscore-popover-actions"
+);
+const hiscorePopoverPlay = document.getElementById("hiscore-popover-play");
 
 // The popover that tells the player a run made the hi-score rail. It closes
 // itself after two seconds, or at once on 확인; a run landing inside that
@@ -431,10 +434,10 @@ hiscoreToastOk.addEventListener("click", hideHiscoreToast);
 
 // A run that scored but did not make the rail gets a small card over the score
 // it failed to lift, instead of a line down in the rail: the reason sits next
-// to the number the player is looking at. There is no record to confirm, only
-// the reason it was left out, so nothing here needs dismissing. It clears
-// itself after five seconds, and a later run replaces the card rather than
-// stacking a second one.
+// to the number the player is looking at, with the card's button starting the
+// next run and its link carrying a player who is done out to the lobby. It
+// clears itself after five seconds, and a later run replaces the card rather
+// than stacking a second one.
 const POPOVER_MS = 5000;
 let popoverTimer = null;
 
@@ -443,19 +446,23 @@ function hideHiscorePopover() {
   popoverTimer = null;
   hiscorePopover.classList.remove("show");
   hiscorePopoverText.textContent = "";
+  // The card is only made invisible, so its link and button would keep their
+  // tab stops; inert takes them out until the card is shown again.
+  hiscorePopoverActions.inert = true;
 }
 
 function showHiscorePopover(text) {
   clearTimeout(popoverTimer);
   hiscorePopoverText.textContent = text;
   hiscorePopover.classList.add("show");
+  hiscorePopoverActions.inert = false;
   popoverTimer = setTimeout(hideHiscorePopover, POPOVER_MS);
 }
 
-// The card carries the link to the training course, so the countdown holds while
-// the card is hovered or its link focused: the player reaching for the link
-// should not have it withdrawn under the pointer. Leaving gives it the full
-// five seconds again.
+// The card carries the training-course link and the replay button, so the
+// countdown holds while the card is hovered or either is focused: the player
+// reaching for one of them should not have it withdrawn under the pointer.
+// Leaving gives it the full five seconds again.
 function holdHiscorePopover() {
   clearTimeout(popoverTimer);
   popoverTimer = null;
@@ -497,9 +504,35 @@ usernameDialogOk.addEventListener("click", () => usernameDialog.close());
 // them, so the refresh waits just past both.
 const PRESENCE_REFRESH_MS = 500;
 
+// The game runs in a fresh iframe per launch. Reassigning a frame's src after
+// its first load adds an entry to the page's session history, so every replay
+// pushed one and the back button walked back through old runs instead of
+// leaving the page. A new element's first navigation replaces its own initial
+// entry and adds none, so however long the player keeps replaying, back still
+// leaves in a single press.
+let saguFrame = null;
+
+function mountSaguFrame(url) {
+  unmountSaguFrame();
+  saguFrame = document.createElement("iframe");
+  saguFrame.id = "sagu-frame";
+  saguFrame.title = "사구 게임";
+  saguFrame.allow = "fullscreen";
+  // src before insertion: the load is the new frame's initial navigation.
+  saguFrame.src = url;
+  saguOverlay.appendChild(saguFrame);
+}
+
+function unmountSaguFrame() {
+  saguFrame?.remove();
+  saguFrame = null;
+}
+
 function closeSagu() {
   saguOverlay.classList.remove("active");
-  saguFrame.src = "about:blank";
+  // Removing the frame tears the game down the way the about:blank reset did,
+  // and leaves no frame behind to come back on a back press.
+  unmountSaguFrame();
   // The iframe is gone, so chat and challenges are this page's again at once.
   document.querySelector("app-topbar")?.resumeMessages?.();
   // The page's own presence went out with the iframe's leave; resume it (heartbeat
@@ -608,7 +641,9 @@ async function maybeUploadSaguScore(data) {
   }).catch((err) => console.warn("sagu hiscore upload error:", err));
 }
 
-document.getElementById("play-sagu").addEventListener("click", () => {
+// One way into a run, shared by the launch button and the replay button on the
+// missed-score card, so both reset the page and open the game alike.
+function startSaguRun() {
   saguResult.textContent = "";
   // A new run starts from nothing; the dishes it unlocks arrive with its result.
   currentScore = 0;
@@ -622,9 +657,12 @@ document.getElementById("play-sagu").addEventListener("click", () => {
   // It also reads chat and challenges itself while it is open, so this page drops
   // them for the length of the game instead of opening its own windows.
   document.querySelector("app-topbar")?.pauseMessages?.();
-  saguFrame.src = saguUrl();
+  mountSaguFrame(saguUrl());
   saguOverlay.classList.add("active");
-});
+}
+
+document.getElementById("play-sagu").addEventListener("click", startSaguRun);
+hiscorePopoverPlay.addEventListener("click", startSaguRun);
 
 document.getElementById("close-sagu").addEventListener("click", closeSagu);
 
