@@ -456,6 +456,17 @@ class RevealApp extends LitElement {
         font-family: Exo, "Exo Fallback", sans-serif;
         font-weight: 200;
         font-size: 0.85rem;
+        /* Touch behaviour only, no geometry.
+           The grey flash WebKit paints over a tapped card dims the picture at the exact
+           moment it turns, and every tappable thing in the deck already answers a tap
+           through :active. Manipulation keeps pan and pinch-zoom but drops the
+           double-tap-to-zoom wait, so a quick second tap on a neighbouring card opens that
+           card instead of zooming the page.
+           It sits on the host because the used touch-action for a touch that starts on a
+           descendant is the intersection with its ancestors, so one declaration covers the
+           whole deck. */
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
       }
       .container {
         max-width: 900px;
@@ -509,8 +520,13 @@ class RevealApp extends LitElement {
         color: var(--text-muted);
         cursor: pointer;
       }
-      .deck-btn:hover {
-        border-color: #0d6efd;
+      /* Every :hover below is gated on hover capability: a touch screen latches :hover after
+         a tap and holds it until something else is tapped, which would leave the last card
+         opened lifted out of the wall with a hard shadow on it. */
+      @media (hover: hover) {
+        .deck-btn:hover {
+          border-color: #0d6efd;
+        }
       }
       .deck-btn[aria-pressed="true"] {
         background: #0d6efd;
@@ -546,9 +562,11 @@ class RevealApp extends LitElement {
         color: var(--text-muted);
         font-size: 0.72rem;
       }
-      .reset-btn:hover {
-        background: var(--btn-hover);
-        color: var(--text);
+      @media (hover: hover) {
+        .reset-btn:hover {
+          background: var(--btn-hover);
+          color: var(--text);
+        }
       }
       .reset-btn:focus-visible {
         outline: 2px solid #007bff;
@@ -586,29 +604,52 @@ class RevealApp extends LitElement {
         perspective: 600px;
         font: inherit;
         color: inherit;
+        /* A long press must not start selecting the "?" or the star row. */
+        user-select: none;
         /* Layered drop shadow + a hairline top highlight, so the wall reads as a deck of
-           physical cards rather than a flat grid. Works in both themes. */
+           physical cards rather than a flat grid.
+           The pair after it is that stack in light-dark() colours, resolved from the
+           color-scheme index.html sets on <html>: 45% black is depth under a #1a1a1a page
+           and soot under a white card, so the light theme takes a wider, fainter, cool-grey
+           shadow and a real white top edge instead. The plain declaration above is the
+           fallback engines without light-dark() keep -- today's values, in both themes. */
         box-shadow:
           0 1px 2px rgba(0, 0, 0, 0.45),
           0 3px 7px rgba(0, 0, 0, 0.28),
           inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        box-shadow:
+          0 1px 2px light-dark(rgba(15, 23, 42, 0.1), rgba(0, 0, 0, 0.45)),
+          0 4px 10px light-dark(rgba(15, 23, 42, 0.07), rgba(0, 0, 0, 0.28)),
+          inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.06));
         transition:
           box-shadow 160ms ease,
           transform 160ms ease;
       }
-      .card:hover {
-        z-index: 1;
-        transform: translateY(-1px);
-        box-shadow:
-          0 2px 4px rgba(0, 0, 0, 0.5),
-          0 8px 18px rgba(0, 0, 0, 0.4),
-          inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      @media (hover: hover) {
+        .card:hover {
+          z-index: 1;
+          transform: translateY(-1px);
+          box-shadow:
+            0 2px 4px rgba(0, 0, 0, 0.5),
+            0 8px 18px rgba(0, 0, 0, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.08);
+          box-shadow:
+            0 2px 4px light-dark(rgba(15, 23, 42, 0.12), rgba(0, 0, 0, 0.5)),
+            0 10px 20px light-dark(rgba(15, 23, 42, 0.12), rgba(0, 0, 0, 0.4)),
+            inset 0 1px 0 light-dark(
+              rgba(255, 255, 255, 0.9),
+              rgba(255, 255, 255, 0.08)
+            );
+        }
       }
       .card:active {
         transform: translateY(0);
         box-shadow:
           0 1px 2px rgba(0, 0, 0, 0.5),
           0 2px 5px rgba(0, 0, 0, 0.32);
+        box-shadow:
+          0 1px 2px light-dark(rgba(15, 23, 42, 0.16), rgba(0, 0, 0, 0.5)),
+          0 2px 5px light-dark(rgba(15, 23, 42, 0.08), rgba(0, 0, 0, 0.32));
       }
       /* An open card sits proud of the wall, so it shades harder than its neighbours */
       .card.is-flipped,
@@ -617,6 +658,9 @@ class RevealApp extends LitElement {
         box-shadow:
           0 2px 5px rgba(0, 0, 0, 0.5),
           0 10px 22px rgba(0, 0, 0, 0.42);
+        box-shadow:
+          0 2px 5px light-dark(rgba(15, 23, 42, 0.14), rgba(0, 0, 0, 0.5)),
+          0 12px 24px light-dark(rgba(15, 23, 42, 0.12), rgba(0, 0, 0, 0.42));
       }
       .card:focus-visible {
         outline: 2px solid #007bff;
@@ -670,15 +714,31 @@ class RevealApp extends LitElement {
         font-weight: 200;
         line-height: 1;
         text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+        /* A dark halo under a pale glyph on a white card reads as a smudge, so the light
+           theme's shadow is white: no halo, and the glyph stays crisp. */
+        text-shadow: 0 1px 3px light-dark(
+          rgba(255, 255, 255, 0.9),
+          rgba(0, 0, 0, 0.35)
+        );
       }
       .rating {
         margin-top: 0.2rem;
+        /* Tracking in em, so it scales with this 0.62rem run rather than with the root. */
+        letter-spacing: 0.06em;
+        /* #f5c451 on a white card is 1.6:1 -- the rating all but vanishes in the light
+           theme. The light theme takes the same gold down to bronze (about 4.2:1) and
+           swaps the black halo for a white one, which is what a shadow under dark ink on
+           a pale ground wants to be. */
         color: #f5c451;
+        color: light-dark(#a9761a, #f5c451);
         font-size: 0.62rem;
         line-height: 1;
-        letter-spacing: 0.04rem;
         white-space: nowrap;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+        text-shadow: 0 1px 2px light-dark(
+          rgba(255, 255, 255, 0.9),
+          rgba(0, 0, 0, 0.75)
+        );
         z-index: 1;
       }
       /* ── Pokémon type / nature hint pills ─────────────────────────────── */
@@ -807,6 +867,10 @@ class RevealApp extends LitElement {
         background: var(--surface);
         transform: rotateY(180deg);
         box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.2);
+        box-shadow: inset 0 0 14px light-dark(
+          rgba(15, 23, 42, 0.07),
+          rgba(0, 0, 0, 0.2)
+        );
       }
       /* Solved back face: name centred between the four corner buttons.
          min-height/min-width are the WCAG 2.5.8 Target Size (Minimum) floor of 24px. The link
@@ -865,6 +929,10 @@ class RevealApp extends LitElement {
         font-weight: 600;
         cursor: pointer;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+        box-shadow: 0 1px 2px light-dark(
+          rgba(15, 23, 42, 0.18),
+          rgba(0, 0, 0, 0.35)
+        );
         transition:
           background-color 120ms ease,
           box-shadow 120ms ease,
@@ -873,11 +941,17 @@ class RevealApp extends LitElement {
       /* Hover has to read at a glance on a 90px-wide card: a clearly lighter blue, plus a lift.
          The previous #0b5ed7 was within a hair of the resting #0d6efd, so hovering looked like
          nothing was happening. */
-      .play-btn:hover {
-        background: #2b7bff;
-        border-color: #2b7bff;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
-        transform: translateY(-1px);
+      @media (hover: hover) {
+        .play-btn:hover {
+          background: #2b7bff;
+          border-color: #2b7bff;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+          box-shadow: 0 2px 6px light-dark(
+            rgba(15, 23, 42, 0.22),
+            rgba(0, 0, 0, 0.45)
+          );
+          transform: translateY(-1px);
+        }
       }
       .play-btn:active {
         background: #0a53c4;
@@ -918,8 +992,10 @@ class RevealApp extends LitElement {
         padding: 0;
         line-height: 1;
       }
-      .corner-btn:hover {
-        background: var(--bg);
+      @media (hover: hover) {
+        .corner-btn:hover {
+          background: var(--bg);
+        }
       }
       .corner-btn:focus-visible {
         outline: 2px solid #007bff;
